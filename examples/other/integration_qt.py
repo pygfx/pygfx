@@ -1,5 +1,5 @@
 """
-Integrate pygfx in Qt
+Integrate Pygfx in Qt
 =====================
 """
 

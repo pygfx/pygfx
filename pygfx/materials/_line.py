@@ -81,7 +81,7 @@ class LineMaterial(Material):
     def color(self, color):
         color = Color(color)
         self.uniform_buffer.data["color"] = color
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
         self._store.color_is_transparent = color.a < 1
 
     @property
@@ -151,7 +151,7 @@ class LineMaterial(Material):
     @thickness.setter
     def thickness(self, thickness):
         self.uniform_buffer.data["thickness"] = max(0.0, float(thickness))
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
     @property
     def thickness_space(self):
@@ -232,7 +232,7 @@ class LineMaterial(Material):
     @dash_offset.setter
     def dash_offset(self, value):
         self.uniform_buffer.data["dash_offset"] = float(value)
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
 
 class LineDebugMaterial(LineMaterial):

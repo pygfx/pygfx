@@ -1,15 +1,15 @@
-# pygfx code of conduct
+# Pygfx code of conduct
 
 ## Introduction
 
-This code of conduct applies to all spaces managed by the pygfx project, 
-including all public and private mailing lists, issue trackers, wikis, blogs, 
-Twitter, and any other communication channel used by our community, including 
-any in-person events, whether directly organized by pygfx developers 
-or associated people. 
+This code of conduct applies to all spaces managed by the Pygfx project,
+including all public and private mailing lists, issue trackers, wikis, blogs,
+Twitter, and any other communication channel used by our community, including
+any in-person events, whether directly organized by Pygfx developers
+or associated people.
 
 This code of conduct should be honored by everyone who participates in
-the pygfx community formally or informally, or claims any affiliation with the
+the Pygfx community formally or informally, or claims any affiliation with the
 project, in any project-related activities, and, especially, when representing the
 project, in any role.
 
@@ -80,24 +80,24 @@ most appropriate). If you would prefer not to do that, please feel free to
 report to the Code of Conduct committee directly, or ask the committee for
 advice, in confidence.
 
-You can report issues to the pygfx core team: 
+You can report issues to the Pygfx core team:
 
 [Korijn van Golen](https://github.com/Korijn)
 [Almar Klein](https://github.com/almarklein)
 
-If your report involves any members of the pygfx core team, or if they feel they have
+If your report involves any members of the Pygfx core team, or if they feel they have
 a conflict of interest in handling it, then they will recuse themselves from
 considering your report.
 
 ## Incident reporting resolution & Code of Conduct enforcement
 
-We will investigate and respond to all complaints. The pygfx Code of Conduct
-Committee and the pygfx Steering Committee (if involved) will protect the
+We will investigate and respond to all complaints. The Pygfx Code of Conduct
+Committee and the Pygfx Steering Committee (if involved) will protect the
 identity of the reporter, and treat the content of complaints as confidential
 (unless the reporter agrees otherwise).
 
 In case of severe and obvious breaches, e.g., personal threat or violent, sexist
-or racist language, we will immediately disconnect the originator from pygfx
+or racist language, we will immediately disconnect the originator from Pygfx
 communication channels; please see the manual for details.
 
 In cases not involving clear severe and obvious breaches of this code of

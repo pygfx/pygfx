@@ -165,7 +165,14 @@ class FontFile:
 
 def get_all_fonts():
     """Get a set of all available fonts."""
-    return get_builtin_fonts() | get_system_fonts()
+    # Disabling system fonts can be very helpful in testing to
+    # ensure that we get repeatable results nomatter the version of the
+    # fonts installed on the machine.
+    disable_system_fonts = os.environ.get("PYGFX_DISABLE_SYSTEM_FONTS", "0").lower()
+    if disable_system_fonts in ("1", "true", "yes"):
+        return get_builtin_fonts()
+    else:
+        return get_builtin_fonts() | get_system_fonts()
 
 
 def get_builtin_fonts():

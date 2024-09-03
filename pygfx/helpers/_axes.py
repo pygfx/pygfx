@@ -120,7 +120,7 @@ class AxesHelper(Line):
         self._geometry.colors.data[3] = y
         self._geometry.colors.data[4] = z
         self._geometry.colors.data[5] = z
-        self._geometry.colors.update_range(0, self._geometry.colors.nitems)
+        self._geometry.colors.update_full()
         # update arrow heads
         for arrow, color in zip(self.children, [x, y, z]):
             arrow.material.color = color

@@ -145,7 +145,7 @@ jobs:
         pip install -e .[dev,examples]
     - name: Show wgpu backend
       run: |
-        python -c "from examples.tests.testutils import wgpu_backend; print(wgpu_backend)"
+        python -c "from examples.tests.testutils import adapter; print(adapter.info)"
     - name: Test examples
       env:
         PYGFX_EXPECT_LAVAPIPE: true
