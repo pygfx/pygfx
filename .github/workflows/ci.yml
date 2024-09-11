@@ -154,7 +154,7 @@ jobs:
     - uses: actions/upload-artifact@v4
       if: ${{ failure() }}
       with:
-        name: screenshot-diffs
+        name: screenshot-diffs-py{{ matrix.pyversion }}
         path: examples/screenshots/diffs
 
   release-build:
@@ -163,9 +163,9 @@ jobs:
     strategy:
       fail-fast: false
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: 3.12
       - name: Install dev dependencies
@@ -191,7 +191,7 @@ jobs:
         run: |
           twine check dist/*
       - name: Upload distributions
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           path: dist
           name: dist
@@ -202,23 +202,25 @@ jobs:
     needs: [test-builds, release-build]
     if: success() && startsWith(github.ref, 'refs/tags/v')
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: 3.12
     - name: Download assets
-      uses: actions/download-artifact@v4.1.7
+      uses: actions/download-artifact@v4
       with:
         name: dist
         path: dist
     - name: Release
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v2
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
         files: |
           dist/*.tar.gz
           dist/*.whl
+        draft: true
+        prerelease: false
     - name: Publish to PyPI
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
