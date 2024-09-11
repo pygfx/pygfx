@@ -506,8 +506,122 @@ class MeshPhongMaterial(MeshBasicMaterial):
     # TODO: more advanced mproperties, Unified with "MeshStandardMaterial".
 
 
-# todo: MeshToonMaterial(MeshBasicMaterial):
-# A cartoon-style mesh material.
+class MeshToonMaterial(MeshBasicMaterial):
+    """
+    A material implementing toon shading.
+
+    Parameters
+    ----------
+    emissive : Color
+        The emissive (light) color of the mesh. This color is added to the final
+        color and is unaffected by lighting. The alpha channel of this color is
+        ignored.
+
+    gradient_map : Texture
+        Gradient map for toon shading. The gradient map sampler method is always 'nearest'.
+
+    kwargs : Any
+        Additional kwargs will be passed to the :class:`base class
+        <pygfx.MeshBasicMaterial>`.
+    """
+
+    uniform_type = dict(
+        MeshBasicMaterial.uniform_type,
+        emissive_color="4xf4",
+        normal_scale="2xf4",
+        emissive_intensity="f4",
+    )
+
+    def __init__(
+        self,
+        emissive="#000",
+        gradient_map=None,
+        emissive_intensity=1.0,
+        emissive_map=None,
+        normal_map=None,
+        normal_scale=(1, 1),
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+
+        self.emissive = emissive
+        self.emissive_map = emissive_map
+        self.emissive_intensity = emissive_intensity
+
+        self.normal_map = normal_map
+        self.normal_scale = normal_scale
+
+        self.gradient_map = gradient_map
+
+    @property
+    def emissive(self):
+        """The emissive (light) color of the mesh.
+        This color is added to the final color and is unaffected by lighting.
+        The alpha channel of this color is ignored.
+        """
+        return Color(self.uniform_buffer.data["emissive_color"])
+
+    @emissive.setter
+    def emissive(self, color):
+        color = Color(color)
+        self.uniform_buffer.data["emissive_color"] = color
+        self.uniform_buffer.update_range(0, 1)
+
+    @property
+    def emissive_intensity(self):
+        """Intensity of the emissive light. Modulates the emissive color
+        and emissive map. Default is 1.
+
+        Note that the intensity is applied in the physical colorspace.
+        You can think of it as scaling the number of photons. Therefore
+        using an intensity of 0.5 is not the same as halving the
+        emissive color, which is in srgb space.
+        """
+        return float(self.uniform_buffer.data["emissive_intensity"])
+
+    @emissive_intensity.setter
+    def emissive_intensity(self, value):
+        self.uniform_buffer.data["emissive_intensity"] = value
+        self.uniform_buffer.update_range(0, 1)
+
+    @property
+    def normal_scale(self):
+        """How much the normal map affects the material. This 2-tuple
+        is multiplied with the normal_map's xy components (z is
+        unaffected). Typical ranges are 0-1. Default is (1,1).
+        """
+        return tuple(self.uniform_buffer.data["normal_scale"])
+
+    @normal_scale.setter
+    def normal_scale(self, value):
+        self.uniform_buffer.data["normal_scale"] = value
+        self.uniform_buffer.update_range(0, 1)
+
+    @property
+    def normal_map(self):
+        """The texture to create a normal map. Affects the surface
+        normal for each pixel fragment and change the way the color is
+        lit. Normal maps do not change the actual shape of the surface,
+        only the lighting.
+        """
+        return self._store.normal_map
+
+    @normal_map.setter
+    def normal_map(self, map):
+        assert map is None or isinstance(map, Texture)
+        self._store.normal_map = map
+
+    @property
+    def gradient_map(self):
+        """Gradient map for toon shading.
+        The gradient map sampler method is always 'nearest'.
+        """
+        return self._store.gradient_map
+
+    @gradient_map.setter
+    def gradient_map(self, map):
+        assert map is None or isinstance(map, Texture)
+        self._store.gradient_map = map
 
 
 class MeshNormalMaterial(MeshAbstractMaterial):
