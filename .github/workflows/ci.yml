@@ -154,7 +154,7 @@ jobs:
     - uses: actions/upload-artifact@v4
       if: ${{ failure() }}
       with:
-        name: screenshot-diffs
+        name: screenshot-diffs-py{{ matrix.pyversion }}
         path: examples/screenshots/diffs
 
   release-build:
