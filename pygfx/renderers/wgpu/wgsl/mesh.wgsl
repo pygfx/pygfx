@@ -13,6 +13,8 @@ $$ if lighting == 'phong'
     {$ include 'pygfx.light_phong.wgsl' $}
 $$ elif lighting == 'pbr'
     {$ include 'pygfx.light_pbr.wgsl' $}
+$$ elif lighting == 'toon'
+    {$ include 'pygfx.light_toon.wgsl' $}
 $$ endif
 
 
@@ -346,6 +348,8 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
             {$ include 'pygfx.light_phong_fragment.wgsl' $}
         $$ elif lighting == 'pbr'
             {$ include 'pygfx.light_pbr_fragment.wgsl' $}
+        $$ elif lighting == 'toon'
+            {$ include 'pygfx.light_toon_fragment.wgsl' $}
         $$ endif
 
         // Do the math
@@ -367,6 +371,8 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
             RE_IndirectDiffuse_BlinnPhong( irradiance, geometry, material, &reflected_light );
         $$ elif lighting == 'pbr'
             RE_IndirectDiffuse_Physical( irradiance, geometry, material, &reflected_light );
+        $$ elif lighting == 'toon'
+            RE_IndirectDiffuse_Toon( irradiance, geometry, material, &reflected_light );
         $$ endif
 
         // Indirect Specular Light
