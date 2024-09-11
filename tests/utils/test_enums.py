@@ -31,7 +31,7 @@ def test_enums():
 
 def test_flags():
 
-    # Our Enum class does flags too.p
+    # Our Enum class does flags too.
 
     class MyFlag(Enum):
         auto = 0
