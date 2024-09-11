@@ -18,7 +18,6 @@ The enums used in pygfx. The enums are all available from the root ``pygfx`` nam
 
 """
 
-
 from wgpu.utils import BaseEnum
 
 
