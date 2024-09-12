@@ -334,6 +334,13 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
         $$ endif
     $$ endif
 
+    $$ if use_specular_map is defined
+        let specular_map = textureSample( t_specular_map, s_specular_map, varyings.texcoord );
+        let specular_strength = specular_map.r;
+    $$ else
+        let specular_strength = 1.0;
+    $$ endif
+
     // Init the reflected light. Defines diffuse and specular, both direct and indirect
     var reflected_light: ReflectedLight = ReflectedLight(vec3<f32>(0.0), vec3<f32>(0.0), vec3<f32>(0.0), vec3<f32>(0.0));
 
@@ -421,9 +428,10 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
     // Combine direct and indirect light
     var physical_color = reflected_light.direct_diffuse + reflected_light.direct_specular + reflected_light.indirect_diffuse + reflected_light.indirect_specular;
 
-    // Add emissive color for Phong and PBR
-    $$ if lighting == 'phong' or lighting == 'pbr'
-        var emissive_color = srgb2physical(u_material.emissive_color.rgb);
+    // Add emissive color
+    // Now for phong、pbr and toon lighting
+    $$ if lighting
+        var emissive_color = srgb2physical(u_material.emissive_color.rgb) * u_material.emissive_intensity;
         $$ if use_emissive_map is defined
         emissive_color *= srgb2physical(textureSample(t_emissive_map, s_emissive_map, varyings.texcoord).rgb);
         $$ endif
@@ -433,7 +441,6 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
     // Environment mapping
     $$ if use_env_map is defined
         let reflectivity = u_material.reflectivity;
-        let specular_strength = 1.0; // TODO: support specular_map
         $$ if env_mapping_mode == "CUBE-REFLECTION"
             var reflectVec = reflect( -view, normal );
         $$ elif env_mapping_mode == "CUBE-REFRACTION"
