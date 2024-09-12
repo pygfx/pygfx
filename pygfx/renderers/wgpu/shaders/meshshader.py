@@ -190,6 +190,16 @@ class MeshShader(BaseShader):
 
         # todo, check uv is present and has the right shape. (introduce uv channel for texture)
 
+        # specular map configs, only for basic and phong materials now
+        if getattr(material, "specular_map", None) and not isinstance(
+            material, MeshStandardMaterial
+        ):
+            self._check_texture(material.specular_map)
+            view = GfxTextureView(material.specular_map, view_dim="2d")
+            self["use_specular_map"] = True
+            bindings.append(Binding("s_specular_map", sampling, sampler, F))
+            bindings.append(Binding("t_specular_map", texturing, view, F))
+
         # set emissive_map configs, for phong and standard materials
         if getattr(material, "emissive_map", None):
             self._check_texture(material.emissive_map)
