@@ -87,16 +87,13 @@ class Binding:
                     "size": resource.nbytes,
                 },
             }
-            # Note: we set min_binding_size, rather than relying on the default (None),
-            # otherwise the layout for different buffers look equal, and are thus
-            # re-used (using caching), but they won't be compatible.
             binding_layout = {
                 "binding": slot,
                 "visibility": self.visibility,
                 "buffer": {
                     "type": getattr(wgpu.BufferBindingType, subtype),
                     "has_dynamic_offset": False,
-                    "min_binding_size": resource.nbytes,
+                    "min_binding_size": None,
                 },
             }
         elif self.type.startswith("sampler/"):
