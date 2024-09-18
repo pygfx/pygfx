@@ -87,16 +87,28 @@ class Binding:
                     "size": resource.nbytes,
                 },
             }
-            # Note: we set min_binding_size, rather than relying on the default (None),
-            # otherwise the layout for different buffers look equal, and are thus
-            # re-used (using caching), but they won't be compatible.
+            # Determine min_binding_size. We can set it to None, so it won't do
+            # an early check, causing runtime checks to be needed. If we want to
+            # specify it, the needed value is different for shader array
+            # variables that have a static length vs ones that have a length
+            # defined at runtime. Then there's caching, which isn't really used
+            # well when min_binding_size jumps around. On the other hand, in early
+            # versions we had a comment here that suggested that the caching
+            # caused re-use of binding layouts, but them not being compatible.
+            # So let's try this: set the min_binding_size for uniform arrays,
+            # and set to default for storage buffers.
+            # Also see https://github.com/pygfx/pygfx/issues/855
+            if "uniform" in self.type:
+                min_binding_size = resource.nbytes
+            else:
+                min_binding_size = None  # None or resource.itemsize
             binding_layout = {
                 "binding": slot,
                 "visibility": self.visibility,
                 "buffer": {
                     "type": getattr(wgpu.BufferBindingType, subtype),
                     "has_dynamic_offset": False,
-                    "min_binding_size": resource.nbytes,
+                    "min_binding_size": min_binding_size,
                 },
             }
         elif self.type.startswith("sampler/"):
