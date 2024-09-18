@@ -202,8 +202,11 @@ class LineShader(BaseShader):
         if self["color_mode"] in ("vertex", "face"):
             bindings.append(Binding("s_colors", rbuffer, geometry.colors, "VERTEX"))
         elif self["color_mode"] in ("vertex_map", "face_map"):
+            bindings.append(
+                Binding("s_texcoords", rbuffer, geometry.texcoords, "VERTEX")
+            )
             bindings.extend(
-                self.define_texcoords_and_colormap(
+                self.define_colormap(
                     material.map, geometry.texcoords, material.map_interpolation
                 )
             )
@@ -333,8 +336,11 @@ class ThinLineShader(LineShader):
         if self["color_mode"] == "vertex":
             bindings.append(Binding("s_colors", rbuffer, geometry.colors, "VERTEX"))
         elif self["color_mode"] == "vertex_map":
+            bindings.append(
+                Binding("s_texcoords", rbuffer, geometry.texcoords, "VERTEX")
+            )
             bindings.extend(
-                self.define_texcoords_and_colormap(
+                self.define_colormap(
                     material.map, geometry.texcoords, material.map_interpolation
                 )
             )

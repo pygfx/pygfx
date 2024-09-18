@@ -96,7 +96,7 @@ class Binding:
                 "buffer": {
                     "type": getattr(wgpu.BufferBindingType, subtype),
                     "has_dynamic_offset": False,
-                    "min_binding_size": resource.itemsize,
+                    "min_binding_size": resource.nbytes,
                 },
             }
         elif self.type.startswith("sampler/"):

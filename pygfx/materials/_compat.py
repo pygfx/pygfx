@@ -107,7 +107,7 @@ def material_from_trimesh(x):
 
         if material.normalTexture is not None:
             gfx_material.normal_map = texture_from_pillow_image(material.normalTexture)
-            # See: https://github.com/KhronosGroup/glTF-Sample-Models/tree/master/2.0/NormalTangentTest#problem-flipped-y-axis-or-flipped-green-channel
+            # See: https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/NormalTangentTest#problem-flipped-y-axis-or-flipped-green-channel
             gfx_material.normal_scale = (1.0, -1.0)
 
         if material.occlusionTexture is not None:
