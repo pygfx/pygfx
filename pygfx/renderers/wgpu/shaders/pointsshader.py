@@ -57,6 +57,7 @@ class PointsShader(BaseShader):
         else:
             raise RuntimeError(f"Unknown color_mode: '{color_mode}'")
 
+        self["edge_mode"] = material.edge_mode
         self["is_sprite"] = 0  # 0, 1, 2
         if isinstance(material, PointsSpriteMaterial):
             self["is_sprite"] = 1
