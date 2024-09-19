@@ -63,6 +63,9 @@ class ColorMode(Enum):
     face = None  #: Use the per-face color specified in the geometry  (usually  ``geometry.colors``).
     vertex_map = None  #: Use per-vertex texture coords (``geometry.texcoords``), and sample these in ``material.map``.
     face_map = None  #: Use per-face texture coords (``geometry.texcoords``), and sample these in ``material.map``.
+    debug = (
+        None  #: Use colors most suitable for debugging. Defined on a per shader basis.
+    )
 
 
 class SizeMode(Enum):
