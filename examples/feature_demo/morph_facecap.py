@@ -3,7 +3,10 @@ Facecap animation with morph targets
 ====================================
 
 This example demonstrates how to animate a model with morph targets.
-The model is a facecap model with morph targets for facial expressions (52 blend shapes).
+
+The model originates from Face Cap (https://www.bannaflak.com/face-cap/documentation.html#1.5)
+and has undergone format conversion.
+It includes morph targets for facial expressions, utilizing 52 blend shapes.
 """
 
 ################################################################################
