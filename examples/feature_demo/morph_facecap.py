@@ -36,17 +36,22 @@ import numpy as np
 import pygfx as gfx
 from scipy import interpolate
 from wgpu.gui.auto import WgpuCanvas, run
+from wgpu.utils.imgui import ImguiRenderer
+from imgui_bundle import imgui
 
 gltf_path = model_dir / "facecap.glb"
 
 scene = gfx.Scene()
 
-canvas = WgpuCanvas(size=(640, 480), max_fps=-1, title="Facecap", vsync=False)
+canvas = WgpuCanvas(size=(1280, 720), max_fps=-1, title="Facecap", vsync=False)
 
 renderer = gfx.WgpuRenderer(canvas)
-camera = gfx.PerspectiveCamera(75, 640 / 480, depth_range=(0.1, 1000))
+camera = gfx.PerspectiveCamera(45, 1280 / 720, depth_range=(0.1, 1000))
 
-scene.add(gfx.AmbientLight(), gfx.DirectionalLight())
+direct_light = gfx.DirectionalLight()
+direct_light.local.position = (0, 1, 1)
+
+scene.add(gfx.AmbientLight(), direct_light)
 
 gltf = gfx.load_gltf(gltf_path)
 
@@ -112,6 +117,36 @@ last_time = time.perf_counter()
 
 stats = gfx.Stats(viewport=renderer)
 
+face_mesh = model_obj.children[0].children[0].children[2].children[0]
+gui_renderer = ImguiRenderer(renderer.device, canvas)
+
+
+def draw_imgui():
+    imgui.new_frame()
+    imgui.set_next_window_size((400, 0), imgui.Cond_.always)
+    imgui.set_next_window_pos(
+        (gui_renderer.backend.io.display_size.x - 400, 0), imgui.Cond_.always
+    )
+    imgui.set_next_item_open(True)
+    is_expand, _ = imgui.begin(
+        "Controls",
+        None,
+        flags=imgui.WindowFlags_.no_move | imgui.WindowFlags_.no_resize,
+    )
+    if is_expand:
+        # imgui.begin_disabled()
+        for i, name in enumerate(face_mesh.morph_target_names):
+            imgui.slider_float(name, face_mesh.morph_target_influences[i], 0, 1)
+        # imgui.end_disabled()
+
+    imgui.end()
+    imgui.end_frame()
+    imgui.render()
+    return imgui.get_draw_data()
+
+
+gui_renderer.set_gui(draw_imgui)
+
 
 def animate():
     global gloabl_time, last_time
@@ -128,6 +163,7 @@ def animate():
     with stats:
         renderer.render(scene, camera, flush=False)
     stats.render()
+    gui_renderer.render()
     canvas.request_draw()
 
 

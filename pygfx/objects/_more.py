@@ -201,6 +201,7 @@ class Mesh(WorldObject):
     def __init__(self, geometry=None, material=None, *args, **kwargs):
         super().__init__(geometry, material, *args, **kwargs)
         self._morph_target_influences = None
+        self._morph_target_names = []
 
     @property
     def morph_target_influences(self):
@@ -250,6 +251,13 @@ class Mesh(WorldObject):
 
         self._morph_target_influences.data["influence"] = value
         self._morph_target_influences.update_range()
+
+    @property
+    def morph_target_names(self):
+        """
+        A list of names for the morph targets.
+        """
+        return self._morph_target_names
 
     def _wgpu_get_pick_info(self, pick_value):
         values = unpack_bitfield(

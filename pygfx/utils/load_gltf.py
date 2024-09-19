@@ -286,9 +286,19 @@ class _GLTF:
             else:
                 raise ValueError(f"Unsupported primitive mode: {primitive.mode}")
 
+            if geometry.morph_positions or geometry.morph_normals or geometry.morph_colors:
+                self.update_morph_target(gfx_mesh, mesh)
+
             meshes.append(gfx_mesh)
 
         return meshes
+
+    def update_morph_target(self, gfx_mesh, mesh_def):
+        if mesh_def.weights:
+            gfx_mesh.morph_target_influences = mesh_def.weights
+
+        if mesh_def.extras and mesh_def.extras.get("targetNames", None):
+            gfx_mesh.morph_target_names.extend(mesh_def.extras["targetNames"])
 
     @lru_cache(maxsize=None)
     def _load_gltf_mesh(self, mesh_index, skin_index=None, load_material=True):
