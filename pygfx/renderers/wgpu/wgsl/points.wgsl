@@ -108,10 +108,24 @@ fn vs_main(in: VertexInput) -> Varyings {
     $$ endif
     $$ if aa
         let size:f32 = size_ref / size_ratio;  // Logical pixels
+        $$ if edge_mode == 'outer'
+        let half_size = edge_width + 0.5 * max(min_size_for_pixel, size + 1.0 / l2p);  // add 0.5 physical pixel on each side.
+        $$ elif edge_mode == 'inner'
+        let half_size = 0.5 * max(min_size_for_pixel, size + 1.0 / l2p);  // add 0.5 physical pixel on each side.
+        $$ else
+        // elif edge_mode == 'centered'
         let half_size = 0.5 * edge_width + 0.5 * max(min_size_for_pixel, size + 1.0 / l2p);  // add 0.5 physical pixel on each side.
+        $$ endif
     $$ else
         let size:f32 = max(min_size_for_pixel, size_ref / size_ratio);  // non-aa don't get smaller.
+        $$ if edge_mode == 'outer'
+        let half_size = edge_width + 0.5 * size;
+        $$ elif edge_mode == 'inner'
+        let half_size = 0.5 * size;
+        $$ else
+        // elif edge_mode == 'centered'
         let half_size = 0.5 * edge_width + 0.5 * size;
+        $$ endif
     $$ endif
 
     // Relative coords to create the (frontfacing) quad
@@ -264,7 +278,14 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
 
         // Calculate "SDF"
         let half_edge_width_p: f32 = 0.5 * varyings.edge_width_p;
+        $$ if edge_mode == 'outer'
+        let dist_to_line_center_p: f32 = abs(dist_to_face_edge_p - half_edge_width_p);
+        $$ elif edge_mode == 'inner'
+        let dist_to_line_center_p: f32 = abs(dist_to_face_edge_p + half_edge_width_p);
+        $$ else
+        // elif edge_mode == 'centered'
         let dist_to_line_center_p: f32 = abs(dist_to_face_edge_p);
+        $$ endif
         let dist_to_line_edge_p: f32 = dist_to_line_center_p - half_edge_width_p;
         // Calculate edge_alpha based on marker shape end edge thickness
         var edge_alpha = 0.0;
