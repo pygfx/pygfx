@@ -83,13 +83,13 @@ class Geometry(Trackable):
             setattr(self, name, resource)
 
     def __setattr__(self, key, new_value):
-        if not key.startswith("_"):
+        if not key.startswith(("_", "morph_")):
             if isinstance(new_value, Trackable) or key in self._store:
                 return setattr(self._store, key, new_value)
         object.__setattr__(self, key, new_value)
 
     def __getattribute__(self, key):
-        if not key.startswith("_"):
+        if not key.startswith(("_", "morph_")):
             if key in self._store:
                 return getattr(self._store, key)
         return object.__getattribute__(self, key)

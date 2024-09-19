@@ -1,3 +1,5 @@
+import math
+import numpy as np
 import wgpu  # only for flags/enums
 
 
@@ -40,7 +42,15 @@ class MeshShader(BaseShader):
         # Is this an instanced mesh?
         self["instanced"] = isinstance(wobject, InstancedMesh)
 
+        # Is this a skinned mesh?
         self["use_skinning"] = isinstance(wobject, SkinnedMesh)
+
+        # Is this a morphing mesh?
+        self["use_morph_targets"] = (
+            getattr(geometry, "morph_positions", None)
+            or getattr(geometry, "morph_normals", None)
+            or getattr(geometry, "morph_colors", None)
+        )
 
         # Is this a wireframe mesh?
         self["wireframe"] = getattr(material, "wireframe", False)
@@ -183,6 +193,40 @@ class MeshShader(BaseShader):
                 )
             )
 
+        if self["use_morph_targets"]:
+            morph_texture, stride, width, morph_count = getattr(
+                geometry, "_gfx_morph_texture", (None, None, None, None)
+            )
+            if morph_texture is None:
+                morph_texture, stride, width, morph_count = self._encode_morph_texture(
+                    geometry
+                )
+                geometry._gfx_morph_texture = (
+                    morph_texture,
+                    stride,
+                    width,
+                    morph_count,
+                )
+
+            morph_target_influences = (
+                wobject._morph_target_influences
+            )  # the influences buffer
+
+            if morph_texture and morph_target_influences:
+                view = GfxTextureView(morph_texture, view_dim="2d-array")
+                bindings.append(
+                    Binding("t_morph_targets", "texture/auto", view, "VERTEX")
+                )
+
+                self["morph_targets_count"] = min(
+                    morph_target_influences.nitems, morph_count
+                )
+                self["morph_targets_stride"] = stride
+                self["morph_targets_texture_width"] = width
+
+            else:
+                self["use_morph_targets"] = False
+
         F = "FRAGMENT"  # noqa: N806
         sampling = "sampler/filtering"
         sampler = GfxSampler(material.map_interpolation, "repeat")
@@ -273,10 +317,92 @@ class MeshShader(BaseShader):
                 "s_instance_infos", rbuffer, wobject.instance_buffer, "VERTEX"
             )
 
+        if self["use_morph_targets"]:
+            bindings1[1] = Binding(
+                "u_morph_target_influences",
+                "buffer/uniform",
+                morph_target_influences,
+                "VERTEX",
+            )
+
         return {
             0: bindings,
             1: bindings1,
         }
+
+    def _encode_morph_texture(self, geometry):
+        morph_positions = getattr(geometry, "morph_positions", None)
+        morph_normals = getattr(geometry, "morph_normals", None)
+        morph_colors = getattr(geometry, "morph_colors", None)
+
+        vetex_data_count = 0
+
+        if morph_positions:
+            vetex_data_count = 1
+
+        if morph_normals:
+            vetex_data_count = 2
+
+        if morph_colors:
+            vetex_data_count = 3
+
+        if vetex_data_count == 0:
+            return None, None, None, None
+
+        vertice_count = geometry.positions.nitems
+        total_count = vertice_count * vetex_data_count
+        width = total_count
+        height = 1
+
+        max_texture_width = 4096  # TODO: use wgpu capabilities "max_texture_size"
+
+        if width > max_texture_width:
+            height = math.ceil(width / max_texture_width)
+            width = max_texture_width
+
+        morph_count = len(morph_positions or morph_normals or morph_colors or [])
+
+        buffer = np.zeros((morph_count, height * width, 4), dtype=np.float32)
+
+        for i in range(morph_count):
+            if morph_positions:
+                morph_position = morph_positions[i]
+                assert (
+                    len(morph_position) == vertice_count
+                ), f"Morph target {i} has {len(morph_position)} vertices, expected {vertice_count}"
+                morph_position = np.pad(morph_position, ((0, 0), (0, 1)), "constant")
+            else:
+                morph_position = np.zeros((vertice_count, 4), dtype=np.float32)
+
+            if morph_normals:
+                morph_normal = morph_normals[i]
+                assert (
+                    len(morph_normal) == vertice_count
+                ), f"Morph normal {i} has {len(morph_normal)} vertices, expected {vertice_count}"
+                morph_normal = np.pad(morph_normal, ((0, 0), (0, 1)), "constant")
+            else:
+                morph_normal = np.zeros((vertice_count, 4), dtype=np.float32)
+
+            if morph_colors:
+                morph_color = morph_colors[i]
+                assert (
+                    len(morph_color) == vertice_count
+                ), f"Morph color {i} has {len(morph_colors[i])} vertices, expected {vertice_count}"
+            else:
+                morph_color = np.zeros((vertice_count, 4), dtype=np.float32)
+
+            morph_data = np.stack(
+                (morph_position, morph_normal, morph_color)[:vetex_data_count], axis=1
+            ).reshape(-1, 4)
+
+            buffer[i, :total_count, :] = morph_data
+
+        return (
+            Texture(buffer, dim=2, size=(width, height, morph_count)),
+            vetex_data_count,
+            width,
+            morph_count,
+        )
 
     def get_pipeline_info(self, wobject, shared):
         material = wobject.material
