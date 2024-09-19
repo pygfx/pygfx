@@ -483,16 +483,34 @@ fn get_signed_distance_to_shape_edge(coord: vec2<f32>, size: f32) -> f32 {
         return min(r4,r9);
 
     $$ elif shape == 'pin'
-        // A pin is the difference between the union of three discs and a disc.
-        let c1 = vec2<f32>(0.0,0.15)*size;
-        let r1 = length(coord-c1)-size/2.675;
-        let c2 = vec2<f32>(1.49,0.80)*size;
-        let r2 = length(coord-c2) - 2.*size;
-        let c3 = vec2<f32>(-1.49,0.80)*size;
-        let r3 = length(coord-c3) - 2.*size;
-        let r4 = length(coord-c1) -size/5;
-        return max( min(r1,max(max(r2,r3),coord.y)), -r4);
+        // Simplified formula for the usecase of a pin taken from
+        // https://www.shadertoy.com/view/4lcBWn
+        var p = - coord / size;
+        p.x = abs(p.x);
 
+        let ra = 0.33;
+        let h = 2 * 0.33;
+        let b = 0.5;
+
+        let rin = 0.33 / 2;
+
+        p.y = p.y + ra / 2;
+
+        let c = vec2(sqrt(1.0-b*b), b);
+        let k = dot(c, vec2(p.y, -p.x));
+
+        // Below the pin all toegether
+        if(k > c.x * h) {return size * length(p - vec2(0., h));}
+
+        // the opening circle of the pin
+        let q = - (length(p) - rin);
+        let m = dot(c, p);
+        let n = dot(p, p);
+
+        // the top of the circle
+        if(k < 0.0    ) {return size * max(q, sqrt(n)    - ra);}
+        // Intesection of the triangle cone and the big circle
+                         return size * max(q, m          - ra);
     $$ elif shape == 'custom'
         {{ custom_sdf }}
 
