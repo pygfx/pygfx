@@ -46,6 +46,7 @@ extras_require = {
         "scikit-image",
         "trimesh",
         "gltflib",
+        "imgui-bundle>=1.2.1",
     ],
     "docs": [
         "sphinx>7.2",
@@ -63,6 +64,7 @@ extras_require = {
         "scikit-image",
         "trimesh",
         "gltflib",
+        "imgui-bundle>=1.2.1",
     ],
 }
 

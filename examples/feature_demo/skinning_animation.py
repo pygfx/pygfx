@@ -39,8 +39,6 @@ from wgpu.gui.auto import WgpuCanvas, run
 
 gltf_path = model_dir / "Michelle.glb"
 
-scene = gfx.Scene()
-
 canvas = WgpuCanvas(size=(640, 480), max_fps=-1, title="Skinnedmesh", vsync=False)
 
 renderer = gfx.WgpuRenderer(canvas)
@@ -52,7 +50,7 @@ scene = gfx.Scene()
 scene.add(gfx.AmbientLight(), gfx.DirectionalLight())
 
 
-gltf = gfx.load_gltf(gltf_path)
+gltf = gfx.load_gltf(gltf_path, quiet=True)
 
 # gfx.print_tree(gltf.scene) # Uncomment to see the tree structure
 
