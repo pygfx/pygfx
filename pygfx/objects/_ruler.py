@@ -256,7 +256,7 @@ class Ruler(WorldObject):
         # Get ndc coords for begin and end pos. Use numpy broadcasting for performance and compactness.
         positions = np.column_stack(
             [
-                np.row_stack([self._start_pos, self._end_pos]),
+                np.vstack([self._start_pos, self._end_pos]),
                 np.ones((2, 1), np.float64),
             ]
         )
