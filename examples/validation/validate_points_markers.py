@@ -140,6 +140,7 @@ for marker in gfx.MarkerShape:
             size=1,
             size_space="world",
             color_mode="vertex",
+            # color_mode='debug',
             marker=marker,
             edge_color="#000",
             edge_width=0.1 if not marker == "custom" else 0.033333,
@@ -208,7 +209,17 @@ canvas.request_draw(lambda: renderer.render(scene, camera))
 
 @renderer.add_event_handler("key_down")
 def handle_event(event):
-    if event.key == "j":
+    if event.key == "d":
+        color_mode = "debug"
+        for line in all_lines:
+            line.material.color_mode = color_mode
+        print(f"color_mode {line.material.color_mode}")
+    elif event.key == "v":
+        color_mode = "vertex"
+        for line in all_lines:
+            line.material.color_mode = color_mode
+        print(f"color_mode {line.material.color_mode}")
+    elif event.key == "j":
         for line in all_lines:
             line.material.edge_width /= 1.1
         print(f"edge_width {line.material.edge_width}")
