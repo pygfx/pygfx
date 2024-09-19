@@ -47,9 +47,9 @@ class MeshShader(BaseShader):
 
         # Is this a morphing mesh?
         self["use_morph_targets"] = (
-            bool(geometry.morph_positions)
-            or bool(geometry.morph_normals)
-            or bool(geometry.morph_colors)
+            getattr(geometry, "morph_positions", None)
+            or getattr(geometry, "morph_normals", None)
+            or getattr(geometry, "morph_colors", None)
         )
 
         # Is this a wireframe mesh?
@@ -331,9 +331,9 @@ class MeshShader(BaseShader):
         }
 
     def _encode_morph_texture(self, geometry):
-        morph_positions = geometry.morph_positions
-        morph_normals = geometry.morph_normals
-        morph_colors = geometry.morph_colors
+        morph_positions = getattr(geometry, "morph_positions", None)
+        morph_normals = getattr(geometry, "morph_normals", None)
+        morph_colors = getattr(geometry, "morph_colors", None)
 
         vetex_data_count = 0
 

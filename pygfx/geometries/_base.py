@@ -35,11 +35,6 @@ class Geometry(Trackable):
         self._bsphere = None
         self._bsphere_rev = None
 
-        self._morph_positions = None
-        self._morph_normals = None
-        self._morph_colors = None
-        self._morph_targets_relative = False
-
         for name, val in kwargs.items():
             # Get resource object
             if isinstance(val, Resource):
@@ -87,76 +82,14 @@ class Geometry(Trackable):
             # Store
             setattr(self, name, resource)
 
-    @property
-    def morph_positions(self):
-        """
-        The morph target positions.
-
-        Notes
-        -----
-        Once the geometry has been rendered, the morph data cannot be changed.
-        You will have to create a new instance of Geometry if you want to change the morph attributes.
-        """
-        return self._morph_positions
-
-    @morph_positions.setter
-    def morph_positions(self, value):
-        self._morph_positions = value
-
-    @property
-    def morph_normals(self):
-        """
-        The morph target normals.
-
-        Notes
-        -----
-        Once the geometry has been rendered, the morph data cannot be changed.
-        You will have to create a new instance of Geometry if you want to change the morph attributes.
-        """
-        return self._morph_normals
-
-    @morph_normals.setter
-    def morph_normals(self, value):
-        self._morph_normals = value
-
-    @property
-    def morph_colors(self):
-        """
-        The morph target colors.
-
-        Notes
-        -----
-        Once the geometry has been rendered, the morph data cannot be changed.
-        You will have to create a new instance of Geometry if you want to change the morph attributes.
-        """
-        return self._morph_colors
-
-    @morph_colors.setter
-    def morph_colors(self, value):
-        self._morph_colors = value
-
-    @property
-    def morph_targets_relative(self):
-        """
-        Control the morph target behavior.
-
-        When set to True, the morph target data is treated as relative offsets, rather than as absolute positions/normals.
-        Default is False.
-        """
-        return self._morph_targets_relative
-
-    @morph_targets_relative.setter
-    def morph_targets_relative(self, value):
-        self._morph_targets_relative = value
-
     def __setattr__(self, key, new_value):
-        if not key.startswith("_"):
+        if not key.startswith("_") and not key.startswith("morph_"):
             if isinstance(new_value, Trackable) or key in self._store:
                 return setattr(self._store, key, new_value)
         object.__setattr__(self, key, new_value)
 
     def __getattribute__(self, key):
-        if not key.startswith("_"):
+        if not key.startswith("_") and not key.startswith("morph_"):
             if key in self._store:
                 return getattr(self._store, key)
         return object.__getattribute__(self, key)

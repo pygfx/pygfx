@@ -286,7 +286,11 @@ class _GLTF:
             else:
                 raise ValueError(f"Unsupported primitive mode: {primitive.mode}")
 
-            if geometry.morph_positions or geometry.morph_normals or geometry.morph_colors:
+            if (
+                getattr(geometry, "morph_positions", None)
+                or getattr(geometry, "morph_normals", None)
+                or getattr(geometry, "morph_colors", None)
+            ):
                 self.update_morph_target(gfx_mesh, mesh)
 
             meshes.append(gfx_mesh)
@@ -444,7 +448,7 @@ class _GLTF:
                 # print(target)
                 for attr, accessor_index in target.__dict__.items():
                     if accessor_index is not None:
-                        target_attr = f"_morph_{self.ATTRIBUTE_NAME[attr]}"
+                        target_attr = f"morph_{self.ATTRIBUTE_NAME[attr]}"
                         data = self._load_accessor(accessor_index).astype(
                             np.float32, copy=False
                         )
@@ -456,7 +460,7 @@ class _GLTF:
 
                         morph_attr.append(data)
 
-            geometry._morph_targets_relative = True
+            geometry.morph_targets_relative = True
 
         return geometry
 

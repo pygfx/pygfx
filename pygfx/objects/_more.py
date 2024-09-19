@@ -207,17 +207,24 @@ class Mesh(WorldObject):
     def morph_target_influences(self):
         """
         An ndarray of weights typically from 0-1 that specify how much of the morph is applied.
+
+        Note:
+        When using this attribute, its geometry needs to have the relevant attributes of morph targets.
         """
         return self._morph_target_influences.data["influence"][:-1]
 
     @morph_target_influences.setter
     def morph_target_influences(self, value):
         morph_attrs = (
-            self.geometry.morph_positions
-            or self.geometry.morph_normals
-            or self.geometry.morph_colors
+            getattr(self.geometry, "morph_positions", None)
+            or getattr(self.geometry, "morph_normals", None)
+            or getattr(self.geometry, "morph_colors", None)
             or []
         )
+
+        if not morph_attrs:
+            return
+
         morph_target_count = len(morph_attrs)
 
         assert len(value) == morph_target_count, (
@@ -241,7 +248,7 @@ class Mesh(WorldObject):
         if not isinstance(value, np.ndarray):
             value = np.array(value, dtype=np.float32)
 
-        if self.geometry.morph_targets_relative:
+        if getattr(self.geometry, "morph_targets_relative", False):
             base_influence = 1.0
         else:
             base_influence = 1 - value.sum()
