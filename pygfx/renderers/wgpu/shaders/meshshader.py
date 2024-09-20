@@ -1,3 +1,5 @@
+import math
+import numpy as np
 import wgpu  # only for flags/enums
 
 
@@ -7,6 +9,7 @@ from ....utils import normals_from_vertices
 from ....materials import (
     MeshBasicMaterial,
     MeshPhongMaterial,
+    MeshToonMaterial,
     MeshNormalMaterial,
     MeshNormalLinesMaterial,
     MeshSliceMaterial,
@@ -39,7 +42,15 @@ class MeshShader(BaseShader):
         # Is this an instanced mesh?
         self["instanced"] = isinstance(wobject, InstancedMesh)
 
+        # Is this a skinned mesh?
         self["use_skinning"] = isinstance(wobject, SkinnedMesh)
+
+        # Is this a morphing mesh?
+        self["use_morph_targets"] = (
+            getattr(geometry, "morph_positions", None)
+            or getattr(geometry, "morph_normals", None)
+            or getattr(geometry, "morph_colors", None)
+        )
 
         # Is this a wireframe mesh?
         self["wireframe"] = getattr(material, "wireframe", False)
@@ -133,6 +144,12 @@ class MeshShader(BaseShader):
             Binding("s_normals", rbuffer, normal_buffer, "VERTEX"),
         ]
 
+        # We always need texcoords, not only for colormap
+        if hasattr(geometry, "texcoords") and geometry.texcoords is not None:
+            bindings.append(
+                Binding("s_texcoords", rbuffer, geometry.texcoords, "VERTEX")
+            )
+
         if hasattr(geometry, "texcoords1") and geometry.texcoords1 is not None:
             bindings.append(
                 Binding("s_texcoords1", rbuffer, geometry.texcoords1, "VERTEX")
@@ -143,7 +160,9 @@ class MeshShader(BaseShader):
             bindings.append(Binding("s_colors", rbuffer, geometry.colors, "VERTEX"))
         elif self["color_mode"] in ("vertex_map", "face_map"):
             bindings.extend(
-                self.define_texcoords_and_colormap(
+                # todo: check uv is present and has the right shape. (introduce uv channel for texture)
+                # todo: unify the logic with other maps, introduce uv channel and texture sampler
+                self.define_colormap(
                     material.map, geometry.texcoords, material.map_interpolation
                 )
             )
@@ -174,10 +193,72 @@ class MeshShader(BaseShader):
                 )
             )
 
+        if self["use_morph_targets"]:
+            morph_texture, stride, width, morph_count = getattr(
+                geometry, "_gfx_morph_texture", (None, None, None, None)
+            )
+            if morph_texture is None:
+                morph_texture, stride, width, morph_count = self._encode_morph_texture(
+                    geometry
+                )
+                geometry._gfx_morph_texture = (
+                    morph_texture,
+                    stride,
+                    width,
+                    morph_count,
+                )
+
+            morph_target_influences = (
+                wobject._morph_target_influences
+            )  # the influences buffer
+
+            if morph_texture and morph_target_influences:
+                view = GfxTextureView(morph_texture, view_dim="2d-array")
+                bindings.append(
+                    Binding("t_morph_targets", "texture/auto", view, "VERTEX")
+                )
+
+                self["morph_targets_count"] = min(
+                    morph_target_influences.nitems, morph_count
+                )
+                self["morph_targets_stride"] = stride
+                self["morph_targets_texture_width"] = width
+
+            else:
+                self["use_morph_targets"] = False
+
         F = "FRAGMENT"  # noqa: N806
         sampling = "sampler/filtering"
         sampler = GfxSampler(material.map_interpolation, "repeat")
         texturing = "texture/auto"
+
+        # todo, check uv is present and has the right shape. (introduce uv channel for texture)
+
+        # specular map configs, only for basic and phong materials now
+        if getattr(material, "specular_map", None) and not isinstance(
+            material, MeshStandardMaterial
+        ):
+            self._check_texture(material.specular_map)
+            view = GfxTextureView(material.specular_map, view_dim="2d")
+            self["use_specular_map"] = True
+            bindings.append(Binding("s_specular_map", sampling, sampler, F))
+            bindings.append(Binding("t_specular_map", texturing, view, F))
+
+        # set emissive_map configs, for phong and standard materials
+        if getattr(material, "emissive_map", None):
+            self._check_texture(material.emissive_map)
+            view = GfxTextureView(material.emissive_map, view_dim="2d")
+            self["use_emissive_map"] = True
+            bindings.append(Binding("s_emissive_map", sampling, sampler, F))
+            bindings.append(Binding("t_emissive_map", texturing, view, F))
+
+        # set normal_map configs
+        if getattr(material, "normal_map", None):
+            self._check_texture(material.normal_map)
+            view = GfxTextureView(material.normal_map, view_dim="2d")
+            self["use_normal_map"] = True
+            bindings.append(Binding("s_normal_map", sampling, sampler, F))
+            bindings.append(Binding("t_normal_map", texturing, view, F))
 
         # set envmap configs
         if getattr(material, "env_map", None):
@@ -236,10 +317,92 @@ class MeshShader(BaseShader):
                 "s_instance_infos", rbuffer, wobject.instance_buffer, "VERTEX"
             )
 
+        if self["use_morph_targets"]:
+            bindings1[1] = Binding(
+                "u_morph_target_influences",
+                "buffer/uniform",
+                morph_target_influences,
+                "VERTEX",
+            )
+
         return {
             0: bindings,
             1: bindings1,
         }
+
+    def _encode_morph_texture(self, geometry):
+        morph_positions = getattr(geometry, "morph_positions", None)
+        morph_normals = getattr(geometry, "morph_normals", None)
+        morph_colors = getattr(geometry, "morph_colors", None)
+
+        vetex_data_count = 0
+
+        if morph_positions:
+            vetex_data_count = 1
+
+        if morph_normals:
+            vetex_data_count = 2
+
+        if morph_colors:
+            vetex_data_count = 3
+
+        if vetex_data_count == 0:
+            return None, None, None, None
+
+        vertice_count = geometry.positions.nitems
+        total_count = vertice_count * vetex_data_count
+        width = total_count
+        height = 1
+
+        max_texture_width = 4096  # TODO: use wgpu capabilities "max_texture_size"
+
+        if width > max_texture_width:
+            height = math.ceil(width / max_texture_width)
+            width = max_texture_width
+
+        morph_count = len(morph_positions or morph_normals or morph_colors or [])
+
+        buffer = np.zeros((morph_count, height * width, 4), dtype=np.float32)
+
+        for i in range(morph_count):
+            if morph_positions:
+                morph_position = morph_positions[i]
+                assert (
+                    len(morph_position) == vertice_count
+                ), f"Morph target {i} has {len(morph_position)} vertices, expected {vertice_count}"
+                morph_position = np.pad(morph_position, ((0, 0), (0, 1)), "constant")
+            else:
+                morph_position = np.zeros((vertice_count, 4), dtype=np.float32)
+
+            if morph_normals:
+                morph_normal = morph_normals[i]
+                assert (
+                    len(morph_normal) == vertice_count
+                ), f"Morph normal {i} has {len(morph_normal)} vertices, expected {vertice_count}"
+                morph_normal = np.pad(morph_normal, ((0, 0), (0, 1)), "constant")
+            else:
+                morph_normal = np.zeros((vertice_count, 4), dtype=np.float32)
+
+            if morph_colors:
+                morph_color = morph_colors[i]
+                assert (
+                    len(morph_color) == vertice_count
+                ), f"Morph color {i} has {len(morph_colors[i])} vertices, expected {vertice_count}"
+            else:
+                morph_color = np.zeros((vertice_count, 4), dtype=np.float32)
+
+            morph_data = np.stack(
+                (morph_position, morph_normal, morph_color)[:vetex_data_count], axis=1
+            ).reshape(-1, 4)
+
+            buffer[i, :total_count, :] = morph_data
+
+        return (
+            Texture(buffer, dim=2, size=(width, height, morph_count)),
+            vetex_data_count,
+            width,
+            morph_count,
+        )
 
     def get_pipeline_info(self, wobject, shared):
         material = wobject.material
@@ -324,6 +487,52 @@ class MeshPhongShader(MeshShader):
         self["lighting"] = "phong"
 
 
+@register_wgpu_render_function(Mesh, MeshToonMaterial)
+class MeshToonShader(MeshShader):
+    def __init__(self, wobject):
+        super().__init__(wobject)
+        self["lighting"] = "toon"
+
+    def get_bindings(self, wobject, shared):
+        result = super().get_bindings(wobject, shared)
+
+        geometry = wobject.geometry
+        material = wobject.material
+
+        bindings = []
+
+        F = "FRAGMENT"  # noqa: N806
+
+        # We need uv to use the maps, so if uv not exist, ignore all maps
+        if hasattr(geometry, "texcoords") and geometry.texcoords is not None:
+            # Texcoords must always be nx2 since it used for all texture maps.
+            nchannels = nchannels_from_format(geometry.texcoords.format)
+            if not (geometry.texcoords.data.ndim == 2 and nchannels == 2):
+                raise ValueError("For toon material, the texcoords must be Nx2")
+
+            if material.gradient_map is not None:
+                self._check_texture(material.gradient_map)
+                view = GfxTextureView(material.gradient_map, view_dim="2d")
+                self["use_gradient_map"] = True
+                bindings.append(
+                    Binding(
+                        "s_gradient_map",
+                        "sampler/filtering",
+                        GfxSampler("nearest", "repeat"),
+                        F,
+                    )
+                )  # gradient map is always nearest sampling
+                bindings.append(Binding("t_gradient_map", "texture/auto", view, F))
+
+        # Define shader code for binding
+        bindings = {i: binding for i, binding in enumerate(bindings)}
+        self.define_bindings(2, bindings)
+
+        # Update result
+        result[2] = bindings
+        return result
+
+
 @register_wgpu_render_function(Mesh, MeshStandardMaterial)
 class MeshStandardShader(MeshShader):
     def __init__(self, wobject):
@@ -350,13 +559,6 @@ class MeshStandardShader(MeshShader):
             if not (geometry.texcoords.data.ndim == 2 and nchannels == 2):
                 raise ValueError("For standard material, the texcoords must be Nx2")
 
-            if material.normal_map is not None:
-                self._check_texture(material.normal_map)
-                view = GfxTextureView(material.normal_map, view_dim="2d")
-                self["use_normal_map"] = True
-                bindings.append(Binding("s_normal_map", sampling, sampler, F))
-                bindings.append(Binding("t_normal_map", texturing, view, F))
-
             if material.roughness_map is not None:
                 self._check_texture(material.roughness_map)
                 view = GfxTextureView(material.roughness_map, view_dim="2d")
@@ -370,13 +572,6 @@ class MeshStandardShader(MeshShader):
                 self["use_metalness_map"] = True
                 bindings.append(Binding("s_metalness_map", sampling, sampler, F))
                 bindings.append(Binding("t_metalness_map", texturing, view, F))
-
-            if material.emissive_map is not None:
-                self._check_texture(material.emissive_map)
-                view = GfxTextureView(material.emissive_map, view_dim="2d")
-                self["use_emissive_map"] = True
-                bindings.append(Binding("s_emissive_map", sampling, sampler, F))
-                bindings.append(Binding("t_emissive_map", texturing, view, F))
 
         # Define shader code for binding
         bindings = {i: binding for i, binding in enumerate(bindings)}
@@ -488,7 +683,7 @@ class MeshSliceShader(BaseShader):
             bindings.append(Binding("s_colors", rbuffer, geometry.colors, "VERTEX"))
         elif self["color_mode"] in ("vertex_map", "face_map"):
             bindings.extend(
-                self.define_texcoords_and_colormap(
+                self.define_colormap(
                     material.map, geometry.texcoords, material.map_interpolation
                 )
             )

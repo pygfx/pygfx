@@ -91,7 +91,7 @@ class TextMaterial(Material):
     def color(self, color):
         color = Color(color)
         self.uniform_buffer.data["color"] = color
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
         self._store.color_is_transparent = color.a < 1
 
     @property
@@ -109,7 +109,7 @@ class TextMaterial(Material):
     @outline_thickness.setter
     def outline_thickness(self, value):
         self.uniform_buffer.data["outline_thickness"] = max(0.0, min(0.5, float(value)))
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
     @property
     def outline_color(self):
@@ -120,7 +120,7 @@ class TextMaterial(Material):
     def outline_color(self, outline_color):
         outline_color = Color(outline_color)
         self.uniform_buffer.data["outline_color"] = outline_color
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
         self._store.outline_color_is_transparent = outline_color.a < 1
 
     @property
@@ -143,4 +143,4 @@ class TextMaterial(Material):
     @weight_offset.setter
     def weight_offset(self, value):
         self.uniform_buffer.data["weight_offset"] = float(value)
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()

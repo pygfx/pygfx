@@ -17,7 +17,7 @@ def test_enums():
     # The repr is actually useful.
     assert (
         str(MyOption)
-        == "<pygfx.MyOption enum with options: 'auto', 'some-attr', 'foo'>"
+        == "<tests.MyOption enum with options: 'auto', 'some-attr', 'foo'>"
     )
 
     # Attribute and map-like lookups are supported
@@ -47,7 +47,7 @@ def test_flags():
     # The repr is actually useful.
     assert (
         str(MyFlag)
-        == "<pygfx.MyFlag enum with options: 'auto' (0), 'foo' (1), 'bar' (2)>"
+        == "<tests.MyFlag enum with options: 'auto' (0), 'foo' (1), 'bar' (2)>"
     )
 
     # Attribute and map-like lookups are supported

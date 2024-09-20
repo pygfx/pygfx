@@ -36,7 +36,9 @@ class InstancedMesh(Mesh):
             ]
         )
         instance_infos = np.zeros(count, dtype)
-        self._store.instance_buffer = Buffer(instance_infos, nitems=count)
+        self._store.instance_buffer = Buffer(
+            instance_infos, nitems=count, force_contiguous=True
+        )
         # Set ids
         self._idmap = {}
         for instance_index in range(count):

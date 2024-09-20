@@ -54,9 +54,13 @@ class PointsShader(BaseShader):
             self["color_buffer_channels"] = 0
             if material.map is None:
                 raise ValueError(f"Cannot apply colormap is no material.map is set.")
+        elif color_mode == "debug":
+            self["color_mode"] = "debug"
+            self["color_buffer_channels"] = 0
         else:
             raise RuntimeError(f"Unknown color_mode: '{color_mode}'")
 
+        self["edge_mode"] = material.edge_mode
         self["is_sprite"] = 0  # 0, 1, 2
         if isinstance(material, PointsSpriteMaterial):
             self["is_sprite"] = 1
@@ -90,8 +94,11 @@ class PointsShader(BaseShader):
         if self["color_mode"] == "vertex":
             bindings.append(Binding("s_colors", rbuffer, geometry.colors, "VERTEX"))
         elif self["color_mode"] == "vertex_map":
+            bindings.append(
+                Binding("s_texcoords", rbuffer, geometry.texcoords, "VERTEX")
+            )
             bindings.extend(
-                self.define_texcoords_and_colormap(
+                self.define_colormap(
                     material.map, geometry.texcoords, material.map_interpolation
                 )
             )
@@ -118,6 +125,12 @@ class PointsShader(BaseShader):
             self["shape"] = "gaussian"
         elif isinstance(material, PointsMarkerMaterial):
             self["shape"] = material.marker
+            custom_sdf = material.custom_sdf
+            if custom_sdf is None:
+                # Make a nice full square to help the user better design their
+                # custom SDF
+                custom_sdf = "return max(abs(coord.x), abs(coord.y)) - size * 0.5;"
+            self["custom_sdf"] = custom_sdf
 
         bindings = {i: b for i, b in enumerate(bindings)}
         self.define_bindings(0, bindings)
@@ -160,6 +173,8 @@ class PointsShader(BaseShader):
                     render_mask |= RenderMask.all
                 else:
                     render_mask |= RenderMask.opaque
+            elif self["color_mode"] == "debug":
+                render_mask |= RenderMask.all
             else:
                 raise RuntimeError(f"Unexpected color mode {self['color_mode']}")
             # Need transparency for aa

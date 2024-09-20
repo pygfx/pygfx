@@ -6,6 +6,7 @@ Lines with different thicknesses
 * On the left are lines with increasing thickness, without aa, they don't get thinner than one physical pixel.
 * On the right are lines with increasing thickness, with aa, really thin lines diminish with alpha.
 * Note that due to the set pixel_ratio, a thickness of 2 is 1 physical pixel.
+* When dashes are present, they will eventually diminish as the line thickness reduces.
 """
 
 # sphinx_gallery_pygfx_docs = 'screenshot'
@@ -31,19 +32,24 @@ line0 = gfx.Line(
 )
 
 scene = gfx.Scene()
+scene.add(gfx.Background.from_color("black"))
 scene.add(line0)
 
-for aa in [False, True]:
+for x_offset, mode in enumerate(["noaa", "aa", "dashed"]):
     y = 4
     for thickness in [0.125, 0.25, 0.5, 1.0, 2.0, 4.0, 8.0]:
         line = gfx.Line(
             geometry,
-            gfx.LineMaterial(thickness=thickness, color=(1.0, 1.0, 1.0), aa=aa),
+            gfx.LineMaterial(thickness=thickness, color=(1.0, 1.0, 1.0)),
         )
         y += 2
         line.local.y = -y
-        line.local.x = [-7, 7][aa]
+        line.local.x = x_offset * 14
         scene.add(line)
+        if mode == "noaa":
+            line.material.aa = False
+        elif mode == "dashed":
+            line.material.dash_pattern = [2, 8]
 
 camera = gfx.OrthographicCamera()
 camera.show_object(scene, scale=0.7)

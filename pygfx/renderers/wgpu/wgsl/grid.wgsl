@@ -33,12 +33,10 @@ fn vs_main(in: VertexInput) -> Varyings {
         // Get point on the plane closest to the origin (handy for debugging)
         //let pos_origin = (d / length(abc)) * abc;
 
-        // Get distance between camera and the plane
+        // Get position of camera projected on the plane
         let cam_pos = vec3<f32>(u_stdinfo.cam_transform_inv[3].xyz);
         let cam_k = (dot(abc, cam_pos) + d) / length(abc);
         let cam_pos_on_grid = cam_pos - cam_k * abc;
-        let distance_cam_to_grid = abs(cam_k); // == distance(cam_pos, cam_pos_on_grid);
-        // let distance_cam_to_grid = abs(p0.y - cam_pos.y);  // debug: only works for xz plane.
 
         // The closer the camera is to the plane, the less space you need to
         // make the horizon look really far away. Scaling too hard will
@@ -64,9 +62,28 @@ fn vs_main(in: VertexInput) -> Varyings {
         //  | / /           \\|
         //  x-----------------x
 
+        // Get scale multiplier for near quad.
+        var near_multiplier = vec2<f32>(1.0);
+        if is_orthographic() {
+            // With an orthographic camera, we use the scale factor (camera
+            // width/height), because it best represent the "scene size". The scale
+            // factors for x and y will often be the same, but not necessarily, e.g.
+            // maintain_aspect=False. We make the assumption that when the scale factors
+            // are not the same, we're dealing with a 2D scene, and the camera is
+            // looking straight at the grid, without rotation. This seems like a pretty
+            // safe assumption.
+            near_multiplier = vec2<f32>(
+                1.0 / u_stdinfo.projection_transform[0][0],
+                1.0 / u_stdinfo.projection_transform[1][1]
+            );
+        } else {
+            // For perspective cameras we use the distance to the plane and assume an aspect ratio of 1.
+            let distance_cam_to_grid = abs(cam_k); // == distance(cam_pos, cam_pos_on_grid);
+            near_multiplier = vec2<f32>(5.0 * distance_cam_to_grid);
+        }
 
-        let near_multiplier = 5.0 * distance_cam_to_grid;
-        let far_multiplier = 1000.0 * distance_cam_to_grid;
+        // The far quad is simply 200x further
+        let far_multiplier = 200.0 * near_multiplier;
 
         let far_scale = 2.0;
         var grid_coords = array<vec2<f32>,8>(
@@ -90,7 +107,8 @@ fn vs_main(in: VertexInput) -> Varyings {
         // Select the grid coord for this vertex. We express it with coord1 and
         // coord2, to avoid confusion with xyz world coordinates. By default the
         // plane is in the xz plane (normal to the y-axis).
-        let vertex_grid_coord: vec2<f32> = grid_coords[coord_indices[i32(in.index)]];
+        let index = i32(in.index);
+        let vertex_grid_coord: vec2<f32> = grid_coords[coord_indices[index]];
         let coord1 = vertex_grid_coord.x;
         let coord2 = vertex_grid_coord.y;
 

@@ -125,6 +125,7 @@ venv.bak/
 .mypy_cache/
 
 glTF-Sample-Models
+glTF-Sample-Assets
 reactive_rendering_state.pkl
 
 # jetbrains idea

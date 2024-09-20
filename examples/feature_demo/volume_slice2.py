@@ -42,7 +42,7 @@ def handle_event(event):
     index = index + event.dy / 90
     index = max(0, min(nslices - 1, index))
     geometry.texcoords.data[:, 2] = index / nslices
-    geometry.texcoords.update_range(0, geometry.texcoords.nitems)
+    geometry.texcoords.update_full()
     canvas.request_draw()
 
 

@@ -19,6 +19,7 @@ colormaps, the strength of specular reflections, etc.
     MeshAbstractMaterial
     MeshBasicMaterial
     MeshPhongMaterial
+    MeshToonMaterial
     MeshNormalMaterial
     MeshNormalLinesMaterial
     MeshSliceMaterial
@@ -39,9 +40,11 @@ colormaps, the strength of specular reflections, etc.
     ImageBasicMaterial
 
     VolumeBasicMaterial
+    VolumeIsoMaterial
     VolumeSliceMaterial
     VolumeRayMaterial
     VolumeMipMaterial
+    VolumeMinipMaterial
 
     BackgroundMaterial
     BackgroundImageMaterial
@@ -61,6 +64,7 @@ from ._mesh import (
     MeshAbstractMaterial,
     MeshBasicMaterial,
     MeshPhongMaterial,
+    MeshToonMaterial,
     MeshNormalMaterial,
     MeshNormalLinesMaterial,
     MeshSliceMaterial,
@@ -83,9 +87,11 @@ from ._line import (
 from ._image import ImageBasicMaterial
 from ._volume import (
     VolumeBasicMaterial,
+    VolumeIsoMaterial,
     VolumeSliceMaterial,
     VolumeRayMaterial,
     VolumeMipMaterial,
+    VolumeMinipMaterial,
 )
 from ._background import (
     BackgroundMaterial,

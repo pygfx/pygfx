@@ -1,2 +1,2 @@
-Examples that use pygfx
+Examples that use Pygfx
 =======================

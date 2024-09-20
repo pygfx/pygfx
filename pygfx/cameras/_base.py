@@ -40,9 +40,7 @@ class Camera(WorldObject):
         return {}
 
     def set_state(self, state):
-        """Set the state of the camera from a dict obtained with ``get_state``
-        from a camera of the same type.
-        """
+        """Set the state of the camera from a dict."""
         pass
 
     @property
@@ -59,7 +57,7 @@ class NDCCamera(Camera):
 
     Its projection matrix is the identity transform (but its position and rotation can still be set).
 
-    In the NDC coordinate system of WGPU (and pygfx), x and y are in
+    In the NDC coordinate system of wgpu (and Pygfx), x and y are in
     the range -1..1, z is in the range 0..1, and (-1, -1, 0) represents
     the bottom left corner.
     """

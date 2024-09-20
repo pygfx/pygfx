@@ -296,16 +296,16 @@ class RenderFlusher:
             {
                 "format": self._target_format,
                 "blend": {
-                    "alpha": (
-                        wgpu.BlendFactor.src_alpha,
-                        wgpu.BlendFactor.one_minus_src_alpha,
-                        wgpu.BlendOperation.add,
-                    ),
-                    "color": (
-                        wgpu.BlendFactor.src_alpha,
-                        wgpu.BlendFactor.one_minus_src_alpha,
-                        wgpu.BlendOperation.add,
-                    ),
+                    "alpha": {
+                        "operation": wgpu.BlendOperation.add,
+                        "src_factor": wgpu.BlendFactor.src_alpha,
+                        "dst_factor": wgpu.BlendFactor.one_minus_src_alpha,
+                    },
+                    "color": {
+                        "operation": wgpu.BlendOperation.add,
+                        "src_factor": wgpu.BlendFactor.src_alpha,
+                        "dst_factor": wgpu.BlendFactor.one_minus_src_alpha,
+                    },
                 },
             },
         ]

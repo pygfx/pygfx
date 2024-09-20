@@ -5,6 +5,9 @@
 $$ if colormap_dim
     {$ include 'pygfx.colormap.wgsl' $}
 $$ endif
+$$ if mode == 'iso'
+    {$ include 'pygfx.light_phong_simple.wgsl' $}
+$$ endif
 {$ include 'pygfx.volume_common.wgsl' $}
 
 
@@ -104,7 +107,7 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     let step_coord = ((back_pos - front_pos) / sizef) / f32(nsteps);
 
     // Render
-    let render_out = render_mode_{{ mode }}(sizef, nsteps, start_coord, step_coord);
+    let render_out = raycast(sizef, nsteps, start_coord, step_coord);
 
     // Get world and ndc pos from the calculatex texture coordinate
     let data_pos = render_out.coord * sizef - vec3<f32>(0.5, 0.5, 0.5);
@@ -141,70 +144,242 @@ struct RenderOutput {
     coord: vec3<f32>,
 };
 
+$$ if mode == 'mip'
+    // raycasting function for MIP rendering.
+    fn raycast(sizef: vec3<f32>, nsteps: i32, start_coord: vec3<f32>, step_coord: vec3<f32>) -> RenderOutput {
+        // Ideas for improvement:
+        // * We could textureLoad() the 27 voxels surrounding the initial location
+        //   and sample from that in the refinement step. Less texture loads and we
+        //   could do linear interpolation also for formats like i16.
+        // * Create helper textures at a lower resolution (e.g. min, max) so we can
+        //   skip along the ray much faster. By taking smaller steps where needed,
+        //   it will be both faster and more accurate.
 
-fn render_mode_mip(sizef: vec3<f32>, nsteps: i32, start_coord: vec3<f32>, step_coord: vec3<f32>) -> RenderOutput {
-    // Ideas for improvement:
-    // * We could textureLoad() the 27 voxels surrounding the initial location
-    //   and sample from that in the refinement step. Less texture loads and we
-    //   could do linear interpolation also for formats like i16.
-    // * Create helper textures at a lower resolution (e.g. min, max) so we can
-    //   skip along the ray much faster. By taking smaller steps where needed,
-    //   it will be both faster and more accurate.
+        let nstepsf = f32(nsteps);
 
-    let nstepsf = f32(nsteps);
-
-    // Primary loop. The purpose is to find the approximate location where
-    // the maximum is.
-    var the_ref = -999999.0;
-    var the_coord = start_coord;
-    var the_value : vec4<f32>;
-    for (var iter=0.0; iter<nstepsf; iter=iter+1.0) {
-        let coord = start_coord + iter * step_coord;
-        let value = sample_vol(coord, sizef);
-        let reff = value.r;
-        if (reff > the_ref) {
-            the_ref = reff;
-            the_coord = coord;
-            the_value = value;
+        // Primary loop. The purpose is to find the approximate location where
+        // the maximum is.
+        var the_ref = -999999.0;
+        var the_coord = start_coord;
+        var the_value : vec4<f32>;
+        for (var iter=0.0; iter<nstepsf; iter=iter+1.0) {
+            let coord = start_coord + iter * step_coord;
+            let value = sample_vol(coord, sizef);
+            let reff = value.r;
+            if (reff > the_ref) {
+                the_ref = reff;
+                the_coord = coord;
+                the_value = value;
+            }
         }
+
+        // Secondary loop to close in on a more accurate position using
+        // a divide-by-two approach.
+        var substep_coord = step_coord;
+        for (var iter2=0; iter2<4; iter2=iter2+1) {
+            substep_coord = substep_coord * 0.5;
+            let coord1 = the_coord - substep_coord;
+            let coord2 = the_coord + substep_coord;
+            let value1 = sample_vol(coord1, sizef);
+            let value2 = sample_vol(coord2, sizef);
+            let ref1 = value1.r;
+            let ref2 = value2.r;
+            if (ref1 >= the_ref) {  // deliberate larger-equal
+                the_ref = ref1;
+                the_coord = coord1;
+                the_value = value1;
+            } else if (ref2 > the_ref) {
+                the_ref = ref2;
+                the_coord = coord2;
+                the_value = value2;
+            }
+        }
+
+        // Colormapping
+        let color = sampled_value_to_color(the_value);
+        // Move to physical colorspace (linear photon count) so we can do math
+        $$ if colorspace == 'srgb'
+            let physical_color = srgb2physical(color.rgb);
+        $$ else
+            let physical_color = color.rgb;
+        $$ endif
+        let opacity = color.a * u_material.opacity;
+        let out_color = vec4<f32>(physical_color, opacity);
+
+        // Produce result
+        var out: RenderOutput;
+        out.color = out_color;
+        out.coord = the_coord;
+        return out;
     }
 
-    // Secondary loop to close in on a more accurate position using
-    // a divide-by-two approach.
-    var substep_coord = step_coord;
-    for (var iter2=0; iter2<4; iter2=iter2+1) {
-        substep_coord = substep_coord * 0.5;
-        let coord1 = the_coord - substep_coord;
-        let coord2 = the_coord + substep_coord;
-        let value1 = sample_vol(coord1, sizef);
-        let value2 = sample_vol(coord2, sizef);
-        let ref1 = value1.r;
-        let ref2 = value2.r;
-        if (ref1 >= the_ref) {  // deliberate larger-equal
-            the_ref = ref1;
-            the_coord = coord1;
-            the_value = value1;
-        } else if (ref2 > the_ref) {
-            the_ref = ref2;
-            the_coord = coord2;
-            the_value = value2;
+$$ elif mode == 'minip'
+    // raycasting function for MINimum Intensity Projection rendering.
+    fn raycast(sizef: vec3<f32>, nsteps: i32, start_coord: vec3<f32>, step_coord: vec3<f32>) -> RenderOutput {
+        // Ideas for improvement:
+        // * We could textureLoad() the 27 voxels surrounding the initial location
+        //   and sample from that in the refinement step. Less texture loads and we
+        //   could do linear interpolation also for formats like i16.
+        // * Create helper textures at a lower resolution (e.g. min, max) so we can
+        //   skip along the ray much faster. By taking smaller steps where needed,
+        //   it will be both faster and more accurate.
+
+        let nstepsf = f32(nsteps);
+
+        // Primary loop. The purpose is to find the approximate location where
+        // the maximum is.
+        var the_ref = 999999.0;
+        var the_coord = start_coord;
+        var the_value : vec4<f32>;
+        for (var iter=0.0; iter<nstepsf; iter=iter+1.0) {
+            let coord = start_coord + iter * step_coord;
+            let value = sample_vol(coord, sizef);
+            let reff = value.r;
+            if (reff < the_ref) {
+                the_ref = reff;
+                the_coord = coord;
+                the_value = value;
+            }
         }
+
+        // Secondary loop to close in on a more accurate position using
+        // a divide-by-two approach.
+        var substep_coord = step_coord;
+        for (var iter2=0; iter2<4; iter2=iter2+1) {
+            substep_coord = substep_coord * 0.5;
+            let coord1 = the_coord - substep_coord;
+            let coord2 = the_coord + substep_coord;
+            let value1 = sample_vol(coord1, sizef);
+            let value2 = sample_vol(coord2, sizef);
+            let ref1 = value1.r;
+            let ref2 = value2.r;
+            if (ref1 <= the_ref) {  // deliberate less-equal
+                the_ref = ref1;
+                the_coord = coord1;
+                the_value = value1;
+            } else if (ref2 < the_ref) {
+                the_ref = ref2;
+                the_coord = coord2;
+                the_value = value2;
+            }
+        }
+
+        // Colormapping
+        let color = sampled_value_to_color(the_value);
+        // Move to physical colorspace (linear photon count) so we can do math
+        $$ if colorspace == 'srgb'
+            let physical_color = srgb2physical(color.rgb);
+        $$ else
+            let physical_color = color.rgb;
+        $$ endif
+        let opacity = color.a * u_material.opacity;
+        let out_color = vec4<f32>(physical_color, opacity);
+
+        // Produce result
+        var out: RenderOutput;
+        out.color = out_color;
+        out.coord = the_coord;
+        return out;
     }
 
-    // Colormapping
-    let color = sampled_value_to_color(the_value);
-    // Move to physical colorspace (linear photon count) so we can do math
-    $$ if colorspace == 'srgb'
-        let physical_color = srgb2physical(color.rgb);
-    $$ else
-        let physical_color = color.rgb;
-    $$ endif
-    let opacity = color.a * u_material.opacity;
-    let out_color = vec4<f32>(physical_color, opacity);
+$$ elif mode == 'iso'
+    fn raycast(sizef: vec3<f32>, nsteps: i32, start_coord: vec3<f32>, step_coord: vec3<f32>) -> RenderOutput {
+        // Ideas for improvement:
+        // * We could use the scene lighting.
+        // * Create helper textures at a lower resolution (e.g. min, max) so we can
+        //   skip along the ray much faster. By taking smaller steps where needed,
+        //   it will be both faster and more accurate.
 
-    // Produce result
-    var out: RenderOutput;
-    out.color = out_color;
-    out.coord = the_coord;
-    return out;
-}
+        let nstepsf = f32(nsteps);
+
+        // Primary loop. The purpose is to find the approximate location where
+        // the surface is.
+        let iso_threshold = u_material.threshold;
+        let actual_step_coord = u_material.step_size * step_coord;
+        var surface_found = false;
+        var the_coord = start_coord;
+        var the_value : vec4<f32>;
+        for (var iter=0.0; iter<nstepsf; iter=iter+1) {
+            let coord = start_coord + iter * actual_step_coord;
+            let value = sample_vol(coord, sizef);
+            let reff = value.r;
+            if (reff > iso_threshold) {
+                the_coord = coord;
+                the_value = value;
+                surface_found = true;
+                break;
+            }
+        }
+
+        if surface_found {
+            // take smaller steps back to make sure the surface was found
+            let substep_coord = -1 * u_material.substep_size * step_coord;
+            let substep_start_coord = the_coord;
+            let max_iter = 1 / u_material.substep_size;
+            for (var iter=1.0; iter<max_iter; iter=iter+1) {
+                let coord = substep_start_coord + iter * substep_coord;
+                let value = sample_vol(coord, sizef);
+                let reff = value.r;
+
+                if (reff < iso_threshold){
+                    // stop if the coord is now outside the surface
+                    break;
+                }
+
+                // update the coord and values
+                the_coord = coord;
+                the_value = value;
+
+            }
+
+        }
+        else {
+            // if no surface found, discard the fragment
+            discard;
+        }
+
+
+        // Colormapping
+        let color = sampled_value_to_color(the_value);
+        // Move to physical colorspace (linear photon count) so we can do math
+        $$ if colorspace == 'srgb'
+            let physical_color = srgb2physical(color.rgb);
+        $$ else
+            let physical_color = color.rgb;
+        $$ endif
+
+        // Compute the normal
+        var normal : vec3<f32>;
+        var positive_value : vec4<f32>;
+        var negative_value : vec4<f32>;
+        let gradient_coord = 1.5 * step_coord;
+
+        negative_value = sample_vol(the_coord + vec3<f32>(-gradient_coord[0],0.0,0.0), sizef);
+        positive_value = sample_vol(the_coord + vec3<f32>(gradient_coord[0],0.0,0.0), sizef);
+        normal[0] = positive_value.r - negative_value.r;
+
+        negative_value = sample_vol(the_coord + vec3(0.0,-gradient_coord[1],0.0), sizef);
+        positive_value = sample_vol(the_coord + vec3(0.0,gradient_coord[1],0.0), sizef);
+        normal[1] = positive_value.r - negative_value.r;
+
+        negative_value = sample_vol(the_coord + vec3(0.0,0.0,-gradient_coord[2]), sizef);
+        positive_value = sample_vol(the_coord + vec3(0.0,0.0,gradient_coord[2]), sizef);
+        normal[2] = positive_value.r - negative_value.r;
+        normal = normalize(normal);
+
+        // Do the lighting
+        let view_direction = normalize(step_coord);
+        let is_front = dot(normal, view_direction) > 0.0;
+        let lighted_color = lighting_phong(is_front, normal, view_direction, physical_color);
+
+        let opacity = color.a * u_material.opacity;
+        let out_color = vec4<f32>(lighted_color, opacity);
+
+        // Produce result
+        var out: RenderOutput;
+        out.color = out_color;
+        out.coord = the_coord;
+        return out;
+    }
+
+$$ endif

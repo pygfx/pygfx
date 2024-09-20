@@ -184,7 +184,9 @@ class LineShader(BaseShader):
                 "For rendering (thick) lines, the geometry.positions must be Nx3."
             )
 
-        uniform_buffer = Buffer(array_from_shadertype(renderer_uniform_type))
+        uniform_buffer = Buffer(
+            array_from_shadertype(renderer_uniform_type), force_contiguous=True
+        )
         uniform_buffer.data["last_i"] = positions1.nitems - 1
 
         rbuffer = "buffer/read_only_storage"
@@ -200,8 +202,11 @@ class LineShader(BaseShader):
         if self["color_mode"] in ("vertex", "face"):
             bindings.append(Binding("s_colors", rbuffer, geometry.colors, "VERTEX"))
         elif self["color_mode"] in ("vertex_map", "face_map"):
+            bindings.append(
+                Binding("s_texcoords", rbuffer, geometry.texcoords, "VERTEX")
+            )
             bindings.extend(
-                self.define_texcoords_and_colormap(
+                self.define_colormap(
                     material.map, geometry.texcoords, material.map_interpolation
                 )
             )
@@ -331,8 +336,11 @@ class ThinLineShader(LineShader):
         if self["color_mode"] == "vertex":
             bindings.append(Binding("s_colors", rbuffer, geometry.colors, "VERTEX"))
         elif self["color_mode"] == "vertex_map":
+            bindings.append(
+                Binding("s_texcoords", rbuffer, geometry.texcoords, "VERTEX")
+            )
             bindings.extend(
-                self.define_texcoords_and_colormap(
+                self.define_colormap(
                     material.map, geometry.texcoords, material.map_interpolation
                 )
             )

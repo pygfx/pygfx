@@ -101,17 +101,31 @@ fn vs_main(in: VertexInput) -> Varyings {
         $$ endif
     $$ endif
     let min_size_for_pixel = 1.415 / l2p;  // For minimum pixel coverage. Use sqrt(2) to take diagonals into account.
-    $$ if draw_line_on_edge
+    $$ if color_mode == 'debug' or draw_line_on_edge
         let edge_width = u_material.edge_width / size_ratio;  // expressed in logical screen pixels
     $$ else
         let edge_width = 0.0;
     $$ endif
     $$ if aa
         let size:f32 = size_ref / size_ratio;  // Logical pixels
+        $$ if edge_mode == 'outer'
+        let half_size = edge_width + 0.5 * max(min_size_for_pixel, size + 1.0 / l2p);  // add 0.5 physical pixel on each side.
+        $$ elif edge_mode == 'inner'
+        let half_size = 0.5 * max(min_size_for_pixel, size + 1.0 / l2p);  // add 0.5 physical pixel on each side.
+        $$ else
+        // elif edge_mode == 'centered'
         let half_size = 0.5 * edge_width + 0.5 * max(min_size_for_pixel, size + 1.0 / l2p);  // add 0.5 physical pixel on each side.
+        $$ endif
     $$ else
         let size:f32 = max(min_size_for_pixel, size_ref / size_ratio);  // non-aa don't get smaller.
+        $$ if edge_mode == 'outer'
+        let half_size = edge_width + 0.5 * size;
+        $$ elif edge_mode == 'inner'
+        let half_size = 0.5 * size;
+        $$ else
+        // elif edge_mode == 'centered'
         let half_size = 0.5 * edge_width + 0.5 * size;
+        $$ endif
     $$ endif
 
     // Relative coords to create the (frontfacing) quad
@@ -202,6 +216,8 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     var face_alpha: f32 = 1.0;
     $$ if is_sprite
         // sprites have their alpha defined by the map and opacity only
+    $$ elif color_mode == 'debug'
+        face_alpha = 1.0;
     $$ elif shape == 'gaussian'
         let d = length(pointcoord_p);
         let sigma_p = half_size_p / 3.0;
@@ -225,6 +241,13 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
         let sampled_face_color = varyings.color;
     $$ elif color_mode == 'map' or color_mode == 'vertex_map'
         let sampled_face_color = sample_colormap(varyings.texcoord);
+    $$ elif color_mode == 'debug'
+        let d = dist_to_face_edge_p / half_size_p * 2;
+        var col : vec3<f32> = vec3<f32>(1.0) - sign(d)*vec3<f32>(0.1,0.4,0.7);
+        col *= 1.0 - exp(-2.0 * abs(d));
+        col *= 0.8 + 0.2 * cos(120.0 * d);
+        col = mix(col, vec3<f32>(1.0), 1.0 - smoothstep(0.0, 0.02, abs(d)));
+        let sampled_face_color = vec4<f32>(col, 1.);
     $$ else
         let sampled_face_color = u_material.color;
     $$ endif
@@ -255,7 +278,7 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     var the_color = face_color;
 
     // If we have an edge, determine edge_color, and mix it with the face_color
-    $$ if draw_line_on_edge
+    $$ if draw_line_on_edge and not color_mode == 'debug'
         // In MPL the edge is centered on what would normally be the edge, i.e.
         // half the edge is over the face, half extends beyond it. Plotly does
         // the same. The face and edge are drawn as if they were separate
@@ -264,7 +287,14 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
 
         // Calculate "SDF"
         let half_edge_width_p: f32 = 0.5 * varyings.edge_width_p;
+        $$ if edge_mode == 'outer'
+        let dist_to_line_center_p: f32 = abs(dist_to_face_edge_p - half_edge_width_p);
+        $$ elif edge_mode == 'inner'
+        let dist_to_line_center_p: f32 = abs(dist_to_face_edge_p + half_edge_width_p);
+        $$ else
+        // elif edge_mode == 'centered'
         let dist_to_line_center_p: f32 = abs(dist_to_face_edge_p);
+        $$ endif
         let dist_to_line_edge_p: f32 = dist_to_line_center_p - half_edge_width_p;
         // Calculate edge_alpha based on marker shape end edge thickness
         var edge_alpha = 0.0;
@@ -293,7 +323,11 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
 
     // Determine final color and opacity
     if (the_color.a <= 0.0) { discard; }
-    let out_color = vec4<f32>(srgb2physical(the_color.rgb), the_color.a * u_material.opacity);
+    $$ if color_mode == 'debug'
+        let out_color = vec4<f32>(srgb2physical(the_color.rgb), the_color.a);
+    $$ else
+        let out_color = vec4<f32>(srgb2physical(the_color.rgb), the_color.a * u_material.opacity);
+    $$ endif
 
     // Wrap up
     apply_clipping_planes(varyings.world_pos);
@@ -313,7 +347,7 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
 }
 
 
-fn get_signed_distance_to_shape_edge(coord_in: vec2<f32>, size: f32) -> f32 {
+fn get_signed_distance_to_shape_edge(coord: vec2<f32>, size: f32) -> f32 {
     // Thank you Nicolas!
     //
     // The paper "Antialiased 2D Grid, Marker, and Arrow Shaders", by Nicolas
@@ -325,16 +359,9 @@ fn get_signed_distance_to_shape_edge(coord_in: vec2<f32>, size: f32) -> f32 {
     // know how hard it is to do it with this technique. Other possible
     // variations: a thinner variant of plusses and crosses.
 
-    let m_pi = 3.141592653589793;
-    let m_sqrt_2 = 1.4142135623730951;
-    let half_size = size * 0.5;
-
-    // The coords below assume OpenGL coords, but y is flipped, so we flip the coords.
-    var coord = vec2<f32>(coord_in.x, -coord_in.y);
-
     $$ if shape == 'circle' or shape == 'gaussian'
         // A simple disk
-        return length(coord) - half_size;
+        return length(coord) - size * 0.5;
 
     $$ elif shape == 'ring'
         // A ring is the difference of two discs
@@ -346,14 +373,14 @@ fn get_signed_distance_to_shape_edge(coord_in: vec2<f32>, size: f32) -> f32 {
         // A square is the intersection of four half-planes, but we can use the symmetry of the object (abs) to shorten the code.
         // Chosing the full square means that it is/appears larger than the circle and the diamond.
         let square_sdf = max( abs(coord.x), abs(coord.y) );
-        return square_sdf - half_size;  // Square occupies full quad (consistent with MPL)
-        // return square_sdf - size / (2.0*m_sqrt_2);  // Square fits inside circle (Rougier's implementation)
+        return square_sdf - size * 0.5;  // Square occupies full quad (consistent with MPL)
+        // return square_sdf - size / (2.0*SQRT_2);  // Square fits inside circle (Rougier's implementation)
 
     $$ elif shape == 'diamond'
         // A diamond is the rotation of a square
-        let x = 0.5 * m_sqrt_2 * (coord.x - coord.y);
-        let y = 0.5 * m_sqrt_2 * (coord.x + coord.y);
-        return max( abs(x), abs(y) ) - size / (2.0 * m_sqrt_2);
+        let x = 0.5 * SQRT_2 * (coord.x + coord.y);
+        let y = 0.5 * SQRT_2 * (coord.x - coord.y);
+        return max( abs(x), abs(y) ) - size / (2.0 * SQRT_2);
 
     $$ elif shape == 'plus'
         // A plus is the intersection of eight half-planes that can be reduced to four using symmetries.
@@ -366,8 +393,8 @@ fn get_signed_distance_to_shape_edge(coord_in: vec2<f32>, size: f32) -> f32 {
 
     $$ elif shape == 'cross'
         // A cross is a rotated plus
-        let x = 0.5 * m_sqrt_2 * (coord.x - coord.y);
-        let y = 0.5 * m_sqrt_2 * (coord.x + coord.y);
+        let x = 0.5 * SQRT_2 * (coord.x + coord.y);
+        let y = 0.5 * SQRT_2 * (coord.x - coord.y);
         let r1 = max(abs(x - size/3.0), abs(x + size/3.0));
         let r2 = max(abs(y - size/3.0), abs(y + size/3.0));
         let r3 = max(abs(x), abs(y));
@@ -377,8 +404,8 @@ fn get_signed_distance_to_shape_edge(coord_in: vec2<f32>, size: f32) -> f32 {
         // An asterisk is the union of a cross and a plus.
         let x1 = coord.x;
         let y1 = coord.y;
-        let x2 = 0.5 * m_sqrt_2 * (coord.x - coord.y);
-        let y2 = 0.5 * m_sqrt_2 * (coord.x + coord.y);
+        let x2 = 0.5 * SQRT_2 * (coord.x + coord.y);
+        let y2 = 0.5 * SQRT_2 * (coord.x - coord.y);
         let r1 = max(abs(x2)- size/2.0, abs(y2)- size/10.0);
         let r2 = max(abs(y2)- size/2.0, abs(x2)- size/10.0);
         let r3 = max(abs(x1)- size/2.0, abs(y1)- size/10.0);
@@ -387,58 +414,60 @@ fn get_signed_distance_to_shape_edge(coord_in: vec2<f32>, size: f32) -> f32 {
 
     $$ elif shape.startswith('triangle')
         // A triangle is the intersection of three half-planes
+        // y-offset to center the shape by 0.25*size
         $$ if shape.endswith('down')
-            coord = vec2<f32>(coord.x, -coord.y);
+            let coord_triangle = vec2<f32>(coord.x, coord.y - 0.25*size);
         $$ elif shape.endswith('left')
-            coord = vec2<f32>(coord.y, coord.x);
+            let coord_triangle = vec2<f32>(-coord.y, coord.x - 0.25*size);
         $$ elif shape.endswith('right')
-            coord = vec2<f32>(coord.y, -coord.x);
+            let coord_triangle = vec2<f32>(-coord.y, -coord.x - 0.25*size);
+        $$ elif shape.endswith('up')
+            let coord_triangle = vec2<f32>(coord.x, -coord.y - 0.25*size);
         $$ endif
-        coord = vec2<f32>(coord.x, coord.y - 0.25*size);  // y-offset to center the shape
-        let x = 0.5 * m_sqrt_2 * (coord.x - coord.y);
-        let y = 0.5 * m_sqrt_2 * (coord.x + coord.y);
-        let r1 = max(abs(x), abs(y)) - size/(2*m_sqrt_2);
-        let r2 = coord.y;
+        let x = 0.5 * SQRT_2 * (coord_triangle.x - coord_triangle.y);
+        let y = 0.5 * SQRT_2 * (coord_triangle.x + coord_triangle.y);
+        let r1 = max(abs(x), abs(y)) - size/(2*SQRT_2);
+        let r2 = coord_triangle.y;
         return max(r1, r2);
 
     $$ elif shape == 'heart'
         // A heart is the union of a diamond and two discs.
-        let x = 0.5 * m_sqrt_2 * (coord.x - coord.y);
-        let y = 0.5 * m_sqrt_2 * (coord.x + coord.y);
+        let x = 0.5 * SQRT_2 * (coord.x + coord.y);
+        let y = 0.5 * SQRT_2 * (coord.x - coord.y);
         let r1 = max(abs(x),abs(y))-size/3.5;
-        let r2 = length(coord - m_sqrt_2/2.0*vec2<f32>( 1.0,-1.0)*size/3.5) - size/3.5;
-        let r3 = length(coord - m_sqrt_2/2.0*vec2<f32>(-1.0,-1.0)*size/3.5) - size/3.5;
+        let r2 = length(coord - SQRT_2/2.0*vec2<f32>( 1.0,1.0)*size/3.5) - size/3.5;
+        let r3 = length(coord - SQRT_2/2.0*vec2<f32>(-1.0,1.0)*size/3.5) - size/3.5;
         return min(min(r1,r2),r3);
 
     $$ elif shape == 'spade'
         // A spade is an inverted heart and a tail is made of two discs and two half-planes.
         // Reversed heart (diamond + 2 circles)
         let s = size * 0.85 / 3.5;
-        let x = m_sqrt_2/2.0 * (coord.x + coord.y) + 0.4*s;
-        let y = m_sqrt_2/2.0 * (coord.x - coord.y) - 0.4*s;
+        let x = SQRT_2/2.0 * (coord.x - coord.y) + 0.4*s;
+        let y = SQRT_2/2.0 * (coord.x + coord.y) - 0.4*s;
         let r1 = max(abs(x),abs(y)) - s;
-        let r2 = length(coord - m_sqrt_2/2.0*vec2<f32>( 1.0,0.2)*s) - s;
-        let r3 = length(coord - m_sqrt_2/2.0*vec2<f32>(-1.0,0.2)*s) - s;
+        let r2 = length(coord + SQRT_2/2.0*vec2<f32>(-1.0,0.2)*s) - s;
+        let r3 = length(coord + SQRT_2/2.0*vec2<f32>( 1.0,0.2)*s) - s;
         let r4 = min(min(r1,r2),r3);
         // Root (2 circles and 2 half-planes)
-        let c1 = vec2<f32>( 0.65, 0.125);
-        let c2 = vec2<f32>(-0.65, 0.125);
-        let r5 = length(coord-c1*size) - size/1.6;
-        let r6 = length(coord-c2*size) - size/1.6;
-        let r7 = coord.y - 0.5*size;
-        let r8 = 0.1*size - coord.y;
+        let c1 = vec2<f32>(-0.65, 0.125);
+        let c2 = vec2<f32>( 0.65, 0.125);
+        let r5 = length(coord+c1*size) - size/1.6;
+        let r6 = length(coord+c2*size) - size/1.6;
+        let r7 = -coord.y - 0.5*size;
+        let r8 = 0.1*size + coord.y;
         let r9 = max(-min(r5,r6), max(r7,r8));
         return min(r4,r9);
 
     $$ elif shape == 'club'
         // A club is a clover and a tail.
         // clover (3 discs)
-        let t1 = -m_pi/2.0;
-        let c1 = 0.225*vec2<f32>(cos(t1),sin(t1));
-        let t2 = t1+2*m_pi/3.0;
-        let c2 = 0.225*vec2<f32>(cos(t2),sin(t2));
-        let t3 = t2+2*m_pi/3.0;
-        let c3 = 0.225*vec2<f32>(cos(t3),sin(t3));
+        let t1 = -PI/2.0;
+        let c1 = 0.225*vec2<f32>(cos(t1),-sin(t1));
+        let t2 = t1+2*PI/3.0;
+        let c2 = 0.225*vec2<f32>(cos(t2),-sin(t2));
+        let t3 = t2+2*PI/3.0;
+        let c3 = 0.225*vec2<f32>(cos(t3),-sin(t3));
         let r1 = length( coord - c1*size) - size/4.25;
         let r2 = length( coord - c2*size) - size/4.25;
         let r3 = length( coord - c3*size) - size/4.25;
@@ -446,23 +475,44 @@ fn get_signed_distance_to_shape_edge(coord_in: vec2<f32>, size: f32) -> f32 {
         // Root (2 circles and 2 half-planes)
         let c4 = vec2<f32>( 0.65, 0.125);
         let c5 = vec2<f32>(-0.65, 0.125);
-        let r5 = length(coord-c4*size) - size/1.6;
-        let r6 = length(coord-c5*size) - size/1.6;
-        let r7 = coord.y - 0.5*size;
-        let r8 = 0.2*size - coord.y;
+        let r5 = length(coord+c4*size) - size/1.6;
+        let r6 = length(coord+c5*size) - size/1.6;
+        let r7 = -coord.y - 0.5*size;
+        let r8 = 0.2*size + coord.y;
         let r9 = max(-min(r5,r6), max(r7,r8));
         return min(r4,r9);
 
     $$ elif shape == 'pin'
-        // A pin is the difference between the union of three discs and a disc.
-        let c1 = vec2<f32>(0.0,-0.15)*size;
-        let r1 = length(coord-c1)-size/2.675;
-        let c2 = vec2<f32>(1.49,-0.80)*size;
-        let r2 = length(coord-c2) - 2.*size;
-        let c3 = vec2<f32>(-1.49,-0.80)*size;
-        let r3 = length(coord-c3) - 2.*size;
-        let r4 = length(coord-c1)-size/5;
-        return max( min(r1,max(max(r2,r3),-coord.y)), -r4);
+        // Simplified formula for the usecase of a pin taken from
+        // https://www.shadertoy.com/view/4lcBWn
+        var p = - coord / size;
+        p.x = abs(p.x);
+
+        let ra = 0.33;
+        let h = 2 * 0.33;
+        let b = 0.5;
+
+        let rin = 0.33 / 2;
+
+        p.y = p.y + ra / 2;
+
+        let c = vec2(sqrt(1.0-b*b), b);
+        let k = dot(c, vec2(p.y, -p.x));
+
+        // Below the pin all toegether
+        if(k > c.x * h) {return size * length(p - vec2(0., h));}
+
+        // the opening circle of the pin
+        let q = - (length(p) - rin);
+        let m = dot(c, p);
+        let n = dot(p, p);
+
+        // the top of the circle
+        if(k < 0.0    ) {return size * max(q, sqrt(n)    - ra);}
+        // Intesection of the triangle cone and the big circle
+                         return size * max(q, m          - ra);
+    $$ elif shape == 'custom'
+        {{ custom_sdf }}
 
     $$ else
         unknown marker shape! // deliberate wgsl syntax error

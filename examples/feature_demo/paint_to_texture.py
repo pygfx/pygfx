@@ -21,8 +21,9 @@ scene = gfx.Scene()
 
 scene.add(gfx.Background.from_color("#cde"))
 
+# Create texture to draw to. We set the force_contiguous flag because we will sync the texture regularly
 data = np.zeros((100, 500), np.uint8)
-tex = gfx.Texture(data, dim=2)
+tex = gfx.Texture(data, dim=2, force_contiguous=True)
 
 image = gfx.Image(
     gfx.Geometry(grid=tex),
@@ -47,7 +48,7 @@ def pick(event):
                 tex.data[y, x] = min(200, tex.data[y, x] + 50)
             else:
                 tex.data[y, x] = max(0, tex.data[y, x] - 50)
-            tex.update_range((x, y, 0), (1, 1, 1))
+            tex.update_indices(x, y, 0)
             renderer.request_draw()
 
 

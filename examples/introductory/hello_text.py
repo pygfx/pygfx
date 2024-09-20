@@ -2,7 +2,8 @@
 Hello text
 ==========
 
-Example showing text in world and screen space.
+Example showing text in world and screen space. Also notice how the
+text is shown on top of the plane (due to its depth offset).
 """
 
 # sphinx_gallery_pygfx_docs = 'animate 4s'
@@ -28,14 +29,14 @@ text1 = gfx.Text(
     gfx.TextGeometry("Hello world", font_size=2.8),
     gfx.TextMaterial(color="#ddd"),
 )
-text1.local.position = (0, 0, 0.55)
+text1.local.position = (0, 0, 0.5)
 plane.add(text1)
 
 text2 = gfx.Text(
     gfx.TextGeometry("Здравей свят", font_size=2.8),
     gfx.TextMaterial(color="#ddd"),
 )
-text2.local.position = (0, 0, -0.55)
+text2.local.position = (0, 0, -0.5)
 text2.local.scale = (-1, 1, 1)
 plane.add(text2)
 
