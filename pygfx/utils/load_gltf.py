@@ -561,22 +561,23 @@ class _GLTF:
                 duration = times[-1]
             values = self._load_accessor(sampler.output)
 
-            key_frame_tracks.append(
-                {
-                    "name": name,
-                    "target": target_node,
-                    "property": target_property,
-                    "interpolation": interpolation,
-                    "times": times,
-                    "values": values,
-                }
-            )
+            if interpolation == "LINEAR":
+                if target_property == "rotation":
+                    interpolation_fn = gfx.QuaternionLinearInterpolant
+                else:
+                    interpolation_fn = gfx.LinearInterpolant
+            elif interpolation == "STEP":
+                interpolation_fn = gfx.StepInterpolant
+            elif interpolation == "CUBICSPLINE":
+                interpolation_fn = gfx.CubicSplineInterpolant
 
-        action_clip = {
-            "name": animation_info.name,
-            "duration": duration,
-            "tracks": key_frame_tracks,
-        }
+            values = values.reshape(len(times), -1)
+            keyframe = gfx.KeyframeTrack(
+                name, target_node, target_property, times, values, interpolation_fn
+            )
+            key_frame_tracks.append(keyframe)
+
+        action_clip = gfx.AnimationClip(animation_info.name, duration, key_frame_tracks)
 
         return action_clip
 
