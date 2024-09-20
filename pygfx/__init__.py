@@ -26,7 +26,7 @@ import pylinalg
 
 del pylinalg
 
-__version__ = "0.4.1"
+__version__ = "0.5.0"
 version_info = tuple(map(int, __version__.split(".")))
 
 __wgpu_version_range__ = "0.17.3", "0.19.0"
