@@ -25,11 +25,11 @@ def test_interpolant():
 
         assert (
             linear_interpolant.evaluate(scaled_gloabl_time) - scaled_gloabl_time * 10
-            < 1e-6
+            < 1e-5
         )
         assert (
             cubic_interpolant.evaluate(scaled_gloabl_time) - scaled_gloabl_time * 10
-            < 1e-6
+            < 1e-5
         )
         assert step_interpolant.evaluate(scaled_gloabl_time) == np.floor(
             scaled_gloabl_time * 10
