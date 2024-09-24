@@ -27,13 +27,16 @@ jobs:
       uses: actions/setup-python@v5
       with:
         python-version: 3.12
-    - name: Install dev dependencies
+    - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip
-        pip install -U black flake8 flake8-black pep8-naming
-    - name: Flake8
+          python -m pip install --upgrade pip
+          pip install ruff
+    - name: Ruff lint
       run: |
-        flake8 .
+          ruff check --output-format=github .
+    - name: Ruff format
+      run: |
+          ruff format --diff .
 
   docs-build:
     name: Docs
