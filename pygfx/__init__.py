@@ -31,7 +31,7 @@ version_info = tuple(map(int, __version__.split(".")))
 
 
 def _get_dependency_version_ranges():
-    # Try import, dont care when fail when frozen
+    # Try import, dont care when this fails (e.g. frozen or py < 3.11)
     try:
         import os, tomllib, importlib.metadata  # noqa
     except ImportError:

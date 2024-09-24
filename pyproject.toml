@@ -30,8 +30,7 @@ dependencies = [
 lint = ["ruff"]
 examples = [
     "pytest",
-    "imageio",
-    "imageio-ffmpeg>=0.4.7",
+    "imageio[pyav]",
     "scikit-image",
     "trimesh",
     "gltflib",
@@ -43,7 +42,7 @@ docs = [
     "sphinx-gallery",
     "matplotlib",
     # Duplicate from 'examples'
-    "imageio",
+    "imageio[pyav]",
     "scikit-image",
     "trimesh",
     "gltflib",
