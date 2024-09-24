@@ -49,6 +49,8 @@
 
 """
 
+# ruff: noqa: F401
+
 from ._base import WorldObject
 from ._events import (
     Event,

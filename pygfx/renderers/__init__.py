@@ -44,6 +44,7 @@ canvas, averaging neighbouring fragments for anti-aliasing.
 
 """
 
+# ruff: noqa: F401, E402
 
 class Renderer:
     """Base (abstract) renderer class that all renderers inherit from."""

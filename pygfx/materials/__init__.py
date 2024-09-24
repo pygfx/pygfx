@@ -56,6 +56,8 @@ colormaps, the strength of specular reflections, etc.
 
 """
 
+# ruff: noqa: F401
+
 from ._base import Material
 from ._compat import material_from_trimesh
 from ._mesh import (
