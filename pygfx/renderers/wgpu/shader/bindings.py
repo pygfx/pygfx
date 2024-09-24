@@ -50,11 +50,11 @@ class BindingDefinitions:
             dtype_struct = array_from_shadertype(resource).dtype
         elif isinstance(resource, Buffer):
             if resource.data.dtype.fields is None:
-                raise TypeError(f"define_uniform() needs a structured dtype")
+                raise TypeError("define_uniform() needs a structured dtype")
             dtype_struct = resource.data.dtype
         elif isinstance(resource, np.dtype):
             if resource.fields is None:
-                raise TypeError(f"define_uniform() needs a structured dtype")
+                raise TypeError("define_uniform() needs a structured dtype")
             dtype_struct = resource
         else:
             raise TypeError(f"Unsupported struct type {resource.__class__.__name__}")

@@ -155,7 +155,7 @@ class Material(Trackable):
                 # Error
                 if isinstance(plane, (int, float)) and len(planes) == 4:
                     raise TypeError(
-                        f"Looks like you passed one clipping plane instead of a list."
+                        "Looks like you passed one clipping plane instead of a list."
                     )
                 else:
                     raise TypeError(

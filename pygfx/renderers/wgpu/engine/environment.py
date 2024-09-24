@@ -226,7 +226,7 @@ class Environment(Trackable):
             )
             self.bindings.append(
                 Binding(
-                    f"u_shadow_sampler",
+                    "u_shadow_sampler",
                     "shadow_sampler/comparison",
                     self.shadow_sampler,
                 )

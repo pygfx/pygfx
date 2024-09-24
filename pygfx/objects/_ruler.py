@@ -479,7 +479,7 @@ class Ruler(WorldObject):
             define_text(start_pos, f"{self._start_value:0.4g}")
         else:
             sizes[0] = 0
-            define_text(start_pos, f"")
+            define_text(start_pos, "")
 
         # Collect ticks
         index += 1

@@ -53,7 +53,7 @@ class PointsShader(BaseShader):
             self["color_mode"] = "vertex_map"
             self["color_buffer_channels"] = 0
             if material.map is None:
-                raise ValueError(f"Cannot apply colormap is no material.map is set.")
+                raise ValueError("Cannot apply colormap is no material.map is set.")
         elif color_mode == "debug":
             self["color_mode"] = "debug"
             self["color_buffer_channels"] = 0
