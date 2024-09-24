@@ -1,5 +1,3 @@
-# flake8: noqa
-
 from . import utils
 
 from .resources import *

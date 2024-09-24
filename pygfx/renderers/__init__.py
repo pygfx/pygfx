@@ -44,8 +44,6 @@ canvas, averaging neighbouring fragments for anti-aliasing.
 
 """
 
-# flake8: noqa
-
 
 class Renderer:
     """Base (abstract) renderer class that all renderers inherit from."""

@@ -17,8 +17,6 @@ independent of any GUI toolkits.
 
 """
 
-# flake8: noqa
-
 from ._base import Controller
 from ._panzoom import PanZoomController
 from ._orbit import OrbitController

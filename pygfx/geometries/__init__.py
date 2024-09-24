@@ -65,8 +65,6 @@ The standardized names are:
 
 """
 
-# flake8: noqa
-
 from ._base import Geometry
 from ._box import box_geometry
 from ._compat import geometry_from_trimesh

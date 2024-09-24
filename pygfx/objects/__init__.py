@@ -49,8 +49,6 @@
 
 """
 
-# flake8: noqa
-
 from ._base import WorldObject
 from ._events import (
     Event,
