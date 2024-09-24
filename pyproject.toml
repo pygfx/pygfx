@@ -1,0 +1,86 @@
+# ===== Project info
+
+[project]
+dynamic = ["version"]
+name = "pygfx"
+description = "Powerful and versatile visualization for Python"
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [{ name = "Almar Klein" }, { name = "Korijn van Golen" }]
+keywords = [
+    "render-engine",
+    "graphics",
+    "3d",
+    "science",
+    "visation ",
+    "webgpu",
+    "wgpu",
+    "vulkan",
+    "metal",
+]
+requires-python = ">= 3.8"
+dependencies = [
+    "wgpu >=0.17.3,<0.19.0",
+    "pylinalg >=0.4.1,<0.5.0",
+    "numpy",
+    "freetype-py",
+    "uharfbuzz",
+    "jinja2",
+]
+
+[project.optional-dependencies]
+lint = ["ruff"]
+examples = [
+    "pytest",
+    "imageio",
+    "imageio-ffmpeg>=0.4.7",
+    "scikit-image",
+    "trimesh",
+    "gltflib",
+    "imgui-bundle>=1.2.1",
+]
+docs = [
+    "sphinx>7.2",
+    "sphinx_rtd_theme",
+    "sphinx-gallery",
+    # Duplicate from 'examples'
+    "imageio",
+    "scikit-image",
+    "trimesh",
+    "gltflib",
+    "imgui-bundle>=1.2.1",
+]
+tests = ["pytest", "psutil", "trimesh", "httpx", "gltflib", "imageio"]
+dev = ["wgpu[lint,docs,tests,examples]"]
+
+[project.entry-points."pyinstaller40"]
+hook-dirs = "pygfx.__pyinstaller:get_hook_dirs"
+tests = "pygfx.__pyinstaller:get_test_dirs"
+
+[project.urls]
+Homepage = "https://github.com/pygfx/pygfx"
+Documentation = "https://docs.pygfx.org"
+Repository = "https://github.com/pygfx/pygfx"
+
+# ===== Building
+
+# Flit is great solution for simple pure-Python projects.
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+# ===== Tooling
+
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "N"]
+ignore = [
+    "E501", # Line too long
+    "E731", # Do not assign a `lambda` expression, use a `def`
+]
+
+[tool.pytest.ini_options]
+# System fonts can interfere with screenshots that expect a particular font to be used
+env = { "PYGFX_DISABLE_SYSTEM_FONTS" = "1" }
