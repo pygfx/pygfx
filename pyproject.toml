@@ -12,11 +12,9 @@ keywords = [
     "graphics",
     "3d",
     "science",
-    "visation ",
+    "visualization ",
     "webgpu",
     "wgpu",
-    "vulkan",
-    "metal",
 ]
 requires-python = ">= 3.8"
 dependencies = [
@@ -43,6 +41,7 @@ docs = [
     "sphinx>7.2",
     "sphinx_rtd_theme",
     "sphinx-gallery",
+    "matplotlib",
     # Duplicate from 'examples'
     "imageio",
     "scikit-image",
@@ -51,7 +50,7 @@ docs = [
     "imgui-bundle>=1.2.1",
 ]
 tests = ["pytest", "psutil", "trimesh", "httpx", "gltflib", "imageio"]
-dev = ["wgpu[lint,docs,tests,examples]"]
+dev = ["pygfx[lint,docs,tests,examples]"]
 
 [project.entry-points."pyinstaller40"]
 hook-dirs = "pygfx.__pyinstaller:get_hook_dirs"
