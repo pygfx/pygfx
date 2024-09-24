@@ -35,7 +35,7 @@ def _get_dependency_version_ranges():
     try:
         import os, tomllib, importlib.metadata  # noqa
     except ImportError:
-        return
+        return {}
     # Load versions
     this_dir = os.path.dirname(os.path.abspath(__file__))
     pyproject_file = os.path.join(this_dir, "..", "pyproject.toml")
