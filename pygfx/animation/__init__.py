@@ -28,3 +28,4 @@ from .interpolant import (
 )
 from .keyframe_track import KeyframeTrack
 from .animation_clip import AnimationClip
+from .clock import Clock

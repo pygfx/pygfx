@@ -217,18 +217,25 @@ class _GLTF:
 
         node = gltf.model.nodes[node_index]
 
+        translation = node.translation or [0, 0, 0]
+        rotation = node.rotation or [0, 0, 0, 1]
+        scale = node.scale or [1, 1, 1]
+
         if node.matrix is not None:
             matrix = np.array(node.matrix).reshape(4, 4).T
         else:
-            translation = node.translation or [0, 0, 0]
-            rotation = node.rotation or [0, 0, 0, 1]
-            scale = node.scale or [1, 1, 1]
             matrix = la.mat_compose(translation, rotation, scale)
 
         node_mark = node_marks[node_index]
 
         if node_mark == "Bone":
             node_obj = gfx.Bone()
+            # Now, Bone is special, so we need to set the position, rotation, and scale manually.
+            # See: https://github.com/pygfx/pygfx/pull/746
+            node_obj.local.position = translation
+            node_obj.local.rotation = rotation
+            node_obj.local.scale = scale
+            node_obj.local.matrix = matrix
         elif node_mark == "Camera":
             # TODO: implement camera loading
             # node_obj = gfx.Camera()
