@@ -50,6 +50,7 @@ class Shared(Trackable):
     # target platforms.
 
     _features = set(["float32-filterable"])
+    _limits = dict()
     _selected_adapter = None
     _power_preference = None
     _instance = None
@@ -83,7 +84,7 @@ class Shared(Trackable):
         # indirection in the pipeline objects (device -> environment -> passes).
         # So out of scope for the time being.
         self._device = self.adapter.request_device(
-            required_features=list(Shared._features), required_limits={}
+            required_features=list(Shared._features), required_limits=Shared._limits
         )
 
         self._create_diagnostics()
@@ -242,7 +243,8 @@ def enable_wgpu_features(*features):
     mobile devices or certain operating systems.
 
     This function must be called before before the first ``Renderer`` is created.
-    It can be called multiple times to enable more features.
+    It can be called multiple times to enable more features. Note that feature names
+    are invariant to use of dashes versus underscores.
 
     For more information on features:
 
@@ -257,6 +259,28 @@ def enable_wgpu_features(*features):
             "The enable_wgpu_features() function must be called before creating the first renderer."
         )
     Shared._features.update(features)
+
+
+def set_wgpu_limits(**limits):
+    """Set specific limits (as key-value pairs) on the wgpu device.
+
+    WARNING: setting high limits may make your code less portable across devices.
+
+    This function must be called before before the first ``Renderer`` is created.
+    It can be called multiple times to override or enable more limits. Note that
+    limit names are invariant to use of dashes versus underscores.
+
+    For more information on limits:
+
+    * ``renderer.device.adapter.limits`` for the (max) limits available on the current system.
+    * ``renderer.device.limits`` for the currently set limits.
+    * https://gpuweb.github.io/gpuweb/#limits for the official webgpu limits.
+    """
+    if Shared._instance is not None:
+        raise RuntimeError(
+            "The set_wgpu_limits() function must be called before creating the first renderer."
+        )
+    Shared._limits.update(limits)
 
 
 def get_shared():
