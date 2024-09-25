@@ -12,6 +12,7 @@ General functions and classes to operate more closely with the wgpu backend.
     select_power_preference
     select_adapter
     enable_wgpu_features
+    set_wgpu_limits
     WgpuRenderer
     register_wgpu_render_function
     get_shared
@@ -66,6 +67,7 @@ from .engine.shared import (
     select_power_preference,
     select_adapter,
     enable_wgpu_features,
+    set_wgpu_limits,
 )
 from .engine.renderer import WgpuRenderer
 from .engine.pipeline import Binding
