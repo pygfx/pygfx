@@ -33,17 +33,18 @@ version_info = tuple(map(int, __version__.split(".")))
 def _get_dependency_version_ranges():
     # Try import, dont care when this fails (e.g. frozen or py < 3.11)
     try:
-        import os, tomllib, importlib.metadata  # noqa
+        import os, tomllib  # noqa
     except ImportError:
         return {}
-    # Load versions
+    # Look for the pyproject file. If its there, pygfx is likely installed in dev mode,
+    # which is the only case where this dependency checking is interesting.
     this_dir = os.path.dirname(os.path.abspath(__file__))
     pyproject_file = os.path.join(this_dir, "..", "pyproject.toml")
-    if os.path.isfile(pyproject_file):
-        with open(pyproject_file, "rb") as fp:
-            dependencies = tomllib.load(fp)['project']['dependencies']
-    else:
-        dependencies = importlib.metadata.requires("pygfx")
+    if not os.path.isfile(pyproject_file):
+        return {}
+    # Load versions
+    with open(pyproject_file, "rb") as fp:
+        dependencies = tomllib.load(fp)['project']['dependencies']
     # Parse
     limits_per_dependency = {}
     for name_verlimits in dependencies:
