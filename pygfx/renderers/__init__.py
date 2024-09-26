@@ -44,7 +44,7 @@ canvas, averaging neighbouring fragments for anti-aliasing.
 
 """
 
-# flake8: noqa
+# ruff: noqa: F401, E402
 
 
 class Renderer:

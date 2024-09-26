@@ -14,7 +14,6 @@
 # * Color.lerpHSL(color, t) same as lerp but interpolate in HSL / HSLuv space.
 # * Color.lighter(factor) and Color.darker(factor)
 
-
 import ctypes
 import colorsys
 
@@ -95,7 +94,7 @@ class Color:
     def __repr__(self):
         # A precision of 4 decimals, i.e. 10001 possible values for each color.
         # We truncate zeros, but make sure the value does not end with a dot.
-        f = lambda v: f"{v:0.4f}".rstrip("0").ljust(3, "0")  # noqa: stfu
+        f = lambda v: f"{v:0.4f}".rstrip("0").ljust(3, "0")
         return f"Color({f(self.r)}, {f(self.g)}, {f(self.b)}, {f(self.a)})"
 
     @property
@@ -393,7 +392,6 @@ NAMED_COLORS = {
     "cornsilk": "#FFF8DC",
     "crimson": "#DC143C",
     "cyan": "#00FFFF",
-    "aqua": "#00FFFF",
     "darkblue": "#00008B",
     "darkcyan": "#008B8B",
     "darkgoldenrod": "#B8860B",
@@ -455,7 +453,6 @@ NAMED_COLORS = {
     "limegreen": "#32CD32",
     "linen": "#FAF0E6",
     "magenta": "#FF00FF",
-    "fuchsia": "#FF00FF",
     "mediumaquamarine": "#66CDAA",
     "mediumblue": "#0000CD",
     "mediumorchid": "#BA55D3",

@@ -267,7 +267,7 @@ def get_system_fonts():
         for p in new_file_paths:
             ff = FontFile(p)
             try:
-                ff.name  # This makes FreeType open the file
+                ff.name  # noqa: B018 - This makes FreeType open the file
             except Exception:
                 continue
             files[p.replace("\\", "/")] = {

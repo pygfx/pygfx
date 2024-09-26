@@ -32,7 +32,6 @@ class PipelineSnapshotter:
         self._snapshot()
 
     def get_shaders_pipelines_bindings(self):
-
         # Prime the blender
         self.renderer._blender.ensure_target_size((100, 100))
 
@@ -107,7 +106,6 @@ def get_bindings(world_object):
 
 
 def test_updating_image_material_map():
-
     renderer = gfx.renderers.WgpuRenderer(WgpuCanvas(), blend_mode="ordered2")
     scene = gfx.Scene()
 
@@ -128,7 +126,6 @@ def test_updating_image_material_map():
 
 
 def test_updating_mesh_material_color():
-
     renderer = gfx.renderers.WgpuRenderer(WgpuCanvas(), blend_mode="ordered2")
     scene = gfx.Scene()
 
@@ -162,7 +159,6 @@ def test_updating_mesh_material_color():
 
 
 def test_updating_mesh_material_opacity():
-
     renderer = gfx.renderers.WgpuRenderer(WgpuCanvas(), blend_mode="ordered2")
     scene = gfx.Scene()
 
@@ -188,7 +184,6 @@ def test_updating_mesh_material_opacity():
 
 
 def test_updating_mesh_geometry_color():
-
     renderer = gfx.renderers.WgpuRenderer(WgpuCanvas(), blend_mode="ordered2")
     scene = gfx.Scene()
 

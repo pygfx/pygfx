@@ -62,7 +62,7 @@ controller = gfx.OrbitController(camera, register_events=renderer)
 
 # Add a slight tilt. This is to show that the slices are still orthogonal
 # to the world coordinates.
-for ob in planes + [mesh]:
+for ob in [*planes, mesh]:
     ob.local.rotation = la.quat_from_axis_angle((1, 0, 0), 0.1)
 
 

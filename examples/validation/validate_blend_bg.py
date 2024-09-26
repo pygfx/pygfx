@@ -17,7 +17,6 @@ the OS and GUI library are configured to do so.
 # sphinx_gallery_pygfx_docs = 'screenshot'
 # sphinx_gallery_pygfx_test = 'compare'
 
-
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 

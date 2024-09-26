@@ -97,7 +97,7 @@ class MeshAbstractMaterial(Material):
         value = value or "auto"
         if value not in ColorMode:
             raise ValueError(
-                f"MeshMaterial.color_mode must be a string in {ColorMode}, not {repr(value)}"
+                f"MeshMaterial.color_mode must be a string in {ColorMode}, not {value!r}"
             )
         self._store.color_mode = value
 
@@ -155,7 +155,7 @@ class MeshAbstractMaterial(Material):
         value = (value or "both").lower()
         if value not in VisibleSide:
             raise ValueError(
-                f"MeshMaterial.side must be a string in {VisibleSide}, not {repr(value)}"
+                f"MeshMaterial.side must be a string in {VisibleSide}, not {value!r}"
             )
         self._store.side = value
 

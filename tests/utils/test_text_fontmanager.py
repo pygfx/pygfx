@@ -241,7 +241,7 @@ class FakeFontFile(FontFile):
 def test_add_font_file():
     with raises(TypeError):
         font_manager.add_font_file(42)
-    with raises(Exception):  # FreeType error
+    with raises(Exception):  # noqa: B017 - FreeType error
         font_manager.add_font_file("not a filename")
 
     # Add font by filename
@@ -312,7 +312,7 @@ def check_speed():
     text = "HelloWorld"
 
     t0 = time.perf_counter()
-    for i in range(1000):
+    for _i in range(1000):
         font_manager.select_font(text, FontProps())
     dt = time.perf_counter() - t0
     print(

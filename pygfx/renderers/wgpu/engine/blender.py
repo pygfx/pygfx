@@ -381,7 +381,7 @@ class WeightedTransparencyPass(BasePass):
         }
 
     def get_shader_code(self, blender):
-        return """
+        code = """
         struct FragmentOutput {
             @location(0) accum: vec4<f32>,
             @location(1) reveal: f32,
@@ -402,9 +402,8 @@ class WeightedTransparencyPass(BasePass):
             //    out.accum = - out.accum;
             //    out.reveal = 1.0 - 1.0 / (1.0 - alpha);
         }
-        """.replace(
-            "WEIGHT_CODE", self._weight_code
-        )
+        """
+        return code.replace("WEIGHT_CODE", self._weight_code)
 
 
 class FrontmostTransparencyPass(BasePass):
@@ -561,7 +560,7 @@ class BaseFragmentBlender:
 
         # Set new size
         self.size = size
-        tex_size = size + (1,)
+        tex_size = (*size, 1)
 
         # Any bind group is now invalid because they include source textures.
         self._combine_pass_bind_group = None

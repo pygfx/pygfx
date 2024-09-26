@@ -446,4 +446,4 @@ def reshape_array(view, size):
     expected_shape = tuple(reversed(size))
     if expected_shape != view.shape[:3]:
         # This can fail if the data is not contiguous and strides don't work out.
-        view.shape = expected_shape + (-1,)
+        view.shape = (*expected_shape, -1)

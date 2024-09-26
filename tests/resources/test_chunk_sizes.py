@@ -24,7 +24,6 @@ def calculate_and_show_chunk_size(tex_size, target_chunk_count=20, **kwargs):
 
 
 def test_get_alignment_multiplier():
-
     for bpe, align, result in [
         (1, 1, 1),
         (2, 1, 1),
@@ -292,7 +291,6 @@ def make_mask_3d(mask):
 
 
 def test_chunk_merging_1d():
-
     # One block
     mask = [0, 1, 0, 0, 0, 0, 0]
     blocks = get_merged_blocks_from_mask_3d(make_mask_3d(mask))
@@ -327,7 +325,6 @@ def test_chunk_merging_1d():
 
 
 def test_chunk_merging_2d():
-
     # One block
     mask = [
         [0, 0, 0, 0, 0, 0],
@@ -434,7 +431,6 @@ def test_chunk_merging_2d():
 
 
 def test_chunk_merging_3d():
-
     # One small block
     mask = [
         [

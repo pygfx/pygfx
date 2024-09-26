@@ -15,7 +15,7 @@ In Pygfx, data is stored in buffers and textures. We collectively call these res
 
 """
 
-# flake8: noqa
+# ruff: noqa: F401
 
 from ._base import Resource
 from ._buffer import Buffer

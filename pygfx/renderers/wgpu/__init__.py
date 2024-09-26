@@ -47,7 +47,7 @@ Lower level functions that may or may not be needed in custom shaders:
 
 """
 
-# flake8: noqa
+# ruff: noqa: F401
 
 # Import stuff that people need who create custom shaders, so they can import from pygfx.renderers.wgpu
 from ...utils.enums import RenderMask

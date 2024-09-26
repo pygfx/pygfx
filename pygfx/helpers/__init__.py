@@ -21,7 +21,7 @@ when debugging a scene or to create reference points within a scene.
 
 """
 
-# flake8: noqa
+# ruff: noqa: F401
 
 from ._axes import AxesHelper
 from ._grid import GridHelper

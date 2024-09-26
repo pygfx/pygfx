@@ -17,7 +17,7 @@ class Bone(WorldObject):
 
     """
 
-    class __Transform:
+    class _Transform:
         position: np.ndarray
         rotation: np.ndarray
         scale: np.ndarray
@@ -35,9 +35,9 @@ class Bone(WorldObject):
         # compatible with cuurrent WorldObject RecursiveTransform system, but does nothing.
         # temporary solution before we refactor the WorldObject transform system.
         # See: https://github.com/pygfx/pygfx/pull/715#issuecomment-2053385803
-        self.world = Bone.__Transform()
+        self.world = Bone._Transform()
         self.world.matrix = np.eye(4)
-        self.local = Bone.__Transform()
+        self.local = Bone._Transform()
         self.local.position = np.zeros(3)
         self.local.rotation = np.zeros(4)
         self.local.scale = np.ones(3)
@@ -173,7 +173,7 @@ class Skeleton:
         # See: https://github.com/pygfx/pygfx/pull/715#issuecomment-2046493145
         """Update the bone matrices buffer."""
 
-        # TODO: update bone matrices from root to leaf，it's a temporary solution.
+        # TODO: update bone matrices from root to leaf, it's a temporary solution.
         # See: https://github.com/pygfx/pygfx/pull/715#issuecomment-2053385803
         for bone in self.bones:
             if bone.parent and isinstance(bone.parent, Bone):

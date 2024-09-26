@@ -133,7 +133,7 @@ class _GLTF:
             raise ImportError(
                 "The `gltflib` library is required to load gltf scene: pip install gltflib"
             )
-        import gltflib  # noqa
+        import gltflib
 
         path = self._path
         self._gltf = gltflib.GLTF.load(path, load_file_resources=True)
@@ -606,7 +606,6 @@ def print_tree(obj, show_pos=False, show_rot=False, show_scale=False):
     """
 
     def _print_tree(obj: gfx.WorldObject, level=0):
-
         name = "- " * level + f"{obj.__class__.__name__}[{obj.name}]"
         if show_pos:
             name += f"\n{'  ' * level}|- pos: {obj.local.position}"

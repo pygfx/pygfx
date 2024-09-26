@@ -5,7 +5,6 @@ import bisect
 
 
 def test_bisect():
-
     values = [0, 1, 2, 3, 3.2, 4, 5]
 
     for ref in [-9, -1, 0, 1, 2, 3, 4, 5, 6, 9, 2.1, 2.5, 2.9, 3.1, 3.2, 3.3]:
@@ -17,7 +16,6 @@ def test_bisect():
 
 
 def test_binary_search_for_ndc_edge_fit():
-
     for ndc1, ndc2, ref, real_t in [
         #
         ((4, 0, 0, 1), (7, 0, 0, 1), 5, 1 / 3),
@@ -36,7 +34,6 @@ def test_binary_search_for_ndc_edge_fit():
         ((-110, 0, 0, 1), (-100, 0, 0, 1), -106, 4 / 10),
         ((-110, 0, 0, 1), (-100, 0, 0, 1), -107, 3 / 10),
     ]:
-
         # With only a quadratic fit
         t = binary_search_for_ndc_edge(ndc1, ndc2, ref, 0, n_iters=0)
         fault = abs(real_t - t)
@@ -56,7 +53,6 @@ def test_binary_search_for_ndc_edge_fit():
 
 
 def test_binary_search_for_ndc_edge_perspective():
-
     ndc1 = (1, 0, 0, 1)  # 1
     ndc2 = (2, 0, 0, 1)  # 2
     t = binary_search_for_ndc_edge(ndc1, ndc2, 1.5, 0, n_iters=10)
@@ -74,7 +70,6 @@ def test_binary_search_for_ndc_edge_perspective():
 
 
 def test_binary_search_for_ndc_edge_ortho():
-
     # This line is on-screen, also in y dimension!
     ndc1 = (0.1, 0, 0, 1)  # 1
     ndc2 = (0.8, 0, 0, 1)  # 2
