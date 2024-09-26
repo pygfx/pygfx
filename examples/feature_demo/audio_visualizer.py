@@ -143,7 +143,6 @@ class AudioAnalyzer:
 
     def get_frequency_data(self):
         if self._frequency_data is None:
-
             time_domain_data = self.get_time_domain_data()
 
             frames_windowed = time_domain_data * self.__blackman_window
@@ -180,7 +179,6 @@ class AudioAnalyzer:
 
     def get_byte_frequency_data(self):
         if self._byte_frequency_data is None:
-
             frequency_data = self.get_frequency_data()
 
             clipped_data = np.clip(frequency_data, self.min_decibels, self.max_decibels)

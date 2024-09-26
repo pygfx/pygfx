@@ -1,5 +1,4 @@
-""" pygfx line shader. See line.wgsl for details.
-"""
+"""pygfx line shader. See line.wgsl for details."""
 
 import wgpu  # only for flags/enums
 import numpy as np

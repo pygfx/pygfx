@@ -125,7 +125,6 @@ def pygfx_scraper(block, block_vars, gallery_conf, **kwargs):
     config_parts = config.split()
 
     if config_parts[0] == "screenshot":
-
         # Configure
         config = {
             "lossless": True,
@@ -136,7 +135,6 @@ def pygfx_scraper(block, block_vars, gallery_conf, **kwargs):
         render_screenshot(canvas, namespace, img_filename, **config)
 
     elif config_parts[0] == "animate":
-
         # Configure
         config = {
             "duration": 3.0,  # total duration of the animation, in seconds

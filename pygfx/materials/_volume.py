@@ -33,7 +33,7 @@ class VolumeBasicMaterial(Material):
         map=None,
         interpolation="linear",
         map_interpolation="linear",
-        **kwargs
+        **kwargs,
     ):
         super().__init__(**kwargs)
         self.map = map
@@ -186,7 +186,7 @@ class VolumeIsoMaterial(VolumeRayMaterial):
         substep_size: float = 0.1,
         emissive: Color = "#000",
         shininess: float = 30,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(**kwargs)
 

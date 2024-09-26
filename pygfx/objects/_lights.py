@@ -650,11 +650,11 @@ class PointLightShadow(LightShadow):
             # `look_at` to catch and handle this special case.
             camera.look_at(directions[i])
 
-            light.uniform_buffer.data["light_view_proj_matrix"][
-                i
-            ] = camera.camera_matrix.T
-            self._gfx_matrix_buffer[i].data[
-                "light_view_proj_matrix"
-            ] = camera.camera_matrix.T
+            light.uniform_buffer.data["light_view_proj_matrix"][i] = (
+                camera.camera_matrix.T
+            )
+            self._gfx_matrix_buffer[i].data["light_view_proj_matrix"] = (
+                camera.camera_matrix.T
+            )
             self._gfx_matrix_buffer[i].update_full()
         light.uniform_buffer.update_full()

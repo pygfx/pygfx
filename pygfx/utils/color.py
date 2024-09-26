@@ -14,7 +14,6 @@
 # * Color.lerpHSL(color, t) same as lerp but interpolate in HSL / HSLuv space.
 # * Color.lighter(factor) and Color.darker(factor)
 
-
 import ctypes
 import colorsys
 

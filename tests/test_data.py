@@ -1,5 +1,4 @@
-"""Test that data can be accessed.
-"""
+"""Test that data can be accessed."""
 
 import os
 from pygfx.utils import get_resources_dir

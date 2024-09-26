@@ -24,7 +24,6 @@ from .. import (
 
 @register_wgpu_render_function(Points, PointsMaterial)
 class PointsShader(BaseShader):
-
     type = "render"
 
     def __init__(self, wobject):

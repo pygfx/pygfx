@@ -1,4 +1,4 @@
-""" World Objects and Events.
+"""World Objects and Events.
 
 .. currentmodule:: pygfx.objects
 

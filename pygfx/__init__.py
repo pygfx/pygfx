@@ -23,6 +23,7 @@ from .utils.enums import *
 
 # Temp fix for pyinstaller to pick up pylinalg
 import pylinalg
+
 del pylinalg
 
 
@@ -44,7 +45,7 @@ def _get_dependency_version_ranges():
         return {}
     # Load versions
     with open(pyproject_file, "rb") as fp:
-        dependencies = tomllib.load(fp)['project']['dependencies']
+        dependencies = tomllib.load(fp)["project"]["dependencies"]
     # Parse
     limits_per_dependency = {}
     for name_verlimits in dependencies:
@@ -63,6 +64,7 @@ def _get_dependency_version_ranges():
 
 def _check_lib_version(libname, pipname):
     import importlib  # noqa
+
     if libname not in _dependency_version_ranges:
         return
     lib = importlib.import_module(libname)

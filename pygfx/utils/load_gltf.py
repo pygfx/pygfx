@@ -606,7 +606,6 @@ def print_tree(obj, show_pos=False, show_rot=False, show_scale=False):
     """
 
     def _print_tree(obj: gfx.WorldObject, level=0):
-
         name = "- " * level + f"{obj.__class__.__name__}[{obj.name}]"
         if show_pos:
             name += f"\n{'  ' * level}|- pos: {obj.local.position}"

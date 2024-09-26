@@ -402,9 +402,7 @@ class WeightedTransparencyPass(BasePass):
             //    out.accum = - out.accum;
             //    out.reveal = 1.0 - 1.0 / (1.0 - alpha);
         }
-        """.replace(
-            "WEIGHT_CODE", self._weight_code
-        )
+        """.replace("WEIGHT_CODE", self._weight_code)
 
 
 class FrontmostTransparencyPass(BasePass):

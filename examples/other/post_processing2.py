@@ -51,9 +51,7 @@ class MyRenderFlusher(gfx.renderers.wgpu._renderutils.RenderFlusher):
 
     def __init__(self, device):
         super().__init__(device)
-        self._shader[
-            "tex_coord_map"
-        ] = """
+        self._shader["tex_coord_map"] = """
             let a = u_render.amplitude;
             tex_coord.x = tex_coord.x + sin(tex_coord.y * 20.0) * a;
             """

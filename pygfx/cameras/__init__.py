@@ -1,4 +1,4 @@
-""" Objects to view a scene.
+"""Objects to view a scene.
 
 .. currentmodule:: pygfx.cameras
 

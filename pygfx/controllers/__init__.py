@@ -1,4 +1,4 @@
-""" Objects to control cameras.
+"""Objects to control cameras.
 
 .. currentmodule:: pygfx.controllers
 
