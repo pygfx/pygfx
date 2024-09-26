@@ -560,7 +560,7 @@ class BaseFragmentBlender:
 
         # Set new size
         self.size = size
-        tex_size = *(size, 1)
+        tex_size = (*size, 1)
 
         # Any bind group is now invalid because they include source textures.
         self._combine_pass_bind_group = None
