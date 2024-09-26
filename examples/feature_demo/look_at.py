@@ -44,7 +44,7 @@ geometry = gfx.cylinder_geometry(10, 0, 100, 12)
 material = gfx.MeshPhongMaterial(color="#336699")
 cones = gfx.Group()
 
-for i in range(100):
+for _i in range(100):
     cone = gfx.Mesh(geometry, material)
     cone.local.position = np.random.rand(3) * 4000 - 2000
     cone.local.scale = np.random.rand() * 4 + 2

@@ -15,39 +15,39 @@ def test_text_geometry_text():
 
     # Empty string - still has one item (whitespace)
     geo = TextGeometry(text="")
-    geo.positions.nitems == 1
-    geo.indices.nitems == 1
-    geo.sizes.nitems == 1
+    assert geo.positions.nitems == 1
+    assert geo.indices.nitems == 1
+    assert geo.sizes.nitems == 1
 
     # Only a space
     geo = TextGeometry(" ")  # also test that text is a positional arg
-    geo.positions.nitems == 1
-    geo.indices.nitems == 1
-    geo.sizes.nitems == 1
+    assert geo.positions.nitems == 1
+    assert geo.indices.nitems == 1
+    assert geo.sizes.nitems == 1
 
     # One char
     geo = TextGeometry(text="a")
-    geo.positions.nitems == 1
-    geo.indices.nitems == 1
-    geo.sizes.nitems == 1
+    assert geo.positions.nitems == 1
+    assert geo.indices.nitems == 1
+    assert geo.sizes.nitems == 1
 
     # Two words with 3 chars in total
     geo = TextGeometry(text="a bc")
-    geo.positions.nitems == 3
-    geo.indices.nitems == 3
-    geo.sizes.nitems == 3
+    assert geo.positions.nitems == 3
+    assert geo.indices.nitems == 3
+    assert geo.sizes.nitems == 3
 
     # Can set new text, buffers are recreated
     geo.set_text("foo bar")
-    geo.positions.nitems == 6
-    geo.indices.nitems == 6
-    geo.sizes.nitems == 6
+    assert geo.positions.nitems == 6
+    assert geo.indices.nitems == 6
+    assert geo.sizes.nitems == 6
 
     # If setting smaller text, buffer size is oversized
     geo.set_text("x")
-    geo.positions.nitems == 6
-    geo.indices.nitems == 6
-    geo.sizes.nitems == 6
+    assert geo.positions.nitems == 6
+    assert geo.indices.nitems == 6
+    assert geo.sizes.nitems == 6
 
     # Last parts are not used
     assert np.all(geo.sizes.data[1:] == 0)
@@ -58,14 +58,14 @@ def test_text_geometry_items():
 
     items = [TextItem("foo"), TextItem("baar")]
     geo.set_text_items(items)
-    geo.positions.nitems == 7
-    geo.indices.nitems == 7
+    assert geo.positions.nitems == 7
+    assert geo.indices.nitems == 7
 
     items = [TextItem("foo"), TextItem("baar"), TextItem("!")]
     geo.set_text_items(items)
 
-    geo.positions.nitems == 8
-    geo.indices.nitems == 8
+    assert geo.positions.nitems == 8
+    assert geo.indices.nitems == 8
 
 
 def test_text_geometry_whitespace():
@@ -335,7 +335,7 @@ def test_check_speed():
 
     t0 = time.perf_counter()
     n_iter = 1000
-    for i in range(n_iter):
+    for _i in range(n_iter):
         t.apply_layout()
     dt = time.perf_counter() - t0
     print(

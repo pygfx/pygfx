@@ -213,7 +213,7 @@ def check_speed():
     text = "HelloWorld"
 
     t0 = time.perf_counter()
-    for i in range(1000):
+    for _i in range(1000):
         shape_text_hb(text, font.filename)
     dt = time.perf_counter() - t0
     print(
@@ -222,7 +222,7 @@ def check_speed():
     )
 
     t0 = time.perf_counter()
-    for i in range(1000):
+    for _i in range(1000):
         shape_text_ft(text, font.filename)
     dt = time.perf_counter() - t0
     print(
@@ -253,8 +253,8 @@ def check_mem_to_store_face_objects():
     m0 = psutil.Process(os.getpid()).memory_info().rss / 1024
     ft_faces = []
 
-    for j in range(10):
-        for i in range(100):
+    for _j in range(10):
+        for _i in range(100):
             face = freetype.Face(font_filename)
             face.set_pixel_sizes(48, 48)
             ft_faces.append(face)
@@ -265,8 +265,8 @@ def check_mem_to_store_face_objects():
     m0 = psutil.Process(os.getpid()).memory_info().rss / 1024
     hb_faces = []
 
-    for j in range(10):
-        for i in range(100):
+    for _j in range(10):
+        for _i in range(100):
             blob = uharfbuzz.Blob.from_file_path(font_filename)
             face = uharfbuzz.Face(blob)
             font = uharfbuzz.Font(face)

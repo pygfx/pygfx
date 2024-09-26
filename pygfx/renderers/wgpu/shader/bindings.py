@@ -134,7 +134,7 @@ class BindingDefinitions:
             element_type1 = element_type2 = f"vec{nchannels}<{scalar_type}>"
             stride = 4 * nchannels
 
-        stride  # not actually used anymore in wgsl?
+        stride  # noqa: B018 - not actually used anymore in wgsl?
 
         # Produce the binding code and accessor function
         type_modifier = "read" if "read_only" in binding.type else "read_write"

@@ -168,7 +168,9 @@ class Ruler(WorldObject):
             try:
                 r = tick_format(0, -1, 1)
             except TypeError as err:
-                raise ValueError(f"Incompatible tick_format function: {str(err)}")
+                raise ValueError(
+                    f"Incompatible tick_format function: {str(err)}"
+                ) from None
             if not isinstance(r, str):
                 raise ValueError(
                     f"Incompatible tick_format function: it must return str, not {r.__class__.__name__}"

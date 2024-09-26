@@ -582,7 +582,7 @@ def test_upload_validity_single_1(tex):
 
 @upload_validity_checker_2d
 def test_upload_validity_single_20(tex):
-    for i in range(20):
+    for _i in range(20):
         x = np.random.randint(0, tex.size[0])
         y = np.random.randint(0, tex.size[1])
         tex.data[y, x] = 1
@@ -675,7 +675,7 @@ def test_3d_upload_validity_single_1(tex):
 
 @upload_validity_checker_3d
 def test_3d_upload_validity_single_20(tex):
-    for i in range(20):
+    for _i in range(20):
         x = np.random.randint(0, tex.size[0])
         y = np.random.randint(0, tex.size[1])
         z = np.random.randint(0, tex.size[2])

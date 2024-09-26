@@ -1006,7 +1006,7 @@ class TextGeometry(Geometry):
             anchory = ANCHOR_Y_ALTS[anchory]
             anchorx = ANCHOR_X_ALTS[anchorx]
         except KeyError:
-            raise ValueError(f"Invalid anchor value '{anchor}'")
+            raise ValueError(f"Invalid anchor value '{anchor}'") from None
         # Apply
         self._anchor = f"{anchory}-{anchorx}"
         self.apply_layout()

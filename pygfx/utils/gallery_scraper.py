@@ -215,8 +215,10 @@ def render_movie(canvas, namespace, filename, *, duration, fps, loop, lossless):
     frames = []
     n_frames = int(duration * fps)
     t0 = time.perf_counter()
+    i = 0
     for i in range(n_frames):
-        namespace["perf_counter"] = lambda: t0 + i / fps
+        # In below lambda, the i is not bound, but thats ok
+        namespace["perf_counter"] = lambda: t0 + i / fps  # noqa: B023
         frames.append(canvas.draw())
     # Write the video
     iio.imwrite(
