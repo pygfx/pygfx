@@ -162,7 +162,7 @@ def select_power_preference(power_preference):
     """
     if power_preference not in wgpu.PowerPreference:
         raise ValueError(
-            f"select_power_preference() received invalid value for {repr(wgpu.PowerPreference)}."
+            f"select_power_preference() received invalid value for {wgpu.PowerPreference!r}."
         )
     if Shared._instance is not None:
         raise RuntimeError(

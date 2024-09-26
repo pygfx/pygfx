@@ -263,7 +263,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
     @property
     def rect(self):
         """The rectangular viewport for the renderer area."""
-        return (0, 0) + self.logical_size
+        return (0, 0, *self.logical_size)
 
     @property
     def logical_size(self):
@@ -450,7 +450,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         elif len(rect) == 4:
             scene_lsize = rect[2], rect[3]
             physical_viewport = [int(i * pixel_ratio + 0.4999) for i in rect]
-            physical_viewport = tuple(physical_viewport) + (0, 1)
+            physical_viewport = (*physical_viewport, 0, 1)
             scene_psize = physical_viewport[2], physical_viewport[3]
         else:
             raise ValueError(
@@ -550,7 +550,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         """
 
         # Print FPS
-        now = time.perf_counter()  # noqa
+        now = time.perf_counter()
         if self._show_fps:
             if self._fps["count"] == 0:
                 print(f"Time to first draw: {now-self._fps['start']:0.2f}")
@@ -716,7 +716,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         finally:
             self._pixel_info_buffer.unmap()
         color = Color(x / 255 for x in tuple(data[0:4].cast("B")))
-        pick_value = tuple(data[8:16].cast("Q"))[0]
+        pick_value = tuple(data[8:16].cast("Q"))[0]  # noqa: RUF015
         wobject_id = pick_value & 1048575  # 2**20-1
         wobject = id_provider.get_object_from_id(wobject_id)
         # Note: the position in world coordinates is not included because

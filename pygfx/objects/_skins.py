@@ -173,7 +173,7 @@ class Skeleton:
         # See: https://github.com/pygfx/pygfx/pull/715#issuecomment-2046493145
         """Update the bone matrices buffer."""
 
-        # TODO: update bone matrices from root to leaf，it's a temporary solution.
+        # TODO: update bone matrices from root to leaf, it's a temporary solution.
         # See: https://github.com/pygfx/pygfx/pull/715#issuecomment-2053385803
         for bone in self.bones:
             if bone.parent and isinstance(bone.parent, Bone):

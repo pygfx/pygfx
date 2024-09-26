@@ -338,18 +338,18 @@ def test_contiguous():
 
     # This works, because at upload time the data is copied if necessary
     tex = gfx.Texture(im1, dim=2)
-    chunk = tex._gfx_get_chunk_data((0, 0, 0), im1.shape + (1,))
+    chunk = tex._gfx_get_chunk_data((0, 0, 0), (*im1.shape, 1))
     assert chunk.flags.c_contiguous
 
     # Dito when the data is a memoryview (did not work in an earlier version).
     # For textures with non-contiguous data this takes a performance hit due to an extra data copy.
     tex = gfx.Texture(memoryview(im1), dim=2)
-    chunk = tex._gfx_get_chunk_data((0, 0, 0), im1.shape + (1,))
+    chunk = tex._gfx_get_chunk_data((0, 0, 0), (*im1.shape, 1))
     assert chunk.flags.c_contiguous
 
     # This works, and avoids the aforementioned copy
     tex = gfx.Texture(im2, dim=2)
-    chunk = tex._gfx_get_chunk_data((0, 0, 0), im2.shape + (1,))
+    chunk = tex._gfx_get_chunk_data((0, 0, 0), (*im2.shape, 1))
     assert chunk.flags.c_contiguous
     assert chunk is tex.view
 

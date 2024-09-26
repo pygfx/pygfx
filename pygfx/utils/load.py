@@ -58,7 +58,7 @@ def load_mesh(path, remote_ok=False):
             "The `trimesh` library is required to load meshes: pip install trimesh"
         )
 
-    import trimesh  # noqa
+    import trimesh
 
     # Trimesh's load() performs a similar check and refers
     # loading from URLs to load_remote()
@@ -144,7 +144,7 @@ def load_scene(
     if camera not in ("auto", "file", "none"):
         raise ValueError(f"Invalid value for `camera`: {camera}")
 
-    import trimesh  # noqa
+    import trimesh
 
     # Trimesh's load() performs a similar check and refers
     # loading from URLs to load_remote()
@@ -192,7 +192,7 @@ def meshes_from_trimesh(scene, materials=True, apply_transforms=True):
         A list of loaded meshes.
 
     """
-    import trimesh  # noqa
+    import trimesh
 
     # If this is a single object we can just convert and return it
     if isinstance(scene, trimesh.Trimesh):
@@ -332,7 +332,7 @@ def scene_from_trimesh(
     if camera not in ("auto", "file", "none"):
         raise ValueError(f"Invalid value for `camera`: {camera}")
 
-    import trimesh  # noqa
+    import trimesh
 
     # Basic scene setup
     gfx_scene = gfx.Scene()
@@ -522,7 +522,7 @@ def _volume_from_voxelgrid(vxl, cmap=None, clim="data"):
         The volume object.
 
     """
-    import trimesh  # noqa
+    import trimesh
 
     if not isinstance(vxl, trimesh.voxel.VoxelGrid):
         raise ValueError(f"Unexpected trimesh data: {type(vxl)}")

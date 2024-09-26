@@ -73,12 +73,12 @@ build-backend = "flit_core.buildapi"
 line-length = 88
 
 [tool.ruff.lint]
-# select = ["F", "E", "W", "N", "B", "RUF"]
-select = ["F", "E", "W", "N", "B"]
+select = ["F", "E", "W", "N", "B", "RUF"]
 ignore = [
-    "E501", # Line too long
-    "E731", # Do not assign a `lambda` expression, use a `def`
-    "B019", # Use of `functools.lru_cache` or `functools.cache` on methods can lead to memory leaks
+    "E501",   # Line too long
+    "E731",   # Do not assign a `lambda` expression, use a `def`
+    "B019",   # Use of `functools.lru_cache` or `functools.cache` on methods can lead to memory leaks
+    "RUF012", # Mutable class attributes should be annotated with `typing.ClassVar`"
 ]
 
 [tool.pytest.ini_options]

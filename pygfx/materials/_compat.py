@@ -26,7 +26,7 @@ def texture_from_pillow_image(image, dim=2, **kwargs):
 
     """
 
-    from PIL.Image import Image  # noqa
+    from PIL.Image import Image
 
     if not isinstance(image, Image):
         raise NotImplementedError()
@@ -38,7 +38,7 @@ def texture_from_pillow_image(image, dim=2, **kwargs):
     m = memoryview(image.tobytes())
 
     im_channels = len(image.getbands())
-    buffer_shape = image.size + (im_channels,)
+    buffer_shape = (*image.size, im_channels)
 
     m = m.cast(m.format, shape=buffer_shape)
     return Texture(m, dim=dim, **kwargs)
@@ -59,9 +59,9 @@ def material_from_trimesh(x):
         The converted material.
 
     """
-    import trimesh  # noqa
-    from trimesh.visual.material import PBRMaterial, SimpleMaterial  # noqa
-    from trimesh.visual import ColorVisuals  # noqa
+    import trimesh
+    from trimesh.visual.material import PBRMaterial, SimpleMaterial
+    from trimesh.visual import ColorVisuals
 
     # If this is a trimesh object, extract the visual
     if isinstance(x, trimesh.Trimesh):

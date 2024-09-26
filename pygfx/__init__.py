@@ -63,7 +63,7 @@ def _get_dependency_version_ranges():
 
 
 def _check_lib_version(libname, pipname):
-    import importlib  # noqa
+    import importlib
 
     if libname not in _dependency_version_ranges:
         return

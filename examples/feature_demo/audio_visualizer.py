@@ -38,7 +38,7 @@ class NumpyCircularBuffer:
     def __init__(self, max_size, data_shape, dtype=np.float32):
         self.max_size = max_size
         self.data_shape = data_shape
-        self.buffer = np.zeros((max_size,) + data_shape, dtype=dtype)
+        self.buffer = np.zeros((max_size, *data_shape), dtype=dtype)
         self.index = 0
 
     def append(self, data):
@@ -434,7 +434,7 @@ class AudioShader(BaseShader):
         }
 
         $$ endif
-        """  # noqa
+        """
 
 
 ################################################################################
@@ -476,7 +476,7 @@ fragment_shader_code1 = """
         return out;
     }
 
-"""  # noqa
+"""
 
 fragment_shader_code2 = """
 
@@ -495,10 +495,10 @@ fragment_shader_code2 = """
         var p = uv*2.0-1.0;
         // p.x*=iResolution.x/iResolution.y;
         p.y+=0.5;
-        
+
         var col = vec3f(0.0);
         var refs = vec3f(0.0);
-    
+
         let nBands = 64.0;
         let i = floor(uv.x*nBands);
         let f = fract(uv.x*nBands);
@@ -506,8 +506,8 @@ fragment_shader_code2 = """
         // band *= (band*band);
         // band = band*0.995;
         // band += 0.005;
-        let s = textureSample(t_data_map, s_data_map, vec2f(uv.x, 0.0)).r; 
-        
+        let s = textureSample(t_data_map, s_data_map, vec2f(uv.x, 0.0)).r;
+
         /* Gradient colors and amount here */
         let nColors = 4;
         var colors = array<vec3f, 4>(
@@ -516,7 +516,7 @@ fragment_shader_code2 = """
             vec3f(1.0,1.0,0.0),
             vec3f(1.0,0.0,0.0)
         );
-        
+
         var gradCol = colors[0];
         let n = f32(nColors)-1.0;
         for(var i = 1; i < nColors; i++)
@@ -524,13 +524,13 @@ fragment_shader_code2 = """
             var v = clamp((s-f32(i-1)/n)*n, 0.0, 1.0);
             gradCol = gradCol + v*(colors[i]-gradCol);
         }
-        
+
         col += vec3f(1.0-smoothstep(0.0,0.01,p.y-s*1.5));
         col *= gradCol;
 
         refs += vec3f(1.0-smoothstep(0.0,-0.01,p.y+s*1.5));
         refs*= gradCol*smoothstep(-0.5,0.5,p.y);
-        
+
         col = mix(refs,col,smoothstep(-0.01,0.01,p.y));
 
         col *= smoothstep(0.125,0.375,f);
@@ -542,7 +542,7 @@ fragment_shader_code2 = """
         return out;
     }
 
-"""  # noqa
+"""
 
 fragment_shader_code3 = """
 
@@ -606,28 +606,28 @@ fragment_shader_code3 = """
 
         var col = vec3f(.1,.0,.14);
         let vol = getVol(8.);
-        
+
         let ro = vec3f(0, 8, 12)*(1. + vol*.3);
-        // ro.zx *= rot(iTime*.4);    
+        // ro.zx *= rot(iTime*.4);
         let f = normalize(-ro);
         let r = normalize(cross(vec3<f32>(0.0, 1.0, 0.0), f));
         let rd = normalize(f + uv.x*r + uv.y*cross(f, r));
-        
+
         var t = 0.0;
         for (var i = 0.; i < 30.; i += 1.0) {
-            let p  = ro + t*rd;        
-            
+            let p  = ro + t*rd;
+
             let cen = floor(p.xz) + .5;
             var id = abs(vec3(cen.x, 0, cen.y));
             let d = length(id);
-            
+
             var freq = smoothstep(0., 20., d)*3 + hash13(&id)*2.;
             let pitch = getPitch(&freq, .7);
-            
+
             let v  = vol*smoothstep(2., 0., d);
             let h  = d*.2*(1.+pitch*1.5) + v*2.;
             let me = sdBox(p - vec3f(cen.x, -50., cen.y), vec3f(.3, 50. + h, .3)+pitch) - .05;
-            
+
             col += mix(
                 mix(vec3<f32>(0.8, 0.2, 0.4), vec3<f32>(0.0, 1.0, 0.0), min(v * 2.0, 1.0)),
                 vec3<f32>(0.5, 0.3, 1.2),
@@ -641,7 +641,7 @@ fragment_shader_code3 = """
         return out;
     }
 
-"""  # noqa
+"""
 
 fragment_shader_code4 = """
 
@@ -651,7 +651,7 @@ fragment_shader_code4 = """
         return select(f, t, color <= vec3<f32>(0.04045));
     }
 
-    fn getAmp(frequency: f32) -> f32{ 
+    fn getAmp(frequency: f32) -> f32{
         return textureSample(t_data_map, s_data_map, vec2f(frequency / 512.0, 0.0)).r;
     }
 
@@ -680,14 +680,14 @@ fragment_shader_code4 = """
             lineIntensity = 0.5 + s * s;
             glowWidth = abs(lineIntensity / (150.0 * Y));
             color += vec3f(glowWidth * (1.5 ), glowWidth * (1.5 ), glowWidth * (0.5 ));
-        }    
-        
+        }
+
         out.color = vec4<f32>(srgb2physical(color), 1.0);
         return out;
     }
 
 
-"""  # noqa
+"""
 
 # Setup scene
 

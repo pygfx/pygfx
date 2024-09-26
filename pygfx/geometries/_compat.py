@@ -20,7 +20,7 @@ def geometry_from_trimesh(mesh):
         A Geometry object representing the given mesh.
 
     """
-    from trimesh import Trimesh  # noqa
+    from trimesh import Trimesh
 
     if not isinstance(mesh, Trimesh):
         raise NotImplementedError()

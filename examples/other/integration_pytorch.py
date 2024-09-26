@@ -166,8 +166,8 @@ class SceneState:
         first_data (bool): A flag indicating if it's the first data received by the scene. Used to determine if the meshes need to be created or updated.
     """
 
-    gt_group: gfx.Group = gfx.Group()
-    pred_group: gfx.Group = gfx.Group()
+    gt_group: gfx.Group = gfx.Group()  # noqa: RUF009
+    pred_group: gfx.Group = gfx.Group()  # noqa: RUF009
     gt_mesh: gfx.WorldObject = None
     pred_mesh: gfx.WorldObject = None
     first_data: bool = True

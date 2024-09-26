@@ -703,7 +703,7 @@ class MeshSliceShader(BaseShader):
         }
 
     def get_render_info(self, wobject, shared):
-        material = wobject.material  # noqa
+        material = wobject.material
         geometry = wobject.geometry
 
         offset, size = geometry.indices.draw_range

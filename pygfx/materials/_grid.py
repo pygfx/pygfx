@@ -187,7 +187,7 @@ class GridMaterial(Material):
         value = value or "screen"
         if value not in CoordSpace:
             raise ValueError(
-                f"GridMaterial.thickness_space must be a string in {CoordSpace}, not {repr(value)}"
+                f"GridMaterial.thickness_space must be a string in {CoordSpace}, not {value!r}"
             )
         elif value not in (CoordSpace.world, CoordSpace.screen):
             raise ValueError(

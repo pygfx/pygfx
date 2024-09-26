@@ -169,7 +169,7 @@ class Ruler(WorldObject):
                 r = tick_format(0, -1, 1)
             except TypeError as err:
                 raise ValueError(
-                    f"Incompatible tick_format function: {str(err)}"
+                    f"Incompatible tick_format function: {err!s}"
                 ) from None
             if not isinstance(r, str):
                 raise ValueError(

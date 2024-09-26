@@ -345,7 +345,7 @@ class Controller:
             modifiers = {m.lower() for m in event.modifiers}
             if type.startswith("key_"):
                 modifiers.discard(event.key.lower())
-            modifiers_prefix = "+".join(sorted(modifiers) + [""])
+            modifiers_prefix = "+".join([*sorted(modifiers), ""])
 
         if type == "before_render":
             # Do a tick, updating all actions, and using them to update the camera state.
@@ -643,7 +643,7 @@ class Controls(dict):
             return "{}"
         s = "{"
         for key, action_tuple in self.items():
-            s += f"\n    '{key}': {repr(action_tuple)},"
+            s += f"\n    '{key}': {action_tuple!r},"
         s += "\n}"
         return s
 
@@ -690,7 +690,7 @@ class Controls(dict):
             else:
                 multiplier = tuple(float(x) for x in multiplier)
         # Store
-        modifiers_prefix = "+".join(modifiers + [""])
+        modifiers_prefix = "+".join([*modifiers, ""])
         key = modifiers_prefix + button
         super().__setitem__(key, (action, mode, multiplier))
 
@@ -731,8 +731,8 @@ def get_screen_vectors_in_world_cords(
     )
 
     # Step 1 NDC unit in x and y, and convert these positions back to world
-    posx_ndc = center_ndc + (1, 0, 0)
-    posy_ndc = center_ndc + (0, 1, 0)
+    posx_ndc = center_ndc + np.array((1, 0, 0))
+    posy_ndc = center_ndc + np.array((0, 1, 0))
     posx_world = la.vec_transform(
         la.vec_transform(posx_ndc, camera_projection_inverse),
         camera_world,

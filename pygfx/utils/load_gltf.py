@@ -133,7 +133,7 @@ class _GLTF:
             raise ImportError(
                 "The `gltflib` library is required to load gltf scene: pip install gltflib"
             )
-        import gltflib  # noqa
+        import gltflib
 
         path = self._path
         self._gltf = gltflib.GLTF.load(path, load_file_resources=True)
