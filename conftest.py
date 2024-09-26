@@ -1,7 +1,12 @@
 """Global configuration for pytest"""
 
+import os
 import numpy as np
 import pytest
+
+
+# System fonts can interfere with screenshots that expect a particular font to be used
+os.environ["PYGFX_DISABLE_SYSTEM_FONTS"] = "1"
 
 
 def pytest_addoption(parser):

@@ -80,7 +80,3 @@ ignore = [
     "B019",   # Use of `functools.lru_cache` or `functools.cache` on methods can lead to memory leaks
     "RUF012", # Mutable class attributes should be annotated with `typing.ClassVar`"
 ]
-
-[tool.pytest.ini_options]
-# System fonts can interfere with screenshots that expect a particular font to be used
-env = { "PYGFX_DISABLE_SYSTEM_FONTS" = "1" }
