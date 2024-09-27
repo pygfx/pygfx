@@ -56,7 +56,7 @@ colormaps, the strength of specular reflections, etc.
 
 """
 
-# flake8: noqa
+# ruff: noqa: F401
 
 from ._base import Material
 from ._compat import material_from_trimesh

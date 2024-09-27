@@ -25,7 +25,7 @@ class ImageShader(BaseShader):
 
     def get_bindings(self, wobject, shared):
         geometry = wobject.geometry
-        material = wobject.material  # noqa
+        material = wobject.material
 
         bindings = [
             Binding("u_stdinfo", "buffer/uniform", shared.uniform_buffer),

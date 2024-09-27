@@ -11,7 +11,6 @@ by adding scatter points at click event locations
 
 from wgpu.gui.auto import WgpuCanvas, run
 
-import pygfx
 import pygfx as gfx
 import numpy as np
 

@@ -4,6 +4,8 @@ import weakref
 
 from pygfx.utils.trackable import Trackable, RootTrackable
 
+# ruff: noqa: B018 - in these tests we access values for their side-effect
+
 
 class Mixin:
     def __init__(self):
@@ -790,7 +792,7 @@ def profile_runner():
 
     t0 = time.perf_counter()
     # Do a buch of work
-    for ob in range(n_objects):
+    for _ob in range(n_objects):
         for i in range(n_access):
             setattr(root.sub1._store, f"attr_0_{i}", i // 2)
     t1 = time.perf_counter()

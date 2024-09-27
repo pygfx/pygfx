@@ -1,7 +1,6 @@
 Pipfile
 Pipfile.lock
 .vscode
-pyproject.toml
 poetry.lock
 .DS_Store
 examples/screenshots/diffs

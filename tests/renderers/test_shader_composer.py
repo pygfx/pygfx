@@ -186,7 +186,6 @@ def test_uniform_definitions():
 
 
 def test_resolve_depth_output():
-
     code1 = """
     struct FragmentOutput {
         @location(0) color: vec4<f32>,

@@ -168,7 +168,9 @@ class Ruler(WorldObject):
             try:
                 r = tick_format(0, -1, 1)
             except TypeError as err:
-                raise ValueError(f"Incompatible tick_format function: {str(err)}")
+                raise ValueError(
+                    f"Incompatible tick_format function: {err!s}"
+                ) from None
             if not isinstance(r, str):
                 raise ValueError(
                     f"Incompatible tick_format function: it must return str, not {r.__class__.__name__}"
@@ -479,7 +481,7 @@ class Ruler(WorldObject):
             define_text(start_pos, f"{self._start_value:0.4g}")
         else:
             sizes[0] = 0
-            define_text(start_pos, f"")
+            define_text(start_pos, "")
 
         # Collect ticks
         index += 1

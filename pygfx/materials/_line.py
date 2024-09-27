@@ -125,7 +125,7 @@ class LineMaterial(Material):
         value = value or "auto"
         if value not in ColorMode:
             raise ValueError(
-                f"LineMaterial.color_mode must be a string in {ColorMode}, not {repr(value)}"
+                f"LineMaterial.color_mode must be a string in {ColorMode}, not {value!r}"
             )
         self._store.color_mode = value
 
@@ -166,7 +166,7 @@ class LineMaterial(Material):
         value = value or "screen"
         if value not in CoordSpace:
             raise ValueError(
-                f"LineMaterial.thickness_space must be a string in {CoordSpace}, not {repr(value)}"
+                f"LineMaterial.thickness_space must be a string in {CoordSpace}, not {value!r}"
             )
         self._store.thickness_space = value
 

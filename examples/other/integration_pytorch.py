@@ -166,8 +166,8 @@ class SceneState:
         first_data (bool): A flag indicating if it's the first data received by the scene. Used to determine if the meshes need to be created or updated.
     """
 
-    gt_group: gfx.Group = gfx.Group()
-    pred_group: gfx.Group = gfx.Group()
+    gt_group: gfx.Group = gfx.Group()  # noqa: RUF009
+    pred_group: gfx.Group = gfx.Group()  # noqa: RUF009
     gt_mesh: gfx.WorldObject = None
     pred_mesh: gfx.WorldObject = None
     first_data: bool = True
@@ -253,7 +253,7 @@ def create_gnn(
 ) -> torch_geometric.nn.Sequential:
     activation = activations[activation]
     layers_list = []
-    for i, convolution in enumerate(convolutions):
+    for _i, convolution in enumerate(convolutions):
         layers_list.append((convolution, "x, edge_index -> x"))
         if batch_norm:
             layers_list.append(torch.nn.BatchNorm1d(convolution.out_channels))
@@ -582,10 +582,10 @@ class SceneHandler:
     @staticmethod
     def start(
         in_queue: Queue,
-        light_color: gfx.Color = gfx.Color("#ffffff"),
-        background_color: gfx.Color = gfx.Color("#ffffff"),
-        scene_background_top_color: gfx.Color = gfx.Color("#bbbbbb"),
-        scene_background_bottom_color: gfx.Color = gfx.Color("#666666"),
+        light_color: gfx.Color = "#ffffff",
+        background_color: gfx.Color = "#ffffff",
+        scene_background_top_color: gfx.Color = "#bbbbbb",
+        scene_background_bottom_color: gfx.Color = "#666666",
     ):
         border_size = 5.0
         text_position = np.array([10, 10, 0])

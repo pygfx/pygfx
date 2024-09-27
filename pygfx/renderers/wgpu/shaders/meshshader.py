@@ -92,13 +92,13 @@ class MeshShader(BaseShader):
             self["color_buffer_channels"] = 0
             self["colorspace"] = material.map.colorspace
             if material.map is None:
-                raise ValueError(f"Cannot apply colormap is no material.map is set.")
+                raise ValueError("Cannot apply colormap is no material.map is set.")
         elif color_mode == "face_map":
             self["color_mode"] = "face_map"
             self["color_buffer_channels"] = 0
             self["colorspace"] = material.map.colorspace
             if material.map is None:
-                raise ValueError(f"Cannot apply colormap is no material.map is set.")
+                raise ValueError("Cannot apply colormap is no material.map is set.")
         else:
             raise RuntimeError(f"Unknown color_mode: '{color_mode}'")
 
@@ -644,12 +644,12 @@ class MeshSliceShader(BaseShader):
             self["color_mode"] = "vertex_map"
             self["color_buffer_channels"] = 0
             if material.map is None:
-                raise ValueError(f"Cannot apply colormap is no material.map is set.")
+                raise ValueError("Cannot apply colormap is no material.map is set.")
         elif color_mode == "face_map":
             self["color_mode"] = "face_map"
             self["color_buffer_channels"] = 0
             if material.map is None:
-                raise ValueError(f"Cannot apply colormap is no material.map is set.")
+                raise ValueError("Cannot apply colormap is no material.map is set.")
         else:
             raise RuntimeError(f"Unknown color_mode: '{color_mode}'")
 
@@ -703,7 +703,7 @@ class MeshSliceShader(BaseShader):
         }
 
     def get_render_info(self, wobject, shared):
-        material = wobject.material  # noqa
+        material = wobject.material
         geometry = wobject.geometry
 
         offset, size = geometry.indices.draw_range

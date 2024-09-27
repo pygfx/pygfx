@@ -1,4 +1,4 @@
-""" Objects to view a scene.
+"""Objects to view a scene.
 
 .. currentmodule:: pygfx.cameras
 
@@ -14,7 +14,7 @@
 
 """
 
-# flake8: noqa
+# ruff: noqa: F401
 
 from ._base import Camera, NDCCamera, ScreenCoordsCamera
 from ._perspective import PerspectiveCamera

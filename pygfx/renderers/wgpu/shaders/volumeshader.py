@@ -21,7 +21,7 @@ vertex_and_fragment = wgpu.ShaderStage.VERTEX | wgpu.ShaderStage.FRAGMENT
 class BaseVolumeShader(BaseShader):
     def get_bindings(self, wobject, shared):
         geometry = wobject.geometry
-        material = wobject.material  # noqa
+        material = wobject.material
 
         bindings = [
             Binding("u_stdinfo", "buffer/uniform", shared.uniform_buffer),

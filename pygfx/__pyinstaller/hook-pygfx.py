@@ -1,5 +1,6 @@
-from PyInstaller.utils.hooks import collect_data_files
+# ruff: noqa
 
+from PyInstaller.utils.hooks import collect_data_files
 
 hiddenimports = ["pygfx.data_files"]
 datas = []

@@ -71,7 +71,7 @@ def test_examples_meta():
             errors.append(f"Example '{fname}' has missing gallery config.")
 
     # Check that filenames are unique
-    for stem, fnames in per_stem.items():
+    for _stem, fnames in per_stem.items():
         if len(fnames) != 1:
             errors.append(f"Name clash: {fnames}")
 

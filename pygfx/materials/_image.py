@@ -32,7 +32,7 @@ class ImageBasicMaterial(Material):
         map=None,
         interpolation="nearest",
         map_interpolation="linear",
-        **kwargs
+        **kwargs,
     ):
         super().__init__(**kwargs)
         self.map = map

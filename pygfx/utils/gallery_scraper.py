@@ -125,7 +125,6 @@ def pygfx_scraper(block, block_vars, gallery_conf, **kwargs):
     config_parts = config.split()
 
     if config_parts[0] == "screenshot":
-
         # Configure
         config = {
             "lossless": True,
@@ -136,7 +135,6 @@ def pygfx_scraper(block, block_vars, gallery_conf, **kwargs):
         render_screenshot(canvas, namespace, img_filename, **config)
 
     elif config_parts[0] == "animate":
-
         # Configure
         config = {
             "duration": 3.0,  # total duration of the animation, in seconds
@@ -217,8 +215,10 @@ def render_movie(canvas, namespace, filename, *, duration, fps, loop, lossless):
     frames = []
     n_frames = int(duration * fps)
     t0 = time.perf_counter()
+    i = 0
     for i in range(n_frames):
-        namespace["perf_counter"] = lambda: t0 + i / fps
+        # In below lambda, the i is not bound, but thats ok
+        namespace["perf_counter"] = lambda: t0 + i / fps  # noqa: B023
         frames.append(canvas.draw())
     # Write the video
     iio.imwrite(

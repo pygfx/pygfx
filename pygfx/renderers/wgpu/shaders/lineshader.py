@@ -1,5 +1,4 @@
-""" pygfx line shader. See line.wgsl for details.
-"""
+"""pygfx line shader. See line.wgsl for details."""
 
 import wgpu  # only for flags/enums
 import numpy as np
@@ -71,12 +70,12 @@ class LineShader(BaseShader):
                 raise ValueError(f"Geometry.colors needs 1-4 columns, not {nchannels}")
         elif color_mode == "vertex_map":
             if material.map is None:
-                raise ValueError(f"Cannot apply colormap is no material.map is set.")
+                raise ValueError("Cannot apply colormap is no material.map is set.")
             self["color_mode"] = "vertex_map"
             self["color_buffer_channels"] = 0
         elif color_mode == "face_map":
             if material.map is None:
-                raise ValueError(f"Cannot apply colormap is no material.map is set.")
+                raise ValueError("Cannot apply colormap is no material.map is set.")
             self["color_mode"] = "face_map"
             self["color_buffer_channels"] = 0
         else:

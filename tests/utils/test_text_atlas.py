@@ -58,7 +58,7 @@ def test_atlas_resize():
     prev_array = atlas._array
 
     # Allocate 4 regions
-    for i in range(4):
+    for _i in range(4):
         atlas.allocate_region(8, 8)
 
     # This should just fit
@@ -77,7 +77,7 @@ def test_atlas_resize():
     prev_array = atlas._array
 
     # We can fit 9 regions of 8x8 in it. So 4 more.
-    for i in range(4):
+    for _i in range(4):
         atlas.allocate_region(8, 8)
 
     # Again, it should just fit
@@ -111,7 +111,7 @@ def test_atlas_alloc_resize_with_freeing():
     prev_array = atlas._array
 
     # Allocate 9 regions
-    for i in range(9):
+    for _i in range(9):
         atlas.allocate_region(8, 8)
 
     # This should just fit
@@ -120,7 +120,7 @@ def test_atlas_alloc_resize_with_freeing():
     assert atlas._array is prev_array
 
     # Free half of the area
-    for i in range(4):
+    for _i in range(4):
         atlas.free_region(get_index_in_use())
     assert atlas.allocated_area == 5 * 64
 
@@ -139,7 +139,7 @@ def test_atlas_alloc_resize_with_freeing():
     assert atlas._array is prev_array
 
     # Allocate 6 regions. Now we have 12 regions in total, which causes a resize.
-    for i in range(6):
+    for _i in range(6):
         atlas.allocate_region(8, 8)
     assert atlas.region_count == 12
 
@@ -149,7 +149,7 @@ def test_atlas_alloc_resize_with_freeing():
     assert atlas._array is not prev_array
 
     # Now we free some regions
-    for i in range(6):
+    for _i in range(6):
         atlas.free_region(get_index_in_use())
 
     # We now have half the area freed. Not enough to cause a downsize.
@@ -158,7 +158,7 @@ def test_atlas_alloc_resize_with_freeing():
     assert atlas.allocated_area == 6 * 64
 
     # Free more regions
-    for i in range(3):
+    for _i in range(3):
         atlas.free_region(get_index_in_use())
 
     # We now have three quarters of the area freed. Downsize!
@@ -167,7 +167,7 @@ def test_atlas_alloc_resize_with_freeing():
     assert atlas.allocated_area == 3 * 64
 
     # Free all we have
-    for i in range(3):
+    for _i in range(3):
         atlas.free_region(get_index_in_use())
 
     # The size does not shrink lower than the initial size
@@ -232,7 +232,7 @@ def test_atlas_alloc2():
 
     # Allocate 1000 50x50 regions
     indices1 = []
-    for i in range(1000):
+    for _i in range(1000):
         index = atlas.allocate_region(50, 50)
         indices1.append(index)
 
@@ -250,7 +250,7 @@ def test_atlas_alloc2():
 
     # Allocate 500
     indices2 = []
-    for i in range(500):
+    for _i in range(500):
         index = atlas.allocate_region(50, 50)
         indices2.append(index)
 
@@ -291,7 +291,7 @@ def test_atlas_glyps():
     # Now there is
     i0 = atlas.store_region_with_hash("0", glyphgen(gs))
     assert isinstance(i0, int)
-    atlas.get_index_from_hash("0") == i0
+    assert atlas.get_index_from_hash("0") == i0
 
     # More ...
     i1 = atlas.store_region_with_hash("1", glyphgen(gs))
