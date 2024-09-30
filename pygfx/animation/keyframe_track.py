@@ -2,7 +2,6 @@ import numpy as np
 
 
 class KeyframeTrack:
-
     def __init__(self, name, target, path, times, values, interpolation):
         self.name = name
         self.target = target

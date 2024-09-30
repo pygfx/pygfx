@@ -5,7 +5,6 @@ class Clock:
     """A simple clock for keeping track of time"""
 
     def __init__(self, auto_start=True):
-
         self._auto_start = auto_start
 
         self._start_time = None

@@ -70,7 +70,6 @@ class Interpolant:
             # prepare binary search on the right side of the index
             right = len_pp
         elif t0 is None or t < t0:
-
             global_t1 = pp[1]  # the first keyframe
             if t < global_t1:
                 # when the animation is looped, scan the biggining after the end
@@ -133,7 +132,6 @@ class Interpolant:
 
 
 class LinearInterpolant(Interpolant):
-
     def __init__(self, parameter_positions, sample_values):
         super().__init__(parameter_positions, sample_values)
 
@@ -155,7 +153,6 @@ class QuaternionLinearInterpolant(Interpolant):
         super().__init__(parameter_positions, sample_values)
 
     def _interpolate(self, i1, t0, t, t1):
-
         values = self.sample_values
 
         vk0 = values[i1 - 1]
@@ -183,7 +180,6 @@ class QuaternionLinearInterpolant(Interpolant):
 
 
 class StepInterpolant(Interpolant):
-
     def __init__(self, parameter_positions, sample_values):
         super().__init__(parameter_positions, sample_values)
 
