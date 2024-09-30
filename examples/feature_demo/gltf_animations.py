@@ -46,7 +46,7 @@ np.seterr(under="ignore")
 
 gltf_path = model_dir / "Soldier.glb"
 
-canvas = WgpuCanvas(size=(800, 600), max_fps=-1, title="Animattions", vsync=False)
+canvas = WgpuCanvas(size=(800, 600), max_fps=-1, title="Animations", vsync=False)
 
 renderer = gfx.WgpuRenderer(canvas)
 camera = gfx.PerspectiveCamera(45, 800 / 600, depth_range=(1, 100))
