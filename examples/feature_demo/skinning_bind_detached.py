@@ -34,12 +34,9 @@ except NameError:
 import time
 import numpy as np
 import pygfx as gfx
-from scipy import interpolate
 from wgpu.gui.auto import WgpuCanvas, run
 
 gltf_path = model_dir / "Michelle.glb"
-
-scene = gfx.Scene()
 
 canvas = WgpuCanvas(size=(640, 480), max_fps=-1, title="Skinnedmesh", vsync=False)
 
@@ -83,57 +80,13 @@ skinnedmesh2.bind(skeleton, np.eye(4))
 
 scene.add(skinnedmesh2)
 
-
 action_clip = gltf.animations[0]
 
 skeleton_helper = gfx.SkeletonHelper(model_obj)
 scene.add(skeleton_helper)
 
-
 gfx.OrbitController(camera, register_events=renderer)
 
-
-def update_track(track, time):
-    target = track["target"]
-    property = track["property"]
-    values = track["values"]
-    times = track["times"]
-    interpolation = track["interpolation"]
-
-    if time < times[0]:
-        time = times[0]
-
-    # TODO: Use scipy to interpolate now, will use our own implementation later
-    if interpolation == "LINEAR":
-        if property == "rotation":
-            # TODO: should use spherical linear interpolation instead
-            cs = interpolate.interp1d(times, values, kind="linear", axis=0)
-            value = cs(time)
-            value = value / np.linalg.norm(value)  # normalize quaternion
-        else:
-            cs = interpolate.interp1d(times, values, kind="linear", axis=0)
-            value = cs(time)
-
-    elif interpolation == "CUBICSPLINE":
-        cs = interpolate.interp1d(times, values, kind="cubic", axis=0)
-        value = cs(time)
-    elif interpolation == "STEP":
-        cs = interpolate.interp1d(times, values, kind="previous", axis=0)
-        value = cs(time)
-    else:
-        print("unknown interpolation", interpolation)
-
-    if property == "scale":
-        target.local.scale = value
-    elif property == "translation":
-        target.local.position = value
-    elif property == "rotation":
-        target.local.rotation = value
-    else:
-        print("unknown property", property)
-
-
-tracks = action_clip["tracks"]
 gloabl_time = 0
 last_time = time.perf_counter()
 
@@ -146,11 +99,10 @@ def animate():
     dt = now - last_time
     last_time = now
     gloabl_time += dt
-    if gloabl_time > action_clip["duration"]:
+    if gloabl_time > action_clip.duration:
         gloabl_time = 0
 
-    for track in tracks:
-        update_track(track, gloabl_time)
+    action_clip.update(gloabl_time)
 
     skeleton.update()
     skeleton_helper.update()
