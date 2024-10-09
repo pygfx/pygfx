@@ -39,11 +39,6 @@ from wgpu.gui.auto import WgpuCanvas, run
 from wgpu.utils.imgui import ImguiRenderer
 from imgui_bundle import imgui
 
-import numpy as np
-
-# Ignore underflow runtime warning for pytest, See: https://github.com/pygfx/pygfx/pull/756#issuecomment-2370715504
-np.seterr(under="ignore")
-
 gltf_path = model_dir / "Soldier.glb"
 
 canvas = WgpuCanvas(size=(800, 600), max_fps=-1, title="Animations", vsync=False)
