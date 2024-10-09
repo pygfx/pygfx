@@ -116,11 +116,12 @@ jobs:
     - name: Install package and dev dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -U -e .
+        pip install -U .
         pip install pytest psutil pyinstaller
     - name: Unit tests
       run: |
-        pytest -v pygfx/__pyinstaller
+        pushd $HOME
+        pytest -v --pyargs pygfx.__pyinstaller
 
   test-examples-build:
     name: Test examples ${{ matrix.pyversion }}
@@ -149,6 +150,7 @@ jobs:
         pip install -e .[examples]
     - name: Show wgpu backend
       run: |
+        python -c "import pygfx; print(pygfx.__version__)"
         python -c "from examples.tests.testutils import adapter; print(adapter.info)"
     - name: Test examples
       env:
@@ -188,6 +190,7 @@ jobs:
           rm -rf ./pygfx
           pushd $HOME
           pip install $GITHUB_WORKSPACE/dist/*.tar.gz
+          python -c "import pygfx; print(pygfx.__version__)"
           popd
           # don't run tests, we just want to know if the sdist can be installed
           pip uninstall -y pygfx
