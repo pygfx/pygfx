@@ -70,20 +70,33 @@ def get_version_info_from_git():
         "--dirty",
         "--first-parent",
     ]
-    p = subprocess.run(
-        command, cwd=repo_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-    )
+    try:
+        p = subprocess.run(
+            command, cwd=repo_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
+    except Exception as e:
+        logger.warning("Could not get pygfx version: " + str(e))
+        p = None
 
     # Parse the result into parts
-    output = p.stdout.decode(errors="ignore")
-    if p.returncode:
-        logger.warning("Could not get pygfx version: " + output)
+    if p is None:
         parts = (None, None, "unknown")
     else:
-        parts = output.strip().lstrip("v").split("-")
-        if len(parts) <= 2:
-            # No tags (and thus also no post). Only git hash and maybe 'dirty'
-            parts = (None, None, *parts)
+        output = p.stdout.decode(errors="ignore")
+        if p.returncode:
+            stderr = p.stderr.decode(errors="ignore")
+            logger.warning(
+                "Could not get pygfx version.\n\nstdout: "
+                + output
+                + "\n\nstderr: "
+                + stderr
+            )
+            parts = (None, None, "unknown")
+        else:
+            parts = output.strip().lstrip("v").split("-")
+            if len(parts) <= 2:
+                # No tags (and thus also no post). Only git hash and maybe 'dirty'
+                parts = (None, None, *parts)
 
     # Return unpacked parts
     release, post, *labels = parts
