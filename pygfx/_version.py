@@ -71,7 +71,7 @@ def get_version_info_from_git():
         "--first-parent",
     ]
     p = subprocess.run(
-        command, cwd=repo_dir, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+        command, cwd=repo_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE
     )
 
     # Parse the result into parts
