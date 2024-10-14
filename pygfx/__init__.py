@@ -11,6 +11,7 @@ from .materials import *
 from .cameras import *
 from .helpers import *
 from .controllers import *
+from .animation import *
 
 from .renderers import *
 
