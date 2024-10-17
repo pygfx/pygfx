@@ -8,7 +8,7 @@ build:
   tools:
     python: "3.12"
   apt_packages:
-    - libegl1-mesa
+    - libegl1-mesa-dev
     - libgl1-mesa-dri
     - libxcb-xfixes0-dev
     - mesa-vulkan-drivers
