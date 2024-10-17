@@ -1,7 +1,7 @@
 """The Pygfx render engine."""
 # ruff: noqa: F401, F403
 
-from ._version import __version__, repo_dir as _repo_dir
+from ._version import __version__, version_info, repo_dir as _repo_dir
 from . import utils
 
 from .resources import *
@@ -28,11 +28,6 @@ from .utils.enums import *
 import pylinalg
 
 del pylinalg
-
-
-version_info = tuple(
-    int(i) if i.isnumeric() else i for i in __version__.split("+")[0].split(".")
-)
 
 
 def _get_dependency_version_ranges():
