@@ -5,6 +5,9 @@ Labelled Image Grid
 This example demonstrates how to create a grid of images with labels that change color when hovered over.
 """
 
+# sphinx_gallery_pygfx_docs = 'screenshot'
+# sphinx_gallery_pygfx_test = 'run'
+
 import random
 
 import imageio.v3 as iio
