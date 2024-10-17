@@ -1,6 +1,6 @@
 """
 Labelled Image Grid
-=================
+===================
 
 This example demonstrates how to create a grid of images with labels that change color when hovered over.
 """
