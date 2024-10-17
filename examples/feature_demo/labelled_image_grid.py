@@ -16,6 +16,8 @@ from wgpu.gui.auto import WgpuCanvas, run
 
 import pygfx as gfx
 
+random.seed(333)
+
 image_names = [
     "astronaut.png",
     "wood.jpg",
