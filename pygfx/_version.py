@@ -71,9 +71,7 @@ def get_version_info_from_git():
         "--first-parent",
     ]
     try:
-        p = subprocess.run(
-            command, cwd=repo_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-        )
+        p = subprocess.run(command, cwd=repo_dir, capture_output=True)
     except Exception as e:
         logger.warning("Could not get pygfx version: " + str(e))
         p = None
