@@ -35,6 +35,7 @@ extensions = [
     "sphinx_gallery.gen_gallery",
     "sphinx.ext.autosummary",
     "sphinx_rtd_theme",
+    "sphinx.ext.intersphinx",
     # "nbsphinx",
 ]
 
@@ -125,3 +126,10 @@ html_logo = "_static/pygfx.svg"
 html_css_files = [
     "style.css",
 ]
+
+intersphinx_mapping = {
+    "python": ("https://docs.python.org/3", None),
+    "numpy": ("https://numpy.org/doc/stable", None),
+    "pygfx": ("https://docs.pygfx.org/stable", None),
+    "wgpu": ("https://wgpu-py.readthedocs.io/en/latest", None),
+}
