@@ -1,5 +1,7 @@
+"""The Pygfx render engine."""
 # ruff: noqa: F401, F403
 
+from ._version import __version__, version_info, repo_dir as _repo_dir
 from . import utils
 
 from .resources import *
@@ -9,6 +11,7 @@ from .materials import *
 from .cameras import *
 from .helpers import *
 from .controllers import *
+from .animation import *
 
 from .renderers import *
 
@@ -27,24 +30,18 @@ import pylinalg
 del pylinalg
 
 
-__version__ = "0.5.0"
-version_info = tuple(map(int, __version__.split(".")))
-
-
 def _get_dependency_version_ranges():
+    # The only case where this dependency checking makes sense is for devs
+    # using pygfx from a Git repo.
+    if not _repo_dir:
+        return {}
     # Try import, dont care when this fails (e.g. frozen or py < 3.11)
     try:
         import os, tomllib  # noqa
     except ImportError:
         return {}
-    # Look for the pyproject file. If its there, pygfx is likely installed in dev mode,
-    # which is the only case where this dependency checking is interesting.
-    this_dir = os.path.dirname(os.path.abspath(__file__))
-    pyproject_file = os.path.join(this_dir, "..", "pyproject.toml")
-    if not os.path.isfile(pyproject_file):
-        return {}
-    # Load versions
-    with open(pyproject_file, "rb") as fp:
+    # Load dependency versions
+    with open(os.path.join(_repo_dir, "pyproject.toml"), "rb") as fp:
         dependencies = tomllib.load(fp)["project"]["dependencies"]
     # Parse
     limits_per_dependency = {}

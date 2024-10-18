@@ -217,18 +217,25 @@ class _GLTF:
 
         node = gltf.model.nodes[node_index]
 
+        translation = node.translation or [0, 0, 0]
+        rotation = node.rotation or [0, 0, 0, 1]
+        scale = node.scale or [1, 1, 1]
+
         if node.matrix is not None:
             matrix = np.array(node.matrix).reshape(4, 4).T
         else:
-            translation = node.translation or [0, 0, 0]
-            rotation = node.rotation or [0, 0, 0, 1]
-            scale = node.scale or [1, 1, 1]
             matrix = la.mat_compose(translation, rotation, scale)
 
         node_mark = node_marks[node_index]
 
         if node_mark == "Bone":
             node_obj = gfx.Bone()
+            # Now, Bone is special, so we need to set the position, rotation, and scale manually.
+            # See: https://github.com/pygfx/pygfx/pull/746
+            node_obj.local.position = translation
+            node_obj.local.rotation = rotation
+            node_obj.local.scale = scale
+            node_obj.local.matrix = matrix
         elif node_mark == "Camera":
             # TODO: implement camera loading
             # node_obj = gfx.Camera()
@@ -561,22 +568,23 @@ class _GLTF:
                 duration = times[-1]
             values = self._load_accessor(sampler.output)
 
-            key_frame_tracks.append(
-                {
-                    "name": name,
-                    "target": target_node,
-                    "property": target_property,
-                    "interpolation": interpolation,
-                    "times": times,
-                    "values": values,
-                }
-            )
+            if interpolation == "LINEAR":
+                if target_property == "rotation":
+                    interpolation_fn = gfx.QuaternionLinearInterpolant
+                else:
+                    interpolation_fn = gfx.LinearInterpolant
+            elif interpolation == "STEP":
+                interpolation_fn = gfx.StepInterpolant
+            elif interpolation == "CUBICSPLINE":
+                interpolation_fn = gfx.CubicSplineInterpolant
 
-        action_clip = {
-            "name": animation_info.name,
-            "duration": duration,
-            "tracks": key_frame_tracks,
-        }
+            values = values.reshape(len(times), -1)
+            keyframe = gfx.KeyframeTrack(
+                name, target_node, target_property, times, values, interpolation_fn
+            )
+            key_frame_tracks.append(keyframe)
+
+        action_clip = gfx.AnimationClip(animation_info.name, duration, key_frame_tracks)
 
         return action_clip
 
