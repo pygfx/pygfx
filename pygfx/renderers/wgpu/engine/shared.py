@@ -242,6 +242,11 @@ def enable_wgpu_features(*features):
     breaks that promise, and may cause your code to not work on e.g.
     mobile devices or certain operating systems.
 
+    Features can also be turned off by prefixing with "!". This e.g. allows
+    using a subset of Pygfx on old hardware by using
+    ``enable_wgpu_features("!float32-filterable")``. Use with care; some parts
+    of Pygfx will not function without the default features enabled.
+
     This function must be called before before the first ``Renderer`` is created.
     It can be called multiple times to enable more features. Note that feature names
     are invariant to use of dashes versus underscores.
@@ -258,7 +263,18 @@ def enable_wgpu_features(*features):
         raise RuntimeError(
             "The enable_wgpu_features() function must be called before creating the first renderer."
         )
-    Shared._features.update(features)
+    # Split into features to turn on or off
+    features = set(features)
+    features_off = {f for f in features if f.startswith("!")}
+    features_on = features - features_off
+    # Make the off-features work on different spellings.
+    # As it is now, this does not discard the "float32Filterable" spelling.
+    features_off = {f.lstrip("!") for f in features_off}
+    features_off |= {f.replace("-", "_") for f in features_off}
+    features_off |= {f.replace("_", "-") for f in features_off}
+    # Apply
+    Shared._features.difference_update(features_off)
+    Shared._features.update(features_on)
 
 
 def set_wgpu_limits(**limits):
