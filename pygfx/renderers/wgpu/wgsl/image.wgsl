@@ -42,7 +42,7 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     let color = sampled_value_to_color(value);
 
     // Move to physical colorspace (linear photon count) so we can do math
-    $$ if colorspace == 'srgb'
+    $$ if colorspace in ['srgb', 'yuv']
         let physical_color = srgb2physical(color.rgb);
     $$ else
         let physical_color = color.rgb;
