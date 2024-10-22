@@ -65,12 +65,16 @@ class ImageShader(BaseShader):
         bindings.append(Binding("t_img", "texture/auto", tex_view, vertex_and_fragment))
 
         if hasattr(geometry, "grid_u") and hasattr(geometry, "grid_v"):
-            self['colorspace'] = "yuv"
+            self["colorspace"] = "yuv"
             self["img_nchannels"] = 3
             tex_u_view = GfxTextureView(geometry.grid_u)
             tex_v_view = GfxTextureView(geometry.grid_v)
-            bindings.append(Binding("t_img_u", "texture/auto", tex_u_view, vertex_and_fragment))
-            bindings.append(Binding("t_img_v", "texture/auto", tex_v_view, vertex_and_fragment))
+            bindings.append(
+                Binding("t_img_u", "texture/auto", tex_u_view, vertex_and_fragment)
+            )
+            bindings.append(
+                Binding("t_img_v", "texture/auto", tex_v_view, vertex_and_fragment)
+            )
 
         # If a colormap is applied ...
         if material.map is not None:

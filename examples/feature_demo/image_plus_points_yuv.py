@@ -30,9 +30,9 @@ def rgb_to_yuv420_limited_range(im):
     # import cv2
     # image_yuv420 = cv2.cvtColor(image_rgb, cv2.COLOR_RGB2YUV_I420)
     # Define conversion matrix for RGB to YUV limited range (ITU-R BT.601)
-    m = np.array([[0.257,  0.504,  0.098],
-                  [-0.148, -0.291, 0.439],
-                  [0.439,  -0.368, -0.071]])
+    m = np.array(
+        [[0.257, 0.504, 0.098], [-0.148, -0.291, 0.439], [0.439, -0.368, -0.071]]
+    )
     offset = np.array([16, 128, 128])
     im = im.astype(np.float32)
     yuv = im @ m.T + offset
@@ -43,6 +43,7 @@ def rgb_to_yuv420_limited_range(im):
     u = yuv[::2, ::2, 1].reshape(-1, y.shape[1])
     v = yuv[::2, ::2, 2].reshape(-1, y.shape[1])
     return np.vstack([y, u, v])
+
 
 # OpenCV returns a "planar format" YUV where
 # the first "plane" of data "Y" is the intensity
@@ -58,15 +59,15 @@ u_height = height // 4
 image_yuv420 = rgb_to_yuv420_limited_range(image_rgb)
 
 im_y = image_yuv420[:height]
-im_u = image_yuv420[height:height + u_height]
-im_v = image_yuv420[height + u_height:]
+im_u = image_yuv420[height : height + u_height]
+im_v = image_yuv420[height + u_height :]
 # Rehsape can cause "implicit" copies of the data, so we assign the shape which causes the data to never get copied
 im_u.shape = height // 2, width // 2
 im_v.shape = height // 2, width // 2
 
 image = gfx.Image(
     gfx.Geometry(
-        grid=gfx.Texture(im_y, dim=2), 
+        grid=gfx.Texture(im_y, dim=2),
         grid_u=gfx.Texture(im_u, dim=2),
         grid_v=gfx.Texture(im_v, dim=2),
     ),
@@ -77,7 +78,6 @@ image = gfx.Image(
 scene.add(image)
 
 # add points
-
 xx = [182, 180, 161, 153, 191, 237, 293, 300, 272, 267, 254]
 yy = [145, 131, 112, 59, 29, 14, 48, 91, 136, 137, 172]
 sizes = np.arange(1, len(xx) + 1, dtype=np.float32)
