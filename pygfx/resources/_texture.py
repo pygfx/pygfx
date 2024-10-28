@@ -25,7 +25,7 @@ class Texture(Resource):
     ----------
     data : array | None
         The initial data of the texture. It must support the buffer-protocol,
-        (e.g. a bytes or numpy array). If None, ``size`` and ``forma`` must be
+        (e.g. a bytes or numpy array). If None, ``size`` and ``format`` must be
         provided. The data will be accessible at ``texture.data``, no copies are
         made. The dtype must be compatible with wgpu texture formats.
     dim : int
@@ -101,11 +101,18 @@ class Texture(Resource):
         assert dim in (1, 2, 3)
         self._store.dim = int(dim)
         self._colorspace = (colorspace or "srgb").lower()
-        assert self._colorspace in ("srgb", "physical")
+        assert self._colorspace in ("srgb", "physical", "yuv420")
         self._generate_mipmaps = bool(generate_mipmaps)
 
         # Normalize size
-        size = None if size is None else (int(size[0]), int(size[1]), int(size[2]))
+        if size is None:
+            pass
+        elif len(size) == 2:
+            size = int(size[0]), int(size[1]), 1
+        elif len(size) == 3:
+            size = int(size[0]), int(size[1]), int(size[2])
+        else:
+            raise ValueError("Texture size must be a 2-tuple or 3-tuple or None.")
 
         # Process data
         if data is not None:

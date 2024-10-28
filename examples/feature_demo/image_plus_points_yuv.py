@@ -65,11 +65,26 @@ im_v = image_yuv420[height + u_height :]
 im_u.shape = height // 2, width // 2
 im_v.shape = height // 2, width // 2
 
+
+uv_shape = height // 2, width // 2
+image_2layer = np.zeros((2, height, width), np.uint8)
+image_2layer[0,] = image_yuv420[:height]
+image_2layer[1, : height // 2, : width // 2] = image_yuv420[
+    height : height + u_height
+].reshape(uv_shape)
+image_2layer[1, height // 2 :, : width // 2] = image_yuv420[
+    height + u_height :
+].reshape(uv_shape)
+
+
 image = gfx.Image(
     gfx.Geometry(
-        grid=gfx.Texture(im_y, dim=2),
-        grid_u=gfx.Texture(im_u, dim=2),
-        grid_v=gfx.Texture(im_v, dim=2),
+        grid=gfx.Texture(
+            image_2layer, dim=2, size=(width, height, 2), colorspace="yuv420"
+        ),
+        # grid=gfx.Texture(image_2layer, dim=2),
+        # grid_u=gfx.Texture(im_u, dim=2),
+        # grid_v=gfx.Texture(im_v, dim=2),
     ),
     gfx.ImageBasicMaterial(
         clim=(0, 255),

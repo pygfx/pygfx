@@ -339,6 +339,8 @@ class GfxTextureView:
         default_view_dim = f"{texture.dim}d"
         if view_dim is None:
             view_dim = default_view_dim
+            if texture.dim == 2 and texture.size[2] > 1:
+                view_dim = "2d-array"
         elif isinstance(view_dim, int):
             view_dim = f"{view_dim}d"
 

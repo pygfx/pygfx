@@ -60,6 +60,8 @@ class ImageShader(BaseShader):
                 self["img_format"] = "i32"
             # Channels
             self["img_nchannels"] = len(fmt) - len(fmt.lstrip("rgba"))
+            if self["colorspace"].startswith("yuv"):
+                self["img_nchannels"] = 3
 
         bindings.append(Binding("s_img", "sampler/filtering", sampler, "FRAGMENT"))
         bindings.append(Binding("t_img", "texture/auto", tex_view, vertex_and_fragment))

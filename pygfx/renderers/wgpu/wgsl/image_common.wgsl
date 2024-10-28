@@ -17,10 +17,12 @@ fn yuv_to_rgb(y: f32, u: f32, v: f32) -> vec4<f32> {
 
 fn sample_im(texcoord: vec2<f32>, sizef: vec2<f32>) -> vec4<f32> {
     $$ if img_format == 'f32'
-        $$ if colorspace == 'yuv'
-            let y = textureSample(t_img, s_img, texcoord.xy).x;
-            let u = textureSample(t_img_u, s_img, texcoord.xy).x;
-            let v = textureSample(t_img_v, s_img, texcoord.xy).x;
+        $$ if colorspace == 'yuv420'
+            let y = textureSample(t_img, s_img, texcoord.xy, 0).x;
+            // let u = textureSample(t_img_u, s_img, texcoord.xy).x;
+            // let v = textureSample(t_img_v, s_img, texcoord.xy).x;
+            let u = textureSample(t_img, s_img, texcoord.xy / 2.0, 1).x;
+            let v = textureSample(t_img, s_img, texcoord.xy / 2.0 + vec2<f32>(0.0, 0.5), 1).x;
             return yuv_to_rgb(y, u, v);
         $$ else
             return textureSample(t_img, s_img, texcoord.xy);
