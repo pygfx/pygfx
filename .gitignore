@@ -5,6 +5,7 @@ poetry.lock
 .DS_Store
 examples/screenshots/diffs
 examples/offscreen.png
+examples/data/sam2_hiera_large.pt
 offscreen.png
 docs/sg_execution_times.rst
 nogit/
