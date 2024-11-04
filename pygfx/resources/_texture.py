@@ -288,25 +288,24 @@ class Texture(Resource):
         if any(b < 0 for b in offset):
             raise ValueError("Update offset must not be negative")
         # Get data size
-        data_size = list(reversed(data.shape))
+        shape = list(data.shape)
         if self.dim == 1:
-            data_size = [1, 1, *data_size]
+            shape = [1, 1, *shape]
         elif self.dim == 2:
-            data_size = [1, *data_size]
-        size = tuple(data_size[:3])
+            shape = [1, *shape]
+        size = tuple(reversed(shape[:3]))
         # Check if it fits
-        max_size = [s1 + s2 for s1, s2 in zip(offset, size)]
-        if any(s1 > s2 for s1, s2 in zip(max_size, self.size)):
+        if any((o1 + s1) > s2 for o1, s1, s2 in zip(offset, size, self.size)):
             raise ValueError("The data with this offset does not fit.")
         # Create chunk
-        data.shape = tuple(reversed(data_size))
+        data.shape = shape
         if not data.flags.c_contiguous:
             if self._force_contiguous:
                 raise ValueError(
                     "When force_contiguous is set, data passed to send_data() must be contiguous."
                 )
             data = np.ascontiguousarray(data)
-        self._chunk_list.append((offset, data_size, data))
+        self._chunk_list.append((offset, size, data))
         # Request sync
         Resource._rev += 1
         self._rev = Resource._rev
