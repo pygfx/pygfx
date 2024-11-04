@@ -597,12 +597,9 @@ class BaseFragmentBlender:
         }
 
     def get_depth_attachment(self, pass_index):
-        return {
-            **self.passes[pass_index].get_depth_attachment(self),
-            "stencil_read_only": True,
-            "stencil_load_op": wgpu.LoadOp.clear,
-            "stencil_store_op": wgpu.StoreOp.discard,
-        }
+        return self.passes[pass_index].get_depth_attachment(self)
+        # We don't use the stencil yet, but when we do, we will also have to specify
+        # "stencil_read_only", "stencil_load_op", and "stencil_store_op"
 
     def get_shader_kwargs(self, pass_index):
         return {

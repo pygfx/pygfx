@@ -16,9 +16,9 @@ keywords = [
     "webgpu",
     "wgpu",
 ]
-requires-python = ">= 3.8"
+requires-python = ">= 3.9"
 dependencies = [
-    "wgpu >=0.17.3,<0.19.0",
+    "wgpu >=0.19.0,<0.20.0",
     "pylinalg >=0.4.1,<0.5.0",
     "numpy",
     "freetype-py",
