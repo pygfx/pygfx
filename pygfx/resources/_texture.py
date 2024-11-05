@@ -275,6 +275,8 @@ class Texture(Resource):
 
         Example:
 
+        .. code-block:: py
+
             tex = gfx.Texture(
                 size=(64, 64, 1),
                 dim=2,

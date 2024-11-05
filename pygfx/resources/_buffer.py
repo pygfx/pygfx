@@ -275,6 +275,8 @@ class Buffer(Resource):
 
         Example:
 
+        .. code-block:: py
+
             buf = gfx.Buffer(
                 nitems=64,
                 nbytes=64*4*3,
