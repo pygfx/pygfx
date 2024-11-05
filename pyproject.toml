@@ -56,7 +56,7 @@ hook-dirs = "pygfx.__pyinstaller:get_hook_dirs"
 tests = "pygfx.__pyinstaller:get_test_dirs"
 
 [project.urls]
-Homepage = "https://github.com/pygfx/pygfx"
+Homepage = "https://pygfx.org"
 Documentation = "https://docs.pygfx.org"
 Repository = "https://github.com/pygfx/pygfx"
 

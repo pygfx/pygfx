@@ -8,9 +8,9 @@
 [![PyPI version ](https://badge.fury.io/py/pygfx.svg)
 ](https://badge.fury.io/py/pygfx)
 
-Pygfx' purpose is to bring powerful and reliable visualization to the Python world. 🚀
+The purpose of Pygfx is to bring powerful and reliable visualization to the Python world. 🚀
 
-Pygfx (pronounced "py-graphics") is built on [wgpu](https://github.com/pygfx/wgpu-py/), enabling superior performance and reliability compared to OpenGL-based solutions. It is designed for simplicity and versatility: with its modular architecture, you can effortlessly assemble graphical scenes for diverse applications, from scientific visualization to video game rendering.
+Pygfx (py-graphics) is built on [wgpu](https://github.com/pygfx/wgpu-py/), enabling superior performance and reliability compared to OpenGL-based solutions. It is designed for simplicity and versatility: with its modular architecture, you can effortlessly assemble graphical scenes for diverse applications, from scientific visualization to video game rendering.
 
 <p align="center">
 <img src="./docs/_static/readme_sponza.png" alt="drawing" width="200"/>
@@ -23,17 +23,7 @@ Pygfx (pronounced "py-graphics") is built on [wgpu](https://github.com/pygfx/wgp
 [<a href="https://docs.pygfx.org/stable/reference.html">API Reference</a>]
 </p>
 
-## Professional support
-
-Need help? We offer the following professional services:
-
-* **Priority Support:** Rest assured with our dedicated support, prioritizing your needs for quick issue resolution and feature implementation.
-* **Integration Support:** Get assistance with integrating Pygfx into your application, ensuring a smooth transition and optimal performance.
-* **Customized Solutions:** Whether it's crafting specific visualizations or developing shaders, we work closely with you to create tailored solutions that address your unique requirements.
-* **Training and Workshops:** We provide informative training sessions and workshops aimed at boosting skills and knowledge.
-
-Also checkout the [sponsors page](https://github.com/sponsors/pygfx).
-For further inquiries reach out to us at [support@pygfx.org](mailto:support@pygfx.org).
+Need help? We offer [professional support](https://pygfx.org/sponsor.html).
 
 ## Installation
 
