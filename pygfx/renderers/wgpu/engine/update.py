@@ -66,8 +66,12 @@ def _update_buffer(buffer):
     bytes_per_item = buffer.itemsize
 
     # Upload any pending data
-    for offset, size in chunk_descriptions:
-        chunk_data = buffer._gfx_get_chunk_data(offset, size)
+    for chunk_description in chunk_descriptions:
+        if len(chunk_description) == 3:
+            offset, size, chunk_data = chunk_description
+        else:
+            offset, size = chunk_description
+            chunk_data = buffer._gfx_get_chunk_data(offset, size)
         device.queue.write_buffer(
             wgpu_buffer, bytes_per_item * offset, chunk_data, 0, chunk_data.nbytes
         )

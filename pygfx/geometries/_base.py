@@ -61,6 +61,8 @@ class Geometry(Trackable):
                     # For meshes will be Nx3 or Nx4, but other dtypes may support
                     # multidimensional stuff for fancy graphics.
                     pass
+                elif format is None:
+                    pass  # buffer with no local data, trust the user
                 elif name == "positions":
                     if not format.startswith("3x"):
                         raise ValueError("Expected Nx3 data for positions")

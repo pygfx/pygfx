@@ -263,11 +263,15 @@ class Texture(Resource):
         return self._generate_mipmaps
 
     def send_data(self, offset, data):
-        """Method to directly sync chunks of data to the GPU texture.
+        """Send a chunk of data to the GPU.
 
-        This provides a lower-level data-upload approach, intended for
-        power-users who want to avoid data copies. Can only be used when
-        the texture has no local data. Requires the COPY_DIST usage.
+        This provides a way to upload data to textures that don't have local
+        data (i.e. ``texture.data is None``). It is intended for use-cases where
+        data-copies must be avoid for performance. Can only be used when the
+        texture has no local data, and requires ``usage=wgpu.TextureUsage.COPY_DST``.
+
+        Note that in contrast to the ``update_x`` methods, multiple calls are not
+        combined; each call to ``send_data()`` results in one upload operation.
 
         Example:
 
@@ -284,9 +288,11 @@ class Texture(Resource):
                 "Can only use texture.send_data() if the texture has no local data."
             )
         # Check input
-        assert isinstance(offset, tuple) and len(offset) == 3
+        if not isinstance(offset, (list, tuple)) and len(offset) == 3:
+            raise ValueError("Offset must be a tuple of 3 ints")
+        offset = tuple(int(i) for i in offset)
         if any(b < 0 for b in offset):
-            raise ValueError("Update offset must not be negative")
+            raise ValueError("offset must not be negative")
         # Get data size
         shape = list(data.shape)
         if self.dim == 1:
@@ -294,7 +300,9 @@ class Texture(Resource):
         elif self.dim == 2:
             shape = [1, *shape]
         size = tuple(reversed(shape[:3]))
-        # Check if it fits
+        if len(size) != 3:
+            raise ValueError("Unexpected data shape")
+        # Check whether it fits
         if any((o1 + s1) > s2 for o1, s1, s2 in zip(offset, size, self.size)):
             raise ValueError("The data with this offset does not fit.")
         # Create chunk
@@ -401,6 +409,7 @@ class Texture(Resource):
         used in _gfx_get_chunk_data(). This method also clears
         the chunk dirty statuses.
         """
+
         # In no-local-data mode, we (only) have a chunk list
         if self._chunk_list:
             chunks = self._chunk_list
