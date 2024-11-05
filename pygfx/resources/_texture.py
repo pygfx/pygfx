@@ -270,8 +270,10 @@ class Texture(Resource):
         data-copies must be avoid for performance. Can only be used when the
         texture has no local data, and requires ``usage=wgpu.TextureUsage.COPY_DST``.
 
-        Note that in contrast to the ``update_x`` methods, multiple calls are not
-        combined; each call to ``send_data()`` results in one upload operation.
+        The offset must be a (width, height, depth) tuple.
+        Note that in contrast to the ``update_x`` methods, multiple calls are
+        not combined; each call to ``send_data()`` results in one upload
+        operation.
 
         Example:
 

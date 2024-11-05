@@ -270,6 +270,7 @@ class Buffer(Resource):
         data-copies must be avoid for performance. Can only be used when the
         buffer has no local data, and requires ``usage=wgpu.BufferUsage.COPY_DST``.
 
+        The offset is expressed as an integer number of items.
         Note that in contrast to the ``update_x`` methods, multiple calls are not
         combined; each call to ``send_data()`` results in one upload operation.
 

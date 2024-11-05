@@ -28,6 +28,8 @@ tex = gfx.Texture(
 )
 
 tex.send_data((0, 0, 0), image_data)
+tex.send_data((80, 100, 0), np.full((50, 50), 255, np.uint8))
+tex.send_data((100, 80, 0), np.full((50, 50), 0, np.uint8))
 del image_data
 
 image = gfx.Image(
@@ -50,6 +52,7 @@ buf = gfx.Buffer(
 )
 
 buf.send_data(0, position_data)
+buf.send_data(10, np.array([[125, 105]], np.float32))
 del position_data
 
 points = gfx.Points(
