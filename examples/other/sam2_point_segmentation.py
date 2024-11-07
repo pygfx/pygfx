@@ -8,13 +8,17 @@ Interactive Segmentation with SAM2
 
 This script demonstrates a real-time interactive segmentation application using pygfx points as prompts to the SAM2 (Segment Anything Model 2) model and Qt (PySide6) for the GUI.
 
+Additional dependencies required to run this example:
+    pip install git+https://github.com/facebookresearch/sam2.git
+
+Once the application is running, you can click and drag the green point to interactively segment the image. The model will update the segmentation mask in real-time as you move the point around.
+
 """
 
 from pathlib import Path
 from queue import LifoQueue
 from threading import Event
 
-import cv2
 import imageio.v3 as iio
 import numpy as np
 import torch
@@ -22,7 +26,7 @@ from PySide6 import QtWidgets
 from PySide6.QtCore import QThread, Signal
 from sam2.build_sam import build_sam2
 from sam2.sam2_image_predictor import SAM2ImagePredictor
-from wgpu.gui.qt import WgpuCanvas
+from rendercanvas.qt import QRenderCanvas
 
 import pygfx as gfx
 
@@ -35,7 +39,7 @@ class SAMPoint(QtWidgets.QWidget):
         self.setWindowTitle("SAM2 Real-time Point Segmentation")
         self.resize(800, 800)
 
-        self.canvas = WgpuCanvas(parent=self, max_fps=-1)
+        self.canvas = QRenderCanvas(parent=self, max_fps=-1)
         self.renderer = gfx.WgpuRenderer(self.canvas, show_fps=True)
         self.scene = gfx.Scene()
         self.camera = gfx.PerspectiveCamera(0)
@@ -54,10 +58,8 @@ class SAMPoint(QtWidgets.QWidget):
         layout.addWidget(self.canvas)
         layout.addWidget(self.reset_view_button)
 
-        image_shape = (3072, 3072)
-        self.image_shape = image_shape
         base_image = iio.imread("imageio:astronaut.png")
-        base_image = cv2.resize(base_image, image_shape)
+        self.image_shape = base_image.shape[:2]
         self.mask_image = None
         self.edit_world_object = None
 
@@ -78,8 +80,9 @@ class SAMPoint(QtWidgets.QWidget):
         base_x, base_y, _ = self.base_image.local.position
         self.mask_image.local.position = base_x, base_y, 3
 
+        point_size = int(np.sqrt(self.image_shape[0] * self.image_shape[1]) * 0.02)
         point_material = gfx.PointsMarkerMaterial(
-            size=80,
+            size=point_size,
             color="lightgreen",
             size_space="world",
             edge_color="black",
@@ -90,7 +93,11 @@ class SAMPoint(QtWidgets.QWidget):
             gfx.Geometry(positions=[[0, 0, 3]]),
             point_material,
         )
-        self.dot_marker.local.position = image_shape[0] // 2, image_shape[1] // 2, 3
+        self.dot_marker.local.position = (
+            self.image_shape[0] // 2,
+            self.image_shape[1] // 2,
+            3,
+        )
 
         self.scene.add(self.base_image)
         self.scene.add(self.mask_image)
@@ -246,4 +253,4 @@ if __name__ == "__main__":
     app = QtWidgets.QApplication([])
     m = SAMPoint()
     m.show()
-    app.exec_()
+    app.exec()
