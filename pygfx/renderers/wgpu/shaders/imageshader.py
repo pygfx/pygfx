@@ -28,6 +28,10 @@ class ImageShader(BaseShader):
         material = wobject.material
         geometry = wobject.geometry
 
+        # In this method we want to set all shader variables (i.e. self['xx']),
+        # so that we can properly detect when stuff changes that (may) affect
+        # these values, and trigger a recompile.
+
         # Check grid
         if geometry.grid is None:
             raise ValueError("Image.geometry must have a grid (texture).")
