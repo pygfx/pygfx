@@ -29,8 +29,6 @@ except NameError:
 
 # sphinx_gallery_pygfx_docs = 'code'
 # sphinx_gallery_pygfx_test = 'off'
-# sphinx_gallery_pygfx_render = True
-# sphinx_gallery_pygfx_target_name = "disp"
 
 from open3d import io
 import open3d as o3d
