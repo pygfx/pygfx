@@ -1,6 +1,6 @@
 """
-Load Open3D
-==============
+Load Open3D Mesh
+================
 
 Demonstrates loading mesh models from open3d.
 """

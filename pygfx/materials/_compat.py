@@ -172,7 +172,7 @@ def texture_from_numpy_array(image_array, dim=2, **kwargs):
 
     # Check if it is an open3d image
     if isinstance(image_array, open3d.cpu.pybind.geometry.Image):
-        image_array = np.asarray(image_array)
+        image_array = np.ascontiguousarray(image_array)
 
     # Ensure input is a valid numpy array
     if not isinstance(image_array, np.ndarray):
