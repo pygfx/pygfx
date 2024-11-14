@@ -77,7 +77,7 @@ def geometry_from_open3d(x) -> Geometry:
         If the input geometry type is not supported.
     """
 
-    from open3d import geometry as o3d_geometry  # noqa
+    from open3d import geometry as o3d_geometry
 
     if isinstance(x, o3d_geometry.TriangleMesh):
         return geometry_from_open3d_triangle_mesh(x)
@@ -113,7 +113,7 @@ def geometry_from_open3d_triangle_mesh(x) -> Geometry:
         If the input is not an instance of open3d.geometry.TriangleMesh.
     """
 
-    from open3d import geometry as o3d_geometry  # noqa
+    from open3d import geometry as o3d_geometry
 
     if not isinstance(x, o3d_geometry.TriangleMesh):
         raise NotImplementedError(
@@ -169,7 +169,7 @@ def geometry_from_open3d_point_cloud(x) -> Geometry:
         If the input is not an instance of open3d.geometry.PointCloud.
     """
 
-    from open3d import geometry as o3d_geometry  # noqa
+    from open3d import geometry as o3d_geometry
 
     if not isinstance(x, o3d_geometry.PointCloud):
         raise NotImplementedError(

@@ -185,7 +185,7 @@ def texture_from_numpy_array(image_array, dim=2, **kwargs):
     # Normalize and adjust channels if needed
     if image_array.ndim == 2:
         # Assume single-channel grayscale image
-        buffer_shape = image_array.shape + (1,)
+        buffer_shape = (*image_array.shape, 1)
         image_array = image_array.reshape(buffer_shape)
 
     # Create a memoryview of the data for the texture
