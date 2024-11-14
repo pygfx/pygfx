@@ -964,6 +964,7 @@ class AdditivePass(BasePass):
             depth_load_op = wgpu.LoadOp.clear
         return {
             "view": blender.depth_view,
+            "depth_clear_value": 1.0,
             "depth_load_op": depth_load_op,
             "depth_store_op": wgpu.StoreOp.store,
         }
