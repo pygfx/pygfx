@@ -23,6 +23,45 @@ vertex_and_fragment = wgpu.ShaderStage.VERTEX | wgpu.ShaderStage.FRAGMENT
 class ImageShader(BaseShader):
     type = "render"
 
+    def __init__(self, wobject):
+        super().__init__(wobject)
+        material = wobject.material
+        geometry = wobject.geometry
+
+        # In this method we want to set all shader variables (i.e. self['xx']),
+        # so that we can properly detect when stuff changes that (may) affect
+        # these values, and trigger a recompile.
+
+        # Check grid
+        if geometry.grid is None:
+            raise ValueError("Image.geometry must have a grid (texture).")
+        elif not isinstance(geometry.grid, Texture):
+            raise TypeError("Image.geometry.grid must be a Texture.")
+        elif geometry.grid.dim != 2:
+            raise TypeError("Image.geometry.grid must a 2D texture")
+
+        # Set img_format and climcorrection
+        self["climcorrection"] = ""
+        fmt = to_texture_format(geometry.grid.format)
+        if "norm" in fmt or "float" in fmt:
+            self["img_format"] = "f32"
+            if "unorm" in fmt:
+                self["climcorrection"] = " * 255.0"
+            elif "snorm" in fmt:
+                self["climcorrection"] = " * 255.0 - 128.0"
+        elif "uint" in fmt:
+            self["img_format"] = "u32"
+        else:
+            self["img_format"] = "i32"
+
+        # Channels
+        self["img_nchannels"] = len(fmt) - len(fmt.lstrip("rgba"))
+
+        # Determine colorspace
+        self["colorspace"] = geometry.grid.colorspace
+        if material.map is not None:
+            self["colorspace"] = material.map.colorspace
+
     def get_bindings(self, wobject, shared):
         geometry = wobject.geometry
         material = wobject.material
@@ -33,43 +72,15 @@ class ImageShader(BaseShader):
             Binding("u_material", "buffer/uniform", material.uniform_buffer),
         ]
 
-        self["climcorrection"] = ""
-
-        # Collect texture and sampler
-        if geometry.grid is None:
-            raise ValueError("Image.geometry must have a grid (texture).")
-        else:
-            if not isinstance(geometry.grid, Texture):
-                raise TypeError("Image.geometry.grid must be a Texture.")
-            if geometry.grid.dim != 2:
-                raise TypeError("Image.geometry.grid must a 2D texture")
-            tex_view = GfxTextureView(geometry.grid)
-            sampler = GfxSampler(material.interpolation, "clamp")
-            self["colorspace"] = geometry.grid.colorspace
-            # Sampling type
-            fmt = to_texture_format(geometry.grid.format)
-            if "norm" in fmt or "float" in fmt:
-                self["img_format"] = "f32"
-                if "unorm" in fmt:
-                    self["climcorrection"] = " * 255.0"
-                elif "snorm" in fmt:
-                    self["climcorrection"] = " * 255.0 - 128.0"
-            elif "uint" in fmt:
-                self["img_format"] = "u32"
-            else:
-                self["img_format"] = "i32"
-            # Channels
-            self["img_nchannels"] = len(fmt) - len(fmt.lstrip("rgba"))
-
+        tex_view = GfxTextureView(geometry.grid)
+        sampler = GfxSampler(material.interpolation, "clamp")
         bindings.append(Binding("s_img", "sampler/filtering", sampler, "FRAGMENT"))
         bindings.append(Binding("t_img", "texture/auto", tex_view, vertex_and_fragment))
 
-        # If a colormap is applied ...
         if material.map is not None:
             bindings.extend(
                 self.define_img_colormap(material.map, material.map_interpolation)
             )
-            self["colorspace"] = material.map.colorspace
 
         bindings = {i: b for i, b in enumerate(bindings)}
         self.define_bindings(0, bindings)

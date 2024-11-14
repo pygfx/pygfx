@@ -6,9 +6,9 @@
 
     <h1 class="frontpage-header">Pygfx</h1>
 
-Pygfx' purpose is to bring powerful and reliable visualization to the Python world. 🚀
+The purpose of Pygfx is to bring powerful and reliable visualization to the Python world. 🚀
 
-Pygfx (pronounced "py-graphics") is built on `wgpu <https://github.com/pygfx/wgpu-py/>`_, enabling superior performance and reliability compared to OpenGL-based solutions. It is designed for simplicity and versatility: with its modular architecture, you can effortlessly assemble graphical scenes for diverse applications, from scientific visualization to video game rendering.
+Pygfx (py-graphics) is built on `wgpu <https://github.com/pygfx/wgpu-py/>`_, enabling superior performance and reliability compared to OpenGL-based solutions. It is designed for simplicity and versatility: with its modular architecture, you can effortlessly assemble graphical scenes for diverse applications, from scientific visualization to video game rendering.
 
 .. raw:: html
 
@@ -18,7 +18,7 @@ Pygfx (pronounced "py-graphics") is built on `wgpu <https://github.com/pygfx/wgp
       <img src="_static/readme_torus_knot_wire.png" alt="drawing" width="200"/>
    </p>
 
-Need help? We offer `professional support <https://github.com/pygfx/pygfx#professional-support>`_.
+Need help? We offer `professional support <https://pygfx.org/sponsor.html>`_.
 
 Contents
 --------

@@ -251,6 +251,10 @@ def make_changes_on_sub(root, parent, t1, t2):
     t1.foo = 42
     assert not root.pop_changed()
 
+    # None is a valid value
+    t1.foo = None
+    assert root.pop_changed() == {"L1"}
+
     # -- Removing the sub
 
     parent.sub1 = None
