@@ -215,15 +215,6 @@ def material_from_open3d(x):
     from pygfx import Color
     import numpy as np
 
-    # If x is a geometry, attempt to extract its material if possible
-    if isinstance(x, o3d.geometry.Geometry3D):
-        if hasattr(x, "material"):
-            x = x.material
-        else:
-            raise ValueError(
-                "Provided Open3D geometry does not have a material attribute"
-            )
-
     # Ensure the input is a MaterialRecord
     if not isinstance(x, o3d.visualization.rendering.MaterialRecord):
         raise NotImplementedError("Input must be an Open3D MaterialRecord")

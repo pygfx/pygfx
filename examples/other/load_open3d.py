@@ -36,7 +36,7 @@ except NameError:
 from open3d import io
 import pygfx as gfx
 
-# load helmet with open3d
+# load helmet model with open3d
 helmet: TriangleMeshModel = io.read_triangle_model(
     str(model_dir / "DamagedHelmet/glTF/DamagedHelmet.gltf")
 )
@@ -50,14 +50,25 @@ helmet_material: open3d.visualization.Material = helmet.materials[
 
 material = gfx.materials.material_from_open3d(helmet_material)
 
+# create scene
 scene = gfx.Scene()
 scene.add(gfx.AmbientLight(), gfx.DirectionalLight())
 
+# construct helmet mesh object
 mesh = gfx.Mesh(
     gfx.geometries.geometry_from_open3d(helmet_mesh),
     material,
 )
+
+# or use alternative helper method for simplified TriangleMeshModel loading
+mesh2 = gfx.Group()
+for m in gfx.meshes_from_open3d(helmet):
+    mesh2.add(m)
+
+mesh2.world.position = (2, 0, 0)
+
 scene.add(mesh)
+scene.add(mesh2)
 
 if __name__ == "__main__":
     disp = gfx.Display()
