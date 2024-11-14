@@ -1,0 +1,64 @@
+"""
+Load Open3D
+==============
+
+Demonstrates loading mesh models from open3d.
+"""
+
+################################################################################
+# .. warning::
+#     An external model is needed to run this example.
+#
+# To run this example, you need a model from the source repo's example
+# folder. If you are running this example from a local copy of the code (dev
+# install) no further actions are needed. Otherwise, you may have to replace
+# the path below to point to the location of the model.
+
+import os
+from pathlib import Path
+
+import open3d.visualization
+from open3d.cpu.pybind.visualization.rendering import TriangleMeshModel
+
+try:
+    # modify this line if your model is located elsewhere
+    model_dir = Path(__file__).parents[1] / "data"
+except NameError:
+    # compatibility with sphinx-gallery
+    model_dir = Path(os.getcwd()).parent / "data"
+
+################################################################################
+# Once the path is set correctly, you can use the model as follows:
+
+# sphinx_gallery_pygfx_render = True
+# sphinx_gallery_pygfx_target_name = "disp"
+
+from open3d import io
+import pygfx as gfx
+
+# load helmet with open3d
+helmet: TriangleMeshModel = io.read_triangle_model(
+    str(model_dir / "DamagedHelmet/glTF/DamagedHelmet.gltf")
+)
+
+# extract helmet infos
+helmet_mesh_info: TriangleMeshModel.MeshInfo = helmet.meshes[0]
+helmet_mesh: open3d.geometry.TriangleMesh = helmet_mesh_info.mesh
+helmet_material: open3d.visualization.Material = helmet.materials[
+    helmet_mesh_info.material_idx
+]
+
+material = gfx.materials.material_from_open3d(helmet_material)
+
+scene = gfx.Scene()
+scene.add(gfx.AmbientLight(), gfx.DirectionalLight())
+
+mesh = gfx.Mesh(
+    gfx.geometries.geometry_from_open3d(helmet_mesh),
+    material,
+)
+scene.add(mesh)
+
+if __name__ == "__main__":
+    disp = gfx.Display()
+    disp.show(scene, up=(0, 1, 0))

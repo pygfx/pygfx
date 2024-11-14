@@ -58,7 +58,7 @@ colormaps, the strength of specular reflections, etc.
 # flake8: noqa
 
 from ._base import Material
-from ._compat import material_from_trimesh
+from ._compat import material_from_trimesh, material_from_open3d
 from ._mesh import (
     MeshAbstractMaterial,
     MeshBasicMaterial,
@@ -110,3 +110,4 @@ __all__.sort()
 __all__.remove("Material")
 __all__.insert(0, "Material")
 __all__.extend(["material_from_trimesh"])
+__all__.extend(["material_from_open3d"])
