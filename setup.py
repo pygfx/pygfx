@@ -37,6 +37,7 @@ extras_require = {
         "trimesh",
         "httpx",
         "gltflib",
+        "open3d"
     ],
     "examples": [
         "pytest",
@@ -46,6 +47,7 @@ extras_require = {
         "scikit-image",
         "trimesh",
         "gltflib",
+        "open3d"
     ],
     "docs": [
         "sphinx>7.2",
@@ -63,6 +65,7 @@ extras_require = {
         "scikit-image",
         "trimesh",
         "gltflib",
+        "open3d"
     ],
 }
 
