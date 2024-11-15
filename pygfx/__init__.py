@@ -1,5 +1,7 @@
-# flake8: noqa
+"""The Pygfx render engine."""
+# ruff: noqa: F401, F403
 
+from ._version import __version__, version_info, repo_dir as _repo_dir
 from . import utils
 
 from .resources import *
@@ -9,6 +11,7 @@ from .materials import *
 from .cameras import *
 from .helpers import *
 from .controllers import *
+from .animation import *
 
 from .renderers import *
 
@@ -26,32 +29,55 @@ import pylinalg
 
 del pylinalg
 
-__version__ = "0.3.0"
-version_info = tuple(map(int, __version__.split(".")))
 
-__wgpu_version_range__ = "0.15.1", "0.17.0"
-__pylinalg_version_range__ = "0.4.1", "0.5.0"
+def _get_dependency_version_ranges():
+    # The only case where this dependency checking makes sense is for devs
+    # using pygfx from a Git repo.
+    if not _repo_dir:
+        return {}
+    # Try import, dont care when this fails (e.g. frozen or py < 3.11)
+    try:
+        import os, tomllib  # noqa
+    except ImportError:
+        return {}
+    # Load dependency versions
+    with open(os.path.join(_repo_dir, "pyproject.toml"), "rb") as fp:
+        dependencies = tomllib.load(fp)["project"]["dependencies"]
+    # Parse
+    limits_per_dependency = {}
+    for name_verlimits in dependencies:
+        name, _, verlimits = name_verlimits.partition(" ")
+        if name in ("wgpu", "pylinalg"):
+            min_ver = max_ver = 0
+            for lim in verlimits.split(","):
+                if lim.startswith(">="):
+                    min_ver = tuple(map(int, lim[2:].split(".")))
+                elif lim.startswith("<"):
+                    max_ver = tuple(map(int, lim[1:].split(".")))
+            if min_ver and max_ver:
+                limits_per_dependency[name] = min_ver, max_ver
+    return limits_per_dependency
 
 
-def _check_lib_version(libname, pipname, version_range):
-    import importlib  # noqa
+def _check_lib_version(libname, pipname):
+    import importlib
 
+    if libname not in _dependency_version_ranges:
+        return
     lib = importlib.import_module(libname)
-
-    min_ver, max_ver = version_range
-    min_ver_info = tuple(map(int, min_ver.split(".")))
-    max_ver_info = tuple(map(int, max_ver.split(".")))
+    min_ver, max_ver = _dependency_version_ranges[libname]
     detected = f"Detected {lib.__version__}, need >={min_ver}, <{max_ver}."
-    if lib.version_info < min_ver_info:
+    if lib.version_info < min_ver:
         logger.error(
             f"Incompatible version of {libname}:\n    {detected}\n    To update, use e.g. `pip install -U {pipname}`."
         )
-    elif lib.version_info >= max_ver_info:
+    elif lib.version_info >= max_ver:
         logger.warning(f"Possible incompatible version of {libname}:\n    {detected}")
 
 
-_check_lib_version("wgpu", "wgpu", __wgpu_version_range__)
-_check_lib_version("pylinalg", "pylinalg", __pylinalg_version_range__)
+_dependency_version_ranges = _get_dependency_version_ranges()
+_check_lib_version("wgpu", "wgpu")
+_check_lib_version("pylinalg", "pylinalg")
 
 
 def _get_sg_image_scraper():

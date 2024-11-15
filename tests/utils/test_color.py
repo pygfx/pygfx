@@ -144,7 +144,7 @@ def test_color_hex():
     # values are stable and won't "jump"
     for v in [0.0, 0.1, 0.23, 1 / 7, 0.99, 1.0]:
         c = Color(v, v, v, 1)
-        for i in range(10):
+        for _i in range(10):
             c = TColor(c.hex)
             assert c.matches(v, v, v, 1)
 

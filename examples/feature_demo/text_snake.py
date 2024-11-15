@@ -7,7 +7,6 @@ Example showing a text with picking and custom layout.
 # sphinx_gallery_pygfx_docs = 'animate 3s'
 # sphinx_gallery_pygfx_test = 'run'
 
-
 from time import perf_counter
 
 from wgpu.gui.auto import WgpuCanvas, run

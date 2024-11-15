@@ -1,7 +1,6 @@
 Pipfile
 Pipfile.lock
 .vscode
-pyproject.toml
 poetry.lock
 .DS_Store
 examples/screenshots/diffs
@@ -125,6 +124,7 @@ venv.bak/
 .mypy_cache/
 
 glTF-Sample-Models
+glTF-Sample-Assets
 reactive_rendering_state.pkl
 
 # jetbrains idea

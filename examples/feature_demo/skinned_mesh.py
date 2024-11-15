@@ -26,7 +26,6 @@ def create_geometry(sizing):
     skin_weights = np.zeros((positions.nitems, 4), dtype=np.float32)
 
     for i in range(positions.nitems):
-
         vertex = positions.data[i]
         z = vertex[2] + sizing["half_height"]
         skin_index = z // sizing["segment_height"]
@@ -68,6 +67,8 @@ def create_mesh(geometry, bones):
     skeleton = gfx.Skeleton(bones)
 
     mesh.add(bones[0])
+    # update the world matrix from root to leaf bone manually
+    bones[0].update_matrix_world()
     mesh.bind(skeleton)
 
     mesh.local.rotation = la.quat_from_euler((-math.pi / 2, 0, 0))

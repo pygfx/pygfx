@@ -65,7 +65,7 @@ The standardized names are:
 
 """
 
-# flake8: noqa
+# ruff: noqa: F401
 
 from ._base import Geometry
 from ._box import box_geometry

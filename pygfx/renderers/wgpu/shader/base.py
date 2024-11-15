@@ -205,7 +205,7 @@ class BaseShader(ShaderInterface):
 
     # ----- Colormap stuff
 
-    def define_texcoords_and_colormap(self, texture, texcoords, interpolation="linear"):
+    def define_colormap(self, texture, texcoords, interpolation="linear"):
         """Define the given texture as the colormap to be used to
         lookup the final color from the (per-vertex or per-face) texcoords.
         In the WGSL the colormap can be sampled using ``sample_colormap()``.
@@ -231,7 +231,6 @@ class BaseShader(ShaderInterface):
         return [
             Binding("s_colormap", "sampler/filtering", sampler, "FRAGMENT"),
             Binding("t_colormap", "texture/auto", texture_view, "FRAGMENT"),
-            Binding("s_texcoords", "buffer/read_only_storage", texcoords, "VERTEX"),
         ]
 
     def define_img_colormap(self, texture, interpolation="linear"):

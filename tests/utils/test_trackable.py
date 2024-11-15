@@ -4,6 +4,8 @@ import weakref
 
 from pygfx.utils.trackable import Trackable, RootTrackable
 
+# ruff: noqa: B018 - in these tests we access values for their side-effect
+
 
 class Mixin:
     def __init__(self):
@@ -248,6 +250,10 @@ def make_changes_on_sub(root, parent, t1, t2):
     t1.foo = 43
     t1.foo = 42
     assert not root.pop_changed()
+
+    # None is a valid value
+    t1.foo = None
+    assert root.pop_changed() == {"L1"}
 
     # -- Removing the sub
 
@@ -790,7 +796,7 @@ def profile_runner():
 
     t0 = time.perf_counter()
     # Do a buch of work
-    for ob in range(n_objects):
+    for _ob in range(n_objects):
         for i in range(n_access):
             setattr(root.sub1._store, f"attr_0_{i}", i // 2)
     t1 = time.perf_counter()

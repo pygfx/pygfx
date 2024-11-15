@@ -101,17 +101,31 @@ fn vs_main(in: VertexInput) -> Varyings {
         $$ endif
     $$ endif
     let min_size_for_pixel = 1.415 / l2p;  // For minimum pixel coverage. Use sqrt(2) to take diagonals into account.
-    $$ if draw_line_on_edge
+    $$ if color_mode == 'debug' or draw_line_on_edge
         let edge_width = u_material.edge_width / size_ratio;  // expressed in logical screen pixels
     $$ else
         let edge_width = 0.0;
     $$ endif
     $$ if aa
         let size:f32 = size_ref / size_ratio;  // Logical pixels
+        $$ if edge_mode == 'outer'
+        let half_size = edge_width + 0.5 * max(min_size_for_pixel, size + 1.0 / l2p);  // add 0.5 physical pixel on each side.
+        $$ elif edge_mode == 'inner'
+        let half_size = 0.5 * max(min_size_for_pixel, size + 1.0 / l2p);  // add 0.5 physical pixel on each side.
+        $$ else
+        // elif edge_mode == 'centered'
         let half_size = 0.5 * edge_width + 0.5 * max(min_size_for_pixel, size + 1.0 / l2p);  // add 0.5 physical pixel on each side.
+        $$ endif
     $$ else
         let size:f32 = max(min_size_for_pixel, size_ref / size_ratio);  // non-aa don't get smaller.
+        $$ if edge_mode == 'outer'
+        let half_size = edge_width + 0.5 * size;
+        $$ elif edge_mode == 'inner'
+        let half_size = 0.5 * size;
+        $$ else
+        // elif edge_mode == 'centered'
         let half_size = 0.5 * edge_width + 0.5 * size;
+        $$ endif
     $$ endif
 
     // Relative coords to create the (frontfacing) quad
@@ -202,6 +216,8 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     var face_alpha: f32 = 1.0;
     $$ if is_sprite
         // sprites have their alpha defined by the map and opacity only
+    $$ elif color_mode == 'debug'
+        face_alpha = 1.0;
     $$ elif shape == 'gaussian'
         let d = length(pointcoord_p);
         let sigma_p = half_size_p / 3.0;
@@ -225,6 +241,13 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
         let sampled_face_color = varyings.color;
     $$ elif color_mode == 'map' or color_mode == 'vertex_map'
         let sampled_face_color = sample_colormap(varyings.texcoord);
+    $$ elif color_mode == 'debug'
+        let d = dist_to_face_edge_p / half_size_p * 2;
+        var col : vec3<f32> = vec3<f32>(1.0) - sign(d)*vec3<f32>(0.1,0.4,0.7);
+        col *= 1.0 - exp(-2.0 * abs(d));
+        col *= 0.8 + 0.2 * cos(120.0 * d);
+        col = mix(col, vec3<f32>(1.0), 1.0 - smoothstep(0.0, 0.02, abs(d)));
+        let sampled_face_color = vec4<f32>(col, 1.);
     $$ else
         let sampled_face_color = u_material.color;
     $$ endif
@@ -255,7 +278,7 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     var the_color = face_color;
 
     // If we have an edge, determine edge_color, and mix it with the face_color
-    $$ if draw_line_on_edge
+    $$ if draw_line_on_edge and not color_mode == 'debug'
         // In MPL the edge is centered on what would normally be the edge, i.e.
         // half the edge is over the face, half extends beyond it. Plotly does
         // the same. The face and edge are drawn as if they were separate
@@ -264,7 +287,14 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
 
         // Calculate "SDF"
         let half_edge_width_p: f32 = 0.5 * varyings.edge_width_p;
+        $$ if edge_mode == 'outer'
+        let dist_to_line_center_p: f32 = abs(dist_to_face_edge_p - half_edge_width_p);
+        $$ elif edge_mode == 'inner'
+        let dist_to_line_center_p: f32 = abs(dist_to_face_edge_p + half_edge_width_p);
+        $$ else
+        // elif edge_mode == 'centered'
         let dist_to_line_center_p: f32 = abs(dist_to_face_edge_p);
+        $$ endif
         let dist_to_line_edge_p: f32 = dist_to_line_center_p - half_edge_width_p;
         // Calculate edge_alpha based on marker shape end edge thickness
         var edge_alpha = 0.0;
@@ -293,7 +323,11 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
 
     // Determine final color and opacity
     if (the_color.a <= 0.0) { discard; }
-    let out_color = vec4<f32>(srgb2physical(the_color.rgb), the_color.a * u_material.opacity);
+    $$ if color_mode == 'debug'
+        let out_color = vec4<f32>(srgb2physical(the_color.rgb), the_color.a);
+    $$ else
+        let out_color = vec4<f32>(srgb2physical(the_color.rgb), the_color.a * u_material.opacity);
+    $$ endif
 
     // Wrap up
     apply_clipping_planes(varyings.world_pos);
@@ -449,16 +483,34 @@ fn get_signed_distance_to_shape_edge(coord: vec2<f32>, size: f32) -> f32 {
         return min(r4,r9);
 
     $$ elif shape == 'pin'
-        // A pin is the difference between the union of three discs and a disc.
-        let c1 = vec2<f32>(0.0,0.15)*size;
-        let r1 = length(coord-c1)-size/2.675;
-        let c2 = vec2<f32>(1.49,0.80)*size;
-        let r2 = length(coord-c2) - 2.*size;
-        let c3 = vec2<f32>(-1.49,0.80)*size;
-        let r3 = length(coord-c3) - 2.*size;
-        let r4 = length(coord-c1) -size/5;
-        return max( min(r1,max(max(r2,r3),coord.y)), -r4);
+        // Simplified formula for the usecase of a pin taken from
+        // https://www.shadertoy.com/view/4lcBWn
+        var p = - coord / size;
+        p.x = abs(p.x);
 
+        let ra = 0.33;
+        let h = 2 * 0.33;
+        let b = 0.5;
+
+        let rin = 0.33 / 2;
+
+        p.y = p.y + ra / 2;
+
+        let c = vec2(sqrt(1.0-b*b), b);
+        let k = dot(c, vec2(p.y, -p.x));
+
+        // Below the pin all toegether
+        if(k > c.x * h) {return size * length(p - vec2(0., h));}
+
+        // the opening circle of the pin
+        let q = - (length(p) - rin);
+        let m = dot(c, p);
+        let n = dot(p, p);
+
+        // the top of the circle
+        if(k < 0.0    ) {return size * max(q, sqrt(n)    - ra);}
+        // Intesection of the triangle cone and the big circle
+                         return size * max(q, m          - ra);
     $$ elif shape == 'custom'
         {{ custom_sdf }}
 

@@ -50,7 +50,7 @@ def check_speed():
     generate_glyph(indices, font.filename)
 
     t0 = time.perf_counter()
-    for i in range(1000):
+    for _i in range(1000):
         generate_glyph(indices, font.filename)
     dt = time.perf_counter() - t0
     print(

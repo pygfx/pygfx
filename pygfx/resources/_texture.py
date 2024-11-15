@@ -97,6 +97,7 @@ class Texture(Resource):
 
         # Init
         self._data = None
+        self._view = None
         self._force_contiguous = bool(force_contiguous)
         assert dim in (1, 2, 3)
         self._store.dim = int(dim)
@@ -187,15 +188,18 @@ class Texture(Resource):
             self._chunks_dirt_flag = 0
             self._chunk_size = (0, 0, 0)
             self._chunk_mask = None
+            self._chunk_list = []
         elif the_nbytes == 0:
             self._chunks_dirt_flag = 0
             self._chunk_size = (0, 0, 0)
             self._chunk_mask = np.ones((0, 0, 0), bool)
+            self._chunk_list = None
         else:
             self._chunks_dirt_flag = 2
             self._chunk_size = chunk_size
             shape = tuple(ceil(the_size[i] / self._chunk_size[i]) for i in (2, 1, 0))
             self._chunk_mask = np.ones(shape, bool)
+            self._chunk_list = None
 
     @property
     def dim(self):
@@ -257,6 +261,67 @@ class Texture(Resource):
     def generate_mipmaps(self):
         """Whether to automatically generate mipmaps when uploading to the GPU."""
         return self._generate_mipmaps
+
+    def send_data(self, offset, data):
+        """Send a chunk of data to the GPU.
+
+        This provides a way to upload data to textures that don't have local
+        data (i.e. ``texture.data is None``). It is intended for use-cases where
+        data-copies must be avoid for performance. Can only be used when the
+        texture has no local data, and requires ``usage=wgpu.TextureUsage.COPY_DST``.
+
+        The offset must be a (width, height, depth) tuple.
+        Note that in contrast to the ``update_x`` methods, multiple calls are
+        not combined; each call to ``send_data()`` results in one upload
+        operation.
+
+        Example:
+
+        .. code-block:: py
+
+            tex = gfx.Texture(
+                size=(64, 64, 1),
+                dim=2,
+                format=wgpu.TextureFormat.rgba8unorm,
+                usage=wgpu.TextureUsage.COPY_DST,
+                force_contiguous=True,
+            )
+        """
+        if self._data is not None:
+            raise RuntimeError(
+                "Can only use texture.send_data() if the texture has no local data."
+            )
+        # Check input
+        if not isinstance(offset, (list, tuple)) and len(offset) == 3:
+            raise ValueError("Offset must be a tuple of 3 ints")
+        offset = tuple(int(i) for i in offset)
+        if any(b < 0 for b in offset):
+            raise ValueError("offset must not be negative")
+        # Get data size
+        shape = list(data.shape)
+        if self.dim == 1:
+            shape = [1, 1, *shape]
+        elif self.dim == 2:
+            shape = [1, *shape]
+        size = tuple(reversed(shape[:3]))
+        if len(size) != 3:
+            raise ValueError("Unexpected data shape")
+        # Check whether it fits
+        if any((o1 + s1) > s2 for o1, s1, s2 in zip(offset, size, self.size)):
+            raise ValueError("The data with this offset does not fit.")
+        # Create chunk
+        data.shape = shape
+        if not data.flags.c_contiguous:
+            if self._force_contiguous:
+                raise ValueError(
+                    "When force_contiguous is set, data passed to send_data() must be contiguous."
+                )
+            data = np.ascontiguousarray(data)
+        self._chunk_list.append((offset, size, data))
+        # Request sync
+        Resource._rev += 1
+        self._rev = Resource._rev
+        self._gfx_mark_for_sync()
 
     def set_data(self, data):
         """Reset the data to a new array.
@@ -348,6 +413,12 @@ class Texture(Resource):
         used in _gfx_get_chunk_data(). This method also clears
         the chunk dirty statuses.
         """
+
+        # In no-local-data mode, we (only) have a chunk list
+        if self._chunk_list:
+            chunks = self._chunk_list
+            self._chunk_list = []
+            return chunks
 
         if not self._chunks_dirt_flag:
             return []
@@ -446,4 +517,4 @@ def reshape_array(view, size):
     expected_shape = tuple(reversed(size))
     if expected_shape != view.shape[:3]:
         # This can fail if the data is not contiguous and strides don't work out.
-        view.shape = expected_shape + (-1,)
+        view.shape = (*expected_shape, -1)

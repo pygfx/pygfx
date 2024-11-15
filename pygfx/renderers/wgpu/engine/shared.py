@@ -2,6 +2,7 @@
 A global object shared by all renderers.
 """
 
+import os
 import wgpu
 
 from ....resources import Resource, Buffer
@@ -49,6 +50,7 @@ class Shared(Trackable):
     # target platforms.
 
     _features = set(["float32-filterable"])
+    _limits = dict()
     _selected_adapter = None
     _power_preference = None
     _instance = None
@@ -63,8 +65,15 @@ class Shared(Trackable):
         # Select adapter to use.
         if Shared._selected_adapter:
             self._adapter = Shared._selected_adapter
+        elif adapter_name := os.environ.get("PYGFX_WGPU_ADAPTER_NAME"):
+            # Similar to https://github.com/gfx-rs/wgpu?tab=readme-ov-file#environment-variables
+            adapters = wgpu.gpu.enumerate_adapters_sync()
+            adapters_llvm = [a for a in adapters if adapter_name in a.summary]
+            if not adapters_llvm:
+                raise ValueError(f"Adapter with name '{adapter_name}' not found.")
+            self._adapter = adapters_llvm[0]
         else:
-            self._adapter = wgpu.gpu.request_adapter(
+            self._adapter = wgpu.gpu.request_adapter_sync(
                 power_preference=Shared._power_preference or "high-performance"
             )
 
@@ -74,8 +83,8 @@ class Shared(Trackable):
         # is technically possible, but would require an extra layer of
         # indirection in the pipeline objects (device -> environment -> passes).
         # So out of scope for the time being.
-        self._device = self.adapter.request_device(
-            required_features=list(Shared._features), required_limits={}
+        self._device = self.adapter.request_device_sync(
+            required_features=list(Shared._features), required_limits=Shared._limits
         )
 
         self._create_diagnostics()
@@ -153,7 +162,7 @@ def select_power_preference(power_preference):
     """
     if power_preference not in wgpu.PowerPreference:
         raise ValueError(
-            f"select_power_preference() received invalid value for {repr(wgpu.PowerPreference)}."
+            f"select_power_preference() received invalid value for {wgpu.PowerPreference!r}."
         )
     if Shared._instance is not None:
         raise RuntimeError(
@@ -165,12 +174,12 @@ def select_power_preference(power_preference):
 def select_adapter(adapter):
     """Select a specific adapter / GPU.
 
-    Select an adapter as obtained via ``wgpu.gpu.enumerate_adapters()``, which
+    Select an adapter as obtained via ``wgpu.gpu.enumerate_adapters_sync()``, which
     can be useful in multi-gpu environments.
 
     For example::
 
-        adapters = wgpu.gpu.enumerate_adapters()
+        adapters = wgpu.gpu.enumerate_adapters_sync()
         adapters_tesla = [a for a in adapters if "Tesla" in a.summary]
         adapters_discrete = [a for a in adapters if "DiscreteGPU" in a.summary]
         pygfx.renderers.wgpu.select_adapter(adapters_discrete[0])
@@ -178,7 +187,7 @@ def select_adapter(adapter):
     Note that using this function reduces the portability of your code, because
     it's highly specific for your current machine/environment.
 
-    The order of the adapters returned by ``wgpu.gpu.enumerate_adapters()`` is
+    The order of the adapters returned by ``wgpu.gpu.enumerate_adapters_sync()`` is
     such that Vulkan adapters go first, then Metal, then D3D12, then OpenGL.
     Within each category, the order as provided by the particular backend is
     maintained. Note that the same device may be present via multiple backends
@@ -198,8 +207,8 @@ def select_adapter(adapter):
         import torch
 
         def allocate_gpu_mem_with_wgpu(idx):
-            a = wgpu.gpu.enumerate_adapters()[idx]
-            d = a.request_device()
+            a = wgpu.gpu.enumerate_adapters_sync()[idx]
+            d = a.request_device_sync()
             b = d.create_buffer(size=10*2**20, usage=wgpu.BufferUsage.COPY_DST)
             return b
 
@@ -233,8 +242,14 @@ def enable_wgpu_features(*features):
     breaks that promise, and may cause your code to not work on e.g.
     mobile devices or certain operating systems.
 
+    Features can also be turned off by prefixing with "!". This e.g. allows
+    using a subset of Pygfx on old hardware by using
+    ``enable_wgpu_features("!float32-filterable")``. Use with care; some parts
+    of Pygfx will not function without the default features enabled.
+
     This function must be called before before the first ``Renderer`` is created.
-    It can be called multiple times to enable more features.
+    It can be called multiple times to enable more features. Note that feature names
+    are invariant to use of dashes versus underscores.
 
     For more information on features:
 
@@ -248,7 +263,40 @@ def enable_wgpu_features(*features):
         raise RuntimeError(
             "The enable_wgpu_features() function must be called before creating the first renderer."
         )
-    Shared._features.update(features)
+    # Split into features to turn on or off
+    features = set(features)
+    features_off = {f for f in features if f.startswith("!")}
+    features_on = features - features_off
+    # Make the off-features work on different spellings.
+    # As it is now, this does not discard the "float32Filterable" spelling.
+    features_off = {f.lstrip("!") for f in features_off}
+    features_off |= {f.replace("-", "_") for f in features_off}
+    features_off |= {f.replace("_", "-") for f in features_off}
+    # Apply
+    Shared._features.difference_update(features_off)
+    Shared._features.update(features_on)
+
+
+def set_wgpu_limits(**limits):
+    """Set specific limits (as key-value pairs) on the wgpu device.
+
+    WARNING: setting high limits may make your code less portable across devices.
+
+    This function must be called before before the first ``Renderer`` is created.
+    It can be called multiple times to override or enable more limits. Note that
+    limit names are invariant to use of dashes versus underscores.
+
+    For more information on limits:
+
+    * ``renderer.device.adapter.limits`` for the (max) limits available on the current system.
+    * ``renderer.device.limits`` for the currently set limits.
+    * https://gpuweb.github.io/gpuweb/#limits for the official webgpu limits.
+    """
+    if Shared._instance is not None:
+        raise RuntimeError(
+            "The set_wgpu_limits() function must be called before creating the first renderer."
+        )
+    Shared._limits.update(limits)
 
 
 def get_shared():
@@ -265,18 +313,13 @@ def get_shared():
 
 
 class PyGfxAdapterInfoDiagnostics(wgpu.DiagnosticsBase):
-
     def get_dict(self):
         shared = get_shared()
         adapter = shared.adapter
-        if hasattr(adapter, "request_adapter_info"):  # wgpu-py < 0.16
-            return adapter.request_adapter_info()
-        else:
-            return adapter.info
+        return adapter.info
 
 
 class PyGfxFeaturesDiagnostics(wgpu.DiagnosticsBase):
-
     def get_dict(self):
         shared = get_shared()
         adapter = shared.adapter
@@ -294,7 +337,6 @@ class PyGfxFeaturesDiagnostics(wgpu.DiagnosticsBase):
 
 
 class PyGfxLimitsDiagnostics(wgpu.DiagnosticsBase):
-
     def get_dict(self):
         shared = get_shared()
         adapter = shared.adapter
@@ -310,7 +352,6 @@ class PyGfxLimitsDiagnostics(wgpu.DiagnosticsBase):
 
 
 class PygfxCacheDiagnostics(wgpu.DiagnosticsBase):
-
     def get_dict(self):
         result = {}
         for cache_name, stats in gpu_caches.get_stats().items():
@@ -320,7 +361,6 @@ class PygfxCacheDiagnostics(wgpu.DiagnosticsBase):
 
 
 class PygfxResourceDiagnostics(wgpu.DiagnosticsBase):
-
     def get_dict(self):
         return Resource._resource_counts
 

@@ -1,7 +1,7 @@
 from collections import defaultdict
 from enum import Enum
 from time import perf_counter
-from typing import Union
+from typing import Union, Optional
 from weakref import ref
 
 from wgpu.gui.base import log_exception
@@ -66,10 +66,10 @@ class Event:
         bubbles=True,
         target: "EventTarget" = None,
         root: "RootEventHandler" = None,
-        time_stamp: float = None,
+        time_stamp: Optional[float] = None,
         cancelled: bool = False,
         # Swallow event_type to ease conversion from wgpu events to Event objects
-        event_type: str = None,
+        event_type: Optional[str] = None,
     ):
         self._type = type
         # Using perf_counter_ns instead of perf_counter

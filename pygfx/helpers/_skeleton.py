@@ -7,7 +7,6 @@ class SkeletonHelper(Line):
     """A helper object to assist with visualizing a Skeleton"""
 
     def __init__(self, wobject: WorldObject, thickness=1.0):
-
         bones = self._get_bones(wobject)
 
         positions = []

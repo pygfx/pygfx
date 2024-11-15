@@ -13,6 +13,8 @@ $$ if lighting == 'phong'
     {$ include 'pygfx.light_phong.wgsl' $}
 $$ elif lighting == 'pbr'
     {$ include 'pygfx.light_pbr.wgsl' $}
+$$ elif lighting == 'toon'
+    {$ include 'pygfx.light_toon.wgsl' $}
 $$ endif
 
 
@@ -44,6 +46,22 @@ fn dist_pt_line(x1: f32, y1: f32, x2: f32, y2: f32, x3: f32, y3: f32) -> f32 {
     // Distance of pt (x3,y3) to line with coords(x1,y1) (x2,y2)
     return abs((x2 - x1) * (y1 - y3) - (x1 - x3) * (y2 - y1)) / sqrt((x2-x1)*(x2-x1) + (y2-y1)*(y2-y1));
 }
+
+$$ if use_morph_targets
+fn get_morph( tex: texture_2d_array<f32>, vertex_index: u32, stride: u32, width: u32, morph_index: u32 , offset: u32) -> vec4<f32> {
+    let texel_index = vertex_index * stride + offset;
+    let y = texel_index / width;
+    let x = texel_index - y * width;
+    let morph_uv = vec2<u32>( x, y );
+    return textureLoad( tex, morph_uv, morph_index, 0 );
+}
+struct MorphTargetInfluence {
+    @size(16) influence: f32,
+};
+@group(1) @binding(1)
+var<uniform> u_morph_target_influences: array<MorphTargetInfluence, {{morph_targets_count+1}}>;
+
+$$ endif
 
 @vertex
 fn vs_main(in: VertexInput) -> Varyings {
@@ -93,6 +111,28 @@ fn vs_main(in: VertexInput) -> Varyings {
     // Get raw vertex position and normal
     var raw_pos = load_s_positions(i0);
     var raw_normal = load_s_normals(i0);
+
+    // morph targets
+    $$ if use_morph_targets
+        let base_influence = u_morph_target_influences[{{morph_targets_count}}];
+        let stride = u32({{morph_targets_stride}});
+        let width = u32({{morph_targets_texture_width}});
+
+        raw_pos = raw_pos * base_influence.influence;
+        if stride == 2 { // has normals
+            raw_normal = raw_normal * base_influence.influence;
+        }
+        for (var i = 0; i < {{morph_targets_count}}; i = i + 1) {
+            let position_morph = get_morph(t_morph_targets, u32(i0), stride, width, u32(i), u32(0));
+            raw_pos += position_morph.xyz * u_morph_target_influences[i].influence;
+            if stride == 2 { // has normals
+                let normal_morph = get_morph(t_morph_targets, u32(i0), stride, width, u32(i), u32(1));
+                raw_normal += normal_morph.xyz * u_morph_target_influences[i].influence;
+            }
+
+        }
+
+    $$ endif
 
     // skinning
     $$ if use_skinning
@@ -332,6 +372,13 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
         $$ endif
     $$ endif
 
+    $$ if use_specular_map is defined
+        let specular_map = textureSample( t_specular_map, s_specular_map, varyings.texcoord );
+        let specular_strength = specular_map.r;
+    $$ else
+        let specular_strength = 1.0;
+    $$ endif
+
     // Init the reflected light. Defines diffuse and specular, both direct and indirect
     var reflected_light: ReflectedLight = ReflectedLight(vec3<f32>(0.0), vec3<f32>(0.0), vec3<f32>(0.0), vec3<f32>(0.0));
 
@@ -346,6 +393,8 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
             {$ include 'pygfx.light_phong_fragment.wgsl' $}
         $$ elif lighting == 'pbr'
             {$ include 'pygfx.light_pbr_fragment.wgsl' $}
+        $$ elif lighting == 'toon'
+            {$ include 'pygfx.light_toon_fragment.wgsl' $}
         $$ endif
 
         // Do the math
@@ -367,6 +416,8 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
             RE_IndirectDiffuse_BlinnPhong( irradiance, geometry, material, &reflected_light );
         $$ elif lighting == 'pbr'
             RE_IndirectDiffuse_Physical( irradiance, geometry, material, &reflected_light );
+        $$ elif lighting == 'toon'
+            RE_IndirectDiffuse_Toon( irradiance, geometry, material, &reflected_light );
         $$ endif
 
         // Indirect Specular Light
@@ -415,9 +466,10 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
     // Combine direct and indirect light
     var physical_color = reflected_light.direct_diffuse + reflected_light.direct_specular + reflected_light.indirect_diffuse + reflected_light.indirect_specular;
 
-    // Add emissive color for Phong and PBR
-    $$ if lighting == 'phong' or lighting == 'pbr'
-        var emissive_color = srgb2physical(u_material.emissive_color.rgb);
+    // Add emissive color
+    // Now for phong、pbr and toon lighting
+    $$ if lighting
+        var emissive_color = srgb2physical(u_material.emissive_color.rgb) * u_material.emissive_intensity;
         $$ if use_emissive_map is defined
         emissive_color *= srgb2physical(textureSample(t_emissive_map, s_emissive_map, varyings.texcoord).rgb);
         $$ endif
@@ -427,7 +479,6 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
     // Environment mapping
     $$ if use_env_map is defined
         let reflectivity = u_material.reflectivity;
-        let specular_strength = 1.0; // TODO: support specular_map
         $$ if env_mapping_mode == "CUBE-REFLECTION"
             var reflectVec = reflect( -view, normal );
         $$ elif env_mapping_mode == "CUBE-REFRACTION"

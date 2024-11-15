@@ -24,7 +24,6 @@ from .. import (
 
 @register_wgpu_render_function(Points, PointsMaterial)
 class PointsShader(BaseShader):
-
     type = "render"
 
     def __init__(self, wobject):
@@ -53,10 +52,14 @@ class PointsShader(BaseShader):
             self["color_mode"] = "vertex_map"
             self["color_buffer_channels"] = 0
             if material.map is None:
-                raise ValueError(f"Cannot apply colormap is no material.map is set.")
+                raise ValueError("Cannot apply colormap is no material.map is set.")
+        elif color_mode == "debug":
+            self["color_mode"] = "debug"
+            self["color_buffer_channels"] = 0
         else:
             raise RuntimeError(f"Unknown color_mode: '{color_mode}'")
 
+        self["edge_mode"] = material.edge_mode
         self["is_sprite"] = 0  # 0, 1, 2
         if isinstance(material, PointsSpriteMaterial):
             self["is_sprite"] = 1
@@ -90,8 +93,11 @@ class PointsShader(BaseShader):
         if self["color_mode"] == "vertex":
             bindings.append(Binding("s_colors", rbuffer, geometry.colors, "VERTEX"))
         elif self["color_mode"] == "vertex_map":
+            bindings.append(
+                Binding("s_texcoords", rbuffer, geometry.texcoords, "VERTEX")
+            )
             bindings.extend(
-                self.define_texcoords_and_colormap(
+                self.define_colormap(
                     material.map, geometry.texcoords, material.map_interpolation
                 )
             )
@@ -166,6 +172,8 @@ class PointsShader(BaseShader):
                     render_mask |= RenderMask.all
                 else:
                     render_mask |= RenderMask.opaque
+            elif self["color_mode"] == "debug":
+                render_mask |= RenderMask.all
             else:
                 raise RuntimeError(f"Unexpected color mode {self['color_mode']}")
             # Need transparency for aa

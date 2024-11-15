@@ -4,6 +4,12 @@ Points with different markers
 
 * All available marker shapes are shown.
 * Shows red, green and blue faces. Then a semi-transparent face, and finally a fully-transparent face.
+
+By default the edge is painted on center of the marker.
+However, this can be customized in order to be painted on the
+inner or outer edge only by setting the ``edge_mode`` property of
+the ``PointsMarkerMaterial``.
+To this end, we repeat the pattern with the inner and outer edge painted.
 """
 
 # sphinx_gallery_pygfx_docs = 'screenshot'
@@ -14,7 +20,7 @@ from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 
 
-canvas = WgpuCanvas(size=(600, 1000))
+canvas = WgpuCanvas(size=(1200, 1000))
 renderer = gfx.WgpuRenderer(canvas)
 
 colors = np.array(
@@ -101,27 +107,93 @@ pygfx_sdf = """
 
 
 y = 0
+text = gfx.Text(
+    gfx.TextGeometry("centered", anchor="middle-middle", font_size=1),
+    gfx.TextMaterial("#000"),
+)
+text.local.y = y
+text.local.x = npoints
+scene.add(text)
+
+text = gfx.Text(
+    gfx.TextGeometry("inner", anchor="middle-middle", font_size=1),
+    gfx.TextMaterial("#000"),
+)
+text.local.y = y
+text.local.x = 2 * npoints + npoints
+scene.add(text)
+
+text = gfx.Text(
+    gfx.TextGeometry("outer", anchor="middle-middle", font_size=1),
+    gfx.TextMaterial("#000"),
+)
+text.local.y = y
+text.local.x = 4 * npoints + npoints
+scene.add(text)
+
+all_lines = []
 for marker in gfx.MarkerShape:
     y += 2
     line = gfx.Points(
         geometry,
         gfx.PointsMarkerMaterial(
-            size=30,
+            size=1,
+            size_space="world",
             color_mode="vertex",
+            # color_mode='debug',
             marker=marker,
             edge_color="#000",
-            edge_width=3 if not marker == "custom" else 1,
+            edge_width=0.1 if not marker == "custom" else 0.033333,
             custom_sdf=pygfx_sdf if marker == "custom" else None,
         ),
     )
     line.local.y = -y
     line.local.x = 1
     scene.add(line)
+    all_lines.append(line)
+
+    line_inner = gfx.Points(
+        geometry,
+        gfx.PointsMarkerMaterial(
+            size=1,
+            size_space="world",
+            color_mode="vertex",
+            marker=marker,
+            edge_color="#000",
+            edge_width=0.1 if not marker == "custom" else 0.033333,
+            edge_mode="inner",
+            custom_sdf=pygfx_sdf if marker == "custom" else None,
+        ),
+    )
+
+    line_inner.local.y = -y
+    line_inner.local.x = 1 + 2 * npoints
+
+    scene.add(line_inner)
+    all_lines.append(line_inner)
+
+    line_outer = gfx.Points(
+        geometry,
+        gfx.PointsMarkerMaterial(
+            size=1,
+            size_space="world",
+            color_mode="vertex",
+            marker=marker,
+            edge_color="#000",
+            edge_width=0.1 if not marker == "custom" else 0.033333,
+            edge_mode="outer",
+            custom_sdf=pygfx_sdf if marker == "custom" else None,
+        ),
+    )
+
+    line_outer.local.y = -y
+    line_outer.local.x = 1 + 4 * npoints
+
+    scene.add(line_outer)
+    all_lines.append(line_outer)
 
     text = gfx.Text(
-        gfx.TextGeometry(
-            marker, anchor="middle-right", font_size=20, screen_space=True
-        ),
+        gfx.TextGeometry(marker, anchor="middle-right", font_size=1),
         gfx.TextMaterial("#000"),
     )
     text.local.y = -y
@@ -130,8 +202,34 @@ for marker in gfx.MarkerShape:
 
 camera = gfx.OrthographicCamera()
 camera.show_object(scene, scale=0.7)
+controller = gfx.PanZoomController(camera, register_events=renderer)
 
 canvas.request_draw(lambda: renderer.render(scene, camera))
+
+
+@renderer.add_event_handler("key_down")
+def handle_event(event):
+    if event.key == "d":
+        color_mode = "debug"
+        for line in all_lines:
+            line.material.color_mode = color_mode
+        print(f"color_mode {line.material.color_mode}")
+    elif event.key == "v":
+        color_mode = "vertex"
+        for line in all_lines:
+            line.material.color_mode = color_mode
+        print(f"color_mode {line.material.color_mode}")
+    elif event.key == "j":
+        for line in all_lines:
+            line.material.edge_width /= 1.1
+        print(f"edge_width {line.material.edge_width}")
+    elif event.key == "k":
+        for line in all_lines:
+            line.material.edge_width *= 1.1
+        print(f"edge_width {line.material.edge_width}")
+
+    canvas.update()
+
 
 if __name__ == "__main__":
     print(__doc__)

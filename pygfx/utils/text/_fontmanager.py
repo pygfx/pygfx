@@ -53,7 +53,7 @@ class FontProps:
             try:
                 style = style_dict[style.lower()]
             except KeyError:
-                raise TypeError(f"Style string not known: '{style}'")
+                raise TypeError(f"Style string not known: '{style}'") from None
         else:
             cls = type(style).__name__
             raise TypeError("Font style must be str, not '{cls}'")
@@ -65,7 +65,7 @@ class FontProps:
             try:
                 weight = weight_dict[weight.lower()]
             except KeyError:
-                raise TypeError(f"Weight string not known: '{weight}'")
+                raise TypeError(f"Weight string not known: '{weight}'") from None
         elif isinstance(weight, int):
             weight = min(900, max(100, weight))
         else:

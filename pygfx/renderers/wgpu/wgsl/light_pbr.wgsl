@@ -53,22 +53,6 @@ struct LightScatter {
     multi_scatter: vec3<f32>,
 };
 
-fn perturbNormal2Arb( eye_pos: vec3<f32>, surf_norm: vec3<f32>, mapN: vec3<f32>, uv: vec2<f32>, is_front: bool) -> vec3<f32> {
-    let q0 = dpdx( eye_pos.xyz );
-    let q1 = dpdy( eye_pos.xyz );
-    let st0 = dpdx( uv.xy );
-    let st1 = dpdy( uv.xy );
-    let N = surf_norm; //  normalized
-    let q1perp = cross( q1, N );
-    let q0perp = cross( N, q0 );
-    let T = q1perp * st0.x + q0perp * st1.x;
-    let B = q1perp * st0.y + q0perp * st1.y;
-    let det = max( dot( T, T ), dot( B, B ) );
-    let faceDirection = f32(is_front) * 2.0 - 1.0;
-    let scale = faceDirection * inverseSqrt(det);
-    return normalize(T * mapN.x * scale + B * mapN.y * scale + N * mapN.z);
-}
-
 fn getMipLevel(maxMIPLevelScalar: f32, level: f32) -> f32 {
     let sigma = (3.141592653589793 * level * level) / (1.0 + level);
     let desiredMIPLevel = maxMIPLevelScalar + log2(sigma);

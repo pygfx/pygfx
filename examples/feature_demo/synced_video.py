@@ -38,7 +38,7 @@ images = list()
 img_pos = 0
 
 
-for i in range(3):
+for _i in range(3):
     images.append(create_random_image())
     images[-1].local.x = img_pos
     img_pos += 50 + 512

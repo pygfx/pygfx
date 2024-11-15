@@ -274,6 +274,7 @@ class SimpleTransparencyPass(BasePass):
             depth_load_op = wgpu.LoadOp.clear
         return {
             "view": blender.depth_view,
+            "depth_clear_value": 1.0,
             "depth_load_op": depth_load_op,
             "depth_store_op": wgpu.StoreOp.store,
         }
@@ -373,15 +374,14 @@ class WeightedTransparencyPass(BasePass):
 
     def get_depth_attachment(self, blender):
         # We never clear the depth buffer in this pass
-        depth_load_op = wgpu.LoadOp.load
         return {
             "view": blender.depth_view,
-            "depth_load_op": depth_load_op,
+            "depth_load_op": wgpu.LoadOp.load,
             "depth_store_op": wgpu.StoreOp.store,
         }
 
     def get_shader_code(self, blender):
-        return """
+        code = """
         struct FragmentOutput {
             @location(0) accum: vec4<f32>,
             @location(1) reveal: f32,
@@ -402,9 +402,8 @@ class WeightedTransparencyPass(BasePass):
             //    out.accum = - out.accum;
             //    out.reveal = 1.0 - 1.0 / (1.0 - alpha);
         }
-        """.replace(
-            "WEIGHT_CODE", self._weight_code
-        )
+        """
+        return code.replace("WEIGHT_CODE", self._weight_code)
 
 
 class FrontmostTransparencyPass(BasePass):
@@ -561,7 +560,7 @@ class BaseFragmentBlender:
 
         # Set new size
         self.size = size
-        tex_size = size + (1,)
+        tex_size = (*size, 1)
 
         # Any bind group is now invalid because they include source textures.
         self._combine_pass_bind_group = None
@@ -598,12 +597,9 @@ class BaseFragmentBlender:
         }
 
     def get_depth_attachment(self, pass_index):
-        return {
-            **self.passes[pass_index].get_depth_attachment(self),
-            "stencil_read_only": True,
-            "stencil_load_op": wgpu.LoadOp.clear,
-            "stencil_store_op": wgpu.StoreOp.discard,
-        }
+        return self.passes[pass_index].get_depth_attachment(self)
+        # We don't use the stencil yet, but when we do, we will also have to specify
+        # "stencil_read_only", "stencil_load_op", and "stencil_store_op"
 
     def get_shader_kwargs(self, pass_index):
         return {
@@ -968,6 +964,7 @@ class AdditivePass(BasePass):
             depth_load_op = wgpu.LoadOp.clear
         return {
             "view": blender.depth_view,
+            "depth_clear_value": 1.0,
             "depth_load_op": depth_load_op,
             "depth_store_op": wgpu.StoreOp.store,
         }
