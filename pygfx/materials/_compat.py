@@ -1,6 +1,7 @@
 from ._mesh import MeshStandardMaterial, MeshPhongMaterial
 from ..resources import Texture
 from ..utils.color import Color
+import numpy as np
 
 
 def texture_from_pillow_image(image, dim=2, **kwargs):
@@ -146,54 +147,6 @@ def material_from_trimesh(x):
     return gfx_material
 
 
-def texture_from_numpy_array(image_array, dim=2, **kwargs):
-    """Convert a numpy array representing an Open3D image to a pygfx Texture.
-
-    Parameters
-    ----------
-    image_array : numpy.ndarray
-        The numpy array representing the image data.
-        The expected shape is (height, width, channels).
-    dim : int
-        The number of spatial dimensions of the image.
-    kwargs : Any
-        Additional kwargs are forwarded to :class:`pygfx.Texture`.
-
-    Returns
-    -------
-    image_texture : Texture
-        A texture object representing the given image.
-
-    """
-
-    import numpy as np
-    from pygfx import Texture
-    import open3d.cpu.pybind.geometry
-
-    # Check if it is an open3d image
-    if isinstance(image_array, open3d.cpu.pybind.geometry.Image):
-        image_array = np.ascontiguousarray(image_array)
-
-    # Ensure input is a valid numpy array
-    if not isinstance(image_array, np.ndarray):
-        raise NotImplementedError("Input must be a numpy array")
-
-    # Ensure the input array has 2D (height, width) or 3D (height, width, channels) shape
-    if image_array.ndim not in [2, 3]:
-        raise ValueError("Input array must be a 2D or 3D numpy array")
-
-    # Normalize and adjust channels if needed
-    if image_array.ndim == 2:
-        # Assume single-channel grayscale image
-        buffer_shape = (*image_array.shape, 1)
-        image_array = image_array.reshape(buffer_shape)
-
-    # Create a memoryview of the data for the texture
-    m = memoryview(image_array)
-
-    return Texture(m, dim=dim, **kwargs)
-
-
 def material_from_open3d(x):
     """Convert an Open3D MaterialRecord object into a pygfx material.
 
@@ -211,9 +164,6 @@ def material_from_open3d(x):
     """
 
     import open3d as o3d
-    from pygfx.materials import MeshPhongMaterial, MeshStandardMaterial
-    from pygfx import Color
-    import numpy as np
 
     # Ensure the input is a MaterialRecord
     if not isinstance(x, o3d.visualization.rendering.MaterialRecord):
@@ -236,20 +186,24 @@ def material_from_open3d(x):
 
         # Handle textures if available
         if x.albedo_img is not None:
-            gfx_material.map = texture_from_numpy_array(x.albedo_img)
+            gfx_material.map = Texture(np.ascontiguousarray(x.albedo_img), dim=2)
 
         if x.normal_img is not None:
-            gfx_material.normal_map = texture_from_numpy_array(x.normal_img)
+            gfx_material.normal_map = Texture(np.ascontiguousarray(x.normal_img), dim=2)
             gfx_material.normal_scale = (1.0, -1.0)
 
         if x.ao_img is not None:
-            gfx_material.ao_map = texture_from_numpy_array(x.ao_img)
+            gfx_material.ao_map = Texture(np.ascontiguousarray(x.ao_img), dim=2)
 
         if x.metallic_img is not None:
-            gfx_material.metalness_map = texture_from_numpy_array(x.metallic_img)
+            gfx_material.metalness_map = Texture(
+                np.ascontiguousarray(x.metallic_img), dim=2
+            )
 
         if x.roughness_img is not None:
-            gfx_material.roughness_map = texture_from_numpy_array(x.roughness_img)
+            gfx_material.roughness_map = Texture(
+                np.ascontiguousarray(x.roughness_img), dim=2
+            )
 
         gfx_material.side = "front"
 
@@ -265,7 +219,7 @@ def material_from_open3d(x):
         gfx_material.specular = Color(1, 1, 1)  # Default specular color
 
         if x.albedo_img is not None:
-            gfx_material.map = texture_from_numpy_array(x.albedo_img)
+            gfx_material.map = Texture(np.ascontiguousarray(x.albedo_img), dim=2)
 
         gfx_material.side = "front"
 
