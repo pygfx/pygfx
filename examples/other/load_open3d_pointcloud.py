@@ -14,7 +14,6 @@ Demonstrates loading pointclouds from open3d.
 # install) no further actions are needed. Otherwise, you may have to replace
 # the path below to point to the location of the model.
 
-
 import os
 from pathlib import Path
 
