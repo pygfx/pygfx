@@ -67,13 +67,13 @@ class Shared(Trackable):
             self._adapter = Shared._selected_adapter
         elif adapter_name := os.environ.get("PYGFX_WGPU_ADAPTER_NAME"):
             # Similar to https://github.com/gfx-rs/wgpu?tab=readme-ov-file#environment-variables
-            adapters = wgpu.gpu.enumerate_adapters()
+            adapters = wgpu.gpu.enumerate_adapters_sync()
             adapters_llvm = [a for a in adapters if adapter_name in a.summary]
             if not adapters_llvm:
                 raise ValueError(f"Adapter with name '{adapter_name}' not found.")
             self._adapter = adapters_llvm[0]
         else:
-            self._adapter = wgpu.gpu.request_adapter(
+            self._adapter = wgpu.gpu.request_adapter_sync(
                 power_preference=Shared._power_preference or "high-performance"
             )
 
@@ -83,7 +83,7 @@ class Shared(Trackable):
         # is technically possible, but would require an extra layer of
         # indirection in the pipeline objects (device -> environment -> passes).
         # So out of scope for the time being.
-        self._device = self.adapter.request_device(
+        self._device = self.adapter.request_device_sync(
             required_features=list(Shared._features), required_limits=Shared._limits
         )
 
@@ -174,12 +174,12 @@ def select_power_preference(power_preference):
 def select_adapter(adapter):
     """Select a specific adapter / GPU.
 
-    Select an adapter as obtained via ``wgpu.gpu.enumerate_adapters()``, which
+    Select an adapter as obtained via ``wgpu.gpu.enumerate_adapters_sync()``, which
     can be useful in multi-gpu environments.
 
     For example::
 
-        adapters = wgpu.gpu.enumerate_adapters()
+        adapters = wgpu.gpu.enumerate_adapters_sync()
         adapters_tesla = [a for a in adapters if "Tesla" in a.summary]
         adapters_discrete = [a for a in adapters if "DiscreteGPU" in a.summary]
         pygfx.renderers.wgpu.select_adapter(adapters_discrete[0])
@@ -187,7 +187,7 @@ def select_adapter(adapter):
     Note that using this function reduces the portability of your code, because
     it's highly specific for your current machine/environment.
 
-    The order of the adapters returned by ``wgpu.gpu.enumerate_adapters()`` is
+    The order of the adapters returned by ``wgpu.gpu.enumerate_adapters_sync()`` is
     such that Vulkan adapters go first, then Metal, then D3D12, then OpenGL.
     Within each category, the order as provided by the particular backend is
     maintained. Note that the same device may be present via multiple backends
@@ -207,8 +207,8 @@ def select_adapter(adapter):
         import torch
 
         def allocate_gpu_mem_with_wgpu(idx):
-            a = wgpu.gpu.enumerate_adapters()[idx]
-            d = a.request_device()
+            a = wgpu.gpu.enumerate_adapters_sync()[idx]
+            d = a.request_device_sync()
             b = d.create_buffer(size=10*2**20, usage=wgpu.BufferUsage.COPY_DST)
             return b
 
@@ -316,10 +316,7 @@ class PyGfxAdapterInfoDiagnostics(wgpu.DiagnosticsBase):
     def get_dict(self):
         shared = get_shared()
         adapter = shared.adapter
-        if hasattr(adapter, "request_adapter_info"):  # wgpu-py < 0.16
-            return adapter.request_adapter_info()
-        else:
-            return adapter.info
+        return adapter.info
 
 
 class PyGfxFeaturesDiagnostics(wgpu.DiagnosticsBase):

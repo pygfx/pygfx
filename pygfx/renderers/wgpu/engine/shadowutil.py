@@ -119,9 +119,10 @@ def render_shadow_map(
             "depth_clear_value": 1.0,
             "depth_load_op": wgpu.LoadOp.clear,
             "depth_store_op": wgpu.StoreOp.store,
-            "stencil_read_only": True,
-            "stencil_load_op": wgpu.LoadOp.clear,
-            "stencil_store_op": wgpu.StoreOp.discard,
+            # The used texture does not have a stencil component
+            # "stencil_read_only": True,
+            # "stencil_load_op": wgpu.LoadOp.clear,
+            # "stencil_store_op": wgpu.StoreOp.discard,
         },
     )
 

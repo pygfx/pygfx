@@ -710,7 +710,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         self._device.queue.submit([encoder.finish()])
 
         # Collect data from the buffer
-        self._pixel_info_buffer.map("read")
+        self._pixel_info_buffer.map_sync("read")
         try:
             data = self._pixel_info_buffer.read_mapped()
         finally:
