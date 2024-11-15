@@ -1,7 +1,10 @@
+from importlib.util import find_spec
+
+import numpy as np
+
 from ._mesh import MeshStandardMaterial, MeshPhongMaterial
 from ..resources import Texture
 from ..utils.color import Color
-import numpy as np
 
 
 def texture_from_pillow_image(image, dim=2, **kwargs):
@@ -162,6 +165,10 @@ def material_from_open3d(x):
         The converted pygfx material.
 
     """
+    if not find_spec("open3d"):
+        raise ImportError(
+            "The `open3d` library is required for this function: pip install open3d"
+        )
 
     import open3d as o3d
 

@@ -1,3 +1,5 @@
+from importlib.util import find_spec
+
 import numpy as np
 
 from ._base import Geometry
@@ -73,9 +75,15 @@ def geometry_from_open3d(x) -> Geometry:
 
     Raises
     ------
+    ImportError
+        If the open3d library is not installed.
     NotImplementedError
         If the input geometry type is not supported.
     """
+    if not find_spec("open3d"):
+        raise ImportError(
+            "The `open3d` library is required for this function: pip install open3d"
+        )
 
     from open3d import geometry as o3d_geometry
 
@@ -109,9 +117,15 @@ def geometry_from_open3d_triangle_mesh(x) -> Geometry:
 
     Raises
     ------
+    ImportError
+        If the open3d library is not installed.
     NotImplementedError
         If the input is not an instance of open3d.geometry.TriangleMesh.
     """
+    if not find_spec("open3d"):
+        raise ImportError(
+            "The `open3d` library is required for this function: pip install open3d"
+        )
 
     from open3d import geometry as o3d_geometry
 
@@ -165,9 +179,15 @@ def geometry_from_open3d_point_cloud(x) -> Geometry:
 
     Raises
     ------
+    ImportError
+        If the open3d library is not installed.
     NotImplementedError
         If the input is not an instance of open3d.geometry.PointCloud.
     """
+    if not find_spec("open3d"):
+        raise ImportError(
+            "The `open3d` library is required for this function: pip install open3d"
+        )
 
     from open3d import geometry as o3d_geometry
 

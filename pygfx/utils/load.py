@@ -584,9 +584,16 @@ def meshes_from_open3d(mesh_model, materials: bool = True) -> List[gfx.Mesh]:
 
     Raises
     ------
+    ImportError
+        If the open3d library is not installed.
     ValueError
         If the input is not an Open3D TriangleMeshModel.
     """
+    if not find_spec("open3d"):
+        raise ImportError(
+            "The `open3d` library is required for this function: pip install open3d"
+        )
+
     import open3d
 
     if not isinstance(mesh_model, open3d.visualization.rendering.TriangleMeshModel):
