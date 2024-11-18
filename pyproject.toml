@@ -49,7 +49,7 @@ docs = [
     "imgui-bundle>=1.2.1",
 ]
 tests = ["pytest", "psutil", "trimesh", "httpx", "gltflib", "imageio"]
-dev = ["pygfx[lint,tests,examples,docs]", "open3d"]
+dev = ["pygfx[lint,tests,examples,docs]"]
 
 [project.entry-points."pyinstaller40"]
 hook-dirs = "pygfx.__pyinstaller:get_hook_dirs"
