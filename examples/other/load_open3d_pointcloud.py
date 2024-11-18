@@ -34,6 +34,13 @@ except NameError:
 # sphinx_gallery_pygfx_docs = 'code'
 # sphinx_gallery_pygfx_test = 'off'
 
+from importlib.util import find_spec
+
+if not find_spec("open3d"):
+    raise ImportError(
+        "The `open3d` library is required for this example: pip install open3d"
+    )
+
 import open3d as o3d
 
 

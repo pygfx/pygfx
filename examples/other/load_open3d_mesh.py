@@ -16,6 +16,12 @@ Demonstrates loading mesh models from open3d.
 
 import os
 from pathlib import Path
+from importlib.util import find_spec
+
+if not find_spec("open3d"):
+    raise ImportError(
+        "The `open3d` library is required for this example: pip install open3d"
+    )
 
 import open3d.visualization
 from open3d.cpu.pybind.visualization.rendering import TriangleMeshModel
@@ -62,7 +68,7 @@ mesh = gfx.Mesh(
 
 # or use alternative helper method for simplified TriangleMeshModel loading
 mesh2 = gfx.Group()
-for m in gfx.meshes_from_open3d(helmet):
+for m in gfx.utils.load.meshes_from_open3d(helmet):
     mesh2.add(m)
 
 mesh2.world.position = (2, 0, 0)

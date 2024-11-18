@@ -16,6 +16,12 @@ Demonstrates visualizing object bounding boxes
 
 import os
 from pathlib import Path
+from importlib.util import find_spec
+
+if not find_spec("open3d"):
+    raise ImportError(
+        "The `open3d` library is required for this example: pip install open3d"
+    )
 
 try:
     # modify this line if your model is located elsewhere
