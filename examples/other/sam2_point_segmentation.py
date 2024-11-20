@@ -26,7 +26,7 @@ from PySide6 import QtWidgets
 from PySide6.QtCore import QThread, Signal
 from sam2.build_sam import build_sam2
 from sam2.sam2_image_predictor import SAM2ImagePredictor
-from rendercanvas.qt import QRenderCanvas
+from wgpu.gui.qt import WgpuCanvas
 
 import pygfx as gfx
 
@@ -39,7 +39,7 @@ class SAMPoint(QtWidgets.QWidget):
         self.setWindowTitle("SAM2 Real-time Point Segmentation")
         self.resize(800, 800)
 
-        self.canvas = QRenderCanvas(parent=self, max_fps=-1)
+        self.canvas = WgpuCanvas(parent=self, max_fps=-1)
         self.renderer = gfx.WgpuRenderer(self.canvas, show_fps=True)
         self.scene = gfx.Scene()
         self.camera = gfx.PerspectiveCamera(0)
@@ -202,9 +202,9 @@ class SegmentationRunner(QThread):
 
     def init_predictor(self):
         file_path = Path(__file__).parent.parent
-        model_url = "https://dl.fbaipublicfiles.com/segment_anything_2/072824/sam2_hiera_large.pt"
-        model_type = "sam2_hiera_large.pt"
-        model_config = "sam2_hiera_l.yaml"
+        model_url = "https://dl.fbaipublicfiles.com/segment_anything_2/092824/sam2.1_hiera_tiny.pt"
+        model_type = "sam2.1_hiera_tiny.pt"
+        model_config = "configs/sam2.1/sam2.1_hiera_t.yaml"
         model_path = file_path / "data" / model_type
 
         if not model_path.exists():
