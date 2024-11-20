@@ -1,6 +1,10 @@
+from importlib.util import find_spec
+
+import numpy as np
+
 from ._mesh import MeshStandardMaterial, MeshPhongMaterial
-from ..utils.color import Color
 from ..resources import Texture
+from ..utils.color import Color
 
 
 def texture_from_pillow_image(image, dim=2, **kwargs):
@@ -142,5 +146,91 @@ def material_from_trimesh(x):
             gfx_material.color_mode = "face"
     else:
         raise NotImplementedError(f"Conversion of {type(x)} is not supported.")
+
+    return gfx_material
+
+
+def material_from_open3d(x):
+    """Convert an Open3D MaterialRecord object into a pygfx material.
+
+    Parameters
+    ----------
+    x : open3d.visualization.rendering.MaterialRecord | open3d.geometry.Geometry3D
+        Either the actual Open3D MaterialRecord or an object containing
+        a material (e.g., geometry).
+
+    Returns
+    -------
+    converted : Material
+        The converted pygfx material.
+
+    """
+    if not find_spec("open3d"):
+        raise ImportError(
+            "The `open3d` library is required for this function: pip install open3d"
+        )
+
+    import open3d as o3d
+
+    # Ensure the input is a MaterialRecord
+    if not isinstance(x, o3d.visualization.rendering.MaterialRecord):
+        raise NotImplementedError("Input must be an Open3D MaterialRecord")
+
+    # Determine which pygfx material to create based on shader type
+    if x.shader in ["defaultLit", "litPBR"]:
+        gfx_material = MeshStandardMaterial()
+
+        # Set base metallic and roughness values
+        gfx_material.metalness = getattr(x, "base_metallic", 1.0)
+        gfx_material.roughness = getattr(x, "base_roughness", 1.0)
+
+        # Set albedo color if available
+        if x.base_color is not None:
+            albedo_color = (
+                np.array(x.base_color[:3]) / 255
+            )  # Convert to normalized values
+            gfx_material.color = Color(*albedo_color)
+
+        # Handle textures if available
+        if x.albedo_img is not None:
+            gfx_material.map = Texture(np.ascontiguousarray(x.albedo_img), dim=2)
+
+        if x.normal_img is not None:
+            gfx_material.normal_map = Texture(np.ascontiguousarray(x.normal_img), dim=2)
+            gfx_material.normal_scale = (1.0, -1.0)
+
+        if x.ao_img is not None:
+            gfx_material.ao_map = Texture(np.ascontiguousarray(x.ao_img), dim=2)
+
+        if x.metallic_img is not None:
+            gfx_material.metalness_map = Texture(
+                np.ascontiguousarray(x.metallic_img), dim=2
+            )
+
+        if x.roughness_img is not None:
+            gfx_material.roughness_map = Texture(
+                np.ascontiguousarray(x.roughness_img), dim=2
+            )
+
+        gfx_material.side = "front"
+
+    elif x.shader == "unlit":
+        gfx_material = MeshPhongMaterial()
+        if x.base_color is not None:
+            base_color = (
+                np.array(x.base_color[:3]) / 255
+            )  # Convert to normalized values
+            gfx_material.color = Color(*base_color)
+
+        gfx_material.shininess = getattr(x, "base_reflectance", 0.5)
+        gfx_material.specular = Color(1, 1, 1)  # Default specular color
+
+        if x.albedo_img is not None:
+            gfx_material.map = Texture(np.ascontiguousarray(x.albedo_img), dim=2)
+
+        gfx_material.side = "front"
+
+    else:
+        raise NotImplementedError(f"Shader type {x.shader} is not supported.")
 
     return gfx_material
