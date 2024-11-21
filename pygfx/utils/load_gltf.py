@@ -95,6 +95,21 @@ class _GLTF:
         "WEIGHTS_0": "skin_weights",
     }
 
+    FILTER_MODE = {
+        9728: "nearest",  # NEAREST
+        9729: "linear",  # LINEAR
+        9984: "nearest",  # NEAREST_MIPMAP_NEAREST
+        9985: "linear",  # LINEAR_MIPMAP_NEAREST
+        9986: "linear",  # NEAREST_MIPMAP_LINEAR
+        9987: "linear",  # LINEAR_MIPMAP_LINEAR
+    }
+
+    WRAP_MODE = {
+        33071: "clamp-to-edge",  # CLAMP_TO_EDGE
+        33648: "mirror-repeat",  # MIRRORED_REPEAT
+        10497: "repeat",  # REPEAT
+    }
+
     SUPPORTED_EXTENSIONS = ["KHR_mesh_quantization"]
 
     def __init__(self, path, quiet=False):
@@ -374,8 +389,9 @@ class _GLTF:
     def _load_gltf_texture(self, texture_info):
         texture_index = texture_info.index
         texture = self._load_gltf_texture_resource(texture_index)
-        # uv_channel = texture_info.texCoord
-        # TODO: use uv_channel when pygfx supports it
+
+        uv_channel = texture_info.texCoord
+        texture._channel = uv_channel or 0
         return texture
 
     @lru_cache(maxsize=None)
@@ -387,8 +403,11 @@ class _GLTF:
 
         sampler = texture_desc.sampler
         sampler = self._load_gltf_sampler(sampler)
-        # pygfx not support set texture sampler info now
-        # TODO: implement this after pygfx support texture custom sampler
+
+        texture._mag_filter = self.FILTER_MODE[sampler.magFilter or 9729]
+        texture._min_filter = self.FILTER_MODE[sampler.minFilter or 9987]
+        texture._wrap_s = self.WRAP_MODE[sampler.wrapS or 10497]
+        texture._wrap_t = self.WRAP_MODE[sampler.wrapT or 10497]
         return texture
 
     @lru_cache(maxsize=None)

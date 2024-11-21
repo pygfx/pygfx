@@ -63,6 +63,9 @@ class MeshShader(BaseShader):
         # Per-vertex color, colormap, or a plane color?
         self["colorspace"] = "srgb"
 
+        # record all uv channels used by texture maps
+        self["used_uv"] = set()
+
         color_mode = str(material.color_mode).split(".")[-1]
         if color_mode == "auto":
             if material.map is not None:
@@ -101,6 +104,32 @@ class MeshShader(BaseShader):
                 raise ValueError("Cannot apply colormap is no material.map is set.")
         else:
             raise RuntimeError(f"Unknown color_mode: '{color_mode}'")
+
+    def _define_texture_map(self, geometry, map, name, view_dim="2d"):
+        self._check_texture(map, geometry)
+        view = GfxTextureView(map, view_dim=view_dim)
+        filter_mode = f"{map.mag_filter}, {map.min_filter}"
+        address_mode = f"{map.wrap_s}, {map.wrap_t}"
+        sampler = GfxSampler(filter_mode, address_mode)
+        self[f"{name}_uv"] = map.channel
+
+        bindings = [
+            Binding(f"s_{name}", "sampler/filtering", sampler, "FRAGMENT"),
+            Binding(f"t_{name}", "texture/auto", view, "FRAGMENT"),
+        ]
+
+        if map.channel > 0 and map.channel not in self["used_uv"]:
+            bindings.append(
+                Binding(
+                    f"s_texcoords{map.channel}",
+                    "buffer/read_only_storage",
+                    getattr(geometry, f"texcoords{map.channel}"),
+                    "VERTEX",
+                )
+            )
+            self["used_uv"].add(map.channel)
+
+        return bindings
 
     def get_bindings(self, wobject, shared):
         geometry = wobject.geometry
@@ -149,12 +178,6 @@ class MeshShader(BaseShader):
             bindings.append(
                 Binding("s_texcoords", rbuffer, geometry.texcoords, "VERTEX")
             )
-
-        if hasattr(geometry, "texcoords1") and geometry.texcoords1 is not None:
-            bindings.append(
-                Binding("s_texcoords1", rbuffer, geometry.texcoords1, "VERTEX")
-            )
-            self["use_texcoords1"] = True
 
         if self["color_mode"] in ("vertex", "face"):
             bindings.append(Binding("s_colors", rbuffer, geometry.colors, "VERTEX"))
@@ -227,46 +250,41 @@ class MeshShader(BaseShader):
             else:
                 self["use_morph_targets"] = False
 
-        F = "FRAGMENT"  # noqa: N806
-        sampling = "sampler/filtering"
-        sampler = GfxSampler(material.map_interpolation, "repeat")
-        texturing = "texture/auto"
-
-        # todo, check uv is present and has the right shape. (introduce uv channel for texture)
-
         # specular map configs, only for basic and phong materials now
         if getattr(material, "specular_map", None) and not isinstance(
             material, MeshStandardMaterial
         ):
-            self._check_texture(material.specular_map)
-            view = GfxTextureView(material.specular_map, view_dim="2d")
+            bindings.extend(
+                self._define_texture_map(
+                    geometry, material.specular_map, "specular_map"
+                )
+            )
             self["use_specular_map"] = True
-            bindings.append(Binding("s_specular_map", sampling, sampler, F))
-            bindings.append(Binding("t_specular_map", texturing, view, F))
 
         # set emissive_map configs, for phong and standard materials
         if getattr(material, "emissive_map", None):
-            self._check_texture(material.emissive_map)
-            view = GfxTextureView(material.emissive_map, view_dim="2d")
+            bindings.extend(
+                self._define_texture_map(
+                    geometry, material.emissive_map, "emissive_map"
+                )
+            )
             self["use_emissive_map"] = True
-            bindings.append(Binding("s_emissive_map", sampling, sampler, F))
-            bindings.append(Binding("t_emissive_map", texturing, view, F))
 
         # set normal_map configs
         if getattr(material, "normal_map", None):
-            self._check_texture(material.normal_map)
-            view = GfxTextureView(material.normal_map, view_dim="2d")
+            bindings.extend(
+                self._define_texture_map(geometry, material.normal_map, "normal_map")
+            )
             self["use_normal_map"] = True
-            bindings.append(Binding("s_normal_map", sampling, sampler, F))
-            bindings.append(Binding("t_normal_map", texturing, view, F))
 
         # set envmap configs
         if getattr(material, "env_map", None):
-            self._check_texture(material.env_map, 6)
-            # TODO: Support envmap not only cube, but also equirect (hdr format)
-            view = GfxTextureView(material.env_map, view_dim="cube")
-            bindings.append(Binding("s_env_map", sampling, sampler, F))
-            bindings.append(Binding("t_env_map", texturing, view, F))
+            bindings.extend(
+                # # TODO: Support envmap not only cube, but also equirect (hdr format)
+                self._define_texture_map(
+                    geometry, material.env_map, "env_map", view_dim="cube"
+                )
+            )
 
             if isinstance(material, MeshStandardMaterial):
                 self["use_IBL"] = True
@@ -282,29 +300,17 @@ class MeshShader(BaseShader):
 
         # set lightmap configs
         if getattr(material, "light_map", None):
-            if "use_texcoords1" not in self.kwargs:
-                raise ValueError(
-                    "Light map requires a second set of texture coordinates (geometry.texcoords1), but it is not present."
-                )
-            else:
-                self._check_texture(material.light_map)
-                view = GfxTextureView(material.light_map, view_dim="2d")
-                self["use_light_map"] = True
-                bindings.append(Binding("s_light_map", sampling, sampler, F))
-                bindings.append(Binding("t_light_map", texturing, view, F))
+            bindings.extend(
+                self._define_texture_map(geometry, material.light_map, "light_map")
+            )
+            self["use_light_map"] = True
 
         # set aomap configs
         if getattr(material, "ao_map", None):
-            if "use_texcoords1" not in self.kwargs:
-                raise ValueError(
-                    "AoMap requires a second set of texture coordinates (geometry.texcoords1), but it is not present."
-                )
-            else:
-                self._check_texture(material.ao_map)
-                view = GfxTextureView(material.ao_map, view_dim="2d")
-                self["use_ao_map"] = True
-                bindings.append(Binding("s_ao_map", sampling, sampler, F))
-                bindings.append(Binding("t_ao_map", texturing, view, F))
+            bindings.extend(
+                self._define_texture_map(geometry, material.ao_map, "ao_map")
+            )
+            self["use_ao_map"] = True
 
         # Define shader code for binding
         bindings = {i: binding for i, binding in enumerate(bindings)}
@@ -462,9 +468,20 @@ class MeshShader(BaseShader):
             "render_mask": render_mask,
         }
 
-    def _check_texture(self, t, size2=1):
+    def _check_texture(self, t, geometry):
         assert isinstance(t, Texture)
-        assert t.size[2] == size2
+        uv_channel = t.channel
+        if uv_channel > 0:
+            texcoords = getattr(geometry, f"texcoords{uv_channel}", None)
+        else:
+            texcoords = getattr(geometry, "texcoords", None)
+        assert (
+            texcoords is not None
+        ), f"Texture {t} requires geometry.texcoords{uv_channel}"
+
+        nchannels = nchannels_from_format(texcoords.format)
+        assert texcoords.data.ndim == nchannels
+
         fmt = to_texture_format(t.format)
         assert "norm" in fmt or "float" in fmt
 
@@ -501,28 +518,13 @@ class MeshToonShader(MeshShader):
 
         bindings = []
 
-        F = "FRAGMENT"  # noqa: N806
-
-        # We need uv to use the maps, so if uv not exist, ignore all maps
-        if hasattr(geometry, "texcoords") and geometry.texcoords is not None:
-            # Texcoords must always be nx2 since it used for all texture maps.
-            nchannels = nchannels_from_format(geometry.texcoords.format)
-            if not (geometry.texcoords.data.ndim == 2 and nchannels == 2):
-                raise ValueError("For toon material, the texcoords must be Nx2")
-
-            if material.gradient_map is not None:
-                self._check_texture(material.gradient_map)
-                view = GfxTextureView(material.gradient_map, view_dim="2d")
-                self["use_gradient_map"] = True
-                bindings.append(
-                    Binding(
-                        "s_gradient_map",
-                        "sampler/filtering",
-                        GfxSampler("nearest", "repeat"),
-                        F,
-                    )
-                )  # gradient map is always nearest sampling
-                bindings.append(Binding("t_gradient_map", "texture/auto", view, F))
+        if material.gradient_map is not None:
+            bindings.extend(
+                self._define_texture_map(
+                    geometry, material.gradient_map, "gradient_map"
+                )
+            )
+            self["use_gradient_map"] = True
 
         # Define shader code for binding
         bindings = {i: binding for i, binding in enumerate(bindings)}
@@ -547,31 +549,20 @@ class MeshStandardShader(MeshShader):
 
         bindings = []
 
-        F = "FRAGMENT"  # noqa: N806
-        sampling = "sampler/filtering"
-        sampler = GfxSampler(material.map_interpolation, "repeat")
-        texturing = "texture/auto"
+        if material.roughness_map is not None:
+            bindings.extend(
+                self._define_texture_map(
+                    geometry, material.roughness_map, "roughness_map"
+                )
+            )
+            self["use_roughness_map"] = True
 
-        # We need uv to use the maps, so if uv not exist, ignore all maps
-        if hasattr(geometry, "texcoords") and geometry.texcoords is not None:
-            # Texcoords must always be nx2 since it used for all texture maps.
-            nchannels = nchannels_from_format(geometry.texcoords.format)
-            if not (geometry.texcoords.data.ndim == 2 and nchannels == 2):
-                raise ValueError("For standard material, the texcoords must be Nx2")
-
-            if material.roughness_map is not None:
-                self._check_texture(material.roughness_map)
-                view = GfxTextureView(material.roughness_map, view_dim="2d")
-                self["use_roughness_map"] = True
-                bindings.append(Binding("s_roughness_map", sampling, sampler, F))
-                bindings.append(Binding("t_roughness_map", texturing, view, F))
-
-            if material.metalness_map is not None:
-                self._check_texture(material.metalness_map)
-                view = GfxTextureView(material.metalness_map, view_dim="2d")
-                self["use_metalness_map"] = True
-                bindings.append(Binding("s_metalness_map", sampling, sampler, F))
-                bindings.append(Binding("t_metalness_map", texturing, view, F))
+        if material.metalness_map is not None:
+            bindings.extend(
+                self._define_texture_map(
+                    geometry, material.metalness_map, "metalness_map"
+                )
+            )
 
         # Define shader code for binding
         bindings = {i: binding for i, binding in enumerate(bindings)}

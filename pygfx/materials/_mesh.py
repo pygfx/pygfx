@@ -352,7 +352,7 @@ class MeshBasicMaterial(MeshAbstractMaterial):
     @property
     def light_map(self):
         """The light map to define pre-baked lighting (in srgb). Default is None.
-        It requires a second set of texture coordinates (geometry.texcoords1)."""
+        It usually requires a second set of texture coordinates."""
         return self._store.light_map
 
     @light_map.setter
@@ -378,7 +378,7 @@ class MeshBasicMaterial(MeshAbstractMaterial):
     @property
     def ao_map(self):
         """The red channel of this texture is used as the ambient occlusion map. Default is None.
-        It requires a second set of texture coordinates (geometry.texcoords1)."""
+        It usually requires a second set of texture coordinates."""
         return self._store.ao_map
 
     @ao_map.setter
