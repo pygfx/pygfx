@@ -85,10 +85,10 @@ class Texture(Resource):
         force_contiguous=False,
         usage=0,
         channel=0,
-        mag_filter="nearest",
-        min_filter="nearest",
-        wrap_s="repeat",
-        wrap_t="repeat",
+        mag_filter="linear",
+        min_filter="linear",
+        wrap_s="clamp-to-edge",
+        wrap_t="clamp-to-edge",
     ):
         super().__init__()
         Resource._rev += 1
