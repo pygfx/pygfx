@@ -105,8 +105,10 @@ class MeshShader(BaseShader):
         else:
             raise RuntimeError(f"Unknown color_mode: '{color_mode}'")
 
-    def _define_texture_map(self, geometry, map, name, view_dim="2d"):
-        self._check_texture(map, geometry)
+    def _define_texture_map(self, geometry, map, name, view_dim="2d", check=True):
+        if check:
+            # Check that the texture is compatible with the texcoord
+            self._check_texture(map, geometry)
         view = GfxTextureView(map, view_dim=view_dim)
         filter_mode = f"{map.mag_filter}, {map.min_filter}"
         address_mode = f"{map.wrap_s}, {map.wrap_t}"
@@ -279,11 +281,18 @@ class MeshShader(BaseShader):
 
         # set envmap configs
         if getattr(material, "env_map", None):
+            # TODO: Support envmap not only cube, but also equirect (hdr format)
+
+            # special check for env_map
+            assert isinstance(material.env_map, Texture)
+            assert material.env_map.size[2] == 6, "env_map must be a cube map"
+            fmt = to_texture_format(material.env_map.format)
+            assert "norm" in fmt or "float" in fmt
+
             bindings.extend(
-                # # TODO: Support envmap not only cube, but also equirect (hdr format)
                 self._define_texture_map(
-                    geometry, material.env_map, "env_map", view_dim="cube"
-                )
+                    geometry, material.env_map, "env_map", view_dim="cube", check=False
+                )  # check=False because we don't need texcoords for env_map
             )
 
             if isinstance(material, MeshStandardMaterial):
@@ -477,7 +486,7 @@ class MeshShader(BaseShader):
             texcoords = getattr(geometry, "texcoords", None)
         assert (
             texcoords is not None
-        ), f"Texture {t} requires geometry.texcoords{uv_channel}"
+        ), f"Texture {t} requires geometry.texcoords{uv_channel or ''}"
 
         nchannels = nchannels_from_format(texcoords.format)
         assert texcoords.data.ndim == nchannels
