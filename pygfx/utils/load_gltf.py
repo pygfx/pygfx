@@ -95,15 +95,6 @@ class _GLTF:
         "WEIGHTS_0": "skin_weights",
     }
 
-    FILTER_MODE = {
-        9728: "nearest",  # NEAREST
-        9729: "linear",  # LINEAR
-        9984: "nearest",  # NEAREST_MIPMAP_NEAREST
-        9985: "linear",  # LINEAR_MIPMAP_NEAREST
-        9986: "linear",  # NEAREST_MIPMAP_LINEAR
-        9987: "linear",  # LINEAR_MIPMAP_LINEAR
-    }
-
     WRAP_MODE = {
         33071: "clamp-to-edge",  # CLAMP_TO_EDGE
         33648: "mirror-repeat",  # MIRRORED_REPEAT
@@ -402,12 +393,42 @@ class _GLTF:
         texture = gfx.Texture(image, dim=2)
 
         sampler = texture_desc.sampler
-        sampler = self._load_gltf_sampler(sampler)
+        if sampler is not None:
+            sampler = self._load_gltf_sampler(sampler)
 
-        texture._mag_filter = self.FILTER_MODE[sampler.magFilter or 9729]
-        texture._min_filter = self.FILTER_MODE[sampler.minFilter or 9987]
-        texture._wrap_s = self.WRAP_MODE[sampler.wrapS or 10497]
-        texture._wrap_t = self.WRAP_MODE[sampler.wrapT or 10497]
+            # FILTER_MODE = {
+            #     9728: "NEAREST",
+            #     9729: "LINEAR",
+            #     9984: "NEAREST_MIPMAP_NEAREST",
+            #     9985: "LINEAR_MIPMAP_NEAREST",
+            #     9986: "NEAREST_MIPMAP_LINEAR",
+            #     9987: "LINEAR_MIPMAP_LINEAR",
+            # }
+
+            if sampler.magFilter == 9728:
+                texture._mag_filter = "nearest"
+            elif sampler.magFilter == 9729:
+                texture._mag_filter = "linear"
+
+            if sampler.minFilter == 9728:  # NEAREST
+                texture._min_filter = "nearest"
+            elif sampler.minFilter == 9729:  # LINEAR
+                texture._min_filter = "linear"
+            elif sampler.minFilter == 9984:  # NEAREST_MIPMAP_NEAREST
+                texture._min_filter = "nearest"
+                texture._mipmap_filter = "nearest"
+            elif sampler.minFilter == 9985:  # LINEAR_MIPMAP_NEAREST
+                texture._min_filter = "linear"
+                texture._mipmap_filter = "nearest"
+            elif sampler.minFilter == 9986:  # NEAREST_MIPMAP_LINEAR
+                texture._min_filter = "nearest"
+                texture._mipmap_filter = "linear"
+            elif sampler.minFilter == 9987:  # LINEAR_MIPMAP_LINEAR
+                texture._min_filter = "linear"
+                texture._mipmap_filter = "linear"
+
+            texture._wrap_s = self.WRAP_MODE[sampler.wrapS or 10497]
+            texture._wrap_t = self.WRAP_MODE[sampler.wrapT or 10497]
         return texture
 
     @lru_cache(maxsize=None)

@@ -60,6 +60,17 @@ class Texture(Resource):
         derive how the texture is used and apply the appropriate flag. In cases
         where it doesn't this param provides an override. This is a bitmask flag
         (values are OR'd).
+    channel : int
+        The texcoord channel of the texture. Default 0.
+    mag_filter : str
+        The magnification filter of the texture. Can be "nearest" or "linear".
+        Default "linear".
+    min_filter : str
+        The minification filter of the texture. Can be "nearest", "linear".
+        Default "linear".
+    mipmap_filter : str
+        The mipmap filter of the texture. Can be "nearest" or "linear".
+        Default "nearest".
 
     Performance tips:
 
@@ -87,6 +98,7 @@ class Texture(Resource):
         channel=0,
         mag_filter="linear",
         min_filter="linear",
+        mipmap_filter="nearest",
         wrap_s="clamp-to-edge",
         wrap_t="clamp-to-edge",
     ):
@@ -209,6 +221,7 @@ class Texture(Resource):
         self._channel = channel
         self._mag_filter = mag_filter
         self._min_filter = min_filter
+        self._mipmap_filter = mipmap_filter
         self._wrap_s = wrap_s
         self._wrap_t = wrap_t
 
@@ -299,6 +312,11 @@ class Texture(Resource):
     @min_filter.setter
     def min_filter(self, value):
         self._min_filter = value
+
+    @property
+    def mipmap_filter(self):
+        """The mipmap filter of the texture."""
+        return self._mipmap_filter
 
     @property
     def wrap_s(self):

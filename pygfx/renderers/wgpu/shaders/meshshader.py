@@ -110,7 +110,7 @@ class MeshShader(BaseShader):
             # Check that the texture is compatible with the texcoord
             self._check_texture(map, geometry)
         view = GfxTextureView(map, view_dim=view_dim)
-        filter_mode = f"{map.mag_filter}, {map.min_filter}"
+        filter_mode = f"{map.mag_filter}, {map.min_filter}, {map.mipmap_filter}"
         address_mode = f"{map.wrap_s}, {map.wrap_t}"
         sampler = GfxSampler(filter_mode, address_mode)
         self[f"{name}_uv"] = map.channel
@@ -572,6 +572,7 @@ class MeshStandardShader(MeshShader):
                     geometry, material.metalness_map, "metalness_map"
                 )
             )
+            self["use_metalness_map"] = True
 
         # Define shader code for binding
         bindings = {i: binding for i, binding in enumerate(bindings)}
