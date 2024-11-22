@@ -21,4 +21,4 @@ from ._base import Resource
 from ._buffer import Buffer
 from ._texture import Texture
 
-__all__ = ["Resource", "Buffer", "Texture"]
+__all__ = ["Buffer", "Resource", "Texture"]
