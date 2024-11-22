@@ -70,7 +70,7 @@ class Texture(Resource):
         Default "linear".
     mipmap_filter : str
         The mipmap filter of the texture. Can be "nearest" or "linear".
-        Default "nearest".
+        Default "linear".
 
     Performance tips:
 
@@ -98,7 +98,7 @@ class Texture(Resource):
         channel=0,
         mag_filter="linear",
         min_filter="linear",
-        mipmap_filter="nearest",
+        mipmap_filter="linear",
         wrap_s="clamp-to-edge",
         wrap_t="clamp-to-edge",
     ):
