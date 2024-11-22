@@ -6,13 +6,13 @@
 Interactive Segmentation with SAM2
 ==================================
 
-This script demonstrates a real-time interactive segmentation application using pygfx points as prompts to the SAM2 (Segment Anything Model 2) model and Qt (PySide6) for the GUI.
+This script demonstrates a real-time interactive segmentation application using pygfx points as prompts to the SAM2 (Segment Anything Model 2) model. SAM2 relies on PyTorch for inference, and the GUI is built using Qt (PySide6).
 
 Additional dependencies required to run this example:
+    pip install PySide6 torch
     pip install git+https://github.com/facebookresearch/sam2.git
 
 Once the application is running, you can click and drag the green point to interactively segment the image. The model will update the segmentation mask in real-time as you move the point around.
-
 """
 
 from pathlib import Path
@@ -93,12 +93,6 @@ class SAMPoint(QtWidgets.QWidget):
             gfx.Geometry(positions=[[0, 0, 3]]),
             point_material,
         )
-        self.dot_marker.local.position = (
-            self.image_shape[0] // 2,
-            self.image_shape[1] // 2,
-            3,
-        )
-
         self.scene.add(self.base_image)
         self.scene.add(self.mask_image)
         self.scene.add(self.dot_marker)
@@ -123,6 +117,14 @@ class SAMPoint(QtWidgets.QWidget):
             stop_event=self.segmentation_stop_event,
         )
         self.segmentation_runner.start()
+
+        start_position = (347, 321)
+        self.dot_marker.local.position = (
+            start_position[0],
+            start_position[1],
+            3,
+        )
+        self.segmentation_queue.put(start_position)
 
     def screen_to_world(self, xy):
         x_ndc = (xy[0] / self.renderer.logical_size[0]) * 2 - 1
