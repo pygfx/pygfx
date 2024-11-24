@@ -340,7 +340,7 @@ class Color:
 
     @classmethod
     def from_hsv(cls, hue, saturation, value, alpha=1):
-        """Create a Color object from an a color in the HSV (a.k.a. HSB) colorspace.
+        """Create a Color object from a color in the HSV (a.k.a. HSB) colorspace.
 
         HSV stands for hue, saturation, value (aka brightness). The hue
         component indicates the color tone. Values go from red (0) to
@@ -366,7 +366,7 @@ class Color:
 
     @classmethod
     def from_hsl(cls, hue, saturation, lightness, alpha=1):
-        """Create a Color object from an a color in the HSL colorspace.
+        """Create a Color object from a color in the HSL colorspace.
 
         The HSL colorspace is similar to the HSV colorspace, except the
         "value" is replaced with "lightness". This lightness scales the
@@ -391,7 +391,7 @@ class Color:
 
     @classmethod
     def from_hsluv(cls, hue, saturation, lightness, alpha=1):
-        """Create a Color object from an a color in the HSLuv colorspace.
+        """Create a Color object from a color in the HSLuv colorspace.
 
         HSLuv is a human-friendly alternative to HSL. The hue component works
         the same as HSL/HSV, going from red (0) through green (0.333) and blue (0.666)
