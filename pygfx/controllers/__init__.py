@@ -28,8 +28,8 @@ from ._fly import FlyController
 
 __all__ = [
     "Controller",
-    "PanZoomController",
-    "OrbitController",
-    "TrackballController",
     "FlyController",
+    "OrbitController",
+    "PanZoomController",
+    "TrackballController",
 ]
