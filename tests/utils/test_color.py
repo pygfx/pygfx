@@ -317,6 +317,12 @@ def test_color_lerp_lighter_darker():
         green.darker(0.5, "hsluv").to_hsluv()[2], green.to_hsluv()[2] * 0.5
     )
 
+    assert np.allclose(
+        green.lighter(0.5, "hsv").to_hsv()[2],
+        green.to_hsv()[2] + (1 - green.to_hsv()[2]) * 0.5,
+    )
+    assert np.allclose(green.darker(0.5, "hsv").to_hsv()[2], green.to_hsv()[2] * 0.5)
+
 
 if __name__ == "__main__":
     test_color_basics()

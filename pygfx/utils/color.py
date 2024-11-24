@@ -2,10 +2,20 @@
 
 import ctypes
 import colorsys
-import hsluv
-
 
 F4 = ctypes.c_float * 4
+
+# Try to import hsluv once at module level
+try:
+    import hsluv
+
+    HAVE_HSLUV = True
+except ImportError:
+    HAVE_HSLUV = False
+    HSLUV_IMPORT_ERROR = ImportError(
+        "The hsluv package is required for HSLuv colors. "
+        "Install it with 'pip install hsluv'"
+    )
 
 
 def _float_from_css_value(v, i, is_hue=False):
@@ -214,11 +224,13 @@ class Color:
             ]
             if len(parts) == 3 or len(parts) == 4:
                 if color.startswith(("hsl(", "hsla(")):
-                    color = Color.from_hsla(*parts)
+                    color = Color.from_hsl(*parts)
                 elif color.startswith(("hsv(", "hsva(")):
-                    color = Color.from_hsva(*parts)
+                    color = Color.from_hsv(*parts)
                 elif color.startswith(("hsluv(", "hsluva(")):
-                    color = Color.from_hsluva(*parts)
+                    if not HAVE_HSLUV:
+                        raise HSLUV_IMPORT_ERROR
+                    color = Color.from_hsluv(*parts)
                 self._set_from_rgba(
                     color._val[0], color._val[1], color._val[2], color._val[3]
                 )
@@ -327,20 +339,7 @@ class Color:
         return _srgb2physical(self.r), _srgb2physical(self.g), _srgb2physical(self.b)
 
     @classmethod
-    def from_hsv(cls, hue, saturation, value):
-        """Create a Color object from an a color in the HSV (a.k.a. HSB) colorspace.
-
-        HSV stands for hue, saturation, value (aka brightness). The hue
-        component indicates the color tone. Values go from red (0) to
-        green (0.333) to blue (0.666) and back to red (1). The
-        satutation indicates vividness, with 0 meaning gray and 1
-        meaning the primary color. The value/brightness indicates goes
-        from 0 (black) to 1 (white).
-        """
-        return Color(colorsys.hsv_to_rgb(hue, saturation, value))
-
-    @classmethod
-    def from_hsva(cls, hue, saturation, value, alpha=1):
+    def from_hsv(cls, hue, saturation, value, alpha=1):
         """Create a Color object from an a color in the HSV (a.k.a. HSB) colorspace.
 
         HSV stands for hue, saturation, value (aka brightness). The hue
@@ -352,7 +351,7 @@ class Color:
 
         The alpha channel is optional and defaults to 1.
         """
-        color = Color.from_hsv(hue, saturation, value)
+        color = Color(colorsys.hsv_to_rgb(hue, saturation, value))
         color._val[3] = alpha
         return color
 
@@ -361,23 +360,12 @@ class Color:
         return colorsys.rgb_to_hsv(*self.rgb)
 
     def to_hsva(self):
-        """Get the color represented in the HSV colorspace, as 3 floats."""
+        """Get the color represented in the HSV colorspace, as 4 floats."""
         h, s, v = colorsys.rgb_to_hsv(*self.rgb)
         return h, s, v, self.a
 
     @classmethod
-    def from_hsl(cls, hue, saturation, lightness):
-        """Create a Color object from an a color in the HSL colorspace.
-
-        The HSL colorspace is similar to the HSV colorspace, except the
-        "value" is replaced with "lightness". This lightness scales the
-        color differently, e.g. a lightness of 1 always represents full
-        white.
-        """
-        return Color(colorsys.hls_to_rgb(hue, lightness, saturation))
-
-    @classmethod
-    def from_hsla(cls, hue, saturation, lightness, alpha=1):
+    def from_hsl(cls, hue, saturation, lightness, alpha=1):
         """Create a Color object from an a color in the HSL colorspace.
 
         The HSL colorspace is similar to the HSV colorspace, except the
@@ -387,7 +375,7 @@ class Color:
 
         The alpha channel is optional and defaults to 1.
         """
-        color = Color.from_hsl(hue, saturation, lightness)
+        color = Color(colorsys.hls_to_rgb(hue, lightness, saturation))
         color._val[3] = alpha
         return color
 
@@ -397,25 +385,12 @@ class Color:
         return hue, saturation, lightness
 
     def to_hsla(self):
-        """Get the color represented in the HSL colorspace, as 3 floats."""
+        """Get the color represented in the HSL colorspace, as 4 floats."""
         hue, lightness, saturation = colorsys.rgb_to_hls(*self.rgb)
         return hue, saturation, lightness, self.a
 
     @classmethod
-    def from_hsluv(cls, hue, saturation, lightness):
-        """Create a Color object from an a color in the HSLuv colorspace.
-
-        HSLuv is a human-friendly alternative to HSL. The hue component works
-        the same as HSL/HSV, going from red (0) through green (0.333) and blue (0.666)
-        back to red (1). The saturation ranges from 0 (grayscale) to 1 (pure color).
-        The lightness ranges from 0 (black) to 1 (white). Unlike HSL/HSV, HSLuv
-        provides perceptually uniform brightness and saturation.
-        """
-        h, s, light = 360.0 * hue, 100.0 * saturation, 100.0 * lightness
-        return Color(hsluv.hsluv_to_rgb((h, s, light)))
-
-    @classmethod
-    def from_hsluva(cls, hue, saturation, lightness, alpha=1):
+    def from_hsluv(cls, hue, saturation, lightness, alpha=1):
         """Create a Color object from an a color in the HSLuv colorspace.
 
         HSLuv is a human-friendly alternative to HSL. The hue component works
@@ -426,17 +401,24 @@ class Color:
 
         The alpha channel is optional and defaults to 1.
         """
-        color = Color.from_hsluv(hue, saturation, lightness)
+        if not HAVE_HSLUV:
+            raise HSLUV_IMPORT_ERROR
+        h, s, light = 360.0 * hue, 100.0 * saturation, 100.0 * lightness
+        color = Color(hsluv.hsluv_to_rgb((h, s, light)))
         color._val[3] = alpha
         return color
 
     def to_hsluv(self):
         """Get the color represented in the HSLuv colorspace, as 3 floats."""
+        if not HAVE_HSLUV:
+            raise HSLUV_IMPORT_ERROR
         h, s, light = hsluv.rgb_to_hsluv(self.rgb)
         return h / 360.0, s / 100.0, light / 100.0
 
     def to_hsluva(self):
-        """Get the color represented in the HSLuv colorspace, as 3 floats."""
+        """Get the color represented in the HSLuv colorspace, as 4 floats."""
+        if not HAVE_HSLUV:
+            raise HSLUV_IMPORT_ERROR
         h, s, light = hsluv.rgb_to_hsluv(self.rgb)
         return h / 360.0, s / 100.0, light / 100.0, self.a
 
@@ -461,7 +443,7 @@ class Color:
         a = self.a + (target.a - self.a) * t
         return Color(r, g, b, a)
 
-    def lerp_in_hue(self, target, t, colorspace="hsl"):
+    def lerp_in_hue(self, target, t, colorspace="hsv"):
         """Linear interpolate from source color towards target color with factor t in specified colorspace.
 
         Parameters
@@ -481,15 +463,17 @@ class Color:
         if colorspace == "hsl":
             h1, s1, l1 = self.to_hsl()
             h2, s2, l2 = target.to_hsl()
-            to_rgba = lambda h, s, light, a: Color.from_hsla(h, s, light, a)
+            to_rgba = lambda h, s, light, a: Color.from_hsl(h, s, light, a)
         elif colorspace == "hsluv":
+            if not HAVE_HSLUV:
+                raise HSLUV_IMPORT_ERROR
             h1, s1, l1 = self.to_hsluv()
             h2, s2, l2 = target.to_hsluv()
-            to_rgba = lambda h, s, light, a: Color.from_hsluva(h, s, light, a)
+            to_rgba = lambda h, s, light, a: Color.from_hsluv(h, s, light, a)
         elif colorspace == "hsv":
             h1, s1, l1 = self.to_hsv()
             h2, s2, l2 = target.to_hsv()
-            to_rgba = lambda h, s, light, a: Color.from_hsva(h, s, light, a)
+            to_rgba = lambda h, s, light, a: Color.from_hsv(h, s, light, a)
         else:
             raise ValueError(f"Unknown colorspace {colorspace}")
 
@@ -506,7 +490,7 @@ class Color:
 
         return to_rgba(h, s, light, a)
 
-    def lighter(self, factor=0.5, colorspace="hsl"):
+    def lighter(self, factor=0.5, colorspace="hsv"):
         """Make the color lighter by the given factor.
 
         Parameters
@@ -514,26 +498,34 @@ class Color:
         factor : float
             Factor to lighten by, between 0 and 1. Default is 0.5
         colorspace : str
-            The colorspace to use, either "hsl" or "hsluv". Default is "hsl"
+            The colorspace to use, one of "hsl", "hsluv", or "hsv". Default is "hsl"
 
         Returns
         -------
         Color
             A lighter version of the color
         """
-        if colorspace not in ["hsl", "hsluv"]:
-            raise ValueError("colorspace must be either 'hsl' or 'hsluv'")
+        if colorspace not in ["hsl", "hsluv", "hsv"]:
+            raise ValueError("colorspace must be one of 'hsl', 'hsluv', or 'hsv'")
+        if not 0 <= factor <= 1:
+            raise ValueError("factor must be between 0 and 1")
 
         if colorspace == "hsl":
             h, s, light = self.to_hsl()
             light = light + (1 - light) * factor
-            return Color.from_hsla(h, s, light, self.a)
-        else:  # hsluv
+            return Color.from_hsl(h, s, light, self.a)
+        elif colorspace == "hsluv":
+            if not HAVE_HSLUV:
+                raise HSLUV_IMPORT_ERROR
             h, s, light = self.to_hsluv()
             light = light + (1 - light) * factor
-            return Color.from_hsluva(h, s, light, self.a)
+            return Color.from_hsluv(h, s, light, self.a)
+        else:  # hsv
+            h, s, v = self.to_hsv()
+            v = v + (1 - v) * factor
+            return Color.from_hsv(h, s, v, self.a)
 
-    def darker(self, factor=0.5, colorspace="hsl"):
+    def darker(self, factor=0.5, colorspace="hsv"):
         """Make the color darker by the given factor.
 
         Parameters
@@ -541,24 +533,32 @@ class Color:
         factor : float
             Factor to darken by, between 0 and 1. Default is 0.5
         colorspace : str
-            The colorspace to use, either "hsl" or "hsluv". Default is "hsl"
+            The colorspace to use, one of "hsl", "hsluv", or "hsv". Default is "hsl"
 
         Returns
         -------
         Color
             A darker version of the color
         """
-        if colorspace not in ["hsl", "hsluv"]:
-            raise ValueError("colorspace must be either 'hsl' or 'hsluv'")
+        if colorspace not in ["hsl", "hsluv", "hsv"]:
+            raise ValueError("colorspace must be one of 'hsl', 'hsluv', or 'hsv'")
+        if not 0 <= factor <= 1:
+            raise ValueError("factor must be between 0 and 1")
 
         if colorspace == "hsl":
             h, s, light = self.to_hsl()
             light = light * (1 - factor)
-            return Color.from_hsla(h, s, light, self.a)
-        else:  # hsluv
+            return Color.from_hsl(h, s, light, self.a)
+        elif colorspace == "hsluv":
+            if not HAVE_HSLUV:
+                raise HSLUV_IMPORT_ERROR
             h, s, light = self.to_hsluv()
             light = light * (1 - factor)
-            return Color.from_hsluva(h, s, light, self.a)
+            return Color.from_hsluv(h, s, light, self.a)
+        else:  # hsv
+            h, s, v = self.to_hsv()
+            v = v * (1 - factor)
+            return Color.from_hsv(h, s, v, self.a)
 
 
 def _srgb2physical(c):
