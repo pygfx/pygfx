@@ -28,7 +28,7 @@ dependencies = [
 
 [project.optional-dependencies]
 lint = ["ruff"]
-hsluv = ["hsluv==5.0.0"]
+optional = ["hsluv==5.0.0"]
 examples = [
     "pytest",
     "imageio[pyav]",
@@ -50,7 +50,7 @@ docs = [
     "imgui-bundle>=1.6.0",
 ]
 tests = ["pytest", "psutil", "trimesh", "httpx", "gltflib", "imageio"]
-dev = ["pygfx[lint,tests,examples,docs,hsluv]"]
+dev = ["pygfx[lint,tests,examples,docs]"]
 
 [project.entry-points."pyinstaller40"]
 hook-dirs = "pygfx.__pyinstaller:get_hook_dirs"
