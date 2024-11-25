@@ -66,8 +66,12 @@ def _update_buffer(buffer):
     bytes_per_item = buffer.itemsize
 
     # Upload any pending data
-    for offset, size in chunk_descriptions:
-        chunk_data = buffer._gfx_get_chunk_data(offset, size)
+    for chunk_description in chunk_descriptions:
+        if len(chunk_description) == 3:
+            offset, size, chunk_data = chunk_description
+        else:
+            offset, size = chunk_description
+            chunk_data = buffer._gfx_get_chunk_data(offset, size)
         device.queue.write_buffer(
             wgpu_buffer, bytes_per_item * offset, chunk_data, 0, chunk_data.nbytes
         )
@@ -97,12 +101,19 @@ def _update_texture(texture):
     )
 
     # Upload any pending data
-    for offset, size in chunk_descriptions:
-        chunk_data = texture._gfx_get_chunk_data(offset, size, pad_value)
+    for chunk_description in chunk_descriptions:
+        if len(chunk_description) == 3:
+            offset, size, chunk_data = chunk_description
+        else:
+            offset, size = chunk_description
+            chunk_data = texture._gfx_get_chunk_data(offset, size, pad_value)
+        bpp = bytes_per_pixel
+        if bpp == 0:
+            bpp = chunk_data[0, 0, 0].nbytes
         device.queue.write_texture(
             {"texture": wgpu_texture, "origin": offset, "mip_level": 0},
             chunk_data,
-            {"bytes_per_row": size[0] * bytes_per_pixel, "rows_per_image": size[1]},
+            {"bytes_per_row": size[0] * bpp, "rows_per_image": size[1]},
             size,
         )
 

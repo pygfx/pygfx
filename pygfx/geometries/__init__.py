@@ -69,7 +69,7 @@ The standardized names are:
 
 from ._base import Geometry
 from ._box import box_geometry
-from ._compat import geometry_from_trimesh
+from ._compat import geometry_from_trimesh, geometry_from_open3d
 from ._cylinder import cylinder_geometry, cone_geometry
 from ._sphere import sphere_geometry
 from ._plane import plane_geometry, mobius_strip_geometry

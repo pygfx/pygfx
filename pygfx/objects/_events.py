@@ -528,9 +528,11 @@ class RootEventHandler(EventTarget):
             if (
                 tracked_click
                 and (
-                    tracked_click["target"] is not None
-                    and tracked_click["target"]() is not None
-                    and tracked_click["target"]() is event.target
+                    (
+                        tracked_click["target"] is not None
+                        and tracked_click["target"]() is not None
+                        and tracked_click["target"]() is event.target
+                    )
                     or (tracked_click["target"] is None and event.target is None)
                 )
                 and event.time_stamp - tracked_click["time_stamp"] < CLICK_DEBOUNCE
@@ -550,9 +552,11 @@ class RootEventHandler(EventTarget):
         elif event.type == EventType.POINTER_UP:
             tracked_click = self._click_tracker.get(pointer_id)
             if tracked_click and (
-                tracked_click["target"] is not None
-                and tracked_click["target"]() is not None
-                and tracked_click["target"]() is event.target
+                (
+                    tracked_click["target"] is not None
+                    and tracked_click["target"]() is not None
+                    and tracked_click["target"]() is event.target
+                )
                 or (tracked_click["target"] is None and event.target is None)
             ):
                 ev = event.copy(type="click", clicks=tracked_click["count"])
