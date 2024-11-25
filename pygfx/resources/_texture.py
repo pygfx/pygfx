@@ -42,7 +42,7 @@ class Texture(Resource):
         automatically determined from the data.
     colorspace : str
         If this data is used as color, it is interpreted to be in this
-        colorspace. Can be "srgb" or "physical". Default "srgb".
+        colorspace. Can be "srgb", "physical" or "yuv420p". Default "srgb".
     generate_mipmaps : bool
         If True, automatically generates mipmaps when transferring data to the
         GPU. Default False.
@@ -260,7 +260,18 @@ class Texture(Resource):
     @property
     def colorspace(self):
         """If this data is used as color, it is interpreted to be in this colorspace.
-        Can be "srgb" or "physical". Default "srgb".
+        Can be "srgb", "physical", "yuv420p". Default "srgb".
+
+        * "srgb": the data represents intensity, rgb, or rgba pixels in the sRGB space.
+          sRGB is a standard color space designed for consistent representation of colors
+          across devices like monitors. Most images store colors in this space.
+        * "physical": the colors are in the physical / linear space, where lighting
+          calculations can be applied. The shader convers sRGB colors to physical in
+          the shader before doing color computations.
+        * "yuv420p": A common video format. The data is represented as 3 planes (y, u, and v).
+          The y represents intensity, and is at full resolution. The u and v planes are a
+          quarter of the size. The planes must be stored in two layers of the texture,
+          with the u and v plane next to each-other in top half the second layer.
         """
         return self._colorspace
 

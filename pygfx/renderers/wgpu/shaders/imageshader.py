@@ -59,11 +59,14 @@ class ImageShader(BaseShader):
 
         # Determine colorspace
         self["colorspace"] = geometry.grid.colorspace
-        if material.map is not None:
-            self["colorspace"] = material.map.colorspace
-        # todo: this goes wrong is a map is applied, need separate variable I think
-        if self["colorspace"].startswith("yuv"):
+        self["use_colormap"] = False
+
+        if geometry.grid.colorspace not in ("srgb", "physical"):
+            # A special color-space that we convert to rgb in the shader
             self["img_nchannels"] = 3
+        elif material.map is not None:
+            self["use_colormap"] = True
+            self["colorspace"] = material.map.colorspace
 
     def get_bindings(self, wobject, shared):
         geometry = wobject.geometry
@@ -80,7 +83,7 @@ class ImageShader(BaseShader):
         bindings.append(Binding("s_img", "sampler/filtering", sampler, "FRAGMENT"))
         bindings.append(Binding("t_img", "texture/auto", tex_view, vertex_and_fragment))
 
-        if material.map is not None:
+        if self["use_colormap"]:
             bindings.extend(
                 self.define_img_colormap(material.map, material.map_interpolation)
             )
