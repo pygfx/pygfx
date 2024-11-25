@@ -3,18 +3,41 @@ Video yuv
 =========
 
 This example demonstrates how to show video data in a very efficient way,
-eliminating nearly all data-copies.
+eliminating as much data-copies as we can.
 
-Most video data is encoded using yuv420p, so loading the video in that format,
-instead of requesting rgb frames, safes computation and data copies upon reading.
+Reading
+-------
 
-The YUV data can also be uploaded directly to the texture, while RGB data must
-be packed into an rgba array before it can be uploaded to the GPU. This packing
-is normally done automatically by the pygfx Texture. If performance matters,
-you want to avoid this step.
+Many videos are encoded using yuv420p. Therefore, loading the video in
+that format, instead of requesting rgb frames, safes computation and
+data copies upon reading.
 
-Finally, yuv420p data is half the size of RGB data (and even less compared to RGBA)
-so the upload itself is cheaper, and memory consumption on the CPU and GPU is reduced.
+Uploading
+---------
+
+The YUV data can also be uploaded directly to the texture, albeit in
+three chunks. RGBA frames can be send in one chunk (although it is
+considerably larger). For RGB data, the data must first be converted
+to RGBA, which is costly. (This packing is normally done automatically
+by the pygfx Texture).
+
+Size
+----
+
+Frames in yuv420p format are half the size of RGB frames (and even less
+compared to RGBA) so the upload itself is cheaper, and memory
+consumption on the CPU and GPU are reduced.
+
+Benchmarks
+----------
+
+This script can be done to benchmark for different formats. We've found
+that using yuv420p data is certainly the fastest. Using rgba is a bit
+slower, although it consumes more memory, so its disadvantage may
+increase for heavy workloads. Reading the data as RGB has terrible
+performance. This is unfortunate, because it's the format that many
+default to.
+See https://github.com/pygfx/pygfx/pull/873 for details.
 
 """
 
@@ -32,9 +55,18 @@ import imageio
 import av
 
 
-OFFSCREEN = False  # Set to True if FPS is capped at 60 or 120
-FILENAME = imageio.core.Request("imageio:cockatoo.mp4", "r?").filename
-FORMAT = "yuv420p"  # Set to yuv420p or rgb24
+# Set OFFSCREEN to True if the FPS in the visible Window is capped at 60 or 120.
+# The script will then render to an offscreen canvas for a few seconds instead.
+OFFSCREEN = False
+
+# Set the filename of the file. We use imageio to get a stock video.
+# TODO: when https://github.com/imageio/imageio/pull/1103 is merged and a new release is out, we can use the yuv420 video instead.
+# Local: FILENAME = "/Users/almar/dev/py/imageio-binaries/images/cockatoo_yuv420.mp4"
+FILENAME = imageio.core.Request("imageio:cockatoo.mp4", "r?").filename  # yuv444p
+
+# Set the format to read the frames in. If this matches the video's storage format,
+# no conversion will have to be done. But it also affects how the data is handled in Pygfx.
+FORMAT = "yuv420p"  # Set to "rgb24", "rgba", or "yuv420p"
 
 
 def video_width_height():
@@ -49,7 +81,7 @@ def loop_video():
             # Reformat if necessary. If format is the same, reformat is a no-op.
             # Otherwise, this includes a data copy and some computations.
             # In the case of yuv420 -> rgb24, the image also takes more memory.
-            frame.reformat(format=FORMAT)
+            frame = frame.reformat(format=FORMAT)
             # Cast to numpy array. This should not involve a data copy.
             yield frame.to_ndarray()
 
@@ -60,7 +92,7 @@ frame_generator = loop_video()
 # Create image object
 
 if FORMAT == "yuv420p":
-    # For planar yuv420, we use a 2-layer luminance texture. The u and v planes
+    # For planar yuv420, we use a 2-layer grayscale texture. The u and v planes
     # fit in a single layer since they're half the size (in both dimensions).
     tex = gfx.Texture(
         size=(w, h, 2),
@@ -70,7 +102,7 @@ if FORMAT == "yuv420p":
         usage=wgpu.TextureUsage.COPY_DST,
     )
 else:
-    # For rgb we use an rgba texture (there is no rgb texture format).
+    # For rgb/rgba we use an rgba texture (there is no rgb texture format).
     tex = gfx.Texture(
         size=(w, h, 1),
         dim=2,
@@ -112,10 +144,15 @@ def animate():
         tex.send_data((0, 0, 0), y)
         tex.send_data((0, 0, 1), u)
         tex.send_data((w // 2, 0, 1), v)
+    elif FORMAT == "rgba":
+        # The data is already rgba, so we can just send it as one blob.
+        # That blob is more than twice the size of the yuv420 data though.
+        tex.send_data((0, 0, 0), data)
     else:
         # We need to copy the rgb data to rgba, beause wgpu does not have rgb
-        # textures. Note that you can set textures with rgb data, and then the
-        # Texture makes a copy automatically upon upload, similar to the below.
+        # textures. Note that you can create a texture with rgb data, and then the
+        # Texture makes a copy automatically upon upload, but send_data
+        # (intentionally) does not support this.
         rgba = np.full((*data.shape[:2], 4), 255, dtype=np.uint8)
         rgba[:, :, :3] = data
         tex.send_data((0, 0, 0), rgba)
@@ -131,7 +168,7 @@ if __name__ == "__main__":
     renderer.request_draw(animate)
     if OFFSCREEN:
         # Just render as fast as we can, for 5 secs, to measure fps
-        etime = time.time() + 5
+        etime = time.time() + 10
         while time.time() < etime:
             canvas.draw()
     else:
