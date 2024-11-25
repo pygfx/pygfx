@@ -1,4 +1,22 @@
-""" """
+"""
+Video yuv
+=========
+
+This example demonstrates how to show video data in a very efficient way,
+eliminating nearly all data-copies.
+
+Most video data is encoded using yuv420p, so loading the video in that format,
+instead of requesting rgb frames, safes computation and data copies upon reading.
+
+The YUV data can also be uploaded directly to the texture, while RGB data must
+be packed into an rgba array before it can be uploaded to the GPU. This packing
+is normally done automatically by the pygfx Texture. If performance matters,
+you want to avoid this step.
+
+Finally, yuv420p data is half the size of RGB data (and even less compared to RGBA)
+so the upload itself is cheaper, and memory consumption on the CPU and GPU is reduced.
+
+"""
 
 # sphinx_gallery_pygfx_docs = 'screenshot'
 # sphinx_gallery_pygfx_test = 'run'
