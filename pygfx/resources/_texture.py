@@ -102,7 +102,7 @@ class Texture(Resource):
         assert dim in (1, 2, 3)
         self._store.dim = int(dim)
         self._colorspace = (colorspace or "srgb").lower()
-        assert self._colorspace in ("srgb", "physical", "yuv420")
+        assert self._colorspace in ("srgb", "physical", "yuv420p")
         self._generate_mipmaps = bool(generate_mipmaps)
 
         # Normalize size
