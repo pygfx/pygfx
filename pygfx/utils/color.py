@@ -423,7 +423,7 @@ class Color:
         return h / 360.0, s / 100.0, light / 100.0, self.a
 
     def lerp(self, target, t):
-        """Linear interpolate from source color towards target color with factor t.
+        """Linear interpolate from source color towards target color with factor t in RGBA space.
 
         Parameters
         ----------
@@ -443,7 +443,7 @@ class Color:
         a = self.a + (target.a - self.a) * t
         return Color(r, g, b, a)
 
-    def lerp_in_hue(self, target, t, colorspace="hsv"):
+    def lerp_in_hue(self, target, t, colorspace="hsluv"):
         """Linear interpolate from source color towards target color with factor t in specified colorspace.
 
         Parameters
@@ -453,7 +453,7 @@ class Color:
         t : float
             Interpolation factor between 0 and 1
         colorspace : str
-            The colorspace to interpolate in. One of "hsl", "hsluv", "hsv"
+            The colorspace to interpolate in. One of "hsl", "hsluv", "hsv". Default is "hsluv"
 
         Returns
         -------
@@ -490,7 +490,7 @@ class Color:
 
         return to_rgba(h, s, light, a)
 
-    def lighter(self, factor=0.5, colorspace="hsv"):
+    def lighter(self, factor=0.5, colorspace="hsluv"):
         """Make the color lighter by the given factor.
 
         Parameters
@@ -498,7 +498,7 @@ class Color:
         factor : float
             Factor to lighten by, between 0 and 1. Default is 0.5
         colorspace : str
-            The colorspace to use, one of "hsl", "hsluv", or "hsv". Default is "hsl"
+            The colorspace to use, one of "hsl", "hsluv", or "hsv". Default is "hsluv"
 
         Returns
         -------
@@ -525,7 +525,7 @@ class Color:
             v = v + (1 - v) * factor
             return Color.from_hsv(h, s, v, self.a)
 
-    def darker(self, factor=0.5, colorspace="hsv"):
+    def darker(self, factor=0.5, colorspace="hsluv"):
         """Make the color darker by the given factor.
 
         Parameters
@@ -533,7 +533,7 @@ class Color:
         factor : float
             Factor to darken by, between 0 and 1. Default is 0.5
         colorspace : str
-            The colorspace to use, one of "hsl", "hsluv", or "hsv". Default is "hsl"
+            The colorspace to use, one of "hsl", "hsluv", or "hsv". Default is "hsluv"
 
         Returns
         -------
