@@ -2,20 +2,9 @@
 
 import ctypes
 import colorsys
+import hsluv
 
 F4 = ctypes.c_float * 4
-
-# Try to import hsluv once at module level
-try:
-    import hsluv
-
-    HAVE_HSLUV = True
-except ImportError:
-    HAVE_HSLUV = False
-    HSLUV_IMPORT_ERROR = ImportError(
-        "The hsluv package is required for HSLuv colors. "
-        "Install it with 'pip install hsluv'"
-    )
 
 
 def _float_from_css_value(v, i, is_hue=False):
@@ -228,8 +217,6 @@ class Color:
                 elif color.startswith(("hsv(", "hsva(")):
                     color = Color.from_hsv(*parts)
                 elif color.startswith(("hsluv(", "hsluva(")):
-                    if not HAVE_HSLUV:
-                        raise HSLUV_IMPORT_ERROR
                     color = Color.from_hsluv(*parts)
                 self._set_from_rgba(
                     color._val[0], color._val[1], color._val[2], color._val[3]
@@ -401,8 +388,6 @@ class Color:
 
         The alpha channel is optional and defaults to 1.
         """
-        if not HAVE_HSLUV:
-            raise HSLUV_IMPORT_ERROR
         h, s, light = 360.0 * hue, 100.0 * saturation, 100.0 * lightness
         color = Color(hsluv.hsluv_to_rgb((h, s, light)))
         color._val[3] = alpha
@@ -410,15 +395,11 @@ class Color:
 
     def to_hsluv(self):
         """Get the color represented in the HSLuv colorspace, as 3 floats."""
-        if not HAVE_HSLUV:
-            raise HSLUV_IMPORT_ERROR
         h, s, light = hsluv.rgb_to_hsluv(self.rgb)
         return h / 360.0, s / 100.0, light / 100.0
 
     def to_hsluva(self):
         """Get the color represented in the HSLuv colorspace, as 4 floats."""
-        if not HAVE_HSLUV:
-            raise HSLUV_IMPORT_ERROR
         h, s, light = hsluv.rgb_to_hsluv(self.rgb)
         return h / 360.0, s / 100.0, light / 100.0, self.a
 
@@ -465,8 +446,6 @@ class Color:
             h2, s2, l2 = target.to_hsl()
             to_rgba = lambda h, s, light, a: Color.from_hsl(h, s, light, a)
         elif colorspace == "hsluv":
-            if not HAVE_HSLUV:
-                raise HSLUV_IMPORT_ERROR
             h1, s1, l1 = self.to_hsluv()
             h2, s2, l2 = target.to_hsluv()
             to_rgba = lambda h, s, light, a: Color.from_hsluv(h, s, light, a)
@@ -515,8 +494,6 @@ class Color:
             light = light + (1 - light) * factor
             return Color.from_hsl(h, s, light, self.a)
         elif colorspace == "hsluv":
-            if not HAVE_HSLUV:
-                raise HSLUV_IMPORT_ERROR
             h, s, light = self.to_hsluv()
             light = light + (1 - light) * factor
             return Color.from_hsluv(h, s, light, self.a)
@@ -550,8 +527,6 @@ class Color:
             light = light * (1 - factor)
             return Color.from_hsl(h, s, light, self.a)
         elif colorspace == "hsluv":
-            if not HAVE_HSLUV:
-                raise HSLUV_IMPORT_ERROR
             h, s, light = self.to_hsluv()
             light = light * (1 - factor)
             return Color.from_hsluv(h, s, light, self.a)
