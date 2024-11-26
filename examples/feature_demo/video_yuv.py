@@ -3,13 +3,13 @@ Video yuv
 =========
 
 This example demonstrates how to show video data in a very efficient way,
-eliminating as much data-copies as we can.
+eliminating as much data-copies and color conversion operations as we can.
 
 Reading
 -------
 
 Many videos are encoded using yuv420p. Therefore, loading the video in
-that format, instead of requesting rgb frames, safes computation and
+that format, instead of requesting rgb frames, saves computation and
 data copies upon reading.
 
 Uploading
