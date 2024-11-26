@@ -119,12 +119,12 @@ im = gfx.Image(
 # Setup the rest of the viz
 
 CanvasClass = OffscreenCanvas if OFFSCREEN else WgpuCanvas
-canvas = CanvasClass(max_fps=999, vsync=False)
+canvas = CanvasClass(size=(640, 360), max_fps=999, vsync=False)
 renderer = gfx.renderers.WgpuRenderer(canvas, show_fps=True)
 scene = gfx.Scene()
 scene.add(im)
-camera = gfx.OrthographicCamera()
-camera.show_object(scene)
+camera = gfx.OrthographicCamera(640, 360)
+camera.local.position = 320, 180, 0
 camera.local.scale_y = -1
 stats = gfx.Stats(viewport=renderer)
 
