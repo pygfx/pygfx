@@ -406,29 +406,30 @@ class _GLTF:
             # }
 
             if sampler.magFilter == 9728:
-                texture._mag_filter = "nearest"
+                texture.sampler_hints["mag_filter"] = "nearest"
             elif sampler.magFilter == 9729:
-                texture._mag_filter = "linear"
+                texture.sampler_hints["mag_filter"] = "linear"
 
             if sampler.minFilter == 9728:  # NEAREST
-                texture._min_filter = "nearest"
+                texture.sampler_hints["min_filter"] = "nearest"
             elif sampler.minFilter == 9729:  # LINEAR
-                texture._min_filter = "linear"
+                texture.sampler_hints["min_filter"] = "linear"
             elif sampler.minFilter == 9984:  # NEAREST_MIPMAP_NEAREST
-                texture._min_filter = "nearest"
-                texture._mipmap_filter = "nearest"
+                texture.sampler_hints["min_filter"] = "nearest"
+                texture.sampler_hints["mipmap_filter"] = "nearest"
             elif sampler.minFilter == 9985:  # LINEAR_MIPMAP_NEAREST
-                texture._min_filter = "linear"
-                texture._mipmap_filter = "nearest"
+                texture.sampler_hints["min_filter"] = "linear"
+                texture.sampler_hints["mipmap_filter"] = "nearest"
             elif sampler.minFilter == 9986:  # NEAREST_MIPMAP_LINEAR
-                texture._min_filter = "nearest"
-                texture._mipmap_filter = "linear"
+                texture.sampler_hints["min_filter"] = "nearest"
+                texture.sampler_hints["mipmap_filter"] = "linear"
             elif sampler.minFilter == 9987:  # LINEAR_MIPMAP_LINEAR
-                texture._min_filter = "linear"
-                texture._mipmap_filter = "linear"
+                texture.sampler_hints["min_filter"] = "linear"
+                texture.sampler_hints["mipmap_filter"] = "linear"
 
-            texture._wrap_s = self.WRAP_MODE[sampler.wrapS or 10497]
-            texture._wrap_t = self.WRAP_MODE[sampler.wrapT or 10497]
+            texture.sampler_hints["wrap_s"] = self.WRAP_MODE[sampler.wrapS or 10497]
+            texture.sampler_hints["wrap_t"] = self.WRAP_MODE[sampler.wrapT or 10497]
+
         return texture
 
     @lru_cache(maxsize=None)

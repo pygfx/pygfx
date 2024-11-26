@@ -110,9 +110,17 @@ class MeshShader(BaseShader):
             # Check that the texture is compatible with the texcoord
             self._check_texture(map, geometry)
         view = GfxTextureView(map, view_dim=view_dim)
-        filter_mode = f"{map.mag_filter}, {map.min_filter}, {map.mipmap_filter}"
-        address_mode = f"{map.wrap_s}, {map.wrap_t}"
+
+        sampler_hints = map.sampler_hints
+        mag_filter = sampler_hints.get("mag_filter", "linear")
+        min_filter = sampler_hints.get("min_filter", "linear")
+        mipmap_filter = sampler_hints.get("mipmap_filter", "linear")
+        wrap_s = sampler_hints.get("wrap_s", "repeat")
+        wrap_t = sampler_hints.get("wrap_t", "repeat")
+        filter_mode = f"{mag_filter}, {min_filter}, {mipmap_filter}"
+        address_mode = f"{wrap_s}, {wrap_t}"
         sampler = GfxSampler(filter_mode, address_mode)
+
         self[f"{name}_uv"] = map.channel
 
         bindings = [

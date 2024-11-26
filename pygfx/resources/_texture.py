@@ -62,15 +62,6 @@ class Texture(Resource):
         (values are OR'd).
     channel : int
         The texcoord channel of the texture. Default 0.
-    mag_filter : str
-        The magnification filter of the texture. Can be "nearest" or "linear".
-        Default "linear".
-    min_filter : str
-        The minification filter of the texture. Can be "nearest", "linear".
-        Default "linear".
-    mipmap_filter : str
-        The mipmap filter of the texture. Can be "nearest" or "linear".
-        Default "linear".
 
     Performance tips:
 
@@ -96,11 +87,6 @@ class Texture(Resource):
         force_contiguous=False,
         usage=0,
         channel=0,
-        mag_filter="linear",
-        min_filter="linear",
-        mipmap_filter="linear",
-        wrap_s="clamp-to-edge",
-        wrap_t="clamp-to-edge",
     ):
         super().__init__()
         Resource._rev += 1
@@ -219,11 +205,8 @@ class Texture(Resource):
             self._chunk_list = None
 
         self._channel = channel
-        self._mag_filter = mag_filter
-        self._min_filter = min_filter
-        self._mipmap_filter = mipmap_filter
-        self._wrap_s = wrap_s
-        self._wrap_t = wrap_t
+
+        self._sampler_hints = {}
 
     @property
     def dim(self):
@@ -296,45 +279,9 @@ class Texture(Resource):
         self._channel = value
 
     @property
-    def mag_filter(self):
-        """The magnification filter of the texture."""
-        return self._mag_filter
-
-    @mag_filter.setter
-    def mag_filter(self, value):
-        self._mag_filter = value
-
-    @property
-    def min_filter(self):
-        """The minification filter of the texture."""
-        return self._min_filter
-
-    @min_filter.setter
-    def min_filter(self, value):
-        self._min_filter = value
-
-    @property
-    def mipmap_filter(self):
-        """The mipmap filter of the texture."""
-        return self._mipmap_filter
-
-    @property
-    def wrap_s(self):
-        """The wrap mode of the texture in the S direction."""
-        return self._wrap_s
-
-    @wrap_s.setter
-    def wrap_s(self, value):
-        self._wrap_s = value
-
-    @property
-    def wrap_t(self):
-        """The wrap mode of the texture in the T direction."""
-        return self._wrap_t
-
-    @wrap_t.setter
-    def wrap_t(self, value):
-        self._wrap_t = value
+    def sampler_hints(self):
+        """Hints for the sampler used with this texture."""
+        return self._sampler_hints
 
     def send_data(self, offset, data):
         """Send a chunk of data to the GPU.
