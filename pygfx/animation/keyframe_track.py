@@ -41,7 +41,7 @@ class KeyframeTrack:
         self.values = np.array(optimized_values)
         return self.times, self.values
 
-    def update(self, time):
+    def _update(self, time):
         value = self.interpolation(time)
         if self.path == "scale":
             self.target.local.scale = value

@@ -1,0 +1,141 @@
+import numpy as np
+from .animation_action import AnimationAction
+from ..objects import RootEventHandler
+
+
+class AnimationMixer(RootEventHandler):
+    def __init__(self):
+        # self._root = root
+        super().__init__()
+        self._actions = []
+        self._time = 0
+        self._time_scale = 1.0
+
+        self._activated_actions = []
+
+        self._property_accu_cache = {}  # Cache for the accumulated target value for active actions
+
+        self._property_ori_cache = {}  # Cache for the original target value
+
+    @property
+    def time(self):
+        return self._time
+
+    @property
+    def time_scale(self):
+        return self._time_scale
+
+    @time_scale.setter
+    def time_scale(self, value):
+        self._time_scale = value
+
+    def clip_action(self, clip):
+        action = AnimationAction(self, clip)
+        self._actions.append(action)
+
+        # cache the original value
+        for t in action._clip.tracks:
+            key = (t.target, t.path)
+            if key not in self._property_ori_cache:
+                ori_value = self._get_path_value(t.target, t.path)
+                if isinstance(ori_value, list):
+                    ori_value = np.array(ori_value)
+                self._property_ori_cache[key] = ori_value
+
+        return action
+
+    def _activate_action(self, action):
+        if not self._is_active_action(action):
+            self._activated_actions.append(action)
+
+    def _deactivate_action(self, action):
+        if self._is_active_action(action):
+            self._activated_actions.remove(action)
+
+        # restore the original value
+        for t in action._clip.tracks:
+            key = (t.target, t.path)
+            if key in self._property_ori_cache:
+                self._set_path_value(t.target, t.path, self._property_ori_cache[key])
+
+    def _is_active_action(self, action):
+        return action in self._activated_actions
+
+    def update(self, dt):
+        self._property_accu_cache.clear()
+        dt = dt * self._time_scale
+        self._time += dt
+        for action in self._activated_actions:
+            action.update(dt)
+
+        # apply the accumulated value
+
+        for target, path in self._property_accu_cache:
+            accu_value, accu_weight = self._property_accu_cache[(target, path)]
+            if accu_weight < 1:
+                ori_value = self._property_ori_cache[(target, path)]
+                if path == "rotation":
+                    accu_value = self._mix_slerp(accu_value, ori_value, 1 - accu_weight)
+                else:
+                    # tnranslation\scale\weights
+                    accu_value = self._mix_lerp(accu_value, ori_value, 1 - accu_weight)
+
+            self._set_path_value(target, path, accu_value)
+
+    def _accumulate(self, target, path, value, weight):
+        key = (target, path)
+        if key not in self._property_accu_cache:
+            self._property_accu_cache[key] = (value, weight)
+        else:
+            current_value, current_weight = self._property_accu_cache[key]
+            current_weight += weight
+            mix = weight / current_weight
+
+            if path == "rotation":
+                current_value = self._mix_slerp(current_value, value, mix)
+            else:
+                # tnranslation\scale\weights
+                current_value = self._mix_lerp(current_value, value, mix)
+
+            self._property_accu_cache[key] = (current_value, current_weight)
+
+    def _mix_lerp(self, a, b, t):
+        return a * (1 - t) + b * t
+
+    def _mix_slerp(self, a, b, t):
+        dot = np.dot(a, b)
+        if dot < 0:
+            a = -a
+            dot = -dot
+        if dot > 0.99:
+            q = self._mix_lerp(a, b, t)
+            return q / np.linalg.norm(q)
+        theta = np.arccos(dot)
+        sin_theta = np.sin(theta)
+
+        return (np.sin((1 - t) * theta) / sin_theta) * a + (
+            np.sin(t * theta) / sin_theta
+        ) * b
+
+    def _mix_select(self, a, b, t):
+        return a if t < 0.5 else b
+
+    def _get_path_value(self, target, path):
+        if path == "scale":
+            return target.local.scale
+        elif path == "translation":
+            return target.local.position
+        elif path == "rotation":
+            return target.local.rotation
+        elif path == "weights":
+            return target.morph_target_influences
+
+    def _set_path_value(self, target, path, value):
+        if path == "scale":
+            target.local.scale = value
+        elif path == "translation":
+            target.local.position = value
+        elif path == "rotation":
+            target.local.rotation = value
+        elif path == "weights":
+            target.morph_target_influences = value

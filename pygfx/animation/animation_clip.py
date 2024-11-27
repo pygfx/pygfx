@@ -20,4 +20,4 @@ class AnimationClip:
     def update(self, time):
         """Update the animation to a specific time."""
         for track in self.tracks:
-            track.update(time)
+            track._update(time)
