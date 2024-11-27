@@ -42,7 +42,7 @@ class Texture(Resource):
         automatically determined from the data.
     colorspace : str
         If this data is used as color, it is interpreted to be in this
-        colorspace. Can be "srgb", "physical" or "yuv420p". Default "srgb".
+        colorspace. Can be "srgb", "physical" or "yuv420p". Default is "srgb".
     generate_mipmaps : bool
         If True, automatically generates mipmaps when transferring data to the
         GPU. Default False.
