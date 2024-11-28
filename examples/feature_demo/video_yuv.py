@@ -31,11 +31,14 @@ consumption on the CPU and GPU are reduced.
 Benchmarks
 ----------
 
-This script can be done to benchmark for different formats. We've found
+This script can be done to benchmark for different formats. We've performed
+benchmarks against videos encoded with yuv420p and we've found that
 that using yuv420p data is certainly the fastest. Using rgba is a bit
 slower, although it consumes more memory, so its disadvantage may
 increase for heavy workloads. Reading the data as RGB has terrible
-performance. This is unfortunate, because it's the format that many
+performance. We believe that this is caused by the fact that RGB images must
+be converted to RGBA pior to uploading them to the GPU.
+This is unfortunate, because it's the format that many
 default to.
 See https://github.com/pygfx/pygfx/pull/873 for details.
 
