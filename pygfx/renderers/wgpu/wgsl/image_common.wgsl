@@ -2,7 +2,7 @@
 
 {$ include 'pygfx.image_sample.wgsl' $}
 
-fn yuv_to_rgb(y: f32, u: f32, v: f32) -> vec4<f32> {
+fn yuv_limited_to_rgb(y: f32, u: f32, v: f32) -> vec4<f32> {
     // This formula is correct for the "limited range" YUV
     let c: f32 = y - 0.0625;        // Offset Y by 16/255
     let d: f32 = u - 0.5;           // Offset U by 128/255
@@ -15,13 +15,41 @@ fn yuv_to_rgb(y: f32, u: f32, v: f32) -> vec4<f32> {
     return vec4<f32>(r, g, b, 1.);
 }
 
+fn yuv_full_to_rgb(y: f32, u: f32, v: f32) -> vec4<f32> {
+    // this formula is correct for the "full range" YUV
+    let d: f32 = u - 0.5;           // Offset U by 128/255
+    let e: f32 = v - 0.5;           // Offset V by 128/255
+
+    let r = y + 1.402 * e;
+    let g = y - 0.344136 * d - 0.714136 * e;
+    let b = y + 1.772 * d;
+
+    return vec4<f32>(r, g, b, 1.);
+}
+
 fn sample_im(texcoord: vec2<f32>, sizef: vec2<f32>) -> vec4<f32> {
     $$ if img_format == 'f32'
         $$ if colorspace == 'yuv420p'
             let y = textureSample(t_img, s_img, texcoord.xy, 0).x;
             let u = textureSample(t_img, s_img, texcoord.xy / 2.0, 1).x;
             let v = textureSample(t_img, s_img, texcoord.xy / 2.0 + vec2<f32>(0.5, 0.0), 1).x;
-            return yuv_to_rgb(y, u, v);
+
+            $$ if colorrange == "limited"
+            return yuv_limited_to_rgb(y, u, v);
+            $$ else
+            return yuv_full_to_rgb(y, u, v);
+            $$ endif
+        $$ elif colorspace == "yuv444p"
+            let y = textureSample(t_img, s_img, texcoord.xy, 0).x;
+            let u = textureSample(t_img, s_img, texcoord.xy, 1).x;
+            let v = textureSample(t_img, s_img, texcoord.xy, 2).x;
+
+            $$ if colorrange == "limited"
+            return yuv_limited_to_rgb(y, u, v);
+            $$ else
+            return yuv_full_to_rgb(y, u, v);
+            $$ endif
+
         $$ else
             return textureSample(t_img, s_img, texcoord.xy);
         $$ endif

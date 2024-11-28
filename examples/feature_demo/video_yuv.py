@@ -44,6 +44,7 @@ See https://github.com/pygfx/pygfx/pull/873 for details.
 # sphinx_gallery_pygfx_docs = 'screenshot'
 # sphinx_gallery_pygfx_test = 'run'
 
+import os
 import time
 
 import wgpu
@@ -57,17 +58,59 @@ import av
 
 # Set OFFSCREEN to True if the FPS in the visible Window is capped at 60 or 120.
 # The script will then render to an offscreen canvas for a few seconds instead.
-OFFSCREEN = False
 
 # Set the filename of the file. We use imageio to get a stock video.
 # TODO: when https://github.com/imageio/imageio/pull/1103 is merged and a new release is out, we can use the yuv420 video instead.
-# Local: FILENAME = "/Users/almar/dev/py/imageio-binaries/images/cockatoo_yuv420.mp4"
-FILENAME = imageio.core.Request("imageio:cockatoo.mp4", "r?").filename  # yuv444p
+# Local: FILENAME = "/Users/almar/dev/py/imageio-binaries/images/cockatoo_yuv420.mp4"  # yuv420p
+# FILENAME = imageio.core.Request("imageio:cockatoo.mp4", "r?").filename  # yuv444p
 
 # Set the format to read the frames in. If this matches the video's storage format,
 # no conversion will have to be done. But it also affects how the data is handled in Pygfx.
-FORMAT = "yuv420p"  # Set to "rgb24", "rgba", or "yuv420p"
+# Set to "rgb24", "rgba", or "yuv420p"
+if "PYTEST_CURRENT_TEST" not in os.environ:
+    import argparse
 
+    parser = argparse.ArgumentParser(description="Video YUV Demo")
+    parser.add_argument(
+        "--format",
+        type=str,
+        default="yuv420p",
+        help="Choose from 'rgb24', 'rgba', 'yuv420p'",
+    )
+    parser.add_argument(
+        "--filename",
+        type=str,
+        help="Filename of the video file",
+    )
+    parser.add_argument(
+        "--colorrange",
+        type=str,
+        default="limited",
+        help="Choose from 'limited', 'full'. Only valid for yuv420p and yuv444p",
+    )
+    parser.add_argument(
+        "--offscreen",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Render to offscreen canvas",
+    )
+    args = parser.parse_args()
+    FORMAT = args.format
+    COLORRANGE = args.colorrange
+    OFFSCREEN = args.offscreen
+
+    if args.filename:
+        FILENAME = args.filename
+    else:
+        # yuv444p
+        if FORMAT == "yuv444p":
+            FILENAME = imageio.core.Request("imageio:cockatoo.mp4", "r?").filename
+        else:  # FORMAT == "yuv420p":
+            FILENAME = imageio.core.Request("imageio:cockatoo_yuv420.mp4", "r?").filename
+else:
+    OFFSCREEN = False
+    FORMAT = "yuv420p"
+    FILENAME = imageio.core.Request("imageio:cockatoo_yuv420p.mp4", "r?").filename
 
 def video_width_height():
     container = av.open(FILENAME)
@@ -98,6 +141,16 @@ if FORMAT == "yuv420p":
         size=(w, h, 2),
         dim=2,
         colorspace="yuv420p",
+        colorrange=COLORRANGE,
+        format="r8unorm",
+        usage=wgpu.TextureUsage.COPY_DST,
+    )
+elif FORMAT == "yuv444p":
+    tex = gfx.Texture(
+        size=(w, h, 3),
+        dim=2,
+        colorspace="yuv444p",
+        colorrange=COLORRANGE,
         format="r8unorm",
         usage=wgpu.TextureUsage.COPY_DST,
     )
@@ -119,12 +172,12 @@ im = gfx.Image(
 # Setup the rest of the viz
 
 CanvasClass = OffscreenCanvas if OFFSCREEN else WgpuCanvas
-canvas = CanvasClass(size=(640, 360), max_fps=999, vsync=False)
+canvas = CanvasClass(size=(w // 2, h // 2), max_fps=999, vsync=False)
 renderer = gfx.renderers.WgpuRenderer(canvas, show_fps=True)
 scene = gfx.Scene()
 scene.add(im)
-camera = gfx.OrthographicCamera(640, 360)
-camera.local.position = 320, 180, 0
+camera = gfx.OrthographicCamera(w, h)
+camera.local.position = w // 2, h // 2, 0
 camera.local.scale_y = -1
 stats = gfx.Stats(viewport=renderer)
 
@@ -144,6 +197,13 @@ def animate():
         tex.send_data((0, 0, 0), y)
         tex.send_data((0, 0, 1), u)
         tex.send_data((w // 2, 0, 1), v)
+    elif FORMAT == "yuv444p":
+        y = data[0]
+        u = data[1]
+        v = data[2]
+        tex.send_data((0, 0, 0), y)
+        tex.send_data((0, 0, 1), u)
+        tex.send_data((0, 0, 2), v)
     elif FORMAT == "rgba":
         # The data is already rgba, so we can just send it as one blob.
         # That blob is more than twice the size of the yuv420 data though.

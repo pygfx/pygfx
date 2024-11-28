@@ -42,7 +42,9 @@ class Texture(Resource):
         automatically determined from the data.
     colorspace : str
         If this data is used as color, it is interpreted to be in this
-        colorspace. Can be "srgb", "physical" or "yuv420p". Default "srgb".
+        colorspace. Can be "srgb", "physical", "yuv420p", or "yuv444p". Default "srgb".
+    colorrange : str
+        For YUV textures, this is either "limited", or "full". See... TODO BY MARK
     generate_mipmaps : bool
         If True, automatically generates mipmaps when transferring data to the
         GPU. Default False.
@@ -80,6 +82,7 @@ class Texture(Resource):
         size=None,
         format=None,
         colorspace="srgb",
+        colorrange="limited",
         generate_mipmaps=False,
         chunk_size=None,
         force_contiguous=False,
@@ -102,7 +105,9 @@ class Texture(Resource):
         assert dim in (1, 2, 3)
         self._store.dim = int(dim)
         self._colorspace = (colorspace or "srgb").lower()
-        assert self._colorspace in ("srgb", "physical", "yuv420p")
+        assert self._colorspace in ("srgb", "physical", "yuv420p", "yuv444p")
+        self._colorrange = (colorrange or "limited").lower()
+        assert self._colorrange in ("limited", "full")
         self._generate_mipmaps = bool(generate_mipmaps)
 
         # Normalize size
@@ -260,7 +265,7 @@ class Texture(Resource):
     @property
     def colorspace(self):
         """If this data is used as color, it is interpreted to be in this colorspace.
-        Can be "srgb", "physical", "yuv420p". Default "srgb".
+        Can be "srgb", "physical", "yuv420p", or "yuv444p". Default "srgb".
 
         * "srgb": the data represents intensity, rgb, or rgba pixels in the sRGB space.
           sRGB is a standard color space designed for consistent representation of colors
@@ -272,8 +277,20 @@ class Texture(Resource):
           The y represents intensity, and is at full resolution. The u and v planes are a
           quarter of the size. The planes must be stored in two layers of the texture,
           with the u and v plane next to each-other in top half the second layer.
+        * "yuv444p": A lesser common video format. The data is represented as 3 planes
+          (y, u, and v) similar to yuv420p however the u and v planes are stored
+          at full resolution.
         """
         return self._colorspace
+
+    @property
+    def colorrange(self):
+        """For YUV textures, this is either "limited", or "full".
+
+        * "limited":
+        * "full":
+        """
+        return self._colorrange
 
     @property
     def generate_mipmaps(self):

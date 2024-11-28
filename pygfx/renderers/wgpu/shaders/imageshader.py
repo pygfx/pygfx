@@ -59,6 +59,7 @@ class ImageShader(BaseShader):
 
         # Determine colorspace
         self["colorspace"] = geometry.grid.colorspace
+        self["colorrange"] = geometry.grid.colorrange
         self["use_colormap"] = False
 
         if geometry.grid.colorspace not in ("srgb", "physical"):
