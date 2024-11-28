@@ -119,17 +119,37 @@ def video_width_height():
     container = av.open(FILENAME)
     return (container.streams[0].width, container.streams[0].height)
 
+def benchmark_video_read():
+    start_time = time.perf_counter()
+    with av.open(FILENAME) as container:
+        frames_read = 0
+        for frame in container.decode(video=0):
+            frame = frame.reformat(format=FORMAT)
+            frame.to_ndarray()
+            frames_read += 1
+
+            if frames_read > 100:
+                break
+    end_time = time.perf_counter()
+    elapsed_time = end_time - start_time
+    frames_per_second = frames_read / elapsed_time
+    return frames_per_second
+
+print(f"Reading video in {FORMAT} format: {benchmark_video_read():.2f} frames per second")
+print(f"Reading video in {FORMAT} format: {benchmark_video_read():.2f} frames per second")
+print(f"Reading video in {FORMAT} format: {benchmark_video_read():.2f} frames per second")
+print(f"Reading video in {FORMAT} format: {benchmark_video_read():.2f} frames per second")
 
 def loop_video():
     while True:
-        container = av.open(FILENAME)
-        for frame in container.decode(video=0):
-            # Reformat if necessary. If format is the same, reformat is a no-op.
-            # Otherwise, this includes a data copy and some computations.
-            # In the case of yuv420 -> rgb24, the image also takes more memory.
-            frame = frame.reformat(format=FORMAT)
-            # Cast to numpy array. This should not involve a data copy.
-            yield frame.to_ndarray()
+        with av.open(FILENAME) as container:
+            for frame in container.decode(video=0):
+                # Reformat if necessary. If format is the same, reformat is a no-op.
+                # Otherwise, this includes a data copy and some computations.
+                # In the case of yuv420 -> rgb24, the image also takes more memory.
+                frame = frame.reformat(format=FORMAT)
+                # Cast to numpy array. This should not involve a data copy.
+                yield frame.to_ndarray()
 
 
 w, h = video_width_height()
