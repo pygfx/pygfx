@@ -119,6 +119,7 @@ def video_width_height():
     container = av.open(FILENAME)
     return (container.streams[0].width, container.streams[0].height)
 
+
 def benchmark_video_read():
     start_time = time.perf_counter()
     with av.open(FILENAME) as container:
@@ -135,12 +136,14 @@ def benchmark_video_read():
     frames_per_second = frames_read / elapsed_time
     return frames_per_second
 
+
 if "PYTEST_CURRENT_TEST" not in os.environ:
     # A mini benchmark to show the limits of just reading in the video from storage
-    print(f"Reading video in {FORMAT} format: {benchmark_video_read():.2f} frames per second")
-    print(f"Reading video in {FORMAT} format: {benchmark_video_read():.2f} frames per second")
-    print(f"Reading video in {FORMAT} format: {benchmark_video_read():.2f} frames per second")
-    print(f"Reading video in {FORMAT} format: {benchmark_video_read():.2f} frames per second")
+    for _ in range(5):
+        print(
+            f"Reading video in {FORMAT} format: {benchmark_video_read():.2f} frames per second"
+        )
+
 
 def loop_video():
     while True:
