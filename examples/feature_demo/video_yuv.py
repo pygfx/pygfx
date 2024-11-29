@@ -167,10 +167,9 @@ def benchmark_video_read():
 
 if "PYTEST_CURRENT_TEST" not in os.environ:
     # A mini benchmark to show the limits of just reading in the video from storage
-    for _ in range(5):
-        print(
-            f"Reading video in {FORMAT} format: {benchmark_video_read():.2f} frames per second"
-        )
+    print(
+        f"Reading video in {FORMAT} format: {benchmark_video_read():.2f} frames per second"
+    )
 
 
 def loop_video():
@@ -356,3 +355,4 @@ if __name__ == "__main__":
     else:
         # Enter normal canvas event loop
         run()
+    wgpu.diagnostics.pygfx_adapter_info.print_report()
