@@ -132,8 +132,10 @@ if "PYTEST_CURRENT_TEST" not in os.environ:
         FILENAME = None
 else:
     OFFSCREEN = False
+    COLORRANGE = "limited"
     FORMAT = "yuv444p"
     THREE_GRID_YUV = False
+    FILENAME = None
 
 
 if FILENAME is None:
@@ -141,9 +143,14 @@ if FILENAME is None:
     if FORMAT == "yuv444p":
         FILENAME = imageio.core.Request("imageio:cockatoo.mp4", "r?").filename
     else:  # FORMAT in ["yuv420p", "yuv420p-3plane"]:
-        FILENAME = imageio.core.Request(
-            "imageio:cockatoo_yuv420.mp4", "r?"
-        ).filename
+        FILENAME = imageio.core.Request("imageio:cockatoo_yuv420.mp4", "r?").filename
+
+
+print(f"Reading video from {FILENAME}")
+print(f"Format: {FORMAT}")
+print(f"Color range: {COLORRANGE}")
+print(f"Offscreen: {OFFSCREEN}")
+print(f"Three grid YUV: {THREE_GRID_YUV}")
 
 
 def video_width_height():
