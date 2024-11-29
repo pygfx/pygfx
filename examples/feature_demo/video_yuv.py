@@ -129,18 +129,21 @@ if "PYTEST_CURRENT_TEST" not in os.environ:
     if args.filename:
         FILENAME = args.filename
     else:
-        # yuv444p
-        if FORMAT == "yuv444p":
-            FILENAME = imageio.core.Request("imageio:cockatoo.mp4", "r?").filename
-        else:  # FORMAT in ["yuv420p", "yuv420p-3plane"]:
-            FILENAME = imageio.core.Request(
-                "imageio:cockatoo_yuv420.mp4", "r?"
-            ).filename
+        FILENAME = None
 else:
     OFFSCREEN = False
-    FORMAT = "yuv420p"
+    FORMAT = "yuv444p"
     THREE_GRID_YUV = False
-    FILENAME = imageio.core.Request("imageio:cockatoo_yuv420p.mp4", "r?").filename
+
+
+if FILENAME is None:
+    # yuv444p
+    if FORMAT == "yuv444p":
+        FILENAME = imageio.core.Request("imageio:cockatoo.mp4", "r?").filename
+    else:  # FORMAT in ["yuv420p", "yuv420p-3plane"]:
+        FILENAME = imageio.core.Request(
+            "imageio:cockatoo_yuv420.mp4", "r?"
+        ).filename
 
 
 def video_width_height():
