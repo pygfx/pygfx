@@ -60,6 +60,9 @@ class ImageShader(BaseShader):
         # Determine colorspace
         self["colorspace"] = geometry.grid.colorspace
         self["colorrange"] = geometry.grid.colorrange
+        self["three_grid_yuv"] = (
+            self["colorspace"] in ["yuv420p", "yuv444p"] and geometry.grid.size[2] == 1
+        )
         self["use_colormap"] = False
 
         if geometry.grid.colorspace not in ("srgb", "physical"):
@@ -83,6 +86,16 @@ class ImageShader(BaseShader):
         sampler = GfxSampler(material.interpolation, "clamp")
         bindings.append(Binding("s_img", "sampler/filtering", sampler, "FRAGMENT"))
         bindings.append(Binding("t_img", "texture/auto", tex_view, vertex_and_fragment))
+
+        if self["three_grid_yuv"]:
+            u_tex_view = GfxTextureView(geometry.grid_u)
+            v_tex_view = GfxTextureView(geometry.grid_v)
+            bindings.append(
+                Binding("t_u_img", "texture/auto", u_tex_view, vertex_and_fragment)
+            )
+            bindings.append(
+                Binding("t_v_img", "texture/auto", v_tex_view, vertex_and_fragment)
+            )
 
         if self["use_colormap"]:
             bindings.extend(

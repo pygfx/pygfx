@@ -1,5 +1,5 @@
 """
-Video yuv
+Video YUV
 =========
 
 This example demonstrates how to show video data in a very efficient way,
@@ -28,6 +28,20 @@ Frames in yuv420p format are half the size of RGB frames (and even less
 compared to RGBA) so the upload itself is cheaper, and memory
 consumption on the CPU and GPU are reduced.
 
+Implementation details
+----------------------
+
+We demonstrate 2 different storage formats for planar YUV textures:
+
+1. In the first, we use a 2-layer grayscale texture. The u and v planes
+   fit in a single layer since they're half the size (in both dimensions).
+2. In the second, we use 3 different grayscale textures. The u and v textures
+   are half the size in each dimension making for more efficent storage.
+
+While the differences are subtle, the first option reduces the overall
+total number of Textures that are maintained in the scene, while the second
+can save some storage space on the GPU.
+
 Benchmarks
 ----------
 
@@ -42,6 +56,9 @@ This is unfortunate, because it's the format that many
 default to.
 See https://github.com/pygfx/pygfx/pull/873 for details.
 
+
+By: Mark Harfouche and Almar Klein
+Date: Nov 2024
 """
 
 # sphinx_gallery_pygfx_docs = 'screenshot'
@@ -78,7 +95,7 @@ if "PYTEST_CURRENT_TEST" not in os.environ:
         "--format",
         type=str,
         default="yuv420p",
-        help="Choose from 'rgb24', 'rgba', 'yuv420p'",
+        help="Choose from 'rgb24', 'rgba', 'yuv420p', 'yuv444p', 'yuv420p-3plane'",
     )
     parser.add_argument(
         "--filename",
@@ -95,12 +112,19 @@ if "PYTEST_CURRENT_TEST" not in os.environ:
         "--offscreen",
         action=argparse.BooleanOptionalAction,
         default=False,
-        help="Render to offscreen canvas",
+        help="Render to offscreen canvas.",
+    )
+    parser.add_argument(
+        "--three-grid-yuv",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Use three distinct grids for YUV components.",
     )
     args = parser.parse_args()
     FORMAT = args.format
     COLORRANGE = args.colorrange
     OFFSCREEN = args.offscreen
+    THREE_GRID_YUV = args.three_grid_yuv
 
     if args.filename:
         FILENAME = args.filename
@@ -108,19 +132,20 @@ if "PYTEST_CURRENT_TEST" not in os.environ:
         # yuv444p
         if FORMAT == "yuv444p":
             FILENAME = imageio.core.Request("imageio:cockatoo.mp4", "r?").filename
-        else:  # FORMAT == "yuv420p":
+        else:  # FORMAT in ["yuv420p", "yuv420p-3plane"]:
             FILENAME = imageio.core.Request(
                 "imageio:cockatoo_yuv420.mp4", "r?"
             ).filename
 else:
     OFFSCREEN = False
     FORMAT = "yuv420p"
+    THREE_GRID_YUV = False
     FILENAME = imageio.core.Request("imageio:cockatoo_yuv420p.mp4", "r?").filename
 
 
 def video_width_height():
-    container = av.open(FILENAME)
-    return (container.streams[0].width, container.streams[0].height)
+    with av.open(FILENAME) as container:
+        return (container.streams[0].width, container.streams[0].height)
 
 
 def benchmark_video_read():
@@ -165,13 +190,63 @@ frame_generator = loop_video()
 
 # Create image object
 
-if FORMAT == "yuv420p":
+if FORMAT == "yuv420p" and THREE_GRID_YUV:
+    tex = gfx.Texture(
+        size=(w, h),
+        dim=2,
+        colorspace="yuv420p",
+        colorrange=COLORRANGE,
+        format="r8unorm",
+        usage=wgpu.TextureUsage.COPY_DST,
+    )
+    u_tex = gfx.Texture(
+        size=(w // 2, h // 2),
+        dim=2,
+        colorspace="yuv420p",
+        colorrange=COLORRANGE,
+        format="r8unorm",
+        usage=wgpu.TextureUsage.COPY_DST,
+    )
+    v_tex = gfx.Texture(
+        size=(w // 2, h // 2),
+        dim=2,
+        colorspace="yuv420p",
+        colorrange=COLORRANGE,
+        format="r8unorm",
+        usage=wgpu.TextureUsage.COPY_DST,
+    )
+elif FORMAT == "yuv420p":  # and not three_plane_yuv
     # For planar yuv420, we use a 2-layer grayscale texture. The u and v planes
     # fit in a single layer since they're half the size (in both dimensions).
     tex = gfx.Texture(
         size=(w, h, 2),
         dim=2,
         colorspace="yuv420p",
+        colorrange=COLORRANGE,
+        format="r8unorm",
+        usage=wgpu.TextureUsage.COPY_DST,
+    )
+elif FORMAT == "yuv444p" and THREE_GRID_YUV:
+    tex = gfx.Texture(
+        size=(w, h),
+        dim=2,
+        colorspace="yuv444p",
+        colorrange=COLORRANGE,
+        format="r8unorm",
+        usage=wgpu.TextureUsage.COPY_DST,
+    )
+    u_tex = gfx.Texture(
+        size=(w, h),
+        dim=2,
+        colorspace="yuv444p",
+        colorrange=COLORRANGE,
+        format="r8unorm",
+        usage=wgpu.TextureUsage.COPY_DST,
+    )
+    v_tex = gfx.Texture(
+        size=(w, h),
+        dim=2,
+        colorspace="yuv444p",
         colorrange=COLORRANGE,
         format="r8unorm",
         usage=wgpu.TextureUsage.COPY_DST,
@@ -199,6 +274,9 @@ im = gfx.Image(
     gfx.Geometry(grid=tex),
     gfx.ImageBasicMaterial(clim=(0, 255)),
 )
+if FORMAT in ["yuv420p", "yuv444p"] and THREE_GRID_YUV:
+    im.geometry.grid_u = u_tex
+    im.geometry.grid_v = v_tex
 
 # Setup the rest of the viz
 
@@ -210,6 +288,7 @@ scene.add(im)
 camera = gfx.OrthographicCamera(w, h)
 camera.local.position = w // 2, h // 2, 0
 camera.local.scale_y = -1
+controller = gfx.PanZoomController(camera, register_events=renderer)
 stats = gfx.Stats(viewport=renderer)
 
 
@@ -218,23 +297,35 @@ def animate():
     data = next(frame_generator)
 
     if FORMAT == "yuv420p":
-        # Send the three planes to the texture. The y-plane goes to the first layer.
-        # The u-plane and v-plane go to the second layer, side-by side.
-        # Note that the u and v planes are just a quarter of the size of the y-plane.
-        # All planes are contiguous, so there are zero data copies.
         y = data[:h]
         u = data[h : h + h // 4].reshape(h // 2, w // 2)
         v = data[h + h // 4 :].reshape(h // 2, w // 2)
-        tex.send_data((0, 0, 0), y)
-        tex.send_data((0, 0, 1), u)
-        tex.send_data((w // 2, 0, 1), v)
+        if THREE_GRID_YUV:
+            # All planes are contiguous, so there are zero data copies.
+            tex.send_data((0, 0), y)
+            u_tex.send_data((0, 0), u)
+            v_tex.send_data((0, 0), v)
+        else:
+            # Send the three planes to the texture.
+            # The y-plane goes to the first layer.
+            # The u-plane and v-plane go to the second layer, side-by side.
+            # Note that the u and v planes are just a quarter of the size
+            # of the y-plane.
+            tex.send_data((0, 0, 0), y)
+            tex.send_data((0, 0, 1), u)
+            tex.send_data((w // 2, 0, 1), v)
     elif FORMAT == "yuv444p":
         y = data[0]
         u = data[1]
         v = data[2]
-        tex.send_data((0, 0, 0), y)
-        tex.send_data((0, 0, 1), u)
-        tex.send_data((0, 0, 2), v)
+        if THREE_GRID_YUV:
+            tex.send_data((0, 0), y)
+            u_tex.send_data((0, 0), u)
+            v_tex.send_data((0, 0), v)
+        else:
+            tex.send_data((0, 0, 0), y)
+            tex.send_data((0, 0, 1), u)
+            tex.send_data((0, 0, 2), v)
     elif FORMAT == "rgba":
         # The data is already rgba, so we can just send it as one blob.
         # That blob is more than twice the size of the yuv420 data though.

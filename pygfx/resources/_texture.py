@@ -44,7 +44,10 @@ class Texture(Resource):
         If this data is used as color, it is interpreted to be in this
         colorspace. Can be "srgb", "physical", "yuv420p", or "yuv444p". Default "srgb".
     colorrange : str
-        For YUV textures, this is either "limited", or "full". See... TODO BY MARK
+        For YUV textures, this is either "limited", or "full". For the limited range,
+        the luma plane is limited between 16-235, and the chroma planes (U and V) are
+        limited to 16-240. While it may seem suboptimal, many videos are stored in
+        the limited colorrange.
     generate_mipmaps : bool
         If True, automatically generates mipmaps when transferring data to the
         GPU. Default False.
@@ -105,7 +108,12 @@ class Texture(Resource):
         assert dim in (1, 2, 3)
         self._store.dim = int(dim)
         self._colorspace = (colorspace or "srgb").lower()
-        assert self._colorspace in ("srgb", "physical", "yuv420p", "yuv444p")
+        assert self._colorspace in (
+            "srgb",
+            "physical",
+            "yuv420p",
+            "yuv444p",
+        )
         self._colorrange = (colorrange or "limited").lower()
         assert self._colorrange in ("limited", "full")
         self._generate_mipmaps = bool(generate_mipmaps)
@@ -287,8 +295,13 @@ class Texture(Resource):
     def colorrange(self):
         """For YUV textures, this is either "limited", or "full".
 
-        * "limited":
-        * "full":
+        * "limited": The luma plane (Y) is limited to the range of 16-235 for 8 bits.
+                     The chroma planes (U and V) are limited to the range of 16-240 for 8 bits
+        * "full": The luma plane and chroma plane use the full range of the storage format.
+
+        See the following links from the FFMPEG documentation for more details:
+        https://trac.ffmpeg.org/wiki/colorspace
+        https://ffmpeg.org/doxygen/7.0/pixfmt_8h_source.html#l00609
         """
         return self._colorrange
 
