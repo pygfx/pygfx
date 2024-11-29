@@ -11,11 +11,11 @@ class AnimationMixer(RootEventHandler):
         self._time = 0
         self._time_scale = 1.0
 
-        self._activated_actions = []
+        self.__activated_actions = []
 
-        self._property_accu_cache = {}  # Cache for the accumulated target value for active actions
+        self.__property_accu_cache = {}  # Cache for the accumulated target value for active actions
 
-        self._property_ori_cache = {}  # Cache for the original target value
+        self.__property_ori_cache = {}  # Cache for the original target value
 
     @property
     def time(self):
@@ -36,44 +36,51 @@ class AnimationMixer(RootEventHandler):
         # cache the original value
         for t in action._clip.tracks:
             key = (t.target, t.path)
-            if key not in self._property_ori_cache:
+            if key not in self.__property_ori_cache:
                 ori_value = self._get_path_value(t.target, t.path)
                 if isinstance(ori_value, list):
                     ori_value = np.array(ori_value)
-                self._property_ori_cache[key] = ori_value
+                self.__property_ori_cache[key] = ori_value
 
         return action
 
     def _activate_action(self, action):
         if not self._is_active_action(action):
-            self._activated_actions.append(action)
+            self.__activated_actions.append(action)
 
     def _deactivate_action(self, action):
         if self._is_active_action(action):
-            self._activated_actions.remove(action)
+            self.__activated_actions.remove(action)
 
         # restore the original value
         for t in action._clip.tracks:
             key = (t.target, t.path)
-            if key in self._property_ori_cache:
-                self._set_path_value(t.target, t.path, self._property_ori_cache[key])
+            if key in self.__property_ori_cache:
+                self._set_path_value(t.target, t.path, self.__property_ori_cache[key])
 
     def _is_active_action(self, action):
-        return action in self._activated_actions
+        return action in self.__activated_actions
+
+    def set_time(self, time):
+        self._time = 0
+        for action in self.__activated_actions:
+            action.time = 0
+
+        self.update(time)
 
     def update(self, dt):
-        self._property_accu_cache.clear()
+        self.__property_accu_cache.clear()
         dt = dt * self._time_scale
         self._time += dt
-        for action in self._activated_actions:
-            action.update(dt)
+        for action in self.__activated_actions:
+            action._update(dt)
 
         # apply the accumulated value
 
-        for target, path in self._property_accu_cache:
-            accu_value, accu_weight = self._property_accu_cache[(target, path)]
+        for target, path in self.__property_accu_cache:
+            accu_value, accu_weight = self.__property_accu_cache[(target, path)]
             if accu_weight < 1:
-                ori_value = self._property_ori_cache[(target, path)]
+                ori_value = self.__property_ori_cache[(target, path)]
                 if path == "rotation":
                     accu_value = self._mix_slerp(accu_value, ori_value, 1 - accu_weight)
                 else:
@@ -84,10 +91,10 @@ class AnimationMixer(RootEventHandler):
 
     def _accumulate(self, target, path, value, weight):
         key = (target, path)
-        if key not in self._property_accu_cache:
-            self._property_accu_cache[key] = (value, weight)
+        if key not in self.__property_accu_cache:
+            self.__property_accu_cache[key] = (value, weight)
         else:
-            current_value, current_weight = self._property_accu_cache[key]
+            current_value, current_weight = self.__property_accu_cache[key]
             current_weight += weight
             mix = weight / current_weight
 
@@ -97,7 +104,7 @@ class AnimationMixer(RootEventHandler):
                 # tnranslation\scale\weights
                 current_value = self._mix_lerp(current_value, value, mix)
 
-            self._property_accu_cache[key] = (current_value, current_weight)
+            self.__property_accu_cache[key] = (current_value, current_weight)
 
     def _mix_lerp(self, a, b, t):
         return a * (1 - t) + b * t

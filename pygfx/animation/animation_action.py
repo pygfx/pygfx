@@ -223,7 +223,7 @@ class AnimationAction:
 
         return self
 
-    def update(self, dt):
+    def _update(self, dt):
         if not self.enabled:
             # update ._effective_weight
             self._update_weight(self._mixer._time)

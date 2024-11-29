@@ -506,9 +506,7 @@ class _GLTF:
                 shape=(accessor_count, accessor_type_size * accessor_dtype.itemsize),
                 strides=(buffer_view.byteStride, 1),
             )
-            ar = np.frombuffer(np.ascontiguousarray(ar), dtype=accessor_dtype).reshape(
-                accessor_count, accessor_type_size
-            )
+            ar = np.frombuffer(np.ascontiguousarray(ar), dtype=accessor_dtype)
         else:
             ar = np.frombuffer(
                 view,
@@ -516,8 +514,8 @@ class _GLTF:
                 offset=accessor_offset,
                 count=accessor_count * accessor_type_size,
             )
-            if accessor_type_size > 1:
-                ar = ar.reshape(accessor_count, accessor_type_size)
+        if accessor_type_size > 1:
+            ar = ar.reshape(accessor_count, accessor_type_size)
 
         if accessor.normalized:
             # KHR_mesh_quantization

@@ -16,8 +16,3 @@ class AnimationClip:
             max_time = track.times[-1]
             duration = max(max_time, duration)
         return duration
-
-    def update(self, time):
-        """Update the animation to a specific time."""
-        for track in self.tracks:
-            track._update(time)

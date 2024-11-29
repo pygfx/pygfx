@@ -40,14 +40,3 @@ class KeyframeTrack:
         self.times = np.array(optimized_times)
         self.values = np.array(optimized_values)
         return self.times, self.values
-
-    def _update(self, time):
-        value = self.interpolation(time)
-        if self.path == "scale":
-            self.target.local.scale = value
-        elif self.path == "translation":
-            self.target.local.position = value
-        elif self.path == "rotation":
-            self.target.local.rotation = value
-        elif self.path == "weights":
-            self.target.morph_target_influences = value
