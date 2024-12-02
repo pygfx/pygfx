@@ -60,6 +60,8 @@ class Texture(Resource):
         derive how the texture is used and apply the appropriate flag. In cases
         where it doesn't this param provides an override. This is a bitmask flag
         (values are OR'd).
+    channel : int
+        The texcoord channel of the texture. Default 0.
 
     Performance tips:
 
@@ -84,6 +86,7 @@ class Texture(Resource):
         chunk_size=None,
         force_contiguous=False,
         usage=0,
+        channel=0,
     ):
         super().__init__()
         Resource._rev += 1
@@ -201,6 +204,10 @@ class Texture(Resource):
             self._chunk_mask = np.ones(shape, bool)
             self._chunk_list = None
 
+        self._channel = channel
+
+        self._sampler_hints = {}
+
     @property
     def dim(self):
         """The dimensionality of the texture (1, 2, or 3)."""
@@ -261,6 +268,20 @@ class Texture(Resource):
     def generate_mipmaps(self):
         """Whether to automatically generate mipmaps when uploading to the GPU."""
         return self._generate_mipmaps
+
+    @property
+    def channel(self):
+        """The texcoord channel of the texture."""
+        return self._channel
+
+    @channel.setter
+    def channel(self, value):
+        self._channel = value
+
+    @property
+    def sampler_hints(self):
+        """Hints for the sampler used with this texture."""
+        return self._sampler_hints
 
     def send_data(self, offset, data):
         """Send a chunk of data to the GPU.
