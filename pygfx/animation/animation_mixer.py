@@ -4,10 +4,17 @@ from ..objects import RootEventHandler
 
 
 class AnimationMixer(RootEventHandler):
+    """The AnimationMixer serves as a player for animations within a scene, managing the playback state of all animations.
+
+    It handles blending and playing multiple animation actions simultaneously, combining one or more AnimationAction objects
+    and controlling transitions and smooth blending between different animations based on time and weight.
+    """
+
     def __init__(self):
+        # todo: separate the animation data from model objects, bind them together here in the mixer with a root object when actions are created
         # self._root = root
         super().__init__()
-        self._actions = []
+        self._actions = {}
         self._time = 0
         self._time_scale = 1.0
 
@@ -19,10 +26,14 @@ class AnimationMixer(RootEventHandler):
 
     @property
     def time(self):
+        """The global mixer time (in seconds; starting with 0 on the mixer's creation)."""
         return self._time
 
     @property
     def time_scale(self):
+        """The time scale of the mixer. You can use this to control the general speed of all animations.
+        Default is 1.0.
+        """
         return self._time_scale
 
     @time_scale.setter
@@ -30,8 +41,15 @@ class AnimationMixer(RootEventHandler):
         self._time_scale = value
 
     def clip_action(self, clip):
+        """Create an AnimationAction from an AnimationClip.
+        Calling this method several times with the same clip and root parameters always returns the same clip instance.
+        """
+
+        if clip in self._actions:
+            return self._actions[clip]
+
         action = AnimationAction(self, clip)
-        self._actions.append(action)
+        self._actions[clip] = action
 
         # cache the original value
         for t in action._clip.tracks:
@@ -62,6 +80,7 @@ class AnimationMixer(RootEventHandler):
         return action in self.__activated_actions
 
     def set_time(self, time):
+        """Set the time of the mixer."""
         self._time = 0
         for action in self.__activated_actions:
             action.time = 0
@@ -69,6 +88,7 @@ class AnimationMixer(RootEventHandler):
         self.update(time)
 
     def update(self, dt):
+        """Update the mixer with the time delta."""
         self.__property_accu_cache.clear()
         dt = dt * self._time_scale
         self._time += dt

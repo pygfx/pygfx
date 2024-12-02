@@ -4,6 +4,11 @@ from ..objects import Event
 
 
 class AnimationAction:
+    """An AnimationAction represents a specific animation that can be played within the AnimationMixer.
+
+    It is a single animation clip that can be played, paused, stopped, faded in/out, and cross-faded with other actions.
+    """
+
     def __init__(self, mixer, clip):
         self._mixer = mixer
         self._clip = clip
@@ -24,6 +29,7 @@ class AnimationAction:
         self._time_scale_interpolant = None
 
     def play(self):
+        """Play the action."""
         self._mixer._activate_action(self)
         return self
 
