@@ -52,7 +52,7 @@ class BaseVolumeShader(BaseShader):
         # Colorspace
         self["colorspace"] = geometry.grid.colorspace
         if material.map is not None:
-            self["colorspace"] = material.map.colorspace
+            self["colorspace"] = material.map.texture.colorspace
 
     def get_bindings(self, wobject, shared):
         geometry = wobject.geometry

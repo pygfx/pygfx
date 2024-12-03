@@ -93,13 +93,13 @@ class MeshShader(BaseShader):
         elif color_mode == "vertex_map":
             self["color_mode"] = "vertex_map"
             self["color_buffer_channels"] = 0
-            self["colorspace"] = material.map.colorspace
+            self["colorspace"] = material.map.texture.colorspace
             if material.map is None:
                 raise ValueError("Cannot apply colormap is no material.map is set.")
         elif color_mode == "face_map":
             self["color_mode"] = "face_map"
             self["color_buffer_channels"] = 0
-            self["colorspace"] = material.map.colorspace
+            self["colorspace"] = material.map.texture.colorspace
             if material.map is None:
                 raise ValueError("Cannot apply colormap is no material.map is set.")
         else:
