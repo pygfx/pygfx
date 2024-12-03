@@ -24,6 +24,7 @@ dependencies = [
     "freetype-py",
     "uharfbuzz",
     "jinja2",
+    "hsluv >=5.0.0,<6.0.0",
 ]
 
 [project.optional-dependencies]
@@ -34,7 +35,7 @@ examples = [
     "scikit-image",
     "trimesh",
     "gltflib",
-    "imgui-bundle>=1.2.1",
+    "imgui-bundle>=1.6.0",
 ]
 docs = [
     "sphinx>7.2",
@@ -46,7 +47,7 @@ docs = [
     "scikit-image",
     "trimesh",
     "gltflib",
-    "imgui-bundle>=1.2.1",
+    "imgui-bundle>=1.6.0",
 ]
 tests = ["pytest", "psutil", "trimesh", "httpx", "gltflib", "imageio"]
 dev = ["pygfx[lint,tests,examples,docs]"]

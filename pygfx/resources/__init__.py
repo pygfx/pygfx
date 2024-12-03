@@ -23,4 +23,4 @@ from ._buffer import Buffer
 from ._texture import Texture
 from ._texturemap import TextureMap
 
-__all__ = ["Resource", "Buffer", "Texture", "TextureMap"]
+__all__ = ["Buffer", "Resource", "Texture", "TextureMap"]

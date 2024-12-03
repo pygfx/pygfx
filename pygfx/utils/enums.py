@@ -23,15 +23,15 @@ from wgpu.utils import BaseEnum
 
 
 __all__ = [
-    "RenderMask",
-    "ColorMode",
-    "EdgeMode",
-    "SizeMode",
-    "CoordSpace",
-    "MarkerShape",
-    "ElementFormat",
-    "VisibleSide",
     "BindMode",
+    "ColorMode",
+    "CoordSpace",
+    "EdgeMode",
+    "ElementFormat",
+    "MarkerShape",
+    "RenderMask",
+    "SizeMode",
+    "VisibleSide",
 ]
 
 
