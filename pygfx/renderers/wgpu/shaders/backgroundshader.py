@@ -2,7 +2,7 @@ import wgpu  # only for flags/enums
 
 from ....objects import Background
 from ....materials import BackgroundMaterial, BackgroundImageMaterial
-from ....resources import Texture
+from ....resources import TextureMap
 
 from .. import (
     register_wgpu_render_function,
@@ -31,8 +31,8 @@ class BackgroundShader(BaseShader):
         bindings[2] = Binding("u_material", "buffer/uniform", material.uniform_buffer)
 
         if isinstance(material, BackgroundImageMaterial) and material.map is not None:
-            if not isinstance(material.map, Texture):
-                raise TypeError("material.map must be a Texture")
+            if not isinstance(material.map, TextureMap):
+                raise TypeError("material.map must be a TextureMap.")
             sampler = GfxSampler("linear", "repeat")
             # Select texture dimension
             if material.map.size[2] == 1:

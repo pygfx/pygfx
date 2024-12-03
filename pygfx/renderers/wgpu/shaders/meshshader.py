@@ -4,7 +4,7 @@ import wgpu  # only for flags/enums
 
 
 from ....objects import Mesh, InstancedMesh, SkinnedMesh
-from ....resources import Buffer, Texture
+from ....resources import Buffer, Texture, TextureMap
 from ....utils import normals_from_vertices
 from ....materials import (
     MeshBasicMaterial,
@@ -71,7 +71,7 @@ class MeshShader(BaseShader):
             if material.map is not None:
                 self["color_mode"] = "vertex_map"
                 self["color_buffer_channels"] = 0
-                self["colorspace"] = material.map.colorspace
+                self["colorspace"] = material.map.texture.colorspace
             else:
                 self["color_mode"] = "uniform"
                 self["color_buffer_channels"] = 0
@@ -109,16 +109,10 @@ class MeshShader(BaseShader):
         if check:
             # Check that the texture is compatible with the texcoord
             self._check_texture(map, geometry)
-        view = GfxTextureView(map, view_dim=view_dim)
+        view = GfxTextureView(map.texture, view_dim=view_dim)
 
-        sampler_hints = map.sampler_hints
-        mag_filter = sampler_hints.get("mag_filter", "linear")
-        min_filter = sampler_hints.get("min_filter", "linear")
-        mipmap_filter = sampler_hints.get("mipmap_filter", "linear")
-        wrap_s = sampler_hints.get("wrap_s", "repeat")
-        wrap_t = sampler_hints.get("wrap_t", "repeat")
-        filter_mode = f"{mag_filter}, {min_filter}, {mipmap_filter}"
-        address_mode = f"{wrap_s}, {wrap_t}"
+        filter_mode = f"{map.mag_filter}, {map.min_filter}, {map.mipmap_filter}"
+        address_mode = f"{map.wrap_s}, {map.wrap_t}"
         sampler = GfxSampler(filter_mode, address_mode)
 
         self[f"{name}_uv"] = map.channel
@@ -195,9 +189,7 @@ class MeshShader(BaseShader):
             bindings.extend(
                 # todo: check uv is present and has the right shape. (introduce uv channel for texture)
                 # todo: unify the logic with other maps, introduce uv channel and texture sampler
-                self.define_colormap(
-                    material.map, geometry.texcoords, material.map_interpolation
-                )
+                self.define_colormap(material.map, geometry.texcoords)
             )
 
         if self["use_skinning"]:
@@ -292,9 +284,9 @@ class MeshShader(BaseShader):
             # TODO: Support envmap not only cube, but also equirect (hdr format)
 
             # special check for env_map
-            assert isinstance(material.env_map, Texture)
-            assert material.env_map.size[2] == 6, "env_map must be a cube map"
-            fmt = to_texture_format(material.env_map.format)
+            assert isinstance(material.env_map, TextureMap)
+            assert material.env_map.texture.size[2] == 6, "env_map must be a cube map"
+            fmt = to_texture_format(material.env_map.texture.format)
             assert "norm" in fmt or "float" in fmt
 
             bindings.extend(
@@ -486,7 +478,7 @@ class MeshShader(BaseShader):
         }
 
     def _check_texture(self, t, geometry):
-        assert isinstance(t, Texture)
+        assert isinstance(t, TextureMap)
         uv_channel = t.channel
         if uv_channel > 0:
             texcoords = getattr(geometry, f"texcoords{uv_channel}", None)
@@ -499,7 +491,7 @@ class MeshShader(BaseShader):
         nchannels = nchannels_from_format(texcoords.format)
         assert texcoords.data.ndim == nchannels
 
-        fmt = to_texture_format(t.format)
+        fmt = to_texture_format(t.texture.format)
         assert "norm" in fmt or "float" in fmt
 
     def get_code(self):
@@ -691,11 +683,7 @@ class MeshSliceShader(BaseShader):
         if self["color_mode"] in ("vertex", "face"):
             bindings.append(Binding("s_colors", rbuffer, geometry.colors, "VERTEX"))
         elif self["color_mode"] in ("vertex_map", "face_map"):
-            bindings.extend(
-                self.define_colormap(
-                    material.map, geometry.texcoords, material.map_interpolation
-                )
-            )
+            bindings.extend(self.define_colormap(material.map, geometry.texcoords))
 
         # Let the shader generate code for our bindings
         bindings = {i: binding for i, binding in enumerate(bindings)}

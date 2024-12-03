@@ -70,9 +70,7 @@ class BaseVolumeShader(BaseShader):
         bindings.append(Binding("t_img", "texture/auto", tex_view, vertex_and_fragment))
 
         if material.map is not None:
-            bindings.extend(
-                self.define_img_colormap(material.map, material.map_interpolation)
-            )
+            bindings.extend(self.define_img_colormap(material.map))
 
         bindings = {i: b for i, b in enumerate(bindings)}
         self.define_bindings(0, bindings)

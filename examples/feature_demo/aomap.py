@@ -43,7 +43,7 @@ renderer = gfx.renderers.WgpuRenderer(canvas)
 meshes = gfx.load_gltf_mesh(model_dir / "lightmap" / "scene.gltf", materials=False)
 
 ao_map = iio.imread(model_dir / "lightmap" / "lightmap-ao-shadow.png")
-ao_map_tex = gfx.Texture(ao_map, dim=2, channel=1)
+ao_map_tex = gfx.Texture(ao_map, dim=2)
 
 # Create camera and controller
 camera = gfx.PerspectiveCamera(45, 1)
@@ -59,7 +59,7 @@ text_camera = gfx.OrthographicCamera(12, 4)
 def create_scene(material, x_pos):
     scene = gfx.Scene()
     m = meshes[0]
-    material.ao_map = ao_map_tex
+    material.ao_map = gfx.TextureMap(ao_map_tex, channel=1)
     mesh = gfx.Mesh(m.geometry, material)
     mesh.local.matrix = m.local.matrix
     mesh.local.scale = 100

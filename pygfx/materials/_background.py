@@ -1,4 +1,4 @@
-from ..resources import Texture
+from ..resources import Texture, TextureMap
 from ._base import Material
 from ..utils import Color
 
@@ -137,7 +137,9 @@ class BackgroundImageMaterial(BackgroundMaterial):
 
     @map.setter
     def map(self, map):
-        assert map is None or isinstance(map, Texture)
+        assert map is None or isinstance(map, (Texture, TextureMap))
+        if isinstance(map, Texture):
+            map = TextureMap(map)
         self._store.map = map
 
 
