@@ -76,17 +76,6 @@ import imageio
 import av
 
 
-# Set OFFSCREEN to True if the FPS in the visible Window is capped at 60 or 120.
-# The script will then render to an offscreen canvas for a few seconds instead.
-
-# Set the filename of the file. We use imageio to get a stock video.
-# TODO: when https://github.com/imageio/imageio/pull/1103 is merged and a new release is out, we can use the yuv420 video instead.
-# Local: FILENAME = "/Users/almar/dev/py/imageio-binaries/images/cockatoo_yuv420.mp4"  # yuv420p
-# FILENAME = imageio.core.Request("imageio:cockatoo.mp4", "r?").filename  # yuv444p
-
-# Set the format to read the frames in. If this matches the video's storage format,
-# no conversion will have to be done. But it also affects how the data is handled in Pygfx.
-# Set to "rgb24", "rgba", or "yuv420p"
 if "PYTEST_CURRENT_TEST" not in os.environ:
     import argparse
 
@@ -95,12 +84,15 @@ if "PYTEST_CURRENT_TEST" not in os.environ:
         "--format",
         type=str,
         default="yuv420p",
-        help="Choose from 'rgb24', 'rgba', 'yuv420p', 'yuv444p', 'yuv420p-3plane'",
+        help=(
+            "The format in which the data will be decoded out of FFMPEG. "
+            "Choose from 'rgb24', 'rgba', 'yuv420p', 'yuv444p'."
+        )
     )
     parser.add_argument(
         "--filename",
         type=str,
-        help="Filename of the video file",
+        help="Filename of the video file. If unset, we will use a stock video from imageio.",
     )
     parser.add_argument(
         "--colorrange",
@@ -112,7 +104,11 @@ if "PYTEST_CURRENT_TEST" not in os.environ:
         "--offscreen",
         action=argparse.BooleanOptionalAction,
         default=False,
-        help="Render to offscreen canvas.",
+        help=(
+            "Render to offscreen canvas. This can be used to benchmark the shader pipeline performance. "
+            "If False, the frame rate's upper bound will be limited to that of the "
+            "GUI framework's. Typically this is 30, 60, or 120 fps."
+        )
     )
     parser.add_argument(
         "--three-grid-yuv",
