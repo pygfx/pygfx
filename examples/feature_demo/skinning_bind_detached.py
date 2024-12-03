@@ -98,9 +98,6 @@ def animate():
     dt = clock.get_delta()
     mixer.update(dt)
 
-    skeleton.update()
-    skeleton_helper.update()
-
     with stats:
         renderer.render(scene, camera, flush=False)
     stats.render()
