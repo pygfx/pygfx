@@ -87,7 +87,7 @@ if "PYTEST_CURRENT_TEST" not in os.environ:
         help=(
             "The format in which the data will be decoded out of FFMPEG. "
             "Choose from 'rgb24', 'rgba', 'yuv420p', 'yuv444p'."
-        )
+        ),
     )
     parser.add_argument(
         "--filename",
@@ -108,7 +108,7 @@ if "PYTEST_CURRENT_TEST" not in os.environ:
             "Render to offscreen canvas. This can be used to benchmark the shader pipeline performance. "
             "If False, the frame rate's upper bound will be limited to that of the "
             "GUI framework's. Typically this is 30, 60, or 120 fps."
-        )
+        ),
     )
     parser.add_argument(
         "--three-grid-yuv",
