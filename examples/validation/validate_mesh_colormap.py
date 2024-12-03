@@ -38,7 +38,12 @@ def WobjectClass(geometry, material):  # noqa
 
 
 def MaterialClass(**kwargs):  # noqa
-    # kwargs.setdefault("map_interpolation", "nearest")
+    map = kwargs.get("map")
+    map = (
+        gfx.TextureMap(map, mag_filter="nearest", min_filter="nearest")
+        if map is not None
+        else None
+    )
     return gfx.MeshPhongMaterial(**kwargs)
     # return gfx.PointsMaterial(size=10, **kwargs)
     # return gfx.LineMaterial(thickness=5, **kwargs)
