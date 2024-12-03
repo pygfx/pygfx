@@ -379,14 +379,14 @@ class _GLTF:
 
     def _load_gltf_texture(self, texture_info):
         texture_index = texture_info.index
-        texture = self._load_gltf_texture_resource(texture_index)
+        texture_map = self._load_gltf_texture_map(texture_index)
 
         uv_channel = texture_info.texCoord
-        texture._channel = uv_channel or 0
-        return texture
+        texture_map.channel = uv_channel or 0
+        return texture_map
 
     @lru_cache(maxsize=None)
-    def _load_gltf_texture_resource(self, texture_index):
+    def _load_gltf_texture_map(self, texture_index):
         texture_desc = self._gltf.model.textures[texture_index]
         source = texture_desc.source
         image = self._load_image(source)
@@ -407,45 +407,31 @@ class _GLTF:
             # }
 
             if sampler.magFilter == 9728:
-                # texture.sampler_hints["mag_filter"] = "nearest"
                 map.mag_filter = "nearest"
             elif sampler.magFilter == 9729:
-                # texture.sampler_hints["mag_filter"] = "linear"
                 map.mag_filter = "linear"
 
             if sampler.minFilter == 9728:  # NEAREST
-                # texture.sampler_hints["min_filter"] = "nearest"
                 map.min_filter = "nearest"
             elif sampler.minFilter == 9729:  # LINEAR
-                # texture.sampler_hints["min_filter"] = "linear"
                 map.min_filter = "linear"
             elif sampler.minFilter == 9984:  # NEAREST_MIPMAP_NEAREST
-                # texture.sampler_hints["min_filter"] = "nearest"
-                # texture.sampler_hints["mipmap_filter"] = "nearest"
                 map.min_filter = "nearest"
                 map.mipmap_filter = "nearest"
             elif sampler.minFilter == 9985:  # LINEAR_MIPMAP_NEAREST
-                # texture.sampler_hints["min_filter"] = "linear"
-                # texture.sampler_hints["mipmap_filter"] = "nearest"
                 map.min_filter = "linear"
                 map.mipmap_filter = "nearest"
             elif sampler.minFilter == 9986:  # NEAREST_MIPMAP_LINEAR
-                # texture.sampler_hints["min_filter"] = "nearest"
-                # texture.sampler_hints["mipmap_filter"] = "linear"
                 map.min_filter = "nearest"
                 map.mipmap_filter = "linear"
             elif sampler.minFilter == 9987:  # LINEAR_MIPMAP_LINEAR
-                # texture.sampler_hints["min_filter"] = "linear"
-                # texture.sampler_hints["mipmap_filter"] = "linear"
                 map.min_filter = "linear"
                 map.mipmap_filter = "linear"
 
-            # texture.sampler_hints["wrap_s"] = self.WRAP_MODE[sampler.wrapS or 10497]
-            # texture.sampler_hints["wrap_t"] = self.WRAP_MODE[sampler.wrapT or 10497]
             map.wrap_s = self.WRAP_MODE[sampler.wrapS or 10497]
             map.wrap_t = self.WRAP_MODE[sampler.wrapT or 10497]
 
-        return texture
+        return map
 
     @lru_cache(maxsize=None)
     def _load_gltf_sampler(self, sampler_index):
