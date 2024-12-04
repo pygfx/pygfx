@@ -277,7 +277,7 @@ else:
 
 im = gfx.Image(
     gfx.Geometry(grid=tex),
-    gfx.ImageBasicMaterial(clim=(0, 255)),
+    gfx.ImageBasicMaterial(clim=(0, 255), interpolation="nearest"),
 )
 if FORMAT in ["yuv420p", "yuv444p"] and THREE_GRID_YUV:
     im.geometry.grid_u = u_tex

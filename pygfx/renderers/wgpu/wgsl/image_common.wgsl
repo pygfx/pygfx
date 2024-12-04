@@ -37,9 +37,10 @@ fn sample_im(texcoord: vec2<f32>, sizef: vec2<f32>) -> vec4<f32> {
             let u = textureSample(t_u_img, s_img, texcoord.xy).x;
             let v = textureSample(t_v_img, s_img, texcoord.xy).x;
             $$ else
+            let txy = clamp(texcoord.xy / 2.0, 0.5 / sizef, 0.5 - 0.5 / sizef);
             let y = textureSample(t_img, s_img, texcoord.xy, 0).x;
-            let u = textureSample(t_img, s_img, texcoord.xy / 2.0, 1).x;
-            let v = textureSample(t_img, s_img, texcoord.xy / 2.0 + vec2<f32>(0.5, 0.0), 1).x;
+            let u = textureSample(t_img, s_img, txy, 1).x;
+            let v = textureSample(t_img, s_img, txy + vec2<f32>(0.5, 0.0), 1).x;
             $$ endif
 
             $$ if colorrange == "limited"
