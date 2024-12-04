@@ -59,7 +59,17 @@ class ImageShader(BaseShader):
 
         # Determine colorspace
         self["colorspace"] = geometry.grid.colorspace
-        if material.map is not None:
+        self["colorrange"] = geometry.grid.colorrange
+        self["three_grid_yuv"] = (
+            self["colorspace"] in ["yuv420p", "yuv444p"] and geometry.grid.size[2] == 1
+        )
+        self["use_colormap"] = False
+
+        if geometry.grid.colorspace not in ("srgb", "physical"):
+            # A special color-space that we convert to rgb in the shader
+            self["img_nchannels"] = 3
+        elif material.map is not None:
+            self["use_colormap"] = True
             self["colorspace"] = material.map.colorspace
 
     def get_bindings(self, wobject, shared):
@@ -77,7 +87,17 @@ class ImageShader(BaseShader):
         bindings.append(Binding("s_img", "sampler/filtering", sampler, "FRAGMENT"))
         bindings.append(Binding("t_img", "texture/auto", tex_view, vertex_and_fragment))
 
-        if material.map is not None:
+        if self["three_grid_yuv"]:
+            u_tex_view = GfxTextureView(geometry.grid_u)
+            v_tex_view = GfxTextureView(geometry.grid_v)
+            bindings.append(
+                Binding("t_u_img", "texture/auto", u_tex_view, vertex_and_fragment)
+            )
+            bindings.append(
+                Binding("t_v_img", "texture/auto", v_tex_view, vertex_and_fragment)
+            )
+
+        if self["use_colormap"]:
             bindings.extend(
                 self.define_img_colormap(material.map, material.map_interpolation)
             )
