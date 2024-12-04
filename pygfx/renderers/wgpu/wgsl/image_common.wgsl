@@ -37,6 +37,10 @@ fn sample_im(texcoord: vec2<f32>, sizef: vec2<f32>) -> vec4<f32> {
             let u = textureSample(t_u_img, s_img, texcoord.xy).x;
             let v = textureSample(t_v_img, s_img, texcoord.xy).x;
             $$ else
+            // In this implementation we share a single 2D texture between U and V
+            // We must therefore take care to not sample at the edge where
+            // the texture will be poorly interpolated. See
+            // https://github.com/pygfx/pygfx/pull/873#issuecomment-2516613301
             let txy = clamp(texcoord.xy / 2.0, 0.5 / sizef, 0.5 - 0.5 / sizef);
             let y = textureSample(t_img, s_img, texcoord.xy, 0).x;
             let u = textureSample(t_img, s_img, txy, 1).x;
