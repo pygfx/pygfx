@@ -98,9 +98,7 @@ class ImageShader(BaseShader):
             )
 
         if self["use_colormap"]:
-            bindings.extend(
-                self.define_img_colormap(material.map)
-            )
+            bindings.extend(self.define_img_colormap(material.map))
 
         bindings = {i: b for i, b in enumerate(bindings)}
         self.define_bindings(0, bindings)
