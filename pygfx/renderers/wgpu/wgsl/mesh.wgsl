@@ -220,9 +220,11 @@ fn vs_main(in: VertexInput) -> Varyings {
     varyings.texcoord = vec3<f32>(load_s_texcoords(tex_coord_index));
     $$ endif
 
-    $$ if use_texcoords1 is defined
-    varyings.texcoord1 = vec2<f32>(load_s_texcoords1(tex_coord_index));
-    $$ endif
+
+    // used_uv
+    $$ for uv in used_uv
+    varyings.texcoord{{uv}} = vec2<f32>(load_s_texcoords{{uv}}(tex_coord_index));
+    $$ endfor
 
     // Set the normal
     // Transform the normal to world space
@@ -366,14 +368,14 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
         // Get normal used to calculate lighting
         var normal = select(-surface_normal, surface_normal, is_front);
         $$ if use_normal_map is defined
-            let normal_map = textureSample( t_normal_map, s_normal_map, varyings.texcoord ) * 2.0 - 1.0;
+            let normal_map = textureSample( t_normal_map, s_normal_map, varyings.texcoord{{normal_map_uv or ''}} ) * 2.0 - 1.0;
             let normal_map_scale = vec3<f32>( normal_map.xy * u_material.normal_scale, normal_map.z );
             normal = perturbNormal2Arb(view, normal, normal_map_scale, varyings.texcoord, is_front);
         $$ endif
     $$ endif
 
     $$ if use_specular_map is defined
-        let specular_map = textureSample( t_specular_map, s_specular_map, varyings.texcoord );
+        let specular_map = textureSample( t_specular_map, s_specular_map, varyings.texcoord{{specular_map_uv or ''}} );
         let specular_strength = specular_map.r;
     $$ else
         let specular_strength = 1.0;
@@ -407,7 +409,7 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
         var irradiance = getAmbientLightIrradiance( ambient_color );
         // Light map (pre-baked lighting)
         $$ if use_light_map is defined
-            let light_map_color = srgb2physical( textureSample( t_light_map, s_light_map, varyings.texcoord1 ).rgb );
+            let light_map_color = srgb2physical( textureSample( t_light_map, s_light_map, varyings.texcoord{{light_map_uv or ''}} ).rgb );
             irradiance += light_map_color * u_material.light_map_intensity;
         $$ endif
         // Process irradiance
@@ -441,7 +443,7 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
         // for basic material
         // Light map (pre-baked lighting)
         $$ if use_light_map is defined
-            let light_map_color = srgb2physical( textureSample( t_light_map, s_light_map, varyings.texcoord1 ).rgb );
+            let light_map_color = srgb2physical( textureSample( t_light_map, s_light_map, varyings.texcoord{{light_map_uv or ''}} ).rgb );
             reflected_light.indirect_diffuse += light_map_color * u_material.light_map_intensity * RECIPROCAL_PI;
         $$ else
             reflected_light.indirect_diffuse += vec3<f32>(1.0);
@@ -453,7 +455,7 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
     // Ambient occlusion
     $$ if use_ao_map is defined
         let ao_map_intensity = u_material.ao_map_intensity;
-        let ambient_occlusion = ( textureSample( t_ao_map, s_ao_map, varyings.texcoord1 ).r - 1.0 ) * ao_map_intensity + 1.0;
+        let ambient_occlusion = ( textureSample( t_ao_map, s_ao_map, varyings.texcoord{{ao_map_uv or ''}} ).r - 1.0 ) * ao_map_intensity + 1.0;
 
         // todo: Rename to RE_AmbientOcclusion or use a macro
         $$ if lighting == 'pbr'
@@ -471,7 +473,7 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
     $$ if lighting
         var emissive_color = srgb2physical(u_material.emissive_color.rgb) * u_material.emissive_intensity;
         $$ if use_emissive_map is defined
-        emissive_color *= srgb2physical(textureSample(t_emissive_map, s_emissive_map, varyings.texcoord).rgb);
+        emissive_color *= srgb2physical(textureSample(t_emissive_map, s_emissive_map, varyings.texcoord{{emissive_map_uv or ''}}).rgb);
         $$ endif
         physical_color += emissive_color;
     $$ endif

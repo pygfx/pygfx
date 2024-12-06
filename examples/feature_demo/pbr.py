@@ -63,8 +63,6 @@ gltf = gfx.load_gltf(gltf_path)
 
 m = gltf.scene.children[0]
 
-# use second set of texcoords for ao map, remove this line when gfx support uv channel selection.
-m.geometry.texcoords1 = m.geometry.texcoords
 m.material.env_map = env_tex
 
 scene.add(gltf.scene)
