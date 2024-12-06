@@ -16,7 +16,7 @@ from importlib.util import find_spec
 from functools import lru_cache
 
 
-def load_gltf(path, quiet=False):
+def load_gltf(path, quiet=False, remote_ok=True):
     """
     Load a gltf file and return the content.
 
@@ -28,6 +28,10 @@ def load_gltf(path, quiet=False):
         The path to the gltf file.
     quiet : bool
         Whether to suppress the warning messages.
+        Default is False.
+    remote_ok : bool
+        Whether to allow loading from URLs.
+        Default is True.
 
     Returns:
     ----------
@@ -38,10 +42,10 @@ def load_gltf(path, quiet=False):
         * `cameras`: [gfx.Camera] or None
         * `animations`: [gfx.Animation] or None
     """
-    return _GLTF(path, quiet).load()
+    return _GLTF().load(path, quiet, remote_ok)
 
 
-def load_gltf_mesh(path, materials=True, quiet=False):
+def load_gltf_mesh(path, materials=True, quiet=False, remote_ok=True):
     """
     Load meshes from a gltf file, without skeletons, and no transformations applied.
 
@@ -53,15 +57,20 @@ def load_gltf_mesh(path, materials=True, quiet=False):
         The path to the gltf file.
     materials : bool
         Whether to load materials.
+        Default is True.
     quiet : bool
         Whether to suppress the warning messages.
+        Default is False.
+    remote_ok : bool
+        Whether to allow loading from URLs.
+        Default is True.
 
     Returns:
     ----------
     meshes : list
         A list of pygfx.Meshes.
     """
-    return _GLTF(path, quiet).load_mesh(materials=materials)
+    return _GLTF().load_mesh(path, quiet, materials=materials, remote_ok=remote_ok)
 
 
 class _GLTF:
@@ -103,17 +112,15 @@ class _GLTF:
 
     SUPPORTED_EXTENSIONS = ["KHR_mesh_quantization"]
 
-    def __init__(self, path, quiet=False):
-        self._path = path
+    def __init__(self):
         self.scene = None
         self.scenes = []
-        self.cameras = None
+        self.cameras = []
         self.animations = None
 
-        self.__inner_load(quiet)
-
-    def load(self):
+    def load(self, path, quiet=False, remote_ok=True):
         """Load the whole gltf file, including meshes, skeletons, cameras, and animations."""
+        self.__inner_load(path, quiet, remote_ok)
 
         self.scenes = self._load_scenes()
         if self._gltf.model.scene is not None:
@@ -121,12 +128,12 @@ class _GLTF:
         if self._gltf.model.animations is not None:
             self.animations = self._load_animations()
 
-        # TODO:
-        # self.cameras
         return self
 
-    def load_mesh(self, materials=True):
+    def load_mesh(self, path, quiet=False, materials=True, remote_ok=True):
         """Only load meshes from a gltf file, without skeletons, and no transformations applied."""
+
+        self.__inner_load(path, quiet, remote_ok)
 
         meshes = []
         for gltf_mesh in self._gltf.model.meshes:
@@ -134,15 +141,57 @@ class _GLTF:
             meshes.extend(mesh)
         return meshes
 
-    def __inner_load(self, quiet=False):
+    def __inner_load(self, path, quiet=False, remote_ok=True):
         if not find_spec("gltflib"):
             raise ImportError(
                 "The `gltflib` library is required to load gltf scene: pip install gltflib"
             )
         import gltflib
 
-        path = self._path
-        self._gltf = gltflib.GLTF.load(path, load_file_resources=True)
+        if "https://" in str(path) or "http://" in str(path):
+            if not remote_ok:
+                raise ValueError(
+                    "Loading meshes from URLs is disabled. "
+                    "Set remote_ok=True to allow loading from URLs."
+                )
+            if not find_spec("httpx"):
+                raise ImportError(
+                    "The `httpx` library is required to load meshes from URLs: pip install httpx"
+                )
+
+            import httpx
+            from io import BytesIO
+            from os import path as os_path
+            import urllib.parse
+            import mimetypes
+
+            # download
+            response = httpx.get(path, follow_redirects=True)
+            response.raise_for_status()
+
+            file_obj = BytesIO(response.content)
+
+            ext = os_path.splitext(path)[1].lower()
+            if ext == ".gltf":
+                self._gltf = gltflib.GLTF.read_gltf(file_obj, load_file_resources=False)
+
+            elif ext == ".glb":
+                self._gltf = gltflib.GLTF.read_glb(file_obj, load_file_resources=False)
+
+            # Load the remote FileResources from the URLs
+            for res in self._gltf.resources:
+                if isinstance(res, gltflib.FileResource):
+                    res_path = urllib.parse.urljoin(path, res.uri)
+                    response = httpx.get(res_path, follow_redirects=True)
+                    response.raise_for_status()
+                    res_file = BytesIO(response.content)
+
+                    res._data = res_file.read()
+                    res._mimetype = res._mimetype or mimetypes.guess_type(res.uri)[0]
+                    res._loaded = True
+
+        else:  # local file
+            self._gltf = gltflib.GLTF.load(path, load_file_resources=True)
 
         if not quiet:
             extensions_required = self._gltf.model.extensionsRequired or []
@@ -194,9 +243,10 @@ class _GLTF:
                     node_marks[joint] = "Bone"
 
         # Mark cameras
-        if gltf.model.cameras:
-            for camera in gltf.model.cameras:
-                node_marks[camera.node] = "Camera"
+        # if gltf.model.cameras:
+        #     for camera in gltf.model.cameras:
+        #         print(camera)
+        #         node_marks[camera.node] = "Camera"
 
         # Meshes are marked when they are loaded
         # Maybe mark lights and other special nodes here
@@ -242,12 +292,35 @@ class _GLTF:
             node_obj.local.rotation = rotation
             node_obj.local.scale = scale
             node_obj.local.matrix = matrix
-        elif node_mark == "Camera":
-            # TODO: implement camera loading
-            # node_obj = gfx.Camera()
-            pass
+        elif node.camera is not None:
+            camera_info = gltf.model.cameras[node.camera]
+            if camera_info.type == "perspective":
+                node_obj = gfx.PerspectiveCamera(
+                    camera_info.perspective.yfov,
+                    camera_info.perspective.aspectRatio,
+                    depth_range=(
+                        camera_info.perspective.znear,
+                        camera_info.perspective.zfar,
+                    ),
+                )
+            elif camera_info.type == "orthographic":
+                node_obj = gfx.OrthographicCamera(
+                    camera_info.orthographic.xmag,
+                    camera_info.orthographic.ymag,
+                    depth_range=(
+                        camera_info.orthographic.znear,
+                        camera_info.orthographic.zfar,
+                    ),
+                )
+            else:
+                raise ValueError(f"Unsupported camera type: {camera_info.type}")
+
+            self.cameras.append(node_obj)
         elif node.mesh is not None:  # Mesh or SkinnedMesh
-            meshes = self._load_gltf_mesh(node.mesh, node.skin)
+            # meshes = self._load_gltf_mesh(node.mesh, node.skin)
+            # Do not use mesh cache here, we need to create a new mesh object for each node.
+            mesh_info = self._gltf.model.meshes[node.mesh]
+            meshes = self._load_gltf_mesh_by_info(mesh_info, node.skin)
             if len(meshes) == 1:
                 node_obj = meshes[0]
             else:
@@ -289,6 +362,8 @@ class _GLTF:
                     material = self._load_gltf_material(primitive.material)
                 else:
                     material = gfx.MeshBasicMaterial()
+                    if hasattr(geometry, "colors"):
+                        material.color_mode = "vertex"
 
                 if skin_index is not None:
                     gfx_mesh = gfx.SkinnedMesh(geometry, material)
@@ -329,6 +404,9 @@ class _GLTF:
 
         if pbr_metallic_roughness is not None:
             gfx_material = gfx.MeshStandardMaterial()
+
+            if pbr_metallic_roughness.baseColorFactor is not None:
+                gfx_material.color = gfx.Color(*pbr_metallic_roughness.baseColorFactor)
 
             if pbr_metallic_roughness.baseColorTexture is not None:
                 gfx_material.map = self._load_gltf_texture(
@@ -485,7 +563,7 @@ class _GLTF:
             # TODO: For now, pygfx not support non-indexed geometry, so we need to generate indices for them.
             # Remove this after pygfx support non-indexed geometry.
             indices = np.arange(
-                len(geometry_args["positions"]) * 3, dtype=np.int32
+                len(geometry_args["positions"]), dtype=np.int32
             ).reshape((-1, 3))
 
         geometry_args["indices"] = indices
@@ -520,7 +598,8 @@ class _GLTF:
         buffer = gltf.model.buffers[buffer_view.buffer]
         m = memoryview(buffer.data)
         view = m[
-            buffer_view.byteOffset : buffer_view.byteOffset + buffer_view.byteLength
+            buffer_view.byteOffset : (buffer_view.byteOffset or 0)
+            + buffer_view.byteLength
         ]
         return view
 
@@ -599,10 +678,14 @@ class _GLTF:
             target = channel.target
             sampler = samplers[channel.sampler]
 
+            if target.node is None:
+                # todo: now we only support node animation
+                continue
+
             target_node = self._load_node(target.node)
             name = target_node.name
             target_property = target.path
-            interpolation = sampler.interpolation
+            interpolation = sampler.interpolation or "LINEAR"
             times = self._load_accessor(sampler.input)
             if times[-1] > duration:
                 duration = times[-1]
@@ -617,6 +700,8 @@ class _GLTF:
                 interpolation_fn = gfx.StepInterpolant
             elif interpolation == "CUBICSPLINE":
                 interpolation_fn = gfx.CubicSplineInterpolant
+            else:
+                raise ValueError(f"Unsupported interpolation type: {interpolation}")
 
             values = values.reshape(len(times), -1)
             keyframe = gfx.KeyframeTrack(
