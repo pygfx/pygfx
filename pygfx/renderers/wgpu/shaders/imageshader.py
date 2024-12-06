@@ -70,7 +70,7 @@ class ImageShader(BaseShader):
             self["img_nchannels"] = 3
         elif material.map is not None:
             self["use_colormap"] = True
-            self["colorspace"] = material.map.colorspace
+            self["colorspace"] = material.map.texture.colorspace
 
     def get_bindings(self, wobject, shared):
         geometry = wobject.geometry
@@ -98,9 +98,7 @@ class ImageShader(BaseShader):
             )
 
         if self["use_colormap"]:
-            bindings.extend(
-                self.define_img_colormap(material.map, material.map_interpolation)
-            )
+            bindings.extend(self.define_img_colormap(material.map))
 
         bindings = {i: b for i, b in enumerate(bindings)}
         self.define_bindings(0, bindings)

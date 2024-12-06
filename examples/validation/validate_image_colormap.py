@@ -24,12 +24,30 @@ colormap = gfx.Texture(np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]], np.float32), 
 
 image1 = gfx.Image(
     gfx.Geometry(grid=gfx.Texture(im, dim=2)),
-    gfx.ImageBasicMaterial(clim=(0, 1), map=colormap, map_interpolation="nearest"),
+    gfx.ImageBasicMaterial(
+        clim=(0, 1),
+        map=gfx.TextureMap(
+            colormap,
+            mag_filter="nearest",
+            min_filter="nearest",
+            wrap_s="clamp",
+            wrap_t="clamp",
+        ),
+    ),
 )
 
 image2 = gfx.Image(
     gfx.Geometry(grid=gfx.Texture(im, dim=2)),
-    gfx.ImageBasicMaterial(clim=(0, 1), map=colormap, map_interpolation="linear"),
+    gfx.ImageBasicMaterial(
+        clim=(0, 1),
+        map=gfx.TextureMap(
+            colormap,
+            mag_filter="linear",
+            min_filter="linear",
+            wrap_s="clamp",
+            wrap_t="clamp",
+        ),
+    ),
 )
 image2.local.y = 52
 
