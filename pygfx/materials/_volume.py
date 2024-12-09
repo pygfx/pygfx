@@ -1,4 +1,4 @@
-from ..resources import Texture
+from ..resources import Texture, TextureMap
 from ._base import Material
 from ..utils.color import Color
 
@@ -10,12 +10,10 @@ class VolumeBasicMaterial(Material):
     ----------
     clim : tuple
         The contrast limits to scale the data values with. Default (0, 1).
-    map : Texture
+    map : TextureMap
         The colormap to turn the voxel values into their final color.
     interpolation : str
         The method to interpolate the image data. Either 'nearest' or 'linear'. Default 'linear'.
-    map_interpolation: str
-        The method to interpolate the color map. Either 'nearest' or 'linear'. Default 'linear'.
     kwargs : Any
         Additional kwargs will be passed to the :class:`material base class
         <pygfx.Material>`.
@@ -32,7 +30,6 @@ class VolumeBasicMaterial(Material):
         clim=None,
         map=None,
         interpolation="linear",
-        map_interpolation="linear",
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -42,7 +39,6 @@ class VolumeBasicMaterial(Material):
         # for images. The ability to spot the individual voxels simply results in
         # poor visual quality.
         self.interpolation = interpolation
-        self.map_interpolation = map_interpolation
 
     @property
     def map(self):
@@ -55,7 +51,9 @@ class VolumeBasicMaterial(Material):
 
     @map.setter
     def map(self, map):
-        assert map is None or isinstance(map, Texture)
+        assert map is None or isinstance(map, (Texture, TextureMap))
+        if isinstance(map, Texture):
+            map = TextureMap(map)
         self._store.map = map
 
     @property
@@ -83,16 +81,6 @@ class VolumeBasicMaterial(Material):
     def interpolation(self, value):
         assert value in ("nearest", "linear")
         self._store.interpolation = value
-
-    @property
-    def map_interpolation(self):
-        """The method to interpolate the colormap. Either 'nearest' or 'linear'."""
-        return self._store.map_interpolation
-
-    @map_interpolation.setter
-    def map_interpolation(self, value):
-        assert value in ("nearest", "linear")
-        self._store.map_interpolation = value
 
 
 class VolumeSliceMaterial(VolumeBasicMaterial):
