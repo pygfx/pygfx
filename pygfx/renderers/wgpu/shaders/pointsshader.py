@@ -96,11 +96,7 @@ class PointsShader(BaseShader):
             bindings.append(
                 Binding("s_texcoords", rbuffer, geometry.texcoords, "VERTEX")
             )
-            bindings.extend(
-                self.define_colormap(
-                    material.map, geometry.texcoords, material.map_interpolation
-                )
-            )
+            bindings.extend(self.define_colormap(material.map, geometry.texcoords))
 
         # Process sprite texture. Note that we can *also* have a colormap for the base color.
         if self["is_sprite"] == 2:
