@@ -120,16 +120,17 @@ class MeshShader(BaseShader):
         ]
 
         if map.channel not in self["used_uv"]:
-            texcoords = getattr(geometry, f"texcoords{map.channel or ''}")
-            bindings.append(
-                Binding(
-                    f"s_texcoords{map.channel or ''}",
-                    "buffer/read_only_storage",
-                    texcoords,
-                    "VERTEX",
+            texcoords = getattr(geometry, f"texcoords{map.channel or ''}", None)
+            if texcoords is not None:
+                bindings.append(
+                    Binding(
+                        f"s_texcoords{map.channel or ''}",
+                        "buffer/read_only_storage",
+                        texcoords,
+                        "VERTEX",
+                    )
                 )
-            )
-            self["used_uv"][map.channel] = texcoords.data.ndim
+                self["used_uv"][map.channel] = texcoords.data.ndim
 
         return bindings
 
