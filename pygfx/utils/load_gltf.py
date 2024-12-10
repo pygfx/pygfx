@@ -164,6 +164,7 @@ class _GLTF:
             from os import path as os_path
             import urllib.parse
             import mimetypes
+            import asyncio
 
             # download
             response = httpx.get(path, follow_redirects=True)
@@ -178,17 +179,42 @@ class _GLTF:
             elif ext == ".glb":
                 self._gltf = gltflib.GLTF.read_glb(file_obj, load_file_resources=False)
 
-            # Load the remote FileResources from the URLs
-            for res in self._gltf.resources:
-                if isinstance(res, gltflib.FileResource):
-                    res_path = urllib.parse.urljoin(path, res.uri)
-                    response = httpx.get(res_path, follow_redirects=True)
-                    response.raise_for_status()
-                    res_file = BytesIO(response.content)
+            downloadable_resources = [
+                res
+                for res in self._gltf.resources
+                if isinstance(res, gltflib.FileResource)
+            ]
+            if downloadable_resources:
 
-                    res._data = res_file.read()
-                    res._mimetype = res._mimetype or mimetypes.guess_type(res.uri)[0]
-                    res._loaded = True
+                async def download_resource(res, client: httpx.AsyncClient):
+                    res_path = urllib.parse.urljoin(path, res.uri)
+                    try:
+                        response = await client.get(res_path)
+                        response.raise_for_status()
+                        res_file = BytesIO(response.content)
+
+                        res._data = res_file.read()
+                        res._mimetype = (
+                            res._mimetype or mimetypes.guess_type(res.uri)[0]
+                        )
+                        res._loaded = True
+
+                        return res
+                    except httpx.HTTPStatusError as e:
+                        gfx.utils.logger.warning(f"download failed: {e} - {res_path}")
+                    except Exception as e:
+                        gfx.utils.logger.warning(f"download failed: {e} - {res_path}")
+
+                async def _download_resources():
+                    async with httpx.AsyncClient() as client:
+                        tasks = [
+                            download_resource(res, client)
+                            for res in downloadable_resources
+                        ]
+                        results = await asyncio.gather(*tasks)
+                    return results
+
+                asyncio.run(_download_resources())
 
         else:  # local file
             self._gltf = gltflib.GLTF.load(path, load_file_resources=True)
@@ -406,7 +432,9 @@ class _GLTF:
             gfx_material = gfx.MeshStandardMaterial()
 
             if pbr_metallic_roughness.baseColorFactor is not None:
-                gfx_material.color = gfx.Color(*pbr_metallic_roughness.baseColorFactor)
+                gfx_material.color = gfx.Color.from_physical(
+                    *pbr_metallic_roughness.baseColorFactor
+                )
 
             if pbr_metallic_roughness.baseColorTexture is not None:
                 gfx_material.map = self._load_gltf_texture(
@@ -446,12 +474,21 @@ class _GLTF:
             gfx_material.ao_map = self._load_gltf_texture(material.occlusionTexture)
 
         if material.emissiveFactor is not None:
-            gfx_material.emissive = gfx.Color(*material.emissiveFactor)
+            gfx_material.emissive = gfx.Color.from_physical(*material.emissiveFactor)
 
         if material.emissiveTexture is not None:
             gfx_material.emissive_map = self._load_gltf_texture(
                 material.emissiveTexture
             )
+
+        # todo alphaMode
+        # todo alphaCutoff
+
+        gfx_material.side = (
+            gfx.enums.VisibleSide.both
+            if material.doubleSided
+            else gfx.enums.VisibleSide.front
+        )
 
         return gfx_material
 
@@ -532,7 +569,7 @@ class _GLTF:
             raise ValueError("No image data found")
 
         # need consider mimeType?
-        image = iio.imread(image_data)
+        image = iio.imread(image_data, pilmode="RGBA")
         return image
 
     def _load_gltf_geometry(self, primitive):
@@ -610,6 +647,10 @@ class _GLTF:
 
         buffer_view = gltf.model.bufferViews[accessor.bufferView]
         view = self._get_buffer_memory_view(accessor.bufferView)
+
+        # todo accessor.sparse
+        if accessor.sparse is not None:
+            gfx.utils.logger.warning("Sparse accessor is not supported yet.")
 
         accessor_type = accessor.type
         accessor_component_type = accessor.componentType

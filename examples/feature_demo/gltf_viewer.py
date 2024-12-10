@@ -6,8 +6,8 @@ This example demonstrates loading glTF models from remote URLs (KhronosGroup glT
 
 """
 
-# sphinx_gallery_pygfx_docs = 'animate 4s'
-# sphinx_gallery_pygfx_test = 'run'
+# sphinx_gallery_pygfx_docs = 'code'
+# sphinx_gallery_pygfx_test = 'off'
 
 import pygfx as gfx
 from wgpu.gui.auto import WgpuCanvas, run
@@ -27,7 +27,7 @@ scene = gfx.Scene()
 scene.add(gfx.Background.from_color(0.1))
 
 dl = gfx.DirectionalLight()
-dl.local.position = (-3, 10, -10)
+dl.local.position = (-3, 10, 10)
 scene.add(gfx.AmbientLight(intensity=0.5), dl)
 camera = gfx.PerspectiveCamera(45, 1280 / 720)
 
