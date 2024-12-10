@@ -63,9 +63,6 @@ class MeshShader(BaseShader):
         # Per-vertex color, colormap, or a plane color?
         self["colorspace"] = "srgb"
 
-        # record all uv channels used by texture maps
-        self["used_uv"] = set()
-
         color_mode = str(material.color_mode).split(".")[-1]
         if color_mode == "auto":
             if material.map is not None:
@@ -108,7 +105,7 @@ class MeshShader(BaseShader):
     def _define_texture_map(self, geometry, map, name, view_dim="2d", check=True):
         if check:
             # Check that the texture is compatible with the texcoord
-            self._check_texture(map, geometry)
+            self._check_texture(map, geometry, view_dim)
         view = GfxTextureView(map.texture, view_dim=view_dim)
 
         filter_mode = f"{map.mag_filter}, {map.min_filter}, {map.mipmap_filter}"
@@ -122,22 +119,27 @@ class MeshShader(BaseShader):
             Binding(f"t_{name}", "texture/auto", view, "FRAGMENT"),
         ]
 
-        if map.channel > 0 and map.channel not in self["used_uv"]:
-            bindings.append(
-                Binding(
-                    f"s_texcoords{map.channel}",
-                    "buffer/read_only_storage",
-                    getattr(geometry, f"texcoords{map.channel}"),
-                    "VERTEX",
+        if map.channel not in self["used_uv"]:
+            texcoords = getattr(geometry, f"texcoords{map.channel or ''}", None)
+            if texcoords is not None:
+                bindings.append(
+                    Binding(
+                        f"s_texcoords{map.channel or ''}",
+                        "buffer/read_only_storage",
+                        texcoords,
+                        "VERTEX",
+                    )
                 )
-            )
-            self["used_uv"].add(map.channel)
+                self["used_uv"][map.channel] = texcoords.data.ndim
 
         return bindings
 
     def get_bindings(self, wobject, shared):
         geometry = wobject.geometry
         material = wobject.material
+
+        # record all uv channels used by texture maps
+        self["used_uv"] = {}  # {uv_channel: texcoords_dim}
 
         # We're assuming the presence of an index buffer for now
         assert getattr(geometry, "indices", None)
@@ -177,20 +179,21 @@ class MeshShader(BaseShader):
             Binding("s_normals", rbuffer, normal_buffer, "VERTEX"),
         ]
 
-        # We always need texcoords, not only for colormap
-        if hasattr(geometry, "texcoords") and geometry.texcoords is not None:
-            bindings.append(
-                Binding("s_texcoords", rbuffer, geometry.texcoords, "VERTEX")
-            )
-
         if self["color_mode"] in ("vertex", "face"):
             bindings.append(Binding("s_colors", rbuffer, geometry.colors, "VERTEX"))
         elif self["color_mode"] in ("vertex_map", "face_map"):
             bindings.extend(
-                # todo: check uv is present and has the right shape. (introduce uv channel for texture)
-                # todo: unify the logic with other maps, introduce uv channel and texture sampler
+                # todo: unify the logic with other maps (use self._define_texture_map)?
                 self.define_colormap(material.map, geometry.texcoords)
             )
+
+            if 0 not in self["used_uv"]:
+                texcoords = getattr(geometry, "texcoords", None)
+                bindings.append(Binding("s_texcoords", rbuffer, texcoords, "VERTEX"))
+                if texcoords.data.ndim == 1:
+                    self["used_uv"][0] = 1
+                else:
+                    self["used_uv"][0] = texcoords.data.shape[-1]
 
         if self["use_skinning"]:
             # Skinning requires skin_index and skin_weight buffers
@@ -477,7 +480,7 @@ class MeshShader(BaseShader):
             "render_mask": render_mask,
         }
 
-    def _check_texture(self, t, geometry):
+    def _check_texture(self, t, geometry, view_dim):
         assert isinstance(t, TextureMap)
         uv_channel = t.channel
         if uv_channel > 0:
@@ -488,8 +491,20 @@ class MeshShader(BaseShader):
             texcoords is not None
         ), f"Texture {t} requires geometry.texcoords{uv_channel or ''}"
 
-        nchannels = nchannels_from_format(texcoords.format)
-        assert texcoords.data.ndim == nchannels
+        if view_dim == "1d":
+            assert (
+                texcoords.data.ndim == 1 or texcoords.data.shape[-1] == 1
+            ), f"Texture {t} requires 1D texcoords"
+        elif view_dim == "2d" or view_dim == "2d-array":
+            assert (
+                texcoords.data.ndim == 2 and texcoords.data.shape[-1] == 2
+            ), f"Texture {t} requires 2D texcoords"
+        elif view_dim == "cube" or view_dim == "3d" or view_dim == "cube-array":
+            assert (
+                texcoords.data.ndim == 2 and texcoords.data.shape[-1] == 3
+            ), f"Texture {t} requires 3D texcoords"
+        else:
+            raise ValueError(f"Unknown view_dim: {view_dim}")
 
         fmt = to_texture_format(t.texture.format)
         assert "norm" in fmt or "float" in fmt

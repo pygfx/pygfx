@@ -211,19 +211,16 @@ fn vs_main(in: VertexInput) -> Varyings {
     let tex_coord_index = i0;
     $$ endif
 
-    // Set texture coords
-    $$ if colormap_dim == '1d'
-    varyings.texcoord = f32(load_s_texcoords(tex_coord_index));
-    $$ elif colormap_dim == '2d'
-    varyings.texcoord = vec2<f32>(load_s_texcoords(tex_coord_index));
-    $$ elif colormap_dim == '3d'
-    varyings.texcoord = vec3<f32>(load_s_texcoords(tex_coord_index));
-    $$ endif
-
-
+ 
     // used_uv
-    $$ for uv in used_uv
-    varyings.texcoord{{uv}} = vec2<f32>(load_s_texcoords{{uv}}(tex_coord_index));
+    $$ for uv, ndim in used_uv.items()
+    $$ if ndim == 1
+    varyings.texcoord{{uv or ""}} = f32(load_s_texcoords{{uv or ""}}(tex_coord_index));
+    $$ elif ndim == 2
+    varyings.texcoord{{uv or ""}} = vec2<f32>(load_s_texcoords{{uv or ""}}(tex_coord_index));
+    $$ elif ndim == 3
+    varyings.texcoord{{uv or ""}} = vec3<f32>(load_s_texcoords{{uv or ""}}(tex_coord_index));
+    $$ endif
     $$ endfor
 
     // Set the normal
