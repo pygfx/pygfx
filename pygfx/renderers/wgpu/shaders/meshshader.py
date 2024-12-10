@@ -64,7 +64,7 @@ class MeshShader(BaseShader):
         self["colorspace"] = "srgb"
 
         # record all uv channels used by texture maps
-        self["used_uv"] = set()
+        self["used_uv"] = {}
 
         color_mode = str(material.color_mode).split(".")[-1]
         if color_mode == "auto":
@@ -122,16 +122,17 @@ class MeshShader(BaseShader):
             Binding(f"t_{name}", "texture/auto", view, "FRAGMENT"),
         ]
 
-        if map.channel > 0 and map.channel not in self["used_uv"]:
+        if map.channel not in self["used_uv"]:
+            texcoords = getattr(geometry, f"texcoords{map.channel or ''}")
             bindings.append(
                 Binding(
-                    f"s_texcoords{map.channel}",
+                    f"s_texcoords{map.channel or ''}",
                     "buffer/read_only_storage",
-                    getattr(geometry, f"texcoords{map.channel}"),
+                    texcoords,
                     "VERTEX",
                 )
             )
-            self["used_uv"].add(map.channel)
+            self["used_uv"][map.channel] = texcoords.data.ndim
 
         return bindings
 
@@ -178,19 +179,23 @@ class MeshShader(BaseShader):
         ]
 
         # We always need texcoords, not only for colormap
-        if hasattr(geometry, "texcoords") and geometry.texcoords is not None:
-            bindings.append(
-                Binding("s_texcoords", rbuffer, geometry.texcoords, "VERTEX")
-            )
+        # if hasattr(geometry, "texcoords") and geometry.texcoords is not None:
+        #     bindings.append(
+        #         Binding("s_texcoords", rbuffer, geometry.texcoords, "VERTEX")
+        #     )
 
         if self["color_mode"] in ("vertex", "face"):
             bindings.append(Binding("s_colors", rbuffer, geometry.colors, "VERTEX"))
         elif self["color_mode"] in ("vertex_map", "face_map"):
             bindings.extend(
-                # todo: check uv is present and has the right shape. (introduce uv channel for texture)
-                # todo: unify the logic with other maps, introduce uv channel and texture sampler
+                # todo: unify the logic with other maps (use self._define_texture_map)?
                 self.define_colormap(material.map, geometry.texcoords)
             )
+
+            if 0 not in self["used_uv"]:
+                texcoords = getattr(geometry, "texcoords", None)
+                bindings.append(Binding("s_texcoords", rbuffer, texcoords, "VERTEX"))
+                self["used_uv"][0] = texcoords.data.ndim
 
         if self["use_skinning"]:
             # Skinning requires skin_index and skin_weight buffers
