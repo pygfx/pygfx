@@ -63,9 +63,6 @@ class MeshShader(BaseShader):
         # Per-vertex color, colormap, or a plane color?
         self["colorspace"] = "srgb"
 
-        # record all uv channels used by texture maps
-        self["used_uv"] = {}
-
         color_mode = str(material.color_mode).split(".")[-1]
         if color_mode == "auto":
             if material.map is not None:
@@ -140,6 +137,9 @@ class MeshShader(BaseShader):
         geometry = wobject.geometry
         material = wobject.material
 
+        # record all uv channels used by texture maps
+        self["used_uv"] = {}
+
         # We're assuming the presence of an index buffer for now
         assert getattr(geometry, "indices", None)
 
@@ -194,8 +194,10 @@ class MeshShader(BaseShader):
 
             if 0 not in self["used_uv"]:
                 texcoords = getattr(geometry, "texcoords", None)
+                print("texcoords", texcoords)
                 bindings.append(Binding("s_texcoords", rbuffer, texcoords, "VERTEX"))
                 self["used_uv"][0] = texcoords.data.ndim
+                print("used_uv", self["used_uv"])
 
         if self["use_skinning"]:
             # Skinning requires skin_index and skin_weight buffers

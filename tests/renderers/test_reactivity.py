@@ -129,7 +129,7 @@ def test_reactivity_mesh2():
     # Swap out the whole geometry
     cube.geometry = g2
     changed = render(cube)
-    assert changed == {"bindings", "compose_pipeline"}
+    assert changed == {"bindings"}
 
 
 def test_reactivity_mesh3():
