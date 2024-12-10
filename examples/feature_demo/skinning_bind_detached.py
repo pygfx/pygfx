@@ -31,7 +31,6 @@ except NameError:
 # sphinx_gallery_pygfx_docs = 'animate 4s'
 # sphinx_gallery_pygfx_test = 'run'
 
-import time
 import numpy as np
 import pygfx as gfx
 from wgpu.gui.auto import WgpuCanvas, run
@@ -80,29 +79,24 @@ skinnedmesh2.bind(skeleton, np.eye(4))
 
 scene.add(skinnedmesh2)
 
-action_clip = gltf.animations[0]
-
 skeleton_helper = gfx.SkeletonHelper(model_obj)
 scene.add(skeleton_helper)
 
 gfx.OrbitController(camera, register_events=renderer)
 
-gloabl_time = 0
-last_time = time.perf_counter()
-
 stats = gfx.Stats(viewport=renderer)
+
+clock = gfx.Clock()
+mixer = gfx.AnimationMixer()
+
+action_clip = gltf.animations[0]
+action = mixer.clip_action(action_clip)
+action.play()
 
 
 def animate():
-    global gloabl_time, last_time
-    now = time.perf_counter()
-    dt = now - last_time
-    last_time = now
-    gloabl_time += dt
-    if gloabl_time > action_clip.duration:
-        gloabl_time = 0
-
-    action_clip.update(gloabl_time)
+    dt = clock.get_delta()
+    mixer.update(dt)
 
     skeleton.update()
     skeleton_helper.update()

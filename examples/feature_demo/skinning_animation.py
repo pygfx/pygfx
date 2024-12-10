@@ -31,9 +31,11 @@ except NameError:
 # sphinx_gallery_pygfx_docs = 'animate 4s'
 # sphinx_gallery_pygfx_test = 'run'
 
-import time
 import pygfx as gfx
 from wgpu.gui.auto import WgpuCanvas, run
+
+from wgpu.utils.imgui import ImguiRenderer
+from imgui_bundle import imgui, hello_imgui, icons_fontawesome_6  # type: ignore
 
 gltf_path = model_dir / "Michelle.glb"
 
@@ -42,7 +44,7 @@ canvas = WgpuCanvas(size=(640, 480), max_fps=-1, title="Skinnedmesh", vsync=Fals
 renderer = gfx.WgpuRenderer(canvas)
 camera = gfx.PerspectiveCamera(75, 640 / 480, depth_range=(0.1, 1000))
 camera.local.position = (0, 100, 200)
-camera.look_at((0, 100, 0))
+camera.look_at((0, 80, 0))
 scene = gfx.Scene()
 
 scene.add(gfx.AmbientLight(), gfx.DirectionalLight())
@@ -69,22 +71,74 @@ scene.add(model_obj)
 
 gfx.OrbitController(camera, register_events=renderer)
 
-gloabl_time = 0
-last_time = time.perf_counter()
-
 stats = gfx.Stats(viewport=renderer)
+
+clock = gfx.Clock()
+
+animation_mixer = gfx.AnimationMixer()
+action = animation_mixer.clip_action(action_clip)
+
+action.play()
+
+gui_renderer = ImguiRenderer(renderer.device, canvas)
+
+state = {"pause": False}
+
+fa_loading_params = hello_imgui.FontLoadingParams()
+fa_loading_params.use_full_glyph_range = True
+fa = hello_imgui.load_font("fonts/fontawesome-webfont.ttf", 14, fa_loading_params)
+gui_renderer.backend.create_fonts_texture()
+
+
+def draw_imgui():
+    imgui.new_frame()
+
+    imgui.set_next_window_size(
+        (gui_renderer.backend.io.display_size.x, 0), imgui.Cond_.always
+    )
+    imgui.set_next_window_pos(
+        (0, gui_renderer.backend.io.display_size.y - 40), imgui.Cond_.always
+    )
+    imgui.begin(
+        "player",
+        True,
+        flags=imgui.WindowFlags_.no_move
+        | imgui.WindowFlags_.no_resize
+        | imgui.WindowFlags_.no_collapse
+        | imgui.WindowFlags_.no_title_bar,
+    )
+
+    duration = action_clip.duration
+
+    imgui.push_font(fa)
+    if action.paused:
+        if imgui.button(icons_fontawesome_6.ICON_FA_PLAY, size=(24, 20)):
+            action.paused = False
+    else:
+        if imgui.button(icons_fontawesome_6.ICON_FA_PAUSE, size=(24, 20)):
+            action.paused = True
+
+    imgui.pop_font()
+    imgui.same_line()
+    avail_size = imgui.get_content_region_avail()
+    imgui.set_next_item_width(avail_size.x)
+    changed, v = imgui.slider_float(" ", action.time, 0, duration, "%.2f")
+    if changed:
+        action.time = v
+    imgui.end()
+
+    imgui.end_frame()
+    imgui.render()
+    return imgui.get_draw_data()
+
+
+gui_renderer.set_gui(draw_imgui)
 
 
 def animate():
-    global gloabl_time, last_time
-    now = time.perf_counter()
-    dt = now - last_time
-    last_time = now
-    gloabl_time += dt
-    if gloabl_time > action_clip.duration:
-        gloabl_time = 0
+    dt = clock.get_delta()
 
-    action_clip.update(gloabl_time)
+    animation_mixer.update(dt)
 
     model_obj.children[0].skeleton.update()
     skeleton_helper.update()
@@ -92,6 +146,7 @@ def animate():
     with stats:
         renderer.render(scene, camera, flush=False)
     stats.render()
+    gui_renderer.render()
     canvas.request_draw()
 
 
