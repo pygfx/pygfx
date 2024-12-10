@@ -133,9 +133,6 @@ def animate():
     t = elapsed_time % clip.duration  # simple loop the animation for now
     clip.update(t)
 
-    model_obj.children[0].skeleton.update()
-    skeleton_helper.update()
-
     with stats:
         renderer.render(scene, camera, flush=False)
     stats.render()
