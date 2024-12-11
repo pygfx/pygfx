@@ -129,7 +129,7 @@ def test_reactivity_mesh2():
     # Swap out the whole geometry
     cube.geometry = g2
     changed = render(cube)
-    assert changed == {"bindings", "compose_pipeline"}
+    assert changed == {"bindings"}
 
 
 def test_reactivity_mesh3():
@@ -157,7 +157,7 @@ def test_reactivity_mesh3():
     # Change to colormap of different format, need rebuild!
     obj.material.map = tex3
     print("uv", geometry.texcoords.data.shape)
-    print("map", obj.material.map.dim)
+    print("map", obj.material.map.texture.dim)
     changed = render(obj)
     assert changed == {"bindings", "compile_shader", "compose_pipeline"}
 

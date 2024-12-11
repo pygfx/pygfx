@@ -1,5 +1,5 @@
 from ._base import Material
-from ..resources import Texture
+from ..resources import Texture, TextureMap
 from ..utils import unpack_bitfield, Color
 from ..utils.enums import ColorMode, CoordSpace
 
@@ -17,10 +17,8 @@ class LineMaterial(Material):
         The uniform color of the line (used depending on the ``color_mode``).
     color_mode : str | ColorMode
         The mode by which the line is coloured. Default 'auto'.
-    map : Texture
+    map : TextureMap
         The texture map specifying the color for each texture coordinate. Optional.
-    map_interpolation: str
-        The method to interpolate the color map ('nearest' or 'linear'). Default 'linear'.
     dash_pattern : tuple
         The pattern of the dash, e.g. `[2, 3]`. See `dash_pattern` docs for details. Defaults to an empty tuple, i.e. no dashing.
     dash_offset : float
@@ -46,7 +44,6 @@ class LineMaterial(Material):
         color=(1, 1, 1, 1),
         color_mode="auto",
         map=None,
-        map_interpolation="linear",
         dash_pattern=(),
         dash_offset=0,
         aa=True,
@@ -59,7 +56,6 @@ class LineMaterial(Material):
         self.color = color
         self.color_mode = color_mode
         self.map = map
-        self.map_interpolation = map_interpolation
         self.dash_pattern = dash_pattern
         self.dash_offset = dash_offset
         self.aa = aa
@@ -181,21 +177,10 @@ class LineMaterial(Material):
 
     @map.setter
     def map(self, map):
-        assert map is None or isinstance(map, Texture)
+        assert map is None or isinstance(map, (Texture, TextureMap))
+        if isinstance(map, Texture):
+            map = TextureMap(map)
         self._store.map = map
-
-    @property
-    def map_interpolation(self):
-        """The method to interpolate the colormap.
-
-        Either 'nearest' or 'linear'.
-        """
-        return self._store.map_interpolation
-
-    @map_interpolation.setter
-    def map_interpolation(self, value):
-        assert value in ("nearest", "linear")
-        self._store.map_interpolation = value
 
     @property
     def dash_pattern(self):
