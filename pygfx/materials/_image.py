@@ -10,7 +10,7 @@ class ImageBasicMaterial(Material):
     ----------
     clim : tuple
         The contrast limits to scale the data values with. Default (0, 1).
-    map : Texture
+    map : TextureMap | Texture
         The texture map to turn the image values into its final color. Optional.
     interpolation : str
         The method to interpolate the image data. Either 'nearest' or 'linear'. Default 'nearest'.
@@ -48,7 +48,9 @@ class ImageBasicMaterial(Material):
 
     @map.setter
     def map(self, map):
-        assert_type("map", map, None, Texture)
+        assert_type("map", map, None, Texture, TextureMap)
+        if isinstance(map, Texture):
+            map = TextureMap(map)
         self._store.map = map
 
     @property

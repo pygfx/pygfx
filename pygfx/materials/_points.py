@@ -1,6 +1,6 @@
 from ._base import Material
 from ..resources import Texture, TextureMap
-from ..utils import unpack_bitfield, Color
+from ..utils import unpack_bitfield, Color, assert_type
 from ..utils.enums import EdgeMode, ColorMode, SizeMode, CoordSpace, MarkerShape
 
 
@@ -211,7 +211,7 @@ class PointsMaterial(Material):
 
     @map.setter
     def map(self, map):
-        assert map is None or isinstance(map, (Texture, TextureMap))
+        assert_type("map", map, None, Texture, TextureMap)
         if isinstance(map, Texture):
             map = TextureMap(map)
         self._store.map = map

@@ -1,7 +1,7 @@
 import math
 from ._base import Material
 from ..resources import Texture, TextureMap
-from ..utils import logger
+from ..utils import logger, assert_type
 from ..utils.color import Color
 from ..utils.enums import ColorMode, VisibleSide
 
@@ -17,7 +17,7 @@ class MeshAbstractMaterial(Material):
         The uniform color of the mesh (used depending on the ``color_mode``).
     color_mode : str | ColorMode
         The mode by which the mesh is coloured. Default 'auto'.
-    map : Map
+    map : TextureMap | Texture
         The texture map specifying the color at each texture coordinate. Optional.
     side : str | VisibleSide
         What side of the mesh is visible. Default "both".
@@ -121,7 +121,7 @@ class MeshAbstractMaterial(Material):
 
     @map.setter
     def map(self, map):
-        assert map is None or isinstance(map, (Texture, TextureMap))
+        assert_type("map", map, None, Texture, TextureMap)
         if isinstance(map, Texture):
             map = TextureMap(map)
         self._store.map = map
@@ -348,7 +348,7 @@ class MeshBasicMaterial(MeshAbstractMaterial):
 
     @light_map.setter
     def light_map(self, map):
-        assert map is None or isinstance(map, (Texture, TextureMap))
+        assert_type("light_map", map, None, Texture, TextureMap)
         if isinstance(map, Texture):
             map = TextureMap(map)
         self._store.light_map = map
@@ -373,7 +373,7 @@ class MeshBasicMaterial(MeshAbstractMaterial):
 
     @ao_map.setter
     def ao_map(self, map):
-        assert map is None or isinstance(map, (Texture, TextureMap))
+        assert_type("ao_map", map, None, Texture, TextureMap)
         if isinstance(map, Texture):
             map = TextureMap(map)
         self._store.ao_map = map
@@ -395,7 +395,7 @@ class MeshBasicMaterial(MeshAbstractMaterial):
 
     @specular_map.setter
     def specular_map(self, map):
-        assert map is None or isinstance(map, (Texture, TextureMap))
+        assert_type("specular_map", map, None, Texture, TextureMap)
         if isinstance(map, Texture):
             map = TextureMap(map)
         self._store.specular_map = map
@@ -525,7 +525,7 @@ class MeshPhongMaterial(MeshBasicMaterial):
 
     @emissive_map.setter
     def emissive_map(self, map):
-        assert map is None or isinstance(map, (Texture, TextureMap))
+        assert_type("emissive_map", map, None, Texture, TextureMap)
         if isinstance(map, Texture):
             map = TextureMap(map)
         self._store.emissive_map = map
@@ -571,7 +571,7 @@ class MeshPhongMaterial(MeshBasicMaterial):
 
     @normal_map.setter
     def normal_map(self, map):
-        assert map is None or isinstance(map, (Texture, TextureMap))
+        assert_type("normal_map", map, None, Texture, TextureMap)
         if isinstance(map, Texture):
             map = TextureMap(map)
         self._store.normal_map = map
@@ -679,7 +679,7 @@ class MeshToonMaterial(MeshBasicMaterial):
 
     @normal_map.setter
     def normal_map(self, map):
-        assert map is None or isinstance(map, (Texture, TextureMap))
+        assert_type("normal_map", map, None, Texture, TextureMap)
         if isinstance(map, Texture):
             map = TextureMap(map)
         self._store.normal_map = map
@@ -693,7 +693,7 @@ class MeshToonMaterial(MeshBasicMaterial):
 
     @gradient_map.setter
     def gradient_map(self, map):
-        assert map is None or isinstance(map, (Texture, TextureMap))
+        assert_type("gradient_map", map, None, Texture, TextureMap)
         if isinstance(map, Texture):
             map = TextureMap(map)
         self._store.gradient_map = map
@@ -902,7 +902,7 @@ class MeshStandardMaterial(MeshBasicMaterial):
 
     @emissive_map.setter
     def emissive_map(self, map):
-        assert map is None or isinstance(map, (Texture, TextureMap))
+        assert_type("emissive_map", map, None, Texture, TextureMap)
         if isinstance(map, Texture):
             map = TextureMap(map)
         self._store.emissive_map = map
@@ -946,7 +946,7 @@ class MeshStandardMaterial(MeshBasicMaterial):
 
     @metalness_map.setter
     def metalness_map(self, map):
-        assert map is None or isinstance(map, (Texture, TextureMap))
+        assert_type("metalness_map", map, None, Texture, TextureMap)
         if isinstance(map, Texture):
             map = TextureMap(map)
         self._store.metalness_map = map
@@ -971,7 +971,7 @@ class MeshStandardMaterial(MeshBasicMaterial):
 
     @roughness_map.setter
     def roughness_map(self, map):
-        assert map is None or isinstance(map, (Texture, TextureMap))
+        assert_type("roughness_map", map, None, Texture, TextureMap)
         if isinstance(map, Texture):
             map = TextureMap(map)
         self._store.roughness_map = map
@@ -1000,7 +1000,7 @@ class MeshStandardMaterial(MeshBasicMaterial):
 
     @normal_map.setter
     def normal_map(self, map):
-        assert map is None or isinstance(map, (Texture, TextureMap))
+        assert_type("normal_map", map, None, Texture, TextureMap)
         if isinstance(map, Texture):
             map = TextureMap(map)
         self._store.normal_map = map
@@ -1021,7 +1021,7 @@ class MeshStandardMaterial(MeshBasicMaterial):
 
     @env_map.setter
     def env_map(self, map):
-        assert map is None or isinstance(map, (Texture, TextureMap))
+        assert_type("env_map", map, None, Texture, TextureMap)
         if isinstance(map, Texture):
             map = TextureMap(map)
 
