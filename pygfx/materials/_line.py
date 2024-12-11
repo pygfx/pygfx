@@ -17,7 +17,7 @@ class LineMaterial(Material):
         The uniform color of the line (used depending on the ``color_mode``).
     color_mode : str | ColorMode
         The mode by which the line is coloured. Default 'auto'.
-    map : TextureMap
+    map : TextureMap | Texture
         The texture map specifying the color for each texture coordinate. Optional.
     dash_pattern : tuple
         The pattern of the dash, e.g. `[2, 3]`. See `dash_pattern` docs for details. Defaults to an empty tuple, i.e. no dashing.

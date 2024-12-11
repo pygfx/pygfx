@@ -10,7 +10,7 @@ class VolumeBasicMaterial(Material):
     ----------
     clim : tuple
         The contrast limits to scale the data values with. Default (0, 1).
-    map : TextureMap
+    map : TextureMap | Texture
         The colormap to turn the voxel values into their final color.
     interpolation : str
         The method to interpolate the image data. Either 'nearest' or 'linear'. Default 'linear'.

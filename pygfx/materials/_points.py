@@ -23,7 +23,7 @@ class PointsMaterial(Material):
         The mode by which the points are coloured. Default 'auto'.
     edge_mode : str | EdgeMode
         The mode by which the points are edged. Default 'centered'.
-    map : TextureMap
+    map : TextureMap | Texture
         The texture map specifying the color for each texture coordinate.
     aa : bool
         Whether or not the points are anti-aliased in the shader. Default True.
