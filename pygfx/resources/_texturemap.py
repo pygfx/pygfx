@@ -12,7 +12,9 @@ class TextureMap(Trackable):
     texture : Texture
         The texture to use for this map.
     channel : int, optional
-        The uv channel of the texture to use. Default is 0.
+        The uv channel of the texture to use.
+        e.g. with `channel=7`, it will use the `geometry.texcoords7`.
+        Default is 0, which uses the `geometry.texcoords`.
     mag_filter : str, optional
         The magnification filter to use. Default is "linear".
     min_filter : str, optional
