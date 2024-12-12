@@ -28,7 +28,14 @@ camera.local.scale_y = -1
 camera.local.x = 176 / 2
 controller = gfx.PanZoomController(camera, register_events=renderer)
 
-images = []
+astronaut = iio.imread("imageio:astronaut.png")
+# astronaut is a 512x512 image, resize it to 32x32
+# anti-aliasing is bad, but it shows funny effects too!
+astronaut_32x32 = astronaut[::16, ::16]
+astronaut_32x32_grayscale = np.sum(
+    np.asarray([1.0, 1.0, 1.0]) / 3 * astronaut_32x32,
+    axis=-1,
+).astype(np.uint8)
 
 position_rgb = 0
 position_gray = 176
@@ -40,8 +47,7 @@ for i in [
     2,
     1,
 ]:
-    image_rgb = np.zeros((i, i, 3), dtype=np.uint8)
-    image_rgb[...] = np.random.randint(0, 256, image_rgb.shape)
+    image_rgb = astronaut_32x32[:: 32 // i, :: 32 // i]
     image_gfx = gfx.Image(
         gfx.Geometry(grid=gfx.Texture(image_rgb, dim=2)),
         gfx.ImageBasicMaterial(clim=(0, 255)),
@@ -50,8 +56,7 @@ for i in [
     position_rgb += i + 10
     scene.add(image_gfx)
 
-    image_gray = np.zeros((i, i), dtype=np.uint8)
-    image_gray[...] = np.random.randint(0, 256, image_gray.shape)
+    image_gray = astronaut_32x32_grayscale[:: 32 // i, :: 32 // i]
     image_gfx = gfx.Image(
         gfx.Geometry(grid=gfx.Texture(image_gray, dim=2)),
         gfx.ImageBasicMaterial(clim=(0, 255)),
