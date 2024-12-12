@@ -320,17 +320,12 @@ def animate():
             tex.send_data((0, 0, 1), u)
             tex.send_data((w // 2, 0, 1), v)
     elif FORMAT == "yuv444p":
-        y = data[0]
-        u = data[1]
-        v = data[2]
         if THREE_GRID_YUV:
-            tex.send_data((0, 0), y)
-            u_tex.send_data((0, 0), u)
-            v_tex.send_data((0, 0), v)
+            tex.send_data((0, 0), data[0])
+            u_tex.send_data((0, 0), data[1])
+            v_tex.send_data((0, 0), data[2])
         else:
-            tex.send_data((0, 0, 0), y)
-            tex.send_data((0, 0, 1), u)
-            tex.send_data((0, 0, 2), v)
+            tex.send_data((0, 0, 0), data)
     elif FORMAT == "rgba":
         # The data is already rgba, so we can just send it as one blob.
         # That blob is more than twice the size of the yuv420 data though.
