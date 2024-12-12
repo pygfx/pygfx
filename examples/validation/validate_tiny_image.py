@@ -1,6 +1,6 @@
 """
 Tiny Image Validation
-=========
+=====================
 
 This example shows the ability to render different images of small sizes
 from 32x32 to 1x1 pixels in both RGB and grayscale formats.
@@ -26,7 +26,6 @@ camera = gfx.OrthographicCamera(180, 40)
 camera.local.y = 16
 camera.local.scale_y = -1
 camera.local.x = 176 / 2
-controller = gfx.PanZoomController(camera, register_events=renderer)
 
 astronaut = iio.imread("imageio:astronaut.png")
 # astronaut is a 512x512 image, resize it to 32x32
@@ -66,12 +65,8 @@ for i in [
     scene.add(image_gfx)
     position_gray -= i + 10
 
-
-def animate():
-    renderer.render(scene, camera)
-    canvas.request_draw()
-
+canvas.request_draw(lambda: renderer.render(scene, camera))
 
 if __name__ == "__main__":
-    canvas.request_draw(animate)
+    print(__doc__)
     run()
