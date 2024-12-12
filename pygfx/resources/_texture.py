@@ -335,11 +335,18 @@ class Texture(Resource):
                 force_contiguous=True,
             )
         """
+        # Check data
         if self._data is not None:
             raise RuntimeError(
                 "Can only use texture.send_data() if the texture has no local data."
             )
-        # Check input
+        nchannels = nchannels_from_format(self.format)
+        if nchannels > 1:
+            if data.shape[-1] != nchannels:
+                raise ValueError(
+                    f"Expected {nchannels} channels with format '{self.format}', but shape[-1] is {data.shape[-1]}."
+                )
+        # Check offset
         if not isinstance(offset, (list, tuple)) and len(offset) == 3:
             raise ValueError("Offset must be a tuple of 3 ints")
         offset = tuple(int(i) for i in offset)
@@ -347,17 +354,15 @@ class Texture(Resource):
             raise ValueError("offset must not be negative")
         # Get data size
         shape = list(data.shape)
-        if self.dim == 1:
-            shape = [1, 1, *shape]
-        elif self.dim == 2:
-            shape = [1, *shape]
+        need_shape_length = 3 if nchannels == 1 else 4
+        while len(shape) < need_shape_length:
+            shape.insert(0, 1)
         size = tuple(reversed(shape[:3]))
-        if len(size) != 3:
-            raise ValueError("Unexpected data shape")
         # Check whether it fits
         if any((o1 + s1) > s2 for o1, s1, s2 in zip(offset, size, self.size)):
             raise ValueError("The data with this offset does not fit.")
         # Create chunk
+        data = data.view()
         data.shape = shape
         if not data.flags.c_contiguous:
             if self._force_contiguous:
@@ -541,6 +546,27 @@ class Texture(Resource):
             chunk = np.ascontiguousarray(chunk)
 
         return chunk
+
+
+def nchannels_from_format(format):
+    if len(format) == 2 and format[0] in "usf":
+        return 1  # e.g. u1, s2, f4
+    elif format[0].isnumeric() and format[1] == "x":
+        return int(format.split("x")[0])
+    elif format[0] == "r":
+        if format[1] != "g":
+            return 1
+        elif format[2] != "b":
+            return 2
+        elif format[3] != "a":
+            return 3
+        else:
+            return 4
+    elif format.startswith("bgra"):
+        return 4
+    else:
+        # Other prefixes: astc, bc, eac, etc2, depth, stencil
+        raise ValueError(f"Cannot derive nchannels from format '{format}' yet.")
 
 
 def size_from_array(data, dim):
