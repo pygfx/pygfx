@@ -182,6 +182,9 @@ def select_canvas(fname, namespace):
         elif isinstance(target, BaseRenderCanvas):
             canvas = target
             break
+        elif target.__class__.__name__.endswith("WgpuCanvas"):
+            canvas = target
+            break
     # Try getting from proxy objects
     if canvas is None:
         for target_name in ["display", "disp", "plot", "figure"]:
