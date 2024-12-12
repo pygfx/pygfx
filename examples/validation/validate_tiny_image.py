@@ -1,0 +1,72 @@
+"""
+Tiny Image Validation
+=========
+
+This example shows the ability to render different images of small sizes
+from 32x32 to 1x1 pixels in both RGB and grayscale formats.
+
+1x1 pixel images might seem strange but can occurs in algorithm development
+where the applicability of an algorithm is tested against extreme bounds.
+
+"""
+
+# sphinx_gallery_pygfx_docs = 'screenshot'
+# sphinx_gallery_pygfx_test = 'compare'
+
+import numpy as np
+import imageio.v3 as iio
+from wgpu.gui.auto import WgpuCanvas, run
+import pygfx as gfx
+
+
+canvas = WgpuCanvas(size=(180 * 5, 40 * 5))
+renderer = gfx.renderers.WgpuRenderer(canvas)
+scene = gfx.Scene()
+camera = gfx.OrthographicCamera(180, 40)
+camera.local.y = 16
+camera.local.scale_y = -1
+camera.local.x = 176 / 2
+controller = gfx.PanZoomController(camera, register_events=renderer)
+
+images = []
+
+position_rgb = 0
+position_gray = 176
+for i in [
+    32,
+    16,
+    8,
+    4,
+    2,
+    1,
+]:
+    image_rgb = np.zeros((i, i, 3), dtype=np.uint8)
+    image_rgb[...] = np.random.randint(0, 256, image_rgb.shape)
+    image_gfx = gfx.Image(
+        gfx.Geometry(grid=gfx.Texture(image_rgb, dim=2)),
+        gfx.ImageBasicMaterial(clim=(0, 255)),
+    )
+    image_gfx.local.x = position_rgb
+    position_rgb += i + 10
+    scene.add(image_gfx)
+
+    image_gray = np.zeros((i, i), dtype=np.uint8)
+    image_gray[...] = np.random.randint(0, 256, image_gray.shape)
+    image_gfx = gfx.Image(
+        gfx.Geometry(grid=gfx.Texture(image_gray, dim=2)),
+        gfx.ImageBasicMaterial(clim=(0, 255)),
+    )
+    image_gfx.local.x = position_gray - i
+    image_gfx.local.y = 32 - i
+    scene.add(image_gfx)
+    position_gray -= i + 10
+
+
+def animate():
+    renderer.render(scene, camera)
+    canvas.request_draw()
+
+
+if __name__ == "__main__":
+    canvas.request_draw(animate)
+    run()
