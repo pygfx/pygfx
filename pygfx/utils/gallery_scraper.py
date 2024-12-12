@@ -10,7 +10,7 @@ from pathlib import Path
 import imageio.v3 as iio
 from sphinx_gallery.scrapers import figure_rst
 from sphinx_gallery.py_source_parser import extract_file_config
-from wgpu.gui import WgpuCanvasBase
+from rendercanvas import BaseRenderCanvas
 
 from ..renderers import Renderer
 
@@ -179,14 +179,16 @@ def select_canvas(fname, namespace):
         elif isinstance(target, Renderer):
             canvas = target.target
             break
-        elif isinstance(target, WgpuCanvasBase):
+        elif isinstance(target, BaseRenderCanvas):
             canvas = target
             break
     # Try getting from proxy objects
     if canvas is None:
         for target_name in ["display", "disp", "plot", "figure"]:
             target = namespace.get(target_name, None)
-            if hasattr(target, "canvas") and isinstance(target.canvas, WgpuCanvasBase):
+            if hasattr(target, "canvas") and isinstance(
+                target.canvas, BaseRenderCanvas
+            ):
                 canvas = target.canvas
                 break
     # Found?
