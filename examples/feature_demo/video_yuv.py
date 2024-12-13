@@ -69,8 +69,8 @@ import time
 
 import wgpu
 import numpy as np
-from wgpu.gui.auto import WgpuCanvas, run
-from wgpu.gui.offscreen import WgpuCanvas as OffscreenCanvas
+from rendercanvas.auto import RenderCanvas, loop
+from rendercanvas.offscreen import OffscreenRenderCanvas
 import pygfx as gfx
 import imageio
 import av
@@ -285,7 +285,7 @@ if FORMAT in ["yuv420p", "yuv444p"] and THREE_GRID_YUV:
 
 # Setup the rest of the viz
 
-CanvasClass = OffscreenCanvas if OFFSCREEN else WgpuCanvas
+CanvasClass = OffscreenRenderCanvas if OFFSCREEN else RenderCanvas
 canvas = CanvasClass(size=(w // 2, h // 2), max_fps=999, vsync=False)
 renderer = gfx.renderers.WgpuRenderer(canvas, show_fps=True)
 scene = gfx.Scene()
@@ -355,5 +355,5 @@ if __name__ == "__main__":
             canvas.draw()
     else:
         # Enter normal canvas event loop
-        run()
+        loop.run()
     wgpu.diagnostics.pygfx_adapter_info.print_report()
