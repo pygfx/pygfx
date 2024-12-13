@@ -155,7 +155,7 @@ class OpaquePass(BasePass):
             @location(0) color: vec4<f32>,
             @location(1) pick: vec4<u32>,
         };
-        fn get_fragment_output(depth: f32, color: vec4<f32>) -> FragmentOutput {
+        fn get_fragment_output(position: vec4<f32>, color: vec4<f32>) -> FragmentOutput {
             if (color.a < 1.0 - ALPHA_COMPARE_EPSILON ) { discard; }
             var out : FragmentOutput;
             out.color = vec4<f32>(color.rgb, 1.0);
@@ -176,9 +176,31 @@ class FullOpaquePass(OpaquePass):
             @location(0) color: vec4<f32>,
             @location(1) pick: vec4<u32>,
         };
-        fn get_fragment_output(depth: f32, color: vec4<f32>) -> FragmentOutput {
+       fn get_fragment_output(position: vec4<f32>, color: vec4<f32>) -> FragmentOutput {
             var out : FragmentOutput;
-            out.color = vec4<f32>(color.rgb, 1.0);  // always opaque
+            out.color = vec4<f32>(color.rgb, 1.0);  // make every fragment opaque
+            return out;
+        }
+        """
+
+
+class DitherPass(OpaquePass):
+    """A pass that uses dithering based on alpha (stochastic transparency)."""
+
+    render_mask = RenderMask.opaque | RenderMask.transparent
+    write_pick = True
+
+    def get_shader_code(self, blender):
+        return """
+        struct FragmentOutput {
+            @location(0) color: vec4<f32>,
+            @location(1) pick: vec4<u32>,
+        };
+        fn get_fragment_output(position: vec4<f32>, color: vec4<f32>) -> FragmentOutput {
+            var out : FragmentOutput;
+            let rand = random4(vec4<f32>(position.xyz, f32(u_wobject.id)));
+            if ( color.a < 1.0 - ALPHA_COMPARE_EPSILON && color.a < rand ) { discard; }
+            out.color = vec4<f32>(color.rgb, 1.0);  // fragments that pass through are opaque
             return out;
         }
         """
@@ -215,7 +237,7 @@ class SimpleSinglePass(OpaquePass):
             @location(0) color: vec4<f32>,
             @location(1) pick: vec4<u32>,
         };
-        fn get_fragment_output(depth: f32, color: vec4<f32>) -> FragmentOutput {
+        fn get_fragment_output(position: vec4<f32>, color: vec4<f32>) -> FragmentOutput {
             var out : FragmentOutput;
             out.color = vec4<f32>(color.rgb * color.a, color.a);
             return out;
@@ -284,7 +306,7 @@ class SimpleTransparencyPass(BasePass):
         struct FragmentOutput {
             @location(0) color: vec4<f32>,
         };
-        fn get_fragment_output(depth: f32, color: vec4<f32>) -> FragmentOutput {
+        fn get_fragment_output(position: vec4<f32>, color: vec4<f32>) -> FragmentOutput {
             if (color.a <= ALPHA_COMPARE_EPSILON) { discard; }
             var out : FragmentOutput;
             out.color = vec4<f32>(color.rgb * color.a, color.a);
@@ -386,7 +408,8 @@ class WeightedTransparencyPass(BasePass):
             @location(0) accum: vec4<f32>,
             @location(1) reveal: f32,
         };
-        fn get_fragment_output(depth: f32, color: vec4<f32>) -> FragmentOutput {
+        fn get_fragment_output(position: vec4<f32>, color: vec4<f32>) -> FragmentOutput {
+            let depth = position.z;
             let alpha = color.a;
             if (alpha <= ALPHA_COMPARE_EPSILON) { discard; }
             let premultiplied = color.rgb * alpha;
@@ -481,7 +504,7 @@ class FrontmostTransparencyPass(BasePass):
             @location(0) color: vec4<f32>,
             @location(1) pick: vec4<u32>,
         };
-        fn get_fragment_output(depth: f32, color: vec4<f32>) -> FragmentOutput {
+        fn get_fragment_output(position: vec4<f32>, color: vec4<f32>) -> FragmentOutput {
             if (color.a <= ALPHA_COMPARE_EPSILON || color.a >= 1.0 - ALPHA_COMPARE_EPSILON) { discard; }
             var out : FragmentOutput;
             out.color = vec4<f32>(color.rgb * color.a, color.a);
@@ -659,6 +682,14 @@ class OpaqueFragmentBlender(BaseFragmentBlender):
     """
 
     passes = [FullOpaquePass()]
+
+
+class DitherFragmentBlender(BaseFragmentBlender):
+    """A fragment blender that pretends that all surfaces are opaque,
+    even if they're not.
+    """
+
+    passes = [DitherPass()]
 
 
 class Ordered1FragmentBlender(BaseFragmentBlender):
@@ -974,7 +1005,8 @@ class AdditivePass(BasePass):
         struct FragmentOutput {
             @location(0) color: vec4<f32>,
         };
-        fn get_fragment_output(depth: f32, color: vec4<f32>) -> FragmentOutput {
+        fn get_fragment_output(position: vec4<f32>, color: vec4<f32>) -> FragmentOutput {
+            let depth = position.z;
             var out : FragmentOutput;
             out.color = color;
             return out;
