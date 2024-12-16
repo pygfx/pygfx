@@ -32,12 +32,12 @@ except NameError:
 # sphinx_gallery_pygfx_test = 'run'
 
 import imageio.v3 as iio
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 
 
 # Init
-canvas = WgpuCanvas(size=(1200, 400), title="aomap")
+canvas = RenderCanvas(size=(1200, 400), title="aomap")
 renderer = gfx.renderers.WgpuRenderer(canvas)
 
 meshes = gfx.load_gltf_mesh(model_dir / "lightmap" / "scene.gltf", materials=False)
@@ -100,4 +100,4 @@ def animate():
 
 if __name__ == "__main__":
     renderer.request_draw(animate)
-    run()
+    loop.run()

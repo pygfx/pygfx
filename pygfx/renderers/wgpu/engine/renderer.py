@@ -9,6 +9,8 @@ import weakref
 import numpy as np
 import wgpu
 import pylinalg as la
+from rendercanvas import BaseRenderCanvas
+from wgpu.gui import WgpuCanvasBase
 
 from ....objects._base import id_provider
 from ....objects import (
@@ -35,6 +37,9 @@ from .environment import get_environment
 from .shadowutil import render_shadow_maps
 from .mipmapsutil import generate_texture_mipmaps
 from .utils import GfxTextureView
+
+
+AnyBaseCanvas = BaseRenderCanvas, WgpuCanvasBase
 
 
 def _get_sort_function(camera: Camera):
@@ -130,7 +135,11 @@ class WgpuRenderer(RootEventHandler, Renderer):
         super().__init__(*args, **kwargs)
 
         # Check and normalize inputs
-        if not isinstance(target, (Texture, GfxTextureView, wgpu.gui.WgpuCanvasBase)):
+        # if isinstance(target, WgpuCanvasBase):
+        #     raise RuntimeError("wgpu.gui.x.WgpuCanvas has been replaced with rendercanvas.x.RenderCanvas")
+        if not isinstance(
+            target, (Texture, GfxTextureView, WgpuCanvasBase, BaseRenderCanvas)
+        ):
             raise TypeError(
                 f"Render target must be a Canvas or Texture, not a {target.__class__.__name__}"
             )
@@ -148,8 +157,8 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # Get target format
         self.gamma_correction = gamma_correction
         self._gamma_correction_srgb = 1.0
-        if isinstance(target, wgpu.gui.WgpuCanvasBase):
-            self._canvas_context = self._target.get_context()
+        if isinstance(target, AnyBaseCanvas):
+            self._canvas_context = self._target.get_context("wgpu")
             # Select output format. We currently don't have a way of knowing
             # what formats are available, so if not srgb, we gamma-correct in shader.
             target_format = self._canvas_context.get_preferred_format(
@@ -218,7 +227,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         """
         if self._pixel_ratio is not None:
             return self._pixel_ratio
-        elif isinstance(self._target, wgpu.gui.WgpuCanvasBase):
+        elif isinstance(self._target, AnyBaseCanvas):
             target_pixel_ratio = self._target.get_pixel_ratio()
             if target_pixel_ratio > 1.0:
                 return target_pixel_ratio
@@ -269,7 +278,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
     def logical_size(self):
         """The size of the render target in logical pixels."""
         target = self._target
-        if isinstance(target, wgpu.gui.WgpuCanvasBase):
+        if isinstance(target, AnyBaseCanvas):
             return target.get_logical_size()
         elif isinstance(target, Texture):
             return target.size[:2]  # assuming pixel-ratio 1
@@ -334,7 +343,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # If the blend mode has changed, we may need a new _wobject_pipelines
         self._set_wobject_pipelines()
         # If our target is a canvas, request a new draw
-        if isinstance(self._target, wgpu.gui.WgpuCanvasBase):
+        if isinstance(self._target, AnyBaseCanvas):
             self._target.request_draw()
 
     @property
@@ -361,7 +370,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
     @gamma_correction.setter
     def gamma_correction(self, value):
         self._gamma_correction = 1.0 if value is None else float(value)
-        if isinstance(self._target, wgpu.gui.WgpuCanvasBase):
+        if isinstance(self._target, AnyBaseCanvas):
             self._target.request_draw()
 
     def _set_wobject_pipelines(self):
@@ -569,7 +578,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
             target = self._target
 
         # Get the wgpu texture view.
-        if isinstance(target, wgpu.gui.WgpuCanvasBase):
+        if isinstance(target, AnyBaseCanvas):
             wgpu_tex_view = self._canvas_context.get_current_texture().create_view()
         elif isinstance(target, Texture):
             need_mipmaps = target.generate_mipmaps

@@ -69,8 +69,8 @@ import time
 
 import wgpu
 import numpy as np
-from wgpu.gui.auto import WgpuCanvas, run
-from wgpu.gui.offscreen import WgpuCanvas as OffscreenCanvas
+from rendercanvas.auto import RenderCanvas, loop
+from rendercanvas.offscreen import OffscreenRenderCanvas
 import pygfx as gfx
 import imageio
 import av
@@ -285,7 +285,7 @@ if FORMAT in ["yuv420p", "yuv444p"] and THREE_GRID_YUV:
 
 # Setup the rest of the viz
 
-CanvasClass = OffscreenCanvas if OFFSCREEN else WgpuCanvas
+CanvasClass = OffscreenRenderCanvas if OFFSCREEN else RenderCanvas
 canvas = CanvasClass(size=(w // 2, h // 2), max_fps=999, vsync=False)
 renderer = gfx.renderers.WgpuRenderer(canvas, show_fps=True)
 scene = gfx.Scene()
@@ -320,17 +320,12 @@ def animate():
             tex.send_data((0, 0, 1), u)
             tex.send_data((w // 2, 0, 1), v)
     elif FORMAT == "yuv444p":
-        y = data[0]
-        u = data[1]
-        v = data[2]
         if THREE_GRID_YUV:
-            tex.send_data((0, 0), y)
-            u_tex.send_data((0, 0), u)
-            v_tex.send_data((0, 0), v)
+            tex.send_data((0, 0), data[0])
+            u_tex.send_data((0, 0), data[1])
+            v_tex.send_data((0, 0), data[2])
         else:
-            tex.send_data((0, 0, 0), y)
-            tex.send_data((0, 0, 1), u)
-            tex.send_data((0, 0, 2), v)
+            tex.send_data((0, 0, 0), data)
     elif FORMAT == "rgba":
         # The data is already rgba, so we can just send it as one blob.
         # That blob is more than twice the size of the yuv420 data though.
@@ -360,5 +355,5 @@ if __name__ == "__main__":
             canvas.draw()
     else:
         # Enter normal canvas event loop
-        run()
+        loop.run()
     wgpu.diagnostics.pygfx_adapter_info.print_report()

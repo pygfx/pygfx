@@ -1,6 +1,6 @@
 import pytest
 
-from wgpu.gui.offscreen import WgpuCanvas
+from rendercanvas.offscreen import RenderCanvas
 import pygfx as gfx
 
 
@@ -14,7 +14,7 @@ import pygfx as gfx
     ),
 )
 def test_make_controller(controller_cls):
-    canvas = WgpuCanvas()
+    canvas = RenderCanvas()
     renderer = gfx.WgpuRenderer(canvas)
 
     camera = gfx.PerspectiveCamera(width=100, height=100)
@@ -34,7 +34,7 @@ def test_make_controller(controller_cls):
     ),
 )
 def test_add_remove_camera(controller_cls):
-    canvas = WgpuCanvas()
+    canvas = RenderCanvas()
     renderer = gfx.WgpuRenderer(canvas)
 
     camera = gfx.PerspectiveCamera(width=100, height=100)

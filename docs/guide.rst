@@ -114,9 +114,9 @@ we can choose from, but for starters the most important one is ``auto``, which
 automatically selects an appropriate backend to create a window on your screen::
 
     import pygfx as gfx
-    from wgpu.gui.auto import WgpuCanvas
+    from rendercanvas.auto import RenderCanvas
 
-    canvas = WgpuCanvas(size=(200, 200), title="A cube!")
+    canvas = RenderCanvas(size=(200, 200), title="A cube!")
     cube = gfx.Mesh(
         gfx.box_geometry(200, 200, 200),
         gfx.MeshPhongMaterial(color="#336699"),
@@ -144,9 +144,9 @@ any good artist, a `Renderer` is never seen without its `Canvas`, so to create a
 `Renderer` we also need to create a `Canvas`::
 
     import pygfx as gfx
-    from wgpu.gui.auto import WgpuCanvas
+    from rendercanvas.auto import RenderCanvas
 
-    canvas = WgpuCanvas()
+    canvas = RenderCanvas()
     renderer = gfx.renderers.WgpuRenderer(canvas)
 
     cube = gfx.Mesh(
@@ -548,9 +548,9 @@ use the Jupyter canvas provided by WGPU, and use that canvas as the cell output.
 
 .. code-block:: python
 
-    from wgpu.gui.jupyter import WgpuCanvas
+    from rendercanvas.jupyter import RenderCanvas
 
-    canvas = WgpuCanvas()
+    canvas = RenderCanvas()
     renderer = gfx.renderers.WgpuRenderer(canvas)
 
     ...
