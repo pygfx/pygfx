@@ -15,12 +15,18 @@ class TextureMap(Trackable):
         The uv channel of the texture to use.
         e.g. with `channel=7`, it will use the `geometry.texcoords7`.
         Default is 0, which uses the `geometry.texcoords`.
+    filter : str, optional
+        The filter to use for both magnification and minification if not being set separately.
+        Default is "linear".
     mag_filter : str, optional
         The magnification filter to use. Default is "linear".
     min_filter : str, optional
         The minification filter to use. Default is "linear".
     mipmap_filter : str, optional
         The mipmap filter to use. Default is "linear".
+    wrap : str, optional
+        The wrap mode for both the s and t coordinates if not being set separately.
+        Default is "repeat".
     wrap_s : str, optional
         The wrap mode for the s coordinate. Default is "repeat".
     wrap_t : str, optional
@@ -32,20 +38,22 @@ class TextureMap(Trackable):
         texture,
         *,
         channel=0,
-        mag_filter="linear",
-        min_filter="linear",
-        mipmap_filter="linear",
-        wrap_s="repeat",
-        wrap_t="repeat",
+        filter="linear",
+        mag_filter=None,
+        min_filter=None,
+        mipmap_filter=None,
+        wrap="repeat",
+        wrap_s=None,
+        wrap_t=None,
     ):
         super().__init__()
         self.texture = texture
         self.channel = channel
-        self.mag_filter = mag_filter
-        self.min_filter = min_filter
-        self.mipmap_filter = mipmap_filter
-        self.wrap_s = wrap_s
-        self.wrap_t = wrap_t
+        self.mag_filter = mag_filter or filter
+        self.min_filter = min_filter or filter
+        self.mipmap_filter = mipmap_filter or filter
+        self.wrap_s = wrap_s or wrap
+        self.wrap_t = wrap_t or wrap
 
     @property
     def texture(self):

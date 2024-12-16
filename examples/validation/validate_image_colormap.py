@@ -28,10 +28,8 @@ image1 = gfx.Image(
         clim=(0, 1),
         map=gfx.TextureMap(
             colormap,
-            mag_filter="nearest",
-            min_filter="nearest",
-            wrap_s="clamp",
-            wrap_t="clamp",
+            filter="nearest",
+            wrap="clamp",
         ),
     ),
 )
@@ -42,10 +40,8 @@ image2 = gfx.Image(
         clim=(0, 1),
         map=gfx.TextureMap(
             colormap,
-            mag_filter="linear",
-            min_filter="linear",
-            wrap_s="clamp",
-            wrap_t="clamp",
+            filter="linear",
+            wrap="clamp",
         ),
     ),
 )
