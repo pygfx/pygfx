@@ -10,7 +10,7 @@ $$ if use_roughness_map is defined
     roughness_factor *= textureSample( t_roughness_map, s_roughness_map, varyings.texcoord ).g;
 $$ endif
 roughness_factor = max( roughness_factor, 0.0525 );
-let dxy = max( abs( dpdx( varyings.geometry_normal ) ), abs( dpdy( varyings.geometry_normal ) ) );
+let dxy = max( abs( dpdx( normalize(varyings.geometry_normal) ) ), abs( dpdy( normalize(varyings.geometry_normal) ) ) );
 let geometry_roughness = max( max( dxy.x, dxy.y ), dxy.z );
 
 // Define material
