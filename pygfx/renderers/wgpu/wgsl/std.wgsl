@@ -69,16 +69,17 @@ fn hash_to_f32(h: u32) -> f32 {
     return bitcast<f32>(x) - 1.0;
 }
 fn random(f: f32) -> f32 {
+    // Produces a number between 0 and 1 (halfopen range). The result is deterministic based on the seed.
     return hash_to_f32( hashf(f) );
 }
 fn random2(f: vec2<f32>) -> f32 {
-    return hash_to_f32( hashf(f.x) * hashf(f.y) );
+    return hash_to_f32( hashf(f.x) ^ hashf(f.y) );
 }
 fn random3(f: vec3<f32>) -> f32 {
-    return hash_to_f32( hashf(f.x) * hashf(f.y) * hashf(f.z) );
+    return hash_to_f32( hashf(f.x) ^ hashf(f.y) ^ hashf(f.z) );
 }
 fn random4(f: vec4<f32>) -> f32 {
-    return hash_to_f32( hashf(f.x) * hashf(f.y) * hashf(f.z) * hashf(f.w) );
+    return hash_to_f32( hashf(f.x) ^ hashf(f.y) ^ hashf(f.z) ^ hashf(f.w) );
 }
 
 // ----- Transformations
