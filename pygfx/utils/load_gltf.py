@@ -428,9 +428,9 @@ class _GLTF:
         material = self._gltf.model.materials[material_index]
         pbr_metallic_roughness = material.pbrMetallicRoughness
 
-        if pbr_metallic_roughness is not None:
-            gfx_material = gfx.MeshStandardMaterial()
+        gfx_material = gfx.MeshStandardMaterial()
 
+        if pbr_metallic_roughness is not None:
             if pbr_metallic_roughness.baseColorFactor is not None:
                 gfx_material.color = gfx.Color.from_physical(
                     *pbr_metallic_roughness.baseColorFactor
@@ -455,9 +455,6 @@ class _GLTF:
 
             if pbr_metallic_roughness.metallicFactor is not None:
                 gfx_material.metalness = pbr_metallic_roughness.metallicFactor
-
-        else:
-            gfx_material = gfx.MeshPhongMaterial()
 
         if material.normalTexture is not None:
             gfx_material.normal_map = self._load_gltf_texture(material.normalTexture)
@@ -740,11 +737,27 @@ class _GLTF:
             elif interpolation == "STEP":
                 interpolation_fn = gfx.StepInterpolant
             elif interpolation == "CUBICSPLINE":
-                interpolation_fn = gfx.CubicSplineInterpolant
+                # interpolation_fn = gfx.CubicSplineInterpolant
+                # A CUBICSPLINE keyframe in glTF has three output values for each input value,
+                # representing inTangent, splineVertex, and outTangent.
+                # todo: implement GLTF 2.0 Cubic Spline Interpolation
+                raise NotImplementedError(
+                    "GLTF CUBICSPLINE interpolation is not supported yet."
+                )
             else:
                 raise ValueError(f"Unsupported interpolation type: {interpolation}")
 
-            values = values.reshape(len(times), -1)
+            if target_property == "weights":
+                values = values.reshape(len(times), -1)
+            else:
+                if len(times) != len(values):
+                    gfx.utils.logger.warning(
+                        f"keyframe: {name}, times and values have different lengths, {len(times)} != {len(values)}"
+                    )
+                    length = min(len(times), len(values))
+                    times = times[:length]
+                    values = values[:length]
+
             keyframe = gfx.KeyframeTrack(
                 name, target_node, target_property, times, values, interpolation_fn
             )
