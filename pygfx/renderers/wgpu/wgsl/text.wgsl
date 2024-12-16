@@ -225,7 +225,7 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
 
     // Wrap up
     apply_clipping_planes(varyings.world_pos);
-    var out = get_fragment_output(varyings.position.z, color_out);
+    var out = get_fragment_output(varyings.position, color_out);
 
     // Move text closer to camera, since its often overlaid on something.
     // The text is moved closer than the outline so that the outline of one character

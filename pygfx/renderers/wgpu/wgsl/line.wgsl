@@ -839,7 +839,7 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
 
     // Wrap up
     apply_clipping_planes(varyings.world_pos);
-    var out = get_fragment_output(varyings.position.z, out_color);
+    var out = get_fragment_output(varyings.position, out_color);
 
     // Set picking info.
     $$ if write_pick
