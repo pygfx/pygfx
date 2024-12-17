@@ -54,16 +54,17 @@ def handle_event(event):
         print(f"Changing background color to {clr}")
         background.material.set_colors(clr)
         canvas.request_draw()
-    elif event.key in "0123456789":
+    elif event.key in "012345678":
         m = [
             None,  # 0
             "opaque",  # 1
-            "ordered1",  # 2
-            "ordered2",  # 3
-            "weighted",  # 4
-            "weighted_depth",  # 5
-            "weighted_plus",  # 6
-            "additive",  # 7
+            "dither",  # 2
+            "ordered1",  # 3
+            "ordered2",  # 4
+            "weighted",  # 5
+            "weighted_depth",  # 6
+            "weighted_plus",  # 7
+            "additive",  # 8
         ]
         mode = m[int(event.key)]
         renderer.blend_mode = mode

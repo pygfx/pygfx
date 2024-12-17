@@ -17,7 +17,7 @@ surface of the cube in the outer scene.
 
 import numpy as np
 import imageio.v3 as iio
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 import pylinalg as la
 
@@ -47,7 +47,7 @@ scene1.add(gfx.AmbientLight(), camera1.add(gfx.DirectionalLight()))
 
 # Then create the actual scene, in the visible canvas
 
-canvas = WgpuCanvas()  # for gallery scraper, bc we have 2 renderers
+canvas = RenderCanvas()  # for gallery scraper, bc we have 2 renderers
 renderer2 = gfx.renderers.WgpuRenderer(canvas)
 scene2 = gfx.Scene()
 
@@ -75,4 +75,4 @@ def animate():
 
 if __name__ == "__main__":
     renderer2.request_draw(animate)
-    run()
+    loop.run()

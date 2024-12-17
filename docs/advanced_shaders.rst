@@ -206,7 +206,7 @@ All fragment functions in Pygfx are somewhat like this:
             @stage(fragment)
             fn fs_main(varyings: Varyings) -> FragmentOutput {
                 ...
-                var out = get_fragment_output(varyings.position.z, color);
+                var out = get_fragment_output(varyings.position, color);
                 return out;
             }
             """
@@ -240,7 +240,7 @@ to unpack the picking info. See e.g. the picking of a mesh:
             @stage(fragment)
             fn fs_main(varyings: Varyings) -> FragmentOutput {
                 ...
-                var out = get_fragment_output(varyings.position.z, color);
+                var out = get_fragment_output(varyings.position, color);
 
                 // The builtin write_pick templating variable should be used
                 // to ensure picking info is only written in the appropriate render pass
@@ -279,7 +279,7 @@ discard the fragment if it's outside of the clipping planes. Or use
                 ...
 
                 apply_clipping_planes(varyings.world_pos);
-                var out = get_fragment_output(varyings.position.z, color);
+                var out = get_fragment_output(varyings.position, color);
                 ...
                 return out;
             }

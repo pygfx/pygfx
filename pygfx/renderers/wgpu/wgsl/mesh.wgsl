@@ -465,7 +465,7 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
             RE_IndirectSpecular_Physical(ibl_radiance, ibl_irradiance, clearcoat_ibl_radiance, geometry, material, &reflected_light);
         $$ endif
 
-    $$ else 
+    $$ else
         // for basic material
         // Light map (pre-baked lighting)
         $$ if use_light_map is defined
@@ -549,7 +549,7 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
     // Wrap up
 
     apply_clipping_planes(varyings.world_pos);
-    var out = get_fragment_output(varyings.position.z, out_color);
+    var out = get_fragment_output(varyings.position, out_color);
 
     $$ if write_pick
     // The wobject-id must be 20 bits. In total it must not exceed 64 bits.

@@ -86,7 +86,7 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     // A fragment of the background could be transparent, but it should still be
     // written in the opaque pass in order for it to really be background.
     // So we fool the blender into thinking this fragment is opaque, even if its not.
-    var out = get_fragment_output(varyings.position.z, vec4<f32>(out_color.rgb, 1.0));
+    var out = get_fragment_output(varyings.position, vec4<f32>(out_color.rgb, 1.0));
     $$ if write_pick
         // We omit any extra information in the pick info
         // While we figure out exactly how best to return it.

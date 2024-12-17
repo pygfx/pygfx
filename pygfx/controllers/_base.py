@@ -204,7 +204,7 @@ class Controller:
         self._controls.update(value)
 
     def register_events(self, viewport_or_renderer: Union[Viewport, Renderer]):
-        """Apply the default interaction mechanism to a wgpu autogui canvas.
+        """Apply the default interaction mechanism to a render canvas.
         Needs either a viewport or renderer.
         """
         viewport = Viewport.from_viewport_or_renderer(viewport_or_renderer)

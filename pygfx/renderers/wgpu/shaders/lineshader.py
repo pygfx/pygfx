@@ -444,7 +444,7 @@ class ThinLineShader(LineShader):
             let out_color = vec4<f32>(physical_color, opacity);
 
             apply_clipping_planes(varyings.world_pos);
-            return get_fragment_output(varyings.position.z, out_color);
+            return get_fragment_output(varyings.position, out_color);
         }
         """
 
