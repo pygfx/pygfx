@@ -1,9 +1,8 @@
 """
-PBR Rendering 1
-===============
+Clearcoat effect
+================
 
-This example shows a complete PBR rendering effect.
-The cubemap of skybox is also the environment cubemap of the helmet.
+This example demonstrates the clearcoat effect.
 """
 
 ################################################################################
@@ -36,7 +35,7 @@ from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 
 # Init
-canvas = WgpuCanvas(size=(640, 480), title="gfx_pbr")
+canvas = WgpuCanvas(size=(640, 480), title="clearcoat")
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
@@ -56,28 +55,67 @@ scene.add(background)
 
 # Load meshes, and apply env map
 # Note that this lights the helmet already
-gltf_path = model_dir / "DamagedHelmet" / "glTF" / "DamagedHelmet.gltf"
+gltf_path = model_dir / "ClearcoatWicker.glb"
 
 gltf = gfx.load_gltf(gltf_path)
-# gfx.print_tree(gltf.scene) # Uncomment to see the tree structure
 
-m = gltf.scene.children[0]
-
-m.material.env_map = env_tex
+# gfx.print_tree(gltf.scene)  # Uncomment to see the tree structure
 
 scene.add(gltf.scene)
 
-# Add extra light more or less where the sun seems to be in the skybox
+
+def add_env_map(obj):
+    if isinstance(obj, gfx.Mesh) and isinstance(obj.material, gfx.MeshStandardMaterial):
+        obj.material.env_map = env_tex
+
+
+gltf.scene.traverse(add_env_map)
+
 light = gfx.SpotLight(color="#444")
 light.local.position = (-500, 1000, -1000)
-scene.add(light)
+scene.add(light, gfx.AmbientLight(intensity=0.2))
 
 # Create camera and controller
 camera = gfx.PerspectiveCamera(45, 640 / 480)
-camera.show_object(m, view_dir=(1.8, -0.6, -2.7))
+camera.show_object(gltf.scene, view_dir=(1.8, -0.6, -2.7))
 controller = gfx.OrbitController(camera, register_events=renderer)
 
 
+# gui_renderer = ImguiRenderer(renderer.device, canvas)
+
+# def draw_imgui():
+#     imgui.new_frame()
+#     imgui.set_next_window_size((250, 0), imgui.Cond_.always)
+#     imgui.set_next_window_pos(
+#         (gui_renderer.backend.io.display_size.x - 250, 0), imgui.Cond_.always
+#     )
+#     is_expand, _ = imgui.begin(
+#         "Controls",
+#         None,
+#         flags=imgui.WindowFlags_.no_move | imgui.WindowFlags_.no_resize,
+#     )
+#     if is_expand:
+#         changed, clearcoat = imgui.slider_float(
+#             "clearcoat", m.material.clearcoat, 0, 1
+#         )
+#         if changed:
+#             m.material.clearcoat = clearcoat
+
+#     imgui.end()
+#     imgui.end_frame()
+#     imgui.render()
+#     return imgui.get_draw_data()
+
+
+# gui_renderer.set_gui(draw_imgui)
+
+
+def animate():
+    renderer.render(scene, camera)
+    # gui_renderer.render()
+    canvas.request_draw()
+
+
 if __name__ == "__main__":
-    renderer.request_draw(lambda: renderer.render(scene, camera))
+    renderer.request_draw(animate)
     run()

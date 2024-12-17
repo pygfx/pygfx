@@ -204,11 +204,7 @@ class LineShader(BaseShader):
             bindings.append(
                 Binding("s_texcoords", rbuffer, geometry.texcoords, "VERTEX")
             )
-            bindings.extend(
-                self.define_colormap(
-                    material.map, geometry.texcoords, material.map_interpolation
-                )
-            )
+            bindings.extend(self.define_colormap(material.map, geometry.texcoords))
 
         # Need a buffer for the cumdist?
         if hasattr(self, "line_distance_buffer"):
@@ -338,11 +334,7 @@ class ThinLineShader(LineShader):
             bindings.append(
                 Binding("s_texcoords", rbuffer, geometry.texcoords, "VERTEX")
             )
-            bindings.extend(
-                self.define_colormap(
-                    material.map, geometry.texcoords, material.map_interpolation
-                )
-            )
+            bindings.extend(self.define_colormap(material.map, geometry.texcoords))
 
         bindings = {i: b for i, b in enumerate(bindings)}
         self.define_bindings(0, bindings)

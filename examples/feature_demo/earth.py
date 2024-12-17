@@ -72,7 +72,6 @@ earth_material.emissive_intensity = 3.0
 # earth_material.light_map = load_texture(
 #     model_dir / "planets" / "earth_lights_2048.png", flip=True
 # )
-# earth_geometry.texcoords1 = earth_geometry.texcoords
 # earth_material.light_map_intensity = 3.0
 
 earth_material.normal_map = load_texture(

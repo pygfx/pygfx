@@ -69,6 +69,7 @@ from ._mesh import (
     MeshNormalLinesMaterial,
     MeshSliceMaterial,
     MeshStandardMaterial,
+    MeshPhysicalMaterial,
 )
 from ._points import (
     PointsMaterial,
