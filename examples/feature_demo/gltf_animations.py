@@ -37,7 +37,7 @@ import pygfx as gfx
 from wgpu.gui.auto import WgpuCanvas, run
 
 from wgpu.utils.imgui import ImguiRenderer
-from imgui_bundle import imgui
+from imgui_bundle import imgui, icons_fontawesome_6, hello_imgui  # type: ignore
 
 gltf_path = model_dir / "Soldier.glb"
 
@@ -71,7 +71,9 @@ stats = gfx.Stats(viewport=renderer)
 
 clock = gfx.Clock()
 
+mixer = gfx.AnimationMixer()
 clips = gltf.animations
+actions = [mixer.clip_action(clip) for clip in clips]
 
 gui_renderer = ImguiRenderer(renderer.device, canvas)
 
@@ -80,6 +82,12 @@ state = {
     "skeleton": False,
     "selected_action": 2,
 }
+
+fa_loading_params = hello_imgui.FontLoadingParams()
+fa_loading_params.use_full_glyph_range = True
+fa = hello_imgui.load_font("fonts/fontawesome-webfont.ttf", 14, fa_loading_params)
+# fa = gui_renderer.backend.io.fonts.add_font_from_file_ttf("fonts/fontawesome-webfont.ttf", 16)
+gui_renderer.backend.create_fonts_texture()
 
 
 def draw_imgui():
@@ -115,9 +123,49 @@ def draw_imgui():
                 len(clips),
             )
             if selected:
-                clock.start()  # restart the animation
+                for action in actions:
+                    action.stop()
+                actions[state["selected_action"]].play()
 
     imgui.end()
+
+    imgui.set_next_window_size(
+        (gui_renderer.backend.io.display_size.x, 0), imgui.Cond_.always
+    )
+    imgui.set_next_window_pos(
+        (0, gui_renderer.backend.io.display_size.y - 40), imgui.Cond_.always
+    )
+    imgui.begin(
+        "player",
+        True,
+        flags=imgui.WindowFlags_.no_move
+        | imgui.WindowFlags_.no_resize
+        | imgui.WindowFlags_.no_collapse
+        | imgui.WindowFlags_.no_title_bar,
+    )
+
+    duration = clips[state["selected_action"]].duration
+
+    imgui.push_font(fa)
+    if actions[state["selected_action"]].paused:
+        if imgui.button(icons_fontawesome_6.ICON_FA_PLAY, size=(24, 20)):
+            actions[state["selected_action"]].paused = False
+    else:
+        if imgui.button(icons_fontawesome_6.ICON_FA_PAUSE, size=(24, 20)):
+            actions[state["selected_action"]].paused = True
+
+    imgui.pop_font()
+    imgui.same_line()
+    avail_size = imgui.get_content_region_avail()
+    imgui.set_next_item_width(avail_size.x)
+    changed, v = imgui.slider_float(
+        " ", actions[state["selected_action"]].time, 0, duration, "%.2f"
+    )
+    if changed:
+        actions[state["selected_action"]].time = v
+        actions[state["selected_action"]].paused = True
+    imgui.end()
+
     imgui.end_frame()
     imgui.render()
     return imgui.get_draw_data()
@@ -127,11 +175,8 @@ gui_renderer.set_gui(draw_imgui)
 
 
 def animate():
-    elapsed_time = clock.get_elapsed_time()
-    clip = clips[state["selected_action"]]
-
-    t = elapsed_time % clip.duration  # simple loop the animation for now
-    clip.update(t)
+    dt = clock.get_delta()
+    mixer.update(dt)
 
     model_obj.children[0].skeleton.update()
     skeleton_helper.update()

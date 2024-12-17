@@ -299,6 +299,8 @@ class WgpuRenderer(RootEventHandler, Renderer):
         * "default" or None: Select the default: currently this is "ordered2".
         * "additive": single-pass approach that adds fragments together.
         * "opaque": single-pass approach that consider every fragment opaque.
+        * "dither": single-pass approach that uses dithering to handle transparency.
+          Also known as stochastic transparency. All visible fragments are opaque.
         * "ordered1": single-pass approach that blends fragments (using alpha blending).
           Can only produce correct results if fragments are drawn from back to front.
         * "ordered2": two-pass approach that first processes all opaque fragments and then
@@ -327,6 +329,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         m = {
             "additive": blender_module.AdditiveFragmentBlender,
             "opaque": blender_module.OpaqueFragmentBlender,
+            "dither": blender_module.DitherFragmentBlender,
             "ordered1": blender_module.Ordered1FragmentBlender,
             "ordered2": blender_module.Ordered2FragmentBlender,
             "weighted": blender_module.WeightedFragmentBlender,
