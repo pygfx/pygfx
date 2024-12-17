@@ -852,9 +852,17 @@ class MeshStandardMaterial(MeshBasicMaterial):
 
     def __init__(
         self,
+        *,
         emissive="#000",
         metalness=0.0,
         roughness=1.0,
+        roughness_map=None,
+        metalness_map=None,
+        emissive_map=None,
+        normal_map=None,
+        env_map_intensity=1.0,
+        normal_scale=(1, 1),
+        emissive_intensity=1.0,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -862,16 +870,16 @@ class MeshStandardMaterial(MeshBasicMaterial):
         self.roughness = roughness
         self.metalness = metalness
 
-        self.roughness_map = None
-        self.metalness_map = None
+        self.roughness_map = roughness_map
+        self.metalness_map = metalness_map
 
-        self.emissive_map = None
-        self.emissive_intensity = 1.0
+        self.emissive_map = emissive_map
+        self.emissive_intensity = emissive_intensity
 
-        self.normal_map = None
-        self.normal_scale = (1, 1)
+        self.normal_map = normal_map
+        self.normal_scale = normal_scale
 
-        self.env_map_intensity = 1.0
+        self.env_map_intensity = env_map_intensity
 
         # Note: there are more advanced properties to add, e.g. displacement_map, alpha_map
 
@@ -1049,3 +1057,162 @@ class MeshStandardMaterial(MeshBasicMaterial):
     def env_map_intensity(self, value):
         self.uniform_buffer.data["env_map_intensity"] = value
         self.uniform_buffer.update_full()
+
+
+class MeshPhysicalMaterial(MeshStandardMaterial):
+    uniform_type = dict(
+        MeshStandardMaterial.uniform_type,
+        ior="f4",
+        specular_color="4xf4",
+        specular_intensity="f4",
+        clearcoat="f4",
+        clearcoat_roughness="f4",
+        clearcoat_normal_scale="2xf4",
+    )
+
+    def __init__(
+        self,
+        ior=1.5,
+        specular="#fff",
+        specular_map=None,
+        specular_intensity=1.0,
+        specular_intensity_map=None,
+        clearcoat=0.0,
+        clearcoat_map=None,
+        clearcoat_normal_map=None,
+        clearcoat_normal_scale=(1, 1),
+        clearcoat_roughness=0.0,
+        clearcoat_roughness_map=None,
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        self.ior = ior
+        self.specular = specular
+        self.specular_map = specular_map
+        self.specular_intensity = specular_intensity
+        self.specular_intensity_map = specular_intensity_map
+        self.clearcoat = clearcoat
+        self.clearcoat_map = clearcoat_map
+        self.clearcoat_normal_map = clearcoat_normal_map
+        self.clearcoat_normal_scale = clearcoat_normal_scale
+        self.clearcoat_roughness = clearcoat_roughness
+        self.clearcoat_roughness_map = clearcoat_roughness_map
+
+    @property
+    def ior(self):
+        """The index of refraction (IOR) of the material. Default is 1.5."""
+        return float(self.uniform_buffer.data["ior"])
+
+    @ior.setter
+    def ior(self, value):
+        self.uniform_buffer.data["ior"] = value
+        self.uniform_buffer.update_full()
+
+    @property
+    def specular(self):
+        """The specular (highlight) color of the mesh."""
+        return Color(self.uniform_buffer.data["specular_color"])
+
+    @specular.setter
+    def specular(self, color):
+        color = Color(color)
+        self.uniform_buffer.data["specular_color"] = color
+        self.uniform_buffer.update_full()
+
+    @property
+    def specular_map(self):
+        """The specular map. Default is None."""
+        return self._store.specular_map
+
+    @specular_map.setter
+    def specular_map(self, map):
+        assert_type("specular_map", map, None, Texture, TextureMap)
+        if isinstance(map, Texture):
+            map = TextureMap(map)
+        self._store.specular_map = map
+
+    @property
+    def specular_intensity(self):
+        """Intensity of the specular highlight. Default is 1.0."""
+        return float(self.uniform_buffer.data["specular_intensity"])
+
+    @specular_intensity.setter
+    def specular_intensity(self, value):
+        self.uniform_buffer.data["specular_intensity"] = value
+        self.uniform_buffer.update_full()
+
+    @property
+    def specular_intensity_map(self):
+        """The red channel of this texture is used to alter the specular intensity of the material."""
+        return self._store.specular_intensity_map
+
+    @specular_intensity_map.setter
+    def specular_intensity_map(self, map):
+        assert_type("specular_intensity_map", map, None, Texture, TextureMap)
+        if isinstance(map, Texture):
+            map = TextureMap(map)
+        self._store.specular_intensity_map = map
+
+    @property
+    def clearcoat(self):
+        """How much the material has a clearcoat layer. Default is 0.0."""
+        return float(self.uniform_buffer.data["clearcoat"])
+
+    @clearcoat.setter
+    def clearcoat(self, value):
+        self.uniform_buffer.data["clearcoat"] = value
+        self.uniform_buffer.update_full()
+
+    @property
+    def clearcoat_normal_scale(self):
+        """How much the clearcoat normal map affects the material. This 2-tuple
+        is multiplied with the clearcoat_normal_map's xy components (z is
+        unaffected). Typical ranges are 0-1. Default is (1,1).
+        """
+        return tuple(self.uniform_buffer.data["clearcoat_normal_scale"])
+
+    @clearcoat_normal_scale.setter
+    def clearcoat_normal_scale(self, value):
+        self.uniform_buffer.data["clearcoat_normal_scale"] = value
+        self.uniform_buffer.update_full()
+
+    @property
+    def clearcoat_normal_map(self):
+        """The texture to create a clearcoat normal map. Affects the surface
+        normal for each pixel fragment and change the way the color is
+        lit. Normal maps do not change the actual shape of the surface,
+        only the lighting.
+        """
+        return self._store.clearcoat_normal_map
+
+    @clearcoat_normal_map.setter
+    def clearcoat_normal_map(self, map):
+        assert_type("clearcoat_normal_map", map, None, Texture, TextureMap)
+        if isinstance(map, Texture):
+            map = TextureMap(map)
+        self._store.clearcoat_normal_map = map
+
+    @property
+    def clearcoat_roughness(self):
+        """How rough the clearcoat layer is. 0.0 means a smooth mirror
+        reflection, 1.0 means fully diffuse. Default is 0.0.
+        If clearcoat_roughness_map is also provided, both values are multiplied.
+        """
+        return float(self.uniform_buffer.data["clearcoat_roughness"])
+
+    @clearcoat_roughness.setter
+    def clearcoat_roughness(self, value):
+        self.uniform_buffer.data["clearcoat_roughness"] = value
+        self.uniform_buffer.update_full()
+
+    @property
+    def clearcoat_roughness_map(self):
+        """The green channel of this texture is used to alter the clearcoat roughness of the material."""
+        return self._store.clearcoat_roughness_map
+
+    @clearcoat_roughness_map.setter
+    def clearcoat_roughness_map(self, map):
+        assert_type("clearcoat_roughness_map", map, None, Texture, TextureMap)
+        if isinstance(map, Texture):
+            map = TextureMap(map)
+        self._store.clearcoat_roughness_map = map
