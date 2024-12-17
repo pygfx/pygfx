@@ -1,7 +1,7 @@
 import math
 from ._base import Material
-from ..resources import Texture
-from ..utils import logger
+from ..resources import Texture, TextureMap
+from ..utils import logger, assert_type
 from ..utils.color import Color
 from ..utils.enums import ColorMode, VisibleSide
 
@@ -17,10 +17,8 @@ class MeshAbstractMaterial(Material):
         The uniform color of the mesh (used depending on the ``color_mode``).
     color_mode : str | ColorMode
         The mode by which the mesh is coloured. Default 'auto'.
-    map : Texture
+    map : TextureMap | Texture
         The texture map specifying the color at each texture coordinate. Optional.
-    map_interpolation: str
-        The method to interpolate the color map. Either 'nearest' or 'linear'. Default 'linear'.
     side : str | VisibleSide
         What side of the mesh is visible. Default "both".
     kwargs : Any
@@ -52,7 +50,6 @@ class MeshAbstractMaterial(Material):
         color="#fff",
         color_mode="auto",
         map=None,
-        map_interpolation="linear",
         side="both",
         **kwargs,
     ):
@@ -61,7 +58,6 @@ class MeshAbstractMaterial(Material):
         self.color = color
         self.color_mode = color_mode
         self.map = map
-        self.map_interpolation = map_interpolation
         self.side = side
 
     @property
@@ -125,18 +121,10 @@ class MeshAbstractMaterial(Material):
 
     @map.setter
     def map(self, map):
-        assert map is None or isinstance(map, Texture)
+        assert_type("map", map, None, Texture, TextureMap)
+        if isinstance(map, Texture):
+            map = TextureMap(map)
         self._store.map = map
-
-    @property
-    def map_interpolation(self):
-        """The method to interpolate the colormap. Either 'nearest' or 'linear'."""
-        return self._store.map_interpolation
-
-    @map_interpolation.setter
-    def map_interpolation(self, value):
-        assert value in ("nearest", "linear")
-        self._store.map_interpolation = value
 
     @property
     def side(self):
@@ -239,11 +227,14 @@ class MeshBasicMaterial(MeshAbstractMaterial):
     @property
     def env_map(self):
         """The environment map."""
-        return self._env_map
+        return self._store.env_map
 
     @env_map.setter
     def env_map(self, env_map):
-        self._env_map = env_map
+        assert env_map is None or isinstance(env_map, (Texture, TextureMap))
+        if isinstance(env_map, Texture):
+            env_map = TextureMap(env_map)
+        self._store.env_map = env_map
 
     @property
     def wireframe(self):
@@ -352,15 +343,14 @@ class MeshBasicMaterial(MeshAbstractMaterial):
     @property
     def light_map(self):
         """The light map to define pre-baked lighting (in srgb). Default is None.
-        It requires a second set of texture coordinates (geometry.texcoords1)."""
+        It usually requires a second set of texture coordinates."""
         return self._store.light_map
 
     @light_map.setter
     def light_map(self, map):
-        if map is not None and not isinstance(map, Texture):
-            raise ValueError(
-                f"light_map must be a Texture or None, received: {type(map)}"
-            )
+        assert_type("light_map", map, None, Texture, TextureMap)
+        if isinstance(map, Texture):
+            map = TextureMap(map)
         self._store.light_map = map
 
     @property
@@ -378,13 +368,14 @@ class MeshBasicMaterial(MeshAbstractMaterial):
     @property
     def ao_map(self):
         """The red channel of this texture is used as the ambient occlusion map. Default is None.
-        It requires a second set of texture coordinates (geometry.texcoords1)."""
+        It usually requires a second set of texture coordinates."""
         return self._store.ao_map
 
     @ao_map.setter
     def ao_map(self, map):
-        if map is not None and not isinstance(map, Texture):
-            raise ValueError(f"ao_map must be a Texture or None, received: {type(map)}")
+        assert_type("ao_map", map, None, Texture, TextureMap)
+        if isinstance(map, Texture):
+            map = TextureMap(map)
         self._store.ao_map = map
 
     @property
@@ -404,10 +395,9 @@ class MeshBasicMaterial(MeshAbstractMaterial):
 
     @specular_map.setter
     def specular_map(self, map):
-        if map is not None and not isinstance(map, Texture):
-            raise ValueError(
-                f"specular_map must be a Texture or None, received: {type(map)}"
-            )
+        assert_type("specular_map", map, None, Texture, TextureMap)
+        if isinstance(map, Texture):
+            map = TextureMap(map)
         self._store.specular_map = map
 
 
@@ -535,7 +525,9 @@ class MeshPhongMaterial(MeshBasicMaterial):
 
     @emissive_map.setter
     def emissive_map(self, map):
-        assert map is None or isinstance(map, Texture)
+        assert_type("emissive_map", map, None, Texture, TextureMap)
+        if isinstance(map, Texture):
+            map = TextureMap(map)
         self._store.emissive_map = map
 
     @property
@@ -579,7 +571,9 @@ class MeshPhongMaterial(MeshBasicMaterial):
 
     @normal_map.setter
     def normal_map(self, map):
-        assert map is None or isinstance(map, Texture)
+        assert_type("normal_map", map, None, Texture, TextureMap)
+        if isinstance(map, Texture):
+            map = TextureMap(map)
         self._store.normal_map = map
 
 
@@ -685,7 +679,9 @@ class MeshToonMaterial(MeshBasicMaterial):
 
     @normal_map.setter
     def normal_map(self, map):
-        assert map is None or isinstance(map, Texture)
+        assert_type("normal_map", map, None, Texture, TextureMap)
+        if isinstance(map, Texture):
+            map = TextureMap(map)
         self._store.normal_map = map
 
     @property
@@ -697,7 +693,9 @@ class MeshToonMaterial(MeshBasicMaterial):
 
     @gradient_map.setter
     def gradient_map(self, map):
-        assert map is None or isinstance(map, Texture)
+        assert_type("gradient_map", map, None, Texture, TextureMap)
+        if isinstance(map, Texture):
+            map = TextureMap(map)
         self._store.gradient_map = map
 
 
@@ -904,7 +902,9 @@ class MeshStandardMaterial(MeshBasicMaterial):
 
     @emissive_map.setter
     def emissive_map(self, map):
-        assert map is None or isinstance(map, Texture)
+        assert_type("emissive_map", map, None, Texture, TextureMap)
+        if isinstance(map, Texture):
+            map = TextureMap(map)
         self._store.emissive_map = map
 
     @property
@@ -946,7 +946,9 @@ class MeshStandardMaterial(MeshBasicMaterial):
 
     @metalness_map.setter
     def metalness_map(self, map):
-        assert map is None or isinstance(map, Texture)
+        assert_type("metalness_map", map, None, Texture, TextureMap)
+        if isinstance(map, Texture):
+            map = TextureMap(map)
         self._store.metalness_map = map
 
     @property
@@ -969,7 +971,9 @@ class MeshStandardMaterial(MeshBasicMaterial):
 
     @roughness_map.setter
     def roughness_map(self, map):
-        assert map is None or isinstance(map, Texture)
+        assert_type("roughness_map", map, None, Texture, TextureMap)
+        if isinstance(map, Texture):
+            map = TextureMap(map)
         self._store.roughness_map = map
 
     @property
@@ -996,7 +1000,9 @@ class MeshStandardMaterial(MeshBasicMaterial):
 
     @normal_map.setter
     def normal_map(self, map):
-        assert map is None or isinstance(map, Texture)
+        assert_type("normal_map", map, None, Texture, TextureMap)
+        if isinstance(map, Texture):
+            map = TextureMap(map)
         self._store.normal_map = map
 
     @property
@@ -1015,16 +1021,19 @@ class MeshStandardMaterial(MeshBasicMaterial):
 
     @env_map.setter
     def env_map(self, map):
-        assert map is None or isinstance(map, Texture)
+        assert_type("env_map", map, None, Texture, TextureMap)
+        if isinstance(map, Texture):
+            map = TextureMap(map)
+
         self._env_map = map
         if map is None:
             self.uniform_buffer.data["env_map_max_mip_level"] = 0
         else:
-            if not map.generate_mipmaps:
+            if not map.texture.generate_mipmaps:
                 logger.warning(
                     "The env_map texture must have generate_mipmaps=True in order for roughness to work."
                 )
-            width, height, _ = map.size
+            width, height, _ = map.texture.size
             max_level = math.floor(math.log2(max(width, height))) + 1
             self.uniform_buffer.data["env_map_max_mip_level"] = float(max_level)
         self.uniform_buffer.update_full()
