@@ -382,7 +382,7 @@ class _GLTF:
         texture_map = self._load_gltf_texture_map(texture_index)
 
         uv_channel = texture_info.texCoord
-        texture_map.channel = uv_channel or 0
+        texture_map.uv_channel = uv_channel or 0
         return texture_map
 
     @lru_cache(maxsize=None)

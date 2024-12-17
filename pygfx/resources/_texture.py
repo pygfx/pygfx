@@ -221,9 +221,6 @@ class Texture(Resource):
             self._chunk_mask = np.ones(shape, bool)
             self._chunk_list = None
 
-        # self._channel = channel
-        # self._sampler_hints = {}
-
     @property
     def dim(self):
         """The dimensionality of the texture (1, 2, or 3)."""
@@ -312,20 +309,6 @@ class Texture(Resource):
     def generate_mipmaps(self):
         """Whether to automatically generate mipmaps when uploading to the GPU."""
         return self._generate_mipmaps
-
-    # @property
-    # def channel(self):
-    #     """The texcoord channel of the texture."""
-    #     return self._channel
-
-    # @channel.setter
-    # def channel(self, value):
-    #     self._channel = value
-
-    # @property
-    # def sampler_hints(self):
-    #     """Hints for the sampler used with this texture."""
-    #     return self._sampler_hints
 
     def send_data(self, offset, data):
         """Send a chunk of data to the GPU.

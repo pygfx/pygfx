@@ -11,7 +11,7 @@ class TextureMap(Trackable):
     ----------
     texture : Texture
         The texture to use for this map.
-    channel : int, optional
+    uv_channel : int, optional
         The uv channel of the texture to use.
         e.g. with `channel=7`, it will use the `geometry.texcoords7`.
         Default is 0, which uses the `geometry.texcoords`.
@@ -37,7 +37,7 @@ class TextureMap(Trackable):
         self,
         texture,
         *,
-        channel=0,
+        uv_channel=0,
         filter="linear",
         mag_filter=None,
         min_filter=None,
@@ -48,7 +48,7 @@ class TextureMap(Trackable):
     ):
         super().__init__()
         self.texture = texture
-        self.channel = channel
+        self.uv_channel = uv_channel
         self.mag_filter = mag_filter or filter
         self.min_filter = min_filter or filter
         self.mipmap_filter = mipmap_filter or filter
@@ -65,13 +65,13 @@ class TextureMap(Trackable):
         self._store.texture = value
 
     @property
-    def channel(self):
+    def uv_channel(self):
         """The channel of the texture to use."""
-        return self._store.channel
+        return self._store.uv_channel
 
-    @channel.setter
-    def channel(self, value):
-        self._store.channel = value
+    @uv_channel.setter
+    def uv_channel(self, value):
+        self._store.uv_channel = value
 
     @property
     def mag_filter(self):

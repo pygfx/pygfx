@@ -112,25 +112,25 @@ class MeshShader(BaseShader):
         address_mode = f"{map.wrap_s}, {map.wrap_t}"
         sampler = GfxSampler(filter_mode, address_mode)
 
-        self[f"{name}_uv"] = map.channel
+        self[f"{name}_uv"] = map.uv_channel
 
         bindings = [
             Binding(f"s_{name}", "sampler/filtering", sampler, "FRAGMENT"),
             Binding(f"t_{name}", "texture/auto", view, "FRAGMENT"),
         ]
 
-        if map.channel not in self["used_uv"]:
-            texcoords = getattr(geometry, f"texcoords{map.channel or ''}", None)
+        if map.uv_channel not in self["used_uv"]:
+            texcoords = getattr(geometry, f"texcoords{map.uv_channel or ''}", None)
             if texcoords is not None:
                 bindings.append(
                     Binding(
-                        f"s_texcoords{map.channel or ''}",
+                        f"s_texcoords{map.uv_channel or ''}",
                         "buffer/read_only_storage",
                         texcoords,
                         "VERTEX",
                     )
                 )
-                self["used_uv"][map.channel] = texcoords.data.ndim
+                self["used_uv"][map.uv_channel] = texcoords.data.ndim
 
         return bindings
 
@@ -482,7 +482,7 @@ class MeshShader(BaseShader):
 
     def _check_texture(self, t, geometry, view_dim):
         assert isinstance(t, TextureMap)
-        uv_channel = t.channel
+        uv_channel = t.uv_channel
         if uv_channel > 0:
             texcoords = getattr(geometry, f"texcoords{uv_channel}", None)
         else:
