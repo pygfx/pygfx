@@ -4,7 +4,7 @@ from time import perf_counter
 from typing import Union, Optional
 from weakref import ref
 
-from wgpu.gui.base import log_exception
+from rendercanvas.base import log_exception
 
 
 CLICK_DEBOUNCE = 0.5  # in seconds

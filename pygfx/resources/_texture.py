@@ -25,7 +25,7 @@ class Texture(Resource):
     ----------
     data : array | None
         The initial data of the texture. It must support the buffer-protocol,
-        (e.g. a bytes or numpy array). If None, ``size`` and ``forma`` must be
+        (e.g. a bytes or numpy array). If None, ``size`` and ``format`` must be
         provided. The data will be accessible at ``texture.data``, no copies are
         made. The dtype must be compatible with wgpu texture formats.
     dim : int
@@ -42,7 +42,12 @@ class Texture(Resource):
         automatically determined from the data.
     colorspace : str
         If this data is used as color, it is interpreted to be in this
-        colorspace. Can be "srgb" or "physical". Default "srgb".
+        colorspace. Can be "srgb", "physical", "yuv420p", or "yuv444p". Default "srgb".
+    colorrange : str
+        For YUV textures, this is either "limited", or "full". For the limited range,
+        the luma plane is limited between 16-235, and the chroma planes (U and V) are
+        limited to 16-240. While it may seem suboptimal, many videos are stored in
+        the limited colorrange.
     generate_mipmaps : bool
         If True, automatically generates mipmaps when transferring data to the
         GPU. Default False.
@@ -80,6 +85,7 @@ class Texture(Resource):
         size=None,
         format=None,
         colorspace="srgb",
+        colorrange="limited",
         generate_mipmaps=False,
         chunk_size=None,
         force_contiguous=False,
@@ -102,11 +108,25 @@ class Texture(Resource):
         assert dim in (1, 2, 3)
         self._store.dim = int(dim)
         self._colorspace = (colorspace or "srgb").lower()
-        assert self._colorspace in ("srgb", "physical")
+        assert self._colorspace in (
+            "srgb",
+            "physical",
+            "yuv420p",
+            "yuv444p",
+        )
+        self._colorrange = (colorrange or "limited").lower()
+        assert self._colorrange in ("limited", "full")
         self._generate_mipmaps = bool(generate_mipmaps)
 
         # Normalize size
-        size = None if size is None else (int(size[0]), int(size[1]), int(size[2]))
+        if size is None:
+            pass
+        elif len(size) == 2:
+            size = int(size[0]), int(size[1]), 1
+        elif len(size) == 3:
+            size = int(size[0]), int(size[1]), int(size[2])
+        else:
+            raise ValueError("Texture size must be a 2-tuple or 3-tuple or None.")
 
         # Process data
         if data is not None:
@@ -253,9 +273,37 @@ class Texture(Resource):
     @property
     def colorspace(self):
         """If this data is used as color, it is interpreted to be in this colorspace.
-        Can be "srgb" or "physical". Default "srgb".
+        Can be "srgb", "physical", "yuv420p", or "yuv444p". Default "srgb".
+
+        * "srgb": the data represents intensity, rgb, or rgba pixels in the sRGB space.
+          sRGB is a standard color space designed for consistent representation of colors
+          across devices like monitors. Most images store colors in this space.
+        * "physical": the colors are in the physical / linear space, where lighting
+          calculations can be applied. The shader convers sRGB colors to physical in
+          the shader before doing color computations.
+        * "yuv420p": A common video format. The data is represented as 3 planes (y, u, and v).
+          The y represents intensity, and is at full resolution. The u and v planes are a
+          quarter of the size. The planes must be stored in two layers of the texture,
+          with the u and v plane next to each-other in top half the second layer.
+        * "yuv444p": A lesser common video format. The data is represented as 3 planes
+          (y, u, and v) similar to yuv420p however the u and v planes are stored
+          at full resolution.
         """
         return self._colorspace
+
+    @property
+    def colorrange(self):
+        """For YUV textures, this is either "limited", or "full".
+
+        * "limited": The luma plane (Y) is limited to the range of 16-235 for 8 bits.
+                     The chroma planes (U and V) are limited to the range of 16-240 for 8 bits
+        * "full": The luma plane and chroma plane use the full range of the storage format.
+
+        See the following links from the FFMPEG documentation for more details:
+        https://trac.ffmpeg.org/wiki/colorspace
+        https://ffmpeg.org/doxygen/7.0/pixfmt_8h_source.html#l00609
+        """
+        return self._colorrange
 
     @property
     def generate_mipmaps(self):
@@ -287,11 +335,18 @@ class Texture(Resource):
                 force_contiguous=True,
             )
         """
+        # Check data
         if self._data is not None:
             raise RuntimeError(
                 "Can only use texture.send_data() if the texture has no local data."
             )
-        # Check input
+        nchannels = nchannels_from_format(self.format)
+        if nchannels > 1:
+            if data.shape[-1] != nchannels:
+                raise ValueError(
+                    f"Expected {nchannels} channels with format '{self.format}', but shape[-1] is {data.shape[-1]}."
+                )
+        # Check offset
         if not isinstance(offset, (list, tuple)) and len(offset) == 3:
             raise ValueError("Offset must be a tuple of 3 ints")
         offset = tuple(int(i) for i in offset)
@@ -299,17 +354,15 @@ class Texture(Resource):
             raise ValueError("offset must not be negative")
         # Get data size
         shape = list(data.shape)
-        if self.dim == 1:
-            shape = [1, 1, *shape]
-        elif self.dim == 2:
-            shape = [1, *shape]
+        need_shape_length = 3 if nchannels == 1 else 4
+        while len(shape) < need_shape_length:
+            shape.insert(0, 1)
         size = tuple(reversed(shape[:3]))
-        if len(size) != 3:
-            raise ValueError("Unexpected data shape")
         # Check whether it fits
         if any((o1 + s1) > s2 for o1, s1, s2 in zip(offset, size, self.size)):
             raise ValueError("The data with this offset does not fit.")
         # Create chunk
+        data = data.view()
         data.shape = shape
         if not data.flags.c_contiguous:
             if self._force_contiguous:
@@ -493,6 +546,27 @@ class Texture(Resource):
             chunk = np.ascontiguousarray(chunk)
 
         return chunk
+
+
+def nchannels_from_format(format):
+    if len(format) == 2 and format[0] in "usf":
+        return 1  # e.g. u1, s2, f4
+    elif format[0].isnumeric() and format[1] == "x":
+        return int(format.split("x")[0])
+    elif format[0] == "r":
+        if format[1] != "g":
+            return 1
+        elif format[2] != "b":
+            return 2
+        elif format[3] != "a":
+            return 3
+        else:
+            return 4
+    elif format.startswith("bgra"):
+        return 4
+    else:
+        # Other prefixes: astc, bc, eac, etc2, depth, stencil
+        raise ValueError(f"Cannot derive nchannels from format '{format}' yet.")
 
 
 def size_from_array(data, dim):

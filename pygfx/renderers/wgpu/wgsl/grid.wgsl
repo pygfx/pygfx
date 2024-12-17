@@ -275,7 +275,7 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     // We can apply clipping planes, but maybe a grid should not be clipped?
     // apply_clipping_planes(in.world_pos);
 
-    var out = get_fragment_output(varyings.position.z, out_color);
+    var out = get_fragment_output(varyings.position, out_color);
     $$ if write_pick
         // Just the object id for now
         out.pick = pick_pack(u32(u_wobject.id), 20);

@@ -12,7 +12,7 @@ object, and the pipeline update mechanics.
 
 import numpy as np
 import pygfx as gfx
-from wgpu.gui.offscreen import WgpuCanvas
+from rendercanvas.offscreen import RenderCanvas
 from pygfx.renderers.wgpu.engine.pipeline import get_pipeline_container_group
 from pygfx.renderers.wgpu.engine.environment import get_environment
 
@@ -106,7 +106,7 @@ def get_bindings(world_object):
 
 
 def test_updating_image_material_map():
-    renderer = gfx.renderers.WgpuRenderer(WgpuCanvas(), blend_mode="ordered2")
+    renderer = gfx.renderers.WgpuRenderer(RenderCanvas(), blend_mode="ordered2")
     scene = gfx.Scene()
 
     # Create an image
@@ -126,7 +126,7 @@ def test_updating_image_material_map():
 
 
 def test_updating_mesh_material_color():
-    renderer = gfx.renderers.WgpuRenderer(WgpuCanvas(), blend_mode="ordered2")
+    renderer = gfx.renderers.WgpuRenderer(RenderCanvas(), blend_mode="ordered2")
     scene = gfx.Scene()
 
     # Create a mesh
@@ -159,7 +159,7 @@ def test_updating_mesh_material_color():
 
 
 def test_updating_mesh_material_opacity():
-    renderer = gfx.renderers.WgpuRenderer(WgpuCanvas(), blend_mode="ordered2")
+    renderer = gfx.renderers.WgpuRenderer(RenderCanvas(), blend_mode="ordered2")
     scene = gfx.Scene()
 
     # Create a mesh
@@ -184,7 +184,7 @@ def test_updating_mesh_material_opacity():
 
 
 def test_updating_mesh_geometry_color():
-    renderer = gfx.renderers.WgpuRenderer(WgpuCanvas(), blend_mode="ordered2")
+    renderer = gfx.renderers.WgpuRenderer(RenderCanvas(), blend_mode="ordered2")
     scene = gfx.Scene()
 
     # Create a mesh

@@ -1,5 +1,6 @@
 from ..resources import Texture
 from ._base import Material
+from ..utils import assert_type
 
 
 class ImageBasicMaterial(Material):
@@ -51,7 +52,7 @@ class ImageBasicMaterial(Material):
 
     @map.setter
     def map(self, map):
-        assert map is None or isinstance(map, Texture)
+        assert_type("map", map, None, Texture)
         self._store.map = map
 
     @property
