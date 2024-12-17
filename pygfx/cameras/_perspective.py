@@ -270,7 +270,7 @@ class PerspectiveCamera(Camera):
     def set_view_size(self, width, height):
         self._view_aspect = width / height
 
-    def update_projection_matrix(self):
+    def update_projection_matrix(self, ndc_matrix=None):
         zoom_factor = self._zoom
         near, far = self._get_near_and_far_plane()
 
@@ -296,7 +296,6 @@ class PerspectiveCamera(Camera):
             self.projection_matrix = la.mat_perspective(
                 left, right, top, bottom, near, far, depth_range=(0, 1)
             )
-            self.projection_matrix_inverse = mat_inv(self.projection_matrix)
 
         else:
             # The reference view plane is scaled with the zoom factor
@@ -316,12 +315,13 @@ class PerspectiveCamera(Camera):
             left = -0.5 * width
             right = +0.5 * width
             # Set matrices
-            proj = la.mat_orthographic(
+            self.projection_matrix = la.mat_orthographic(
                 left, right, top, bottom, near, far, depth_range=(0, 1)
             )
-            proj_i = mat_inv(proj)
-            self.projection_matrix = proj
-            self.projection_matrix_inverse = proj_i
+
+        if ndc_matrix is not None:
+            self.projection_matrix = ndc_matrix @ self.projection_matrix
+        self.projection_matrix_inverse = mat_inv(self.projection_matrix)
 
     def show_pos(self, target, *, up=None):
         """Look at the given position or object.

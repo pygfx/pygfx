@@ -1,0 +1,232 @@
+"""
+High resolution screenshot
+==========================
+
+"""
+
+# sphinx_gallery_pygfx_docs = 'code'
+# sphinx_gallery_pygfx_test = 'off'
+
+import os
+import tempfile
+import webbrowser
+
+import imageio as iio
+import numpy as np
+from rendercanvas.offscreen import RenderCanvas
+import pygfx as gfx
+
+
+# %% The visualization
+
+colors = np.array(
+    [
+        [1.0, 0.5, 0.5, 1.0],
+        [0.5, 1.0, 0.5, 1.0],
+        [0.5, 0.5, 1.0, 1.0],
+        [0.5, 0.5, 1.0, 0.3],
+        [0.0, 0.0, 0.0, 0.0],
+    ],
+    np.float32,
+)
+
+npoints = len(colors)
+
+positions = np.zeros((npoints, 3), np.float32)
+positions[:, 0] = np.arange(npoints) * 2
+geometry = gfx.Geometry(positions=positions, colors=colors)
+
+
+scene = gfx.Scene()
+scene.add(gfx.Background.from_color("#bbb", "#777"))
+
+pygfx_sdf = """
+    let m_sqrt_3 = 1.7320508075688772;
+
+    // coords uses WGSL coordinates.
+    // we shift it so that the center of the triangle is at the origin.
+    // for ease of calculations.
+    var coord_for_sdf = coord / size + vec2<f32>(0.5, -0.5);
+
+    // https://math.stackexchange.com/a/4073070
+    // equilateral triangle has length of size
+    //    sqrt(3) - 1
+    let triangle_x = m_sqrt_3 - 1.;
+    let one_minus_triangle_x = 2. - m_sqrt_3;
+    let triangle_length = SQRT_2 * triangle_x;
+
+    let pygfx_width = 0.10;
+
+    let v1 = normalize(vec2<f32>(one_minus_triangle_x, 1));
+    let r1_out = dot(coord_for_sdf, v1);
+    let r1_in  = r1_out + pygfx_width;
+
+    let v2 = normalize(vec2<f32>(-1, -one_minus_triangle_x));
+    let r2_out = dot(coord_for_sdf, v2);
+    let r2_in  = r2_out + pygfx_width;
+
+    let v3 = normalize(vec2<f32>(triangle_x, -triangle_x));
+    let r3_out = dot(coord_for_sdf - vec2(1, -one_minus_triangle_x), v3);
+    let r3_in  = r3_out + pygfx_width;
+
+    let inner_offset = 0.5 * (triangle_length - pygfx_width / 2.);
+    let r1_out_blue = -r1_out - inner_offset;
+    let r1_in_blue = r1_out_blue + pygfx_width;
+    let r1_blue = max(
+        max(r2_out, r3_in),
+        max(r1_out_blue, -r1_in_blue)
+    );
+
+    let r2_out_blue = -r2_out - inner_offset;
+    let r2_in_blue = r2_out_blue + pygfx_width;
+    let r2_blue = max(
+        max(r3_out, r1_in),
+        max(r2_out_blue, -r2_in_blue)
+    );
+
+    let r3_out_blue = -r3_out - inner_offset;
+    let r3_in_blue = r3_out_blue + pygfx_width;
+    let r3_blue = max(
+        max(r1_out, r2_in),
+        max(r3_out_blue, -r3_in_blue)
+    );
+
+    let inner_triangle = min(r1_blue, min(r2_blue, r3_blue));
+
+    let outer_triangle = max(
+        max(r1_out, max(r2_out, r3_out)),
+        -max(r1_in, max(r2_in, r3_in))
+    );
+
+    return min(inner_triangle, outer_triangle) * size;
+"""
+
+
+y = 0
+text = gfx.Text(
+    gfx.TextGeometry("centered", anchor="middle-middle", font_size=1),
+    gfx.TextMaterial("#000"),
+)
+text.local.y = y
+text.local.x = npoints
+scene.add(text)
+
+text = gfx.Text(
+    gfx.TextGeometry("inner", anchor="middle-middle", font_size=1),
+    gfx.TextMaterial("#000"),
+)
+text.local.y = y
+text.local.x = 2 * npoints + npoints
+scene.add(text)
+
+text = gfx.Text(
+    gfx.TextGeometry("outer", anchor="middle-middle", font_size=1),
+    gfx.TextMaterial("#000"),
+)
+text.local.y = y
+text.local.x = 4 * npoints + npoints
+scene.add(text)
+
+all_lines = []
+for marker in gfx.MarkerShape:
+    y += 2
+    line = gfx.Points(
+        geometry,
+        gfx.PointsMarkerMaterial(
+            size=1,
+            size_space="world",
+            color_mode="vertex",
+            # color_mode='debug',
+            marker=marker,
+            edge_color="#000",
+            edge_width=0.1 if not marker == "custom" else 0.033333,
+            custom_sdf=pygfx_sdf if marker == "custom" else None,
+        ),
+    )
+    line.local.y = -y
+    line.local.x = 1
+    scene.add(line)
+    all_lines.append(line)
+
+    line_inner = gfx.Points(
+        geometry,
+        gfx.PointsMarkerMaterial(
+            size=1,
+            size_space="world",
+            color_mode="vertex",
+            marker=marker,
+            edge_color="#000",
+            edge_width=0.1 if not marker == "custom" else 0.033333,
+            edge_mode="inner",
+            custom_sdf=pygfx_sdf if marker == "custom" else None,
+        ),
+    )
+
+    line_inner.local.y = -y
+    line_inner.local.x = 1 + 2 * npoints
+
+    scene.add(line_inner)
+    all_lines.append(line_inner)
+
+    line_outer = gfx.Points(
+        geometry,
+        gfx.PointsMarkerMaterial(
+            size=1,
+            size_space="world",
+            color_mode="vertex",
+            marker=marker,
+            edge_color="#000",
+            edge_width=0.1 if not marker == "custom" else 0.033333,
+            edge_mode="outer",
+            custom_sdf=pygfx_sdf if marker == "custom" else None,
+        ),
+    )
+
+    line_outer.local.y = -y
+    line_outer.local.x = 1 + 4 * npoints
+
+    scene.add(line_outer)
+    all_lines.append(line_outer)
+
+    text = gfx.Text(
+        gfx.TextGeometry(marker, anchor="middle-right", font_size=1),
+        gfx.TextMaterial("#000"),
+    )
+    text.local.y = -y
+    text.local.x = 0
+    scene.add(text)
+
+
+camera = gfx.OrthographicCamera()
+camera.show_object(scene, scale=0.7)
+
+
+## Tiling
+
+canvas = RenderCanvas(size=(1200, 1000))
+renderer = gfx.WgpuRenderer(canvas)
+
+
+tile = [4, 0, 0]
+
+
+@canvas.request_draw
+def animate():
+    renderer.render(scene, camera, tile=tile)
+
+
+rows = []
+for iy in range(tile[0]):
+    row = []
+    for ix in range(tile[0]):
+        tile[1:] = ix, iy
+        im = canvas.draw()
+        row.append(im)
+    rows.append(np.column_stack(row))
+
+full_im = np.vstack(rows)
+print("full resolution:", full_im.shape)
+
+filename = os.path.join(tempfile.gettempdir(), "hirez_pygfx.png")
+iio.imwrite(filename, full_im)
+webbrowser.open("file://" + filename)
