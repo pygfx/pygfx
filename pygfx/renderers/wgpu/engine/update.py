@@ -5,6 +5,7 @@ Functions to update resources.
 import wgpu
 
 from ....resources import Texture, Buffer
+from ....utils import logger
 
 from .utils import to_texture_format, GfxSampler, GfxTextureView
 from .mipmapsutil import get_mip_level_count, generate_texture_mipmaps
@@ -143,6 +144,12 @@ def ensure_wgpu_object(resource):
         fmt = to_texture_format(resource.format)
         if fmt in ALTTEXFORMAT:
             fmt = ALTTEXFORMAT[fmt][0]
+        if resource.colorspace == "tex-srgb" and not fmt.endswith("-srgb"):
+            fmt += "-srgb"
+        elif resource.colorspace == "srgb" and fmt.endswith("-srgb"):
+            logger.warning(
+                "Using texture.format 'xx-srgb' AND texture.colorspace 'srgb'."
+            )
         if resource.data is not None:
             resource._wgpu_usage |= wgpu.TextureUsage.COPY_DST
         usage = resource._wgpu_usage
