@@ -34,7 +34,6 @@ except NameError:
 # sphinx_gallery_pygfx_docs = 'animate 4s'
 # sphinx_gallery_pygfx_test = 'run'
 
-import time
 import pygfx as gfx
 
 from wgpu.gui.auto import WgpuCanvas, run
@@ -58,7 +57,6 @@ scene.add(gfx.AmbientLight(), direct_light)
 gltf = gfx.load_gltf(gltf_path)
 
 model_obj = gltf.scene.children[1]
-action_clip = gltf.animations[0]
 
 scene.add(model_obj)
 
@@ -66,13 +64,20 @@ camera.show_object(model_obj, view_dir=(1.8, -0.8, -3), scale=1.2)
 
 gfx.OrbitController(camera, register_events=renderer)
 
-gloabl_time = 0
-last_time = time.perf_counter()
 
 stats = gfx.Stats(viewport=renderer)
 
 face_mesh = model_obj.children[0].children[0].children[2].children[0]
 gui_renderer = ImguiRenderer(renderer.device, canvas)
+
+mixer = gfx.AnimationMixer()
+
+action_clip = gltf.animations[0]
+action = mixer.clip_action(action_clip)
+
+clock = gfx.Clock()
+
+action.play()
 
 
 def draw_imgui():
@@ -88,10 +93,8 @@ def draw_imgui():
         flags=imgui.WindowFlags_.no_move | imgui.WindowFlags_.no_resize,
     )
     if is_expand:
-        # imgui.begin_disabled()
         for i, name in enumerate(face_mesh.morph_target_names):
             imgui.slider_float(name, face_mesh.morph_target_influences[i], 0, 1)
-        # imgui.end_disabled()
 
     imgui.end()
     imgui.end_frame()
@@ -103,15 +106,8 @@ gui_renderer.set_gui(draw_imgui)
 
 
 def animate():
-    global gloabl_time, last_time
-    now = time.perf_counter()
-    dt = now - last_time
-    last_time = now
-    gloabl_time += dt
-    if gloabl_time > action_clip.duration:
-        gloabl_time = 0
-
-    action_clip.update(gloabl_time)
+    dt = clock.get_delta()
+    mixer.update(dt)
 
     with stats:
         renderer.render(scene, camera, flush=False)
