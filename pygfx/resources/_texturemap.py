@@ -16,7 +16,7 @@ class TextureMap(Trackable):
         e.g. with `channel=7`, it will use the `geometry.texcoords7`.
         Default is 0, which uses the `geometry.texcoords`.
     filter : str, optional
-        The filter to use for both magnification and minification if not being set separately.
+        The filter to use for magnification, minification znd mipmap, if not being set separately.
         Default is "linear".
     mag_filter : str, optional
         The magnification filter to use. Default is "linear".
