@@ -200,6 +200,65 @@ for marker in gfx.MarkerShape:
 camera = gfx.OrthographicCamera()
 camera.show_object(scene, scale=0.7)
 
+camera_state = camera.get_state()
+
+# To help visualize the rendering ability, we draw two boxes
+# One entirely contained within the FOV of the main image, the other
+# entirely outside of the FOV of the main image.
+# By disabling AA, we should be able to use this to validate that we don't
+# render more than we should.
+line_thickness = 1
+box_width = camera_state['width']
+box_height = camera_state['height']
+logical_size = canvas.get_logical_size()
+if logical_size[0] > logical_size[1]:
+    box_width *= logical_size[0] / logical_size[1]
+else:
+    box_height *= logical_size[1] / logical_size[0]
+inner_lines_geometry = gfx.box_geometry(
+    width=box_width - line_thickness,
+    height=box_height - line_thickness,
+)
+
+
+inner_lines_geometry.positions.data[..., 0] += camera_state['position'][0]
+inner_lines_geometry.positions.data[..., 1] += camera_state['position'][1]
+
+outer_lines_geometry = gfx.Geometry(positions=[
+    [0, 0, 0],
+    [box_width + line_thickness, 0, 0],
+    [box_width + line_thickness, box_height + line_thickness, 0],
+    [0, box_height + line_thickness, 0],
+    [0, 0, 0],
+])
+outer_lines_geometry.positions.data[..., 0] -= (box_width + line_thickness) / 2
+outer_lines_geometry.positions.data[..., 1] -= (box_height + line_thickness) / 2
+
+outer_lines_geometry.positions.data[..., 0] += camera_state['position'][0]
+outer_lines_geometry.positions.data[..., 1] += camera_state['position'][1]
+scene.add(
+    gfx.Line(
+        inner_lines_geometry,
+        gfx.LineMaterial(
+            color="red",
+            thickness=line_thickness,
+            thickness_space="world",
+            aa=False
+        ),
+    )
+)
+scene.add(
+    gfx.Line(
+        outer_lines_geometry,
+        gfx.LineMaterial(
+            color="blue",
+            thickness=line_thickness,
+            thickness_space="world",
+            aa=False
+        ),
+    )
+)
+
 
 ## Tiling
 
