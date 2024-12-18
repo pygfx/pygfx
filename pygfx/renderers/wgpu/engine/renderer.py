@@ -469,6 +469,13 @@ class WgpuRenderer(RootEventHandler, Renderer):
                 "The viewport rect must be None or 4 elements (x, y, w, h)."
             )
 
+        # Apply the camera's native size (do this before we change scene_lsize based on view_offset)
+        camera.set_view_size(*scene_lsize)
+
+        # Camera view_offset overrides logical size
+        if camera._view_offset is not None:
+            scene_lsize = camera._view_offset["width"], camera._view_offset["height"]
+
         # Allow objects to prepare just in time. When doing multiple
         # render calls, we don't want to spam. The clear_color flag is
         # a good indicator to detect the first render call.
@@ -484,7 +491,6 @@ class WgpuRenderer(RootEventHandler, Renderer):
             self.dispatch_event(ev)
 
         # Ensure that matrices are up-to-date
-        camera.set_view_size(*scene_lsize)
         camera.update_projection_matrix()
 
         # Prepare the shared object
