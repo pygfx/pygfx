@@ -741,9 +741,10 @@ class _GLTF:
                 # A CUBICSPLINE keyframe in glTF has three output values for each input value,
                 # representing inTangent, splineVertex, and outTangent.
                 # todo: implement GLTF 2.0 Cubic Spline Interpolation
-                raise NotImplementedError(
+                gfx.utils.logger.warning(
                     "GLTF CUBICSPLINE interpolation is not supported yet."
                 )
+                continue
             else:
                 raise ValueError(f"Unsupported interpolation type: {interpolation}")
 
