@@ -372,25 +372,25 @@ class _GLTF:
             geometry = self._load_gltf_geometry(primitive)
             primitive_mode = primitive.mode
 
+            if load_material and primitive.material is not None:
+                material = self._load_gltf_material(primitive.material)
+            else:
+                material = gfx.MeshStandardMaterial()
+                if hasattr(geometry, "colors"):
+                    material.color_mode = "vertex"
+
             if primitive_mode is None:
                 primitive_mode = 4  # default to triangles
 
             if primitive_mode == 0:
-                material = gfx.PointsMaterial()
                 gfx_mesh = gfx.Points(geometry, material)
 
             elif primitive_mode in (1, 2, 3):
-                material = gfx.LineSegmentMaterial()
+                # todo: distinguish lines, line_strip, line_loop
                 gfx_mesh = gfx.Line(geometry, material)
 
             elif primitive_mode in (4, 5):
-                if load_material and primitive.material is not None:
-                    material = self._load_gltf_material(primitive.material)
-                else:
-                    material = gfx.MeshBasicMaterial()
-                    if hasattr(geometry, "colors"):
-                        material.color_mode = "vertex"
-
+                # todo: distinguish triangles, triangle_strip, triangle_fan
                 if skin_index is not None:
                     gfx_mesh = gfx.SkinnedMesh(geometry, material)
                     skeleton = self._load_skins(skin_index)
@@ -597,7 +597,7 @@ class _GLTF:
             # TODO: For now, pygfx not support non-indexed geometry, so we need to generate indices for them.
             # Remove this after pygfx support non-indexed geometry.
             indices = np.arange(
-                len(geometry_args["positions"]), dtype=np.int32
+                len(geometry_args["positions"]) // 3 * 3, dtype=np.int32
             ).reshape((-1, 3))
 
         geometry_args["indices"] = indices
