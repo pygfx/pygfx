@@ -1,6 +1,6 @@
 import numpy as np
 from .animation_action import AnimationAction
-from ..objects import RootEventHandler
+from ..objects import RootEventHandler, Group, Mesh
 
 
 class AnimationMixer(RootEventHandler):
@@ -155,7 +155,12 @@ class AnimationMixer(RootEventHandler):
         elif path == "rotation":
             return target.local.rotation
         elif path == "weights":
-            return target.morph_target_influences
+            if isinstance(target, Mesh):
+                return target.morph_target_influences
+            elif isinstance(target, Group):
+                for c in target.children:
+                    if isinstance(c, Mesh):
+                        return c.morph_target_influences
 
     def _set_path_value(self, target, path, value):
         if path == "scale":
@@ -165,4 +170,9 @@ class AnimationMixer(RootEventHandler):
         elif path == "rotation":
             target.local.rotation = value
         elif path == "weights":
-            target.morph_target_influences = value
+            if isinstance(target, Mesh):
+                target.morph_target_influences = value
+            elif isinstance(target, Group):
+                for c in target.children:
+                    if isinstance(c, Mesh):
+                        c.morph_target_influences = value

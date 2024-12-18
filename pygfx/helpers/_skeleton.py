@@ -8,16 +8,19 @@ class SkeletonHelper(Line):
 
     def __init__(self, wobject: WorldObject, thickness=1.0):
         bones = self._get_bones(wobject)
-
         positions = []
         colors = []
-        for bone in bones:
-            if bone.parent and isinstance(bone.parent, Bone):
-                positions.append([0, 0, 0])
-                positions.append([0, 0, 0])
+        if not bones:
+            positions.append([0, 0, 0])
+            colors.append([0, 0, 0])
+        else:
+            for bone in bones:
+                if bone.parent and isinstance(bone.parent, Bone):
+                    positions.append([0, 0, 0])
+                    positions.append([0, 0, 0])
 
-                colors.append([0, 0, 1])
-                colors.append([0, 1, 0])
+                    colors.append([0, 0, 1])
+                    colors.append([0, 1, 0])
 
         super().__init__(
             Geometry(positions=positions, colors=colors),
