@@ -17,6 +17,34 @@ from rendercanvas.offscreen import RenderCanvas
 import pygfx as gfx
 
 
+# %% Prepare
+
+# The scale factor determines how many tiles are created to build the
+# final screenshot (upscale_factor**2). Using a higher value allows
+# creating screenshots above the wgpu texture size limit.
+upscale_factor = 4
+
+# Determine the canvas size, and thereby the resolution of each tile.
+# The tile_size and full_size that we calculate below are both in logical pixels.
+canvas_size = 1200, 1000
+
+if True:
+    # The logical size is maintained, so the result is an image with a
+    # pixel_ratio of `upscale_factor`. Things sized in screen coordinates
+    # (like the texts on the left) scale the same as the rest.
+    tile_size = canvas_size[0] // upscale_factor, canvas_size[1] // upscale_factor
+    full_size = tile_size[0] * upscale_factor, tile_size[1] * upscale_factor
+else:
+    # The logical size is made upscale_factor as large. The pixel_ratio
+    # is 1. Things sized in screen coordinates (like the texts on the
+    # left) become tiny compared to the rest.
+    tile_size = canvas_size
+    full_size = tile_size[0] * upscale_factor, tile_size[1] * upscale_factor
+
+canvas = RenderCanvas(size=canvas_size, pixel_ratio=1)
+renderer = gfx.WgpuRenderer(canvas)
+
+
 # %% The visualization
 
 colors = np.array(
@@ -39,68 +67,6 @@ geometry = gfx.Geometry(positions=positions, colors=colors)
 
 scene = gfx.Scene()
 scene.add(gfx.Background.from_color("#bbb", "#777"))
-
-pygfx_sdf = """
-    let m_sqrt_3 = 1.7320508075688772;
-
-    // coords uses WGSL coordinates.
-    // we shift it so that the center of the triangle is at the origin.
-    // for ease of calculations.
-    var coord_for_sdf = coord / size + vec2<f32>(0.5, -0.5);
-
-    // https://math.stackexchange.com/a/4073070
-    // equilateral triangle has length of size
-    //    sqrt(3) - 1
-    let triangle_x = m_sqrt_3 - 1.;
-    let one_minus_triangle_x = 2. - m_sqrt_3;
-    let triangle_length = SQRT_2 * triangle_x;
-
-    let pygfx_width = 0.10;
-
-    let v1 = normalize(vec2<f32>(one_minus_triangle_x, 1));
-    let r1_out = dot(coord_for_sdf, v1);
-    let r1_in  = r1_out + pygfx_width;
-
-    let v2 = normalize(vec2<f32>(-1, -one_minus_triangle_x));
-    let r2_out = dot(coord_for_sdf, v2);
-    let r2_in  = r2_out + pygfx_width;
-
-    let v3 = normalize(vec2<f32>(triangle_x, -triangle_x));
-    let r3_out = dot(coord_for_sdf - vec2(1, -one_minus_triangle_x), v3);
-    let r3_in  = r3_out + pygfx_width;
-
-    let inner_offset = 0.5 * (triangle_length - pygfx_width / 2.);
-    let r1_out_blue = -r1_out - inner_offset;
-    let r1_in_blue = r1_out_blue + pygfx_width;
-    let r1_blue = max(
-        max(r2_out, r3_in),
-        max(r1_out_blue, -r1_in_blue)
-    );
-
-    let r2_out_blue = -r2_out - inner_offset;
-    let r2_in_blue = r2_out_blue + pygfx_width;
-    let r2_blue = max(
-        max(r3_out, r1_in),
-        max(r2_out_blue, -r2_in_blue)
-    );
-
-    let r3_out_blue = -r3_out - inner_offset;
-    let r3_in_blue = r3_out_blue + pygfx_width;
-    let r3_blue = max(
-        max(r1_out, r2_in),
-        max(r3_out_blue, -r3_in_blue)
-    );
-
-    let inner_triangle = min(r1_blue, min(r2_blue, r3_blue));
-
-    let outer_triangle = max(
-        max(r1_out, max(r2_out, r3_out)),
-        -max(r1_in, max(r2_in, r3_in))
-    );
-
-    return min(inner_triangle, outer_triangle) * size;
-"""
-
 
 y = 0
 text = gfx.Text(
@@ -127,28 +93,28 @@ text.local.y = y
 text.local.x = 4 * npoints + npoints
 scene.add(text)
 
-all_lines = []
+all_points = []
 for marker in gfx.MarkerShape:
+    if marker == "custom":
+        continue
     y += 2
-    line = gfx.Points(
+    points = gfx.Points(
         geometry,
         gfx.PointsMarkerMaterial(
             size=1,
             size_space="world",
             color_mode="vertex",
-            # color_mode='debug',
             marker=marker,
             edge_color="#000",
-            edge_width=0.1 if not marker == "custom" else 0.033333,
-            custom_sdf=pygfx_sdf if marker == "custom" else None,
+            edge_width=0.1,
         ),
     )
-    line.local.y = -y
-    line.local.x = 1
-    scene.add(line)
-    all_lines.append(line)
+    points.local.y = -y
+    points.local.x = 1
+    scene.add(points)
+    all_points.append(points)
 
-    line_inner = gfx.Points(
+    points_inner = gfx.Points(
         geometry,
         gfx.PointsMarkerMaterial(
             size=1,
@@ -156,19 +122,18 @@ for marker in gfx.MarkerShape:
             color_mode="vertex",
             marker=marker,
             edge_color="#000",
-            edge_width=0.1 if not marker == "custom" else 0.033333,
+            edge_width=0.1,
             edge_mode="inner",
-            custom_sdf=pygfx_sdf if marker == "custom" else None,
         ),
     )
 
-    line_inner.local.y = -y
-    line_inner.local.x = 1 + 2 * npoints
+    points_inner.local.y = -y
+    points_inner.local.x = 1 + 2 * npoints
 
-    scene.add(line_inner)
-    all_lines.append(line_inner)
+    scene.add(points_inner)
+    all_points.append(points_inner)
 
-    line_outer = gfx.Points(
+    points_outer = gfx.Points(
         geometry,
         gfx.PointsMarkerMaterial(
             size=1,
@@ -176,20 +141,21 @@ for marker in gfx.MarkerShape:
             color_mode="vertex",
             marker=marker,
             edge_color="#000",
-            edge_width=0.1 if not marker == "custom" else 0.033333,
+            edge_width=0.1,
             edge_mode="outer",
-            custom_sdf=pygfx_sdf if marker == "custom" else None,
         ),
     )
 
-    line_outer.local.y = -y
-    line_outer.local.x = 1 + 4 * npoints
+    points_outer.local.y = -y
+    points_outer.local.x = 1 + 4 * npoints
 
-    scene.add(line_outer)
-    all_lines.append(line_outer)
+    scene.add(points_outer)
+    all_points.append(points_outer)
 
     text = gfx.Text(
-        gfx.TextGeometry(marker, anchor="middle-right", font_size=1),
+        gfx.TextGeometry(
+            marker, anchor="middle-right", font_size=20, screen_space=True
+        ),
         gfx.TextMaterial("#000"),
     )
     text.local.y = -y
@@ -198,7 +164,7 @@ for marker in gfx.MarkerShape:
 
 
 camera = gfx.OrthographicCamera()
-camera.show_object(scene, scale=0.7)
+camera.show_object(scene, scale=0.8)
 
 camera_state = camera.get_state()
 
@@ -207,9 +173,9 @@ camera_state = camera.get_state()
 # entirely outside of the FOV of the main image.
 # By disabling AA, we should be able to use this to validate that we don't
 # render more than we should.
-line_thickness = 1
-box_width = camera_state['width']
-box_height = camera_state['height']
+line_thickness = 0.1
+box_width = camera_state["width"]
+box_height = camera_state["height"]
 logical_size = canvas.get_logical_size()
 if logical_size[0] > logical_size[1]:
     box_width *= logical_size[0] / logical_size[1]
@@ -221,29 +187,28 @@ inner_lines_geometry = gfx.box_geometry(
 )
 
 
-inner_lines_geometry.positions.data[..., 0] += camera_state['position'][0]
-inner_lines_geometry.positions.data[..., 1] += camera_state['position'][1]
+inner_lines_geometry.positions.data[..., 0] += camera_state["position"][0]
+inner_lines_geometry.positions.data[..., 1] += camera_state["position"][1]
 
-outer_lines_geometry = gfx.Geometry(positions=[
-    [0, 0, 0],
-    [box_width + line_thickness, 0, 0],
-    [box_width + line_thickness, box_height + line_thickness, 0],
-    [0, box_height + line_thickness, 0],
-    [0, 0, 0],
-])
+outer_lines_geometry = gfx.Geometry(
+    positions=[
+        [0, 0, 0],
+        [box_width + line_thickness, 0, 0],
+        [box_width + line_thickness, box_height + line_thickness, 0],
+        [0, box_height + line_thickness, 0],
+        [0, 0, 0],
+    ]
+)
 outer_lines_geometry.positions.data[..., 0] -= (box_width + line_thickness) / 2
 outer_lines_geometry.positions.data[..., 1] -= (box_height + line_thickness) / 2
 
-outer_lines_geometry.positions.data[..., 0] += camera_state['position'][0]
-outer_lines_geometry.positions.data[..., 1] += camera_state['position'][1]
+outer_lines_geometry.positions.data[..., 0] += camera_state["position"][0]
+outer_lines_geometry.positions.data[..., 1] += camera_state["position"][1]
 scene.add(
     gfx.Line(
         inner_lines_geometry,
         gfx.LineMaterial(
-            color="red",
-            thickness=line_thickness,
-            thickness_space="world",
-            aa=False
+            color="blue", thickness=line_thickness, thickness_space="world", aa=False
         ),
     )
 )
@@ -251,10 +216,7 @@ scene.add(
     gfx.Line(
         outer_lines_geometry,
         gfx.LineMaterial(
-            color="blue",
-            thickness=line_thickness,
-            thickness_space="world",
-            aa=False
+            color="red", thickness=line_thickness, thickness_space="world", aa=False
         ),
     )
 )
@@ -262,23 +224,24 @@ scene.add(
 
 ## Tiling
 
-canvas = RenderCanvas(size=(1200, 1000))
-renderer = gfx.WgpuRenderer(canvas)
-
-
-tile = [4, 0, 0]
-
 
 @canvas.request_draw
 def animate():
-    renderer.render(scene, camera, tile=tile)
+    renderer.render(scene, camera)
 
 
 rows = []
-for iy in range(tile[0]):
+for iy in range(upscale_factor):
     row = []
-    for ix in range(tile[0]):
-        tile[1:] = ix, iy
+    for ix in range(upscale_factor):
+        camera.set_view_offset(
+            full_size[0],
+            full_size[1],
+            ix * tile_size[0],
+            iy * tile_size[1],
+            tile_size[0],
+            tile_size[1],
+        )
         im = canvas.draw()
         row.append(im)
     rows.append(np.column_stack(row))

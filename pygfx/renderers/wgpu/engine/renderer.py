@@ -411,7 +411,6 @@ class WgpuRenderer(RootEventHandler, Renderer):
         camera: Camera,
         *,
         rect=None,
-        tile=None,
         clear_color=None,
         flush=True,
     ):
@@ -424,9 +423,6 @@ class WgpuRenderer(RootEventHandler, Renderer):
                 viewpoint and view transform.
             rect (tuple, optional): The rectangular region to draw into,
                 expressed in logical pixels, a.k.a. the viewport.
-            tile (tuple, optional): The output tile to display.
-                If given, it must be a tuple of 3 ints (n, ix, iy), with n the number
-                of subdivisions (in both dimensions), and ix-iy specifying the tile slot.
             clear_color (bool, optional): Whether to clear the color buffer
                 before rendering. By default this is True on the first
                 call to ``render()`` after a flush, and False otherwise.
@@ -473,22 +469,12 @@ class WgpuRenderer(RootEventHandler, Renderer):
                 "The viewport rect must be None or 4 elements (x, y, w, h)."
             )
 
-        # Apply tiling
-        ndc_matrix = None
-        if tile is not None:
-            n, ix, iy = tile
-            scene_lsize = scene_lsize[0] / n, scene_lsize[1] / n
-            dx = +(n - 1.0 - 2 * ix)
-            dy = -(n - 1.0 - 2 * iy)
-            ndc_matrix = np.array(
-                [
-                    [n, 0, 0, dx],
-                    [0, n, 0, dy],
-                    [0, 0, 1, 0],
-                    [0, 0, 0, 1],
-                ],
-                np.float32,
-            )
+        # Apply the camera's native size (do this before we change scene_lsize based on view_offset)
+        camera.set_view_size(*scene_lsize)
+
+        # Camera view_offset overrides logical size
+        if camera._view_offset is not None:
+            scene_lsize = camera._view_offset["width"], camera._view_offset["height"]
 
         # Allow objects to prepare just in time. When doing multiple
         # render calls, we don't want to spam. The clear_color flag is
@@ -505,8 +491,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
             self.dispatch_event(ev)
 
         # Ensure that matrices are up-to-date
-        camera.set_view_size(*scene_lsize)
-        camera.update_projection_matrix(ndc_matrix)
+        camera.update_projection_matrix()
 
         # Prepare the shared object
         self._shared.pre_render_hook()

@@ -267,12 +267,17 @@ class PerspectiveCamera(Camera):
                 # Simple props
                 setattr(self, key, value)
 
-    def set_view_size(self, width, height):
-        self._view_aspect = width / height
-
-    def update_projection_matrix(self, ndc_matrix=None):
+    def update_projection_matrix(self):
         zoom_factor = self._zoom
         near, far = self._get_near_and_far_plane()
+
+        view_aspect = self._view_size[0] / self._view_size[1]
+
+        if self._view_offset is not None:
+            # The view_offset should override the aspect, via its full (virtual) size
+            view_aspect = (
+                self._view_offset["full_width"] / self._view_offset["full_height"]
+            )
 
         if self.fov > 0:
             # Get the reference width / height
@@ -283,10 +288,10 @@ class PerspectiveCamera(Camera):
             # Increase either the width or height, depending on the view size
             if not self._maintain_aspect:
                 pass
-            elif self.aspect < self._view_aspect:
-                width *= self._view_aspect / self.aspect
+            elif self.aspect < view_aspect:
+                width *= view_aspect / self.aspect
             else:
-                height *= self.aspect / self._view_aspect
+                height *= self.aspect / view_aspect
             # Calculate bounds
             top = +0.5 * height
             bottom = -0.5 * height
@@ -305,11 +310,11 @@ class PerspectiveCamera(Camera):
             aspect = width / height
             if not self._maintain_aspect:
                 pass
-            elif aspect < self._view_aspect:
-                width *= self._view_aspect / aspect
+            elif aspect < view_aspect:
+                width *= view_aspect / aspect
             else:
-                height *= aspect / self._view_aspect
-
+                height *= aspect / view_aspect
+            # Calculate bounds
             bottom = -0.5 * height
             top = +0.5 * height
             left = -0.5 * width
@@ -319,8 +324,25 @@ class PerspectiveCamera(Camera):
                 left, right, top, bottom, near, far, depth_range=(0, 1)
             )
 
-        if ndc_matrix is not None:
+        if self._view_offset is not None:
+            view_offset = self._view_offset
+            s_x = view_offset["full_width"] / view_offset["width"]
+            s_y = view_offset["full_height"] / view_offset["height"]
+            d_x = view_offset["x"] / view_offset["full_width"]
+            d_y = view_offset["y"] / view_offset["full_height"]
+            t_x = +(s_x - 1.0 - 2.0 * s_x * d_x)
+            t_y = -(s_y - 1.0 - 2.0 * s_y * d_y)
+            ndc_matrix = np.array(
+                [
+                    [s_x, 0.0, 0.0, t_x],
+                    [0.0, s_y, 0.0, t_y],
+                    [0.0, 0.0, 1.0, 0.0],
+                    [0.0, 0.0, 0.0, 1.0],
+                ],
+                np.float32,
+            )
             self.projection_matrix = ndc_matrix @ self.projection_matrix
+
         self.projection_matrix_inverse = mat_inv(self.projection_matrix)
 
     def show_pos(self, target, *, up=None):

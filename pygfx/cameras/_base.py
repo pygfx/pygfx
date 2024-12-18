@@ -25,12 +25,52 @@ class Camera(WorldObject):
     def __init__(self):
         super().__init__()
 
+        self._view_size = 1.0, 1.0
+        self._view_offset = None
+
         self.projection_matrix = np.eye(4, dtype=float)
         self.projection_matrix_inverse = np.eye(4, dtype=float)
 
     def set_view_size(self, width, height):
-        # In logical pixels, called by the renderer to set the viewport size
-        pass
+        """Sets the logical size of the target. Set by the renderer; you should typically not use this."""
+        self._view_size = float(width), float(height)
+
+    def set_view_offset(
+        self,
+        full_width: float,
+        full_height: float,
+        x: float,
+        y: float,
+        width: float,
+        height: float,
+    ):
+        """Set the offset in a larger viewing frustrum and override the logical size.
+
+        This is useful for multi-window setups or taking tiled screenshots.
+        TODO: use-cases and note on logical size and pixel ratio.
+
+        Parameters
+        ----------
+        full_width (float): The full width of the virtual viewing frustrum.
+        full_height (float): The full height of the virtual viewing frustrum.
+        x (float): The horizontal offset of the curent sub-view.
+        y (float): The vertical offset of the curent sub-view.
+        width (float): The width of the current sub-view.
+        height (float): The height of the current sub-view.
+
+        """
+        self._view_offset = {
+            "full_width": float(full_width),
+            "full_height": float(full_height),
+            "x": float(x),
+            "y": float(y),
+            "width": float(width),
+            "height": float(height),
+        }
+
+    def clear_view_offset(self):
+        """Remove the currently set view offset, returning to a normal view."""
+        self._view_offset = None
 
     def update_projection_matrix(self):
         raise NotImplementedError()
@@ -74,17 +114,9 @@ class ScreenCoordsCamera(Camera):
     The depth range is the same as in NDC (0 to 1).
     """
 
-    def __init__(self):
-        super().__init__()
-        self._width = 1
-        self._height = 1
-
-    def set_view_size(self, width, height):
-        self._width = width
-        self._height = height
-
     def update_projection_matrix(self):
-        sx, sy, sz = 2 / self._width, 2 / self._height, 1
+        width, height = self._view_size
+        sx, sy, sz = 2 / width, 2 / height, 1
         dx, dy, dz = -1, -1, 0
         m = sx, 0, 0, dx, 0, sy, 0, dy, 0, 0, sz, dz, 0, 0, 0, 1
         proj_view = self.projection_matrix.ravel()
