@@ -4,7 +4,6 @@ import numpy as np
 import pylinalg as la
 
 from ..objects._base import WorldObject
-from ..utils.transform import mat_inv
 from ._base import Camera
 
 
@@ -298,7 +297,7 @@ class PerspectiveCamera(Camera):
             left = -0.5 * width
             right = +0.5 * width
             # Set matrices
-            self.projection_matrix = la.mat_perspective(
+            projection_matrix = la.mat_perspective(
                 left, right, top, bottom, near, far, depth_range=(0, 1)
             )
 
@@ -320,30 +319,11 @@ class PerspectiveCamera(Camera):
             left = -0.5 * width
             right = +0.5 * width
             # Set matrices
-            self.projection_matrix = la.mat_orthographic(
+            projection_matrix = la.mat_orthographic(
                 left, right, top, bottom, near, far, depth_range=(0, 1)
             )
 
-        if self._view_offset is not None:
-            view_offset = self._view_offset
-            s_x = view_offset["full_width"] / view_offset["width"]
-            s_y = view_offset["full_height"] / view_offset["height"]
-            d_x = view_offset["x"] / view_offset["full_width"]
-            d_y = view_offset["y"] / view_offset["full_height"]
-            t_x = +(s_x - 1.0 - 2.0 * s_x * d_x)
-            t_y = -(s_y - 1.0 - 2.0 * s_y * d_y)
-            ndc_matrix = np.array(
-                [
-                    [s_x, 0.0, 0.0, t_x],
-                    [0.0, s_y, 0.0, t_y],
-                    [0.0, 0.0, 1.0, 0.0],
-                    [0.0, 0.0, 0.0, 1.0],
-                ],
-                np.float32,
-            )
-            self.projection_matrix = ndc_matrix @ self.projection_matrix
-
-        self.projection_matrix_inverse = mat_inv(self.projection_matrix)
+        self._finalize_projection_matrix(projection_matrix)
 
     def show_pos(self, target, *, up=None):
         """Look at the given position or object.

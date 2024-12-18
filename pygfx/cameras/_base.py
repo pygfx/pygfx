@@ -46,8 +46,22 @@ class Camera(WorldObject):
     ):
         """Set the offset in a larger viewing frustrum and override the logical size.
 
-        This is useful for multi-window setups or taking tiled screenshots.
-        TODO: use-cases and note on logical size and pixel ratio.
+        This is useful for advanced use-cases such as multi-window setups or taking tiled screenshots.
+        It is the responsibility of the caller to make sure that the ratio of the ``width`` and ``height``
+        match that of the canvas/viewport being rendered to, so that the effective ``pixel_ratio`` is isotropic.
+
+        .. code-block:: python
+
+            # Assuming a canvas with a logical size of 640x480 ...
+
+            # Use a custom logical size
+            camera.set_view_offset(320, 240, 0, 0, 320, 240)
+
+            # Render the bottom-left corner, sizes in screen-space become larger (relative to the screen)
+            camera.set_view_offset(640, 480, 0, 240, 320, 240)
+
+            # Render the bottom-left corner, sizes in screen-space stay the same (relative to the screen)
+            camera.set_view_offset(1280, 960, 0, 480, 640, 480)
 
         Parameters
         ----------
@@ -74,6 +88,30 @@ class Camera(WorldObject):
 
     def update_projection_matrix(self):
         raise NotImplementedError()
+
+    def _finalize_projection_matrix(self, projection_matrix):
+        if self._view_offset is None:
+            self.projection_matrix = projection_matrix
+        else:
+            view_offset = self._view_offset
+            s_x = view_offset["full_width"] / view_offset["width"]
+            s_y = view_offset["full_height"] / view_offset["height"]
+            d_x = view_offset["x"] / view_offset["full_width"]
+            d_y = view_offset["y"] / view_offset["full_height"]
+            t_x = +(s_x - 1.0 - 2.0 * s_x * d_x)
+            t_y = -(s_y - 1.0 - 2.0 * s_y * d_y)
+            ndc_matrix = np.array(
+                [
+                    [s_x, 0.0, 0.0, t_x],
+                    [0.0, s_y, 0.0, t_y],
+                    [0.0, 0.0, 1.0, 0.0],
+                    [0.0, 0.0, 0.0, 1.0],
+                ],
+                np.float32,
+            )
+            self.projection_matrix = ndc_matrix @ projection_matrix
+
+        self.projection_matrix_inverse = mat_inv(self.projection_matrix)
 
     def get_state(self):
         """Get the state of the camera as a dict."""
@@ -103,9 +141,7 @@ class NDCCamera(Camera):
     """
 
     def update_projection_matrix(self):
-        eye = np.eye(4)
-        self.projection_matrix = eye
-        self.projection_matrix_inverse = eye
+        self._finalize_projection_matrix(np.eye(4))
 
 
 class ScreenCoordsCamera(Camera):
@@ -119,6 +155,4 @@ class ScreenCoordsCamera(Camera):
         sx, sy, sz = 2 / width, 2 / height, 1
         dx, dy, dz = -1, -1, 0
         m = sx, 0, 0, dx, 0, sy, 0, dy, 0, 0, sz, dz, 0, 0, 0, 1
-        proj_view = self.projection_matrix.ravel()
-        proj_view[:] = m
-        self.projection_matrix_inverse = mat_inv(self.projection_matrix)
+        self._finalize_projection_matrix(np.array(m, np.float32).reshape(4, 4))
