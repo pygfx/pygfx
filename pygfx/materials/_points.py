@@ -1,6 +1,6 @@
 from ._base import Material
-from ..resources import Texture
-from ..utils import unpack_bitfield, Color
+from ..resources import Texture, TextureMap
+from ..utils import unpack_bitfield, Color, assert_type
 from ..utils.enums import EdgeMode, ColorMode, SizeMode, CoordSpace, MarkerShape
 
 
@@ -23,10 +23,8 @@ class PointsMaterial(Material):
         The mode by which the points are coloured. Default 'auto'.
     edge_mode : str | EdgeMode
         The mode by which the points are edged. Default 'centered'.
-    map : Texture
+    map : TextureMap | Texture
         The texture map specifying the color for each texture coordinate.
-    map_interpolation: str
-        The method to interpolate the color map. Either 'nearest' or 'linear'. Default 'linear'.
     aa : bool
         Whether or not the points are anti-aliased in the shader. Default True.
     kwargs : Any
@@ -51,7 +49,6 @@ class PointsMaterial(Material):
         color_mode="auto",
         edge_mode="centered",
         map=None,
-        map_interpolation="linear",
         aa=True,
         **kwargs,
     ):
@@ -64,7 +61,6 @@ class PointsMaterial(Material):
         self.color_mode = color_mode
         self.edge_mode = edge_mode
         self.map = map
-        self.map_interpolation = map_interpolation
         self.aa = aa
 
     def _wgpu_get_pick_info(self, pick_value):
@@ -215,18 +211,10 @@ class PointsMaterial(Material):
 
     @map.setter
     def map(self, map):
-        assert map is None or isinstance(map, Texture)
+        assert_type("map", map, None, Texture, TextureMap)
+        if isinstance(map, Texture):
+            map = TextureMap(map)
         self._store.map = map
-
-    @property
-    def map_interpolation(self):
-        """The method to interpolate the colormap. Either 'nearest' or 'linear'."""
-        return self._store.map_interpolation
-
-    @map_interpolation.setter
-    def map_interpolation(self, value):
-        assert value in ("nearest", "linear")
-        self._store.map_interpolation = value
 
     # todo: sizeAttenuation
 

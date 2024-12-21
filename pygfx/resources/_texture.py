@@ -42,7 +42,7 @@ class Texture(Resource):
         automatically determined from the data.
     colorspace : str
         If this data is used as color, it is interpreted to be in this
-        colorspace. Can be "srgb", "physical", "yuv420p", or "yuv444p". Default "srgb".
+        colorspace. Can be "srgb", "tex-srgb", "physical", "yuv420p", or "yuv444p". Default "srgb".
     colorrange : str
         For YUV textures, this is either "limited", or "full". For the limited range,
         the luma plane is limited between 16-235, and the chroma planes (U and V) are
@@ -110,6 +110,7 @@ class Texture(Resource):
         self._colorspace = (colorspace or "srgb").lower()
         assert self._colorspace in (
             "srgb",
+            "tex-srgb",
             "physical",
             "yuv420p",
             "yuv444p",
@@ -273,14 +274,19 @@ class Texture(Resource):
     @property
     def colorspace(self):
         """If this data is used as color, it is interpreted to be in this colorspace.
-        Can be "srgb", "physical", "yuv420p", or "yuv444p". Default "srgb".
+        Can be "srgb", "tex-srgb", "physical", "yuv420p", or "yuv444p". Default "srgb".
 
         * "srgb": the data represents intensity, rgb, or rgba pixels in the sRGB space.
           sRGB is a standard color space designed for consistent representation of colors
           across devices like monitors. Most images store colors in this space.
-        * "physical": the colors are in the physical / linear space, where lighting
-          calculations can be applied. The shader convers sRGB colors to physical in
-          the shader before doing color computations.
+          The shader convers sRGB colors to physical in the shader before doing color computations.
+        * "tex-srgb": the underlying texture will be of an sRGB format. This means the data
+          is automatically converted to sRGB when it is sampled. This results in better glTF
+          compliance (because interpolation in the sampling happens in linear space).
+          Note that sampling *always* results in the sRGB values, also when not interpreted as color.
+          Only supported for rgb and rgba data.
+        * "physical": the colors are (already) in the physical / linear space, where lighting
+          calculations can be applied. Shader code that interprets the data as color will use it as-is.
         * "yuv420p": A common video format. The data is represented as 3 planes (y, u, and v).
           The y represents intensity, and is at full resolution. The u and v planes are a
           quarter of the size. The planes must be stored in two layers of the texture,
