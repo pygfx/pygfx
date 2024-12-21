@@ -184,6 +184,9 @@ class WorldObject(EventTarget, RootTrackable):
 
     @callback
     def _update_uniform_buffers(self, transform: AffineBase):
+        # FIXME: instead of updating uniform data immediately, just track
+        # that they were updated, and delay updating uniform data until just
+        # before the next draw, otherwise we are causing redundant linalg computations
         orig_err_setting = np.seterr(under="ignore")
         self.uniform_buffer.data["world_transform"] = transform.matrix.T
         self.uniform_buffer.data["world_transform_inv"] = transform.inverse_matrix.T

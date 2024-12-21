@@ -713,6 +713,8 @@ class RecursiveTransform(AffineBase):
         self.flag_update()
 
     def _propagate_reference_up(self):
+        # FIXME: can this math be delayed until a property is actively being read?
+        # we're now triggering matrix computations redundantly here
         new_ref = la.vec_transform(self._reference_up, self._parent.inverse_matrix)
         origin = la.vec_transform((0, 0, 0), self._parent.inverse_matrix)
         self.own._reference_up = la.vec_normalize(new_ref - origin)
@@ -750,6 +752,7 @@ class RecursiveTransform(AffineBase):
 
     @cached
     def _matrix(self):
+        breakpoint()
         return self._parent.matrix @ self.own.matrix
 
     @property

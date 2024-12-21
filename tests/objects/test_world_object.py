@@ -8,6 +8,7 @@ import pytest
 
 from pygfx import WorldObject
 import pygfx as gfx
+import pygfx.utils.transform
 
 
 def test_traverse():
@@ -491,3 +492,19 @@ def test_rotation_derived():
     npt.assert_array_almost_equal(
         obj.local.rotation, la.quat_from_euler(np.pi / 2, order="Z")
     )
+
+
+def test_update_laziness():
+    a = gfx.WorldObject()
+    b = gfx.WorldObject()
+
+    alm = a.world.last_modified
+    blm = b.world.last_modified
+
+    a.add(b)
+
+    # assert a.world.last_modified == alm
+    # assert b.world.last_modified == blm
+
+    breakpoint()
+    a.local.position = (1, 2, 3)
