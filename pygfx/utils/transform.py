@@ -752,7 +752,6 @@ class RecursiveTransform(AffineBase):
 
     @cached
     def _matrix(self):
-        breakpoint()
         return self._parent.matrix @ self.own.matrix
 
     @property

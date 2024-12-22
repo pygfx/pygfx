@@ -498,13 +498,15 @@ def test_update_laziness():
     a = gfx.WorldObject()
     b = gfx.WorldObject()
 
-    alm = a.world.last_modified
-    blm = b.world.last_modified
+    assert not hasattr(a.world, "__matrix_cache")
+    assert not hasattr(b.world, "__matrix_cache")
 
     a.add(b)
 
-    # assert a.world.last_modified == alm
-    # assert b.world.last_modified == blm
+    assert not hasattr(a.world, "__matrix_cache")
+    assert not hasattr(b.world, "__matrix_cache")
 
-    breakpoint()
     a.local.position = (1, 2, 3)
+
+    assert not hasattr(a.world, "__matrix_cache")
+    assert not hasattr(b.world, "__matrix_cache")
