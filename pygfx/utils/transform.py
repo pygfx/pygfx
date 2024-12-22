@@ -673,7 +673,7 @@ class RecursiveTransform(AffineBase):
         /,
         *,
         parent=None,
-        reference_up=None,
+        reference_up=(0, 1, 0),
         is_camera_space=False,
     ) -> None:
         super().__init__(is_camera_space=is_camera_space)
@@ -691,14 +691,7 @@ class RecursiveTransform(AffineBase):
         else:
             self._parent = parent
 
-        if reference_up is None:
-            # use own's reference_up
-            reference_up = la.vec_transform(self.own.reference_up, self.parent.matrix)
-            self._reference_up = la.vec_normalize(reference_up)
-        else:
-            # use given reference_up (and sync own)
-            self._reference_up = la.vec_normalize(reference_up)
-            self._propagate_reference_up()
+        self.reference_up = reference_up
 
         self.parent.on_update(self._parent_updated)
         self.own.on_update(self._own_updated)
@@ -709,27 +702,26 @@ class RecursiveTransform(AffineBase):
 
     @callback
     def _parent_updated(self, parent: AffineBase):
-        self._propagate_reference_up()
         self.flag_update()
 
-    def _propagate_reference_up(self):
-        # FIXME: can this math be delayed until a property is actively being read?
-        # we're now triggering matrix computations redundantly here
-        new_ref = la.vec_transform(self._reference_up, self._parent.inverse_matrix)
+    @cached
+    def _reference_up(self):
+        new_ref = la.vec_transform(self.own.reference_up, self.parent.matrix)
+        origin = self.parent.position
+        return la.vec_normalize(new_ref - origin)
+
+    @property
+    def reference_up(self):
+        return self._reference_up
+
+    @reference_up.setter
+    def reference_up(self, value):
+        new_ref = la.vec_transform(value, self._parent.inverse_matrix)
         origin = la.vec_transform((0, 0, 0), self._parent.inverse_matrix)
         self.own._reference_up = la.vec_normalize(new_ref - origin)
 
     @callback
     def _own_updated(self, own: AffineBase):
-        new_ref = la.vec_transform(own.reference_up, self.parent.matrix)
-        origin = self.parent.position
-        self._reference_up = la.vec_normalize(new_ref - origin)
-        self.flag_update()
-
-    @AffineBase.reference_up.setter
-    def reference_up(self, value):
-        self._reference_up = la.vec_normalize(value)
-        self._propagate_reference_up()
         self.flag_update()
 
     @property
@@ -746,7 +738,6 @@ class RecursiveTransform(AffineBase):
         else:
             self._parent = value
 
-        self._propagate_reference_up()
         self.parent.on_update(self._parent_updated)
         self.flag_update()
 
