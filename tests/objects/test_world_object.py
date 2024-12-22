@@ -495,6 +495,17 @@ def test_rotation_derived():
 
 
 def test_update_laziness():
+    """Assert that world matrices (and other transform derived properties)
+    are evaluated lazily.
+
+    An important distinction is that pygfx API methods such as
+    WorldObject.add should not trigger transform evaluations, as it
+    defeats the purpose of lazy evaluation.
+
+    In other words, by default, the world matrix should not be computed
+    until just before an object is rendered. The only exception is when
+    user code (e.g. picking, collision) requires the world matrix earlier.
+    """
     a = gfx.WorldObject()
     b = gfx.WorldObject()
 
