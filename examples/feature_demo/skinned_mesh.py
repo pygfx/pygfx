@@ -67,8 +67,6 @@ def create_mesh(geometry, bones):
     skeleton = gfx.Skeleton(bones)
 
     mesh.add(bones[0])
-    # update the world matrix from root to leaf bone manually
-    bones[0].update_matrix_world()
     mesh.bind(skeleton)
 
     mesh.local.rotation = la.quat_from_euler((-math.pi / 2, 0, 0))
@@ -108,6 +106,8 @@ scene.add(skeleton_helper)
 
 gfx.OrbitController(camera, register_events=renderer)
 
+stats = gfx.Stats(viewport=renderer)
+
 
 def animate():
     t = time.time()
@@ -118,7 +118,9 @@ def animate():
     mesh.skeleton.update()
     skeleton_helper.update()
 
-    renderer.render(scene, camera)
+    with stats:
+        renderer.render(scene, camera, flush=False)
+    stats.render()
     canvas.request_draw()
 
 

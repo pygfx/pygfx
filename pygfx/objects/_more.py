@@ -435,7 +435,7 @@ class Text(WorldObject):
         )
 
     def _update_uniform_buffers(self, transform: AffineBase):
-        super()._update_uniform_buffers()
+        super()._update_uniform_buffers(transform)
         # When rendering in screen space, the world transform is used
         # to establish the point in the scene where the text is placed.
         # The only part of the local transform that is used is the
