@@ -144,9 +144,8 @@ class AffineBase:
         self._reference_up_provider = None
         self._reference_up = la.vec_normalize(reference_up)
 
-    def set_reference_up_provider(self, provider: "RecursiveTransform"):
+    def _set_reference_up_provider(self, provider: "RecursiveTransform"):
         self._reference_up_provider = provider
-        self.flag_update()
 
     @property
     def reference_up(self) -> np.ndarray:
@@ -690,7 +689,7 @@ class RecursiveTransform(AffineBase):
             self.own = matrix
         else:
             self.own = AffineTransform(matrix, is_camera_space=is_camera_space)
-        self.own.set_reference_up_provider(self)
+        self.own._set_reference_up_provider(self)
 
         if parent is None:
             self._parent = AffineTransform()

@@ -8,7 +8,6 @@ import pytest
 
 from pygfx import WorldObject
 import pygfx as gfx
-import pygfx.utils.transform
 
 
 def test_traverse():
