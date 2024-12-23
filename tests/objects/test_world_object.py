@@ -7,6 +7,7 @@ import numpy.testing as npt
 import pytest
 
 from pygfx import WorldObject
+from pygfx.utils.transform import RecursiveTransform
 import pygfx as gfx
 
 
@@ -505,18 +506,23 @@ def test_update_laziness():
     until just before an object is rendered. The only exception is when
     user code (e.g. picking, collision) requires the world matrix earlier.
     """
+    # this is admittedly a very awkward line
+    # but at least it will fail if/when the caching mechanism is
+    # ever changed, invalidating this unit test's implementation
+    cache_attr = RecursiveTransform.__dict__["_matrix"].name
+
     a = gfx.WorldObject()
     b = gfx.WorldObject()
 
-    assert not hasattr(a.world, "__matrix_cache")
-    assert not hasattr(b.world, "__matrix_cache")
+    assert not hasattr(a.world, cache_attr)
+    assert not hasattr(b.world, cache_attr)
 
     a.add(b)
 
-    assert not hasattr(a.world, "__matrix_cache")
-    assert not hasattr(b.world, "__matrix_cache")
+    assert not hasattr(a.world, cache_attr)
+    assert not hasattr(b.world, cache_attr)
 
     a.local.position = (1, 2, 3)
 
-    assert not hasattr(a.world, "__matrix_cache")
-    assert not hasattr(b.world, "__matrix_cache")
+    assert not hasattr(a.world, cache_attr)
+    assert not hasattr(b.world, cache_attr)
