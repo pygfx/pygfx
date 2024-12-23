@@ -707,6 +707,10 @@ class RecursiveTransform(AffineBase):
     def _parent_updated(self, parent: AffineBase):
         self.flag_update()
 
+    @callback
+    def _own_updated(self, own: AffineBase):
+        self.flag_update()
+
     @cached
     def __own_reference_up(self) -> np.ndarray:
         new_ref = la.vec_transform(self._reference_up, self._parent.inverse_matrix)
@@ -723,10 +727,9 @@ class RecursiveTransform(AffineBase):
         origin = self.parent.position
         self._reference_up = la.vec_normalize(new_ref - origin)
         self.flag_update()
-
-    @callback
-    def _own_updated(self, own: AffineBase):
-        self.flag_update()
+        # Note: since __own_reference_up is only used in a setter in AffineBase
+        # we do not need to call flag_update() on self.own; all its state and cache
+        # remains intact
 
     @property
     def parent(self) -> AffineBase:
