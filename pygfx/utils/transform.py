@@ -160,7 +160,7 @@ class AffineBase:
         return self._reference_up
 
     @reference_up.setter
-    def reference_up(self, value) -> np.ndarray:
+    def reference_up(self, value):
         if self._reference_up_provider:
             self._reference_up_provider._own_reference_up = value
         else:
