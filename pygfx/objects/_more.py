@@ -4,7 +4,7 @@ import numpy as np
 from ._base import WorldObject
 from ..resources import Buffer
 from ..utils import unpack_bitfield, array_from_shadertype
-from ..utils.transform import AffineBase, callback
+from ..utils.transform import AffineBase
 from ..materials import BackgroundMaterial
 
 
