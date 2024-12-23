@@ -4,7 +4,7 @@ import numpy as np
 from ._base import WorldObject
 from ..resources import Buffer
 from ..utils import unpack_bitfield, array_from_shadertype
-from ..utils.transform import AffineBase, callback
+from ..utils.transform import AffineBase
 from ..materials import BackgroundMaterial
 
 
@@ -434,12 +434,8 @@ class Text(WorldObject):
             name=name,
         )
 
-        # calling super from callback is possible, but slow so we register it as a second callback instead
-        self.world.on_update(super()._update_uniform_buffers)
-
-    @callback
     def _update_uniform_buffers(self, transform: AffineBase):
-        # super()._update_uniform_buffers(transform)
+        super()._update_uniform_buffers(transform)
         # When rendering in screen space, the world transform is used
         # to establish the point in the scene where the text is placed.
         # The only part of the local transform that is used is the

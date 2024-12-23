@@ -7,6 +7,7 @@ import numpy.testing as npt
 import pytest
 
 from pygfx import WorldObject
+from pygfx.utils.transform import RecursiveTransform
 import pygfx as gfx
 
 
@@ -491,3 +492,95 @@ def test_rotation_derived():
     npt.assert_array_almost_equal(
         obj.local.rotation, la.quat_from_euler(np.pi / 2, order="Z")
     )
+
+
+def test_update_laziness():
+    """Assert that world matrices (and other transform derived properties)
+    are evaluated lazily.
+
+    An important distinction is that pygfx API methods such as
+    WorldObject.add should not trigger transform evaluations, as it
+    defeats the purpose of lazy evaluation.
+
+    In other words, by default, the world matrix should not be computed
+    until just before an object is rendered. The only exception is when
+    user code (e.g. picking, collision) requires the world matrix earlier.
+    """
+    # this is admittedly a very awkward line
+    # but at least it will fail if/when the caching mechanism is
+    # ever changed, invalidating this unit test's implementation
+    cache_attr = RecursiveTransform.__dict__["_matrix"].name
+
+    a = gfx.WorldObject()
+    b = gfx.WorldObject()
+
+    assert not hasattr(a.world, cache_attr)
+    assert not hasattr(b.world, cache_attr)
+
+    a.add(b)
+
+    assert not hasattr(a.world, cache_attr)
+    assert not hasattr(b.world, cache_attr)
+
+    a.local.position = (1, 2, 3)
+
+    assert not hasattr(a.world, cache_attr)
+    assert not hasattr(b.world, cache_attr)
+
+
+def test_update_propagation():
+    """Simple test to check that transform invalidation propagates
+    through multiple layers of the scene graph
+    """
+    root = gfx.WorldObject()
+    level1 = gfx.WorldObject()
+    level2 = gfx.WorldObject()
+    level3 = gfx.WorldObject()
+
+    root.add(level1)
+    level1.add(level2)
+    level2.add(level3)
+
+    l3wlm = level3.world.last_modified
+    l3llm = level3.local.last_modified
+
+    root.world.position = (10, 10, 10)
+
+    assert level3.world.last_modified > l3wlm
+    assert level3.local.last_modified == l3llm
+
+
+def test_update_propagation_reference_up():
+    """Test to check that reference_up invalidation propagates
+    through multiple layers of the scene graph
+    """
+    root = gfx.WorldObject()
+    level1 = gfx.WorldObject()
+    level2 = gfx.WorldObject()
+    level3 = gfx.WorldObject()
+
+    root.add(level1)
+    level1.add(level2)
+    level2.add(level3)
+
+    # the local reference up setter
+    # interestingly should not affect local transform
+    # but it should affect world transform
+    # since it determines the parent frame's reference up
+    # for children
+    l1wlm = level1.world.last_modified
+    l1llm = level1.local.last_modified
+    l3wlm = level3.world.last_modified
+    l3llm = level3.local.last_modified
+
+    level1.local.reference_up = (0, 0, 1)
+
+    assert level1.world.last_modified > l1wlm
+    assert level1.local.last_modified == l1llm
+    assert level3.world.last_modified > l3wlm
+    # this one is counter-intuitive
+    # because the local reference_up IS affected
+    # by the parent's frame being changed
+    # but the property is only used in setters
+    # so there is no local cache to invalidate
+    assert level3.local.last_modified == l3llm
