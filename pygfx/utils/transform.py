@@ -119,6 +119,11 @@ class AffineBase:
 
     Parameters
     ----------
+    reference_up : ndarray, [3]
+        The direction of the reference_up vector expressed in the target frame.
+        It indicates neutral tilt and is used by the axis properties (right, up,
+        forward) to maintain a common level of rotation around an axis when it
+        is updated by it's setter. By default, it points along the Y-axis.
     is_camera_space : bool
         If True, the transform represents a camera space which means that it's
         ``forward`` and ``right`` directions are inverted.
@@ -149,6 +154,7 @@ class AffineBase:
 
     @property
     def reference_up(self) -> np.ndarray:
+        """The zero-tilt reference vector used for the direction setters."""
         if self._reference_up_provider:
             return self._reference_up_provider._own_reference_up
         return self._reference_up
