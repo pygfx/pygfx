@@ -144,23 +144,23 @@ class AffineBase:
         self._reference_up_provider = None
         self._reference_up = la.vec_normalize(reference_up)
 
-    def set_reference_up_provider(self, provider: "RecursiveTransform") -> None:
+    def set_reference_up_provider(self, provider: "RecursiveTransform"):
         self._reference_up_provider = provider
         self.flag_update()
 
     @property
     def reference_up(self) -> np.ndarray:
         if self._reference_up_provider:
-            return self._reference_up_provider.local_reference_up
+            return self._reference_up_provider._own_reference_up
         return self._reference_up
 
     @reference_up.setter
     def reference_up(self, value) -> np.ndarray:
         if self._reference_up_provider:
-            self._reference_up_provider.local_reference_up = value
+            self._reference_up_provider._own_reference_up = value
         else:
             self._reference_up = la.vec_normalize(value)
-        self.flag_update()
+            self.flag_update()
 
     @property
     def matrix(self):
@@ -708,23 +708,22 @@ class RecursiveTransform(AffineBase):
     def _parent_updated(self, parent: AffineBase):
         self.flag_update()
 
-    # TODO: provide local and world reference up getters and setters
-    # with caching
     @cached
-    def _reference_up(self):
-        new_ref = la.vec_transform(self._reference_up, self.parent.matrix)
-        origin = self.parent.position
+    def __own_reference_up(self) -> np.ndarray:
+        new_ref = la.vec_transform(self._reference_up, self._parent.inverse_matrix)
+        origin = la.vec_transform((0, 0, 0), self._parent.inverse_matrix)
         return la.vec_normalize(new_ref - origin)
 
     @property
-    def reference_up(self):
-        return self._reference_up
+    def _own_reference_up(self):
+        return self.__own_reference_up
 
-    @reference_up.setter
-    def reference_up(self, value):
-        new_ref = la.vec_transform(value, self._parent.inverse_matrix)
-        origin = la.vec_transform((0, 0, 0), self._parent.inverse_matrix)
-        self.own.reference_up = la.vec_normalize(new_ref - origin)
+    @_own_reference_up.setter
+    def _own_reference_up(self, value):
+        new_ref = la.vec_transform(value, self.parent.matrix)
+        origin = self.parent.position
+        self._reference_up = la.vec_normalize(new_ref - origin)
+        self.flag_update()
 
     @callback
     def _own_updated(self, own: AffineBase):
