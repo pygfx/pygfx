@@ -22,69 +22,126 @@ from .utils import generate_uniform_struct
 from .shared import get_shared
 
 
-class Environment(Trackable):
-    """Object for internal use that represents the state of the
-    "environment". With environment we mean the stuff - other than the
-    wobject itself - that affects the rendering, like renderer state,
-    and lights.
+# This cash is only used so renderstate objects can be re-used.
+# The instances must be stored somewhere to prevent them from being deleted.
+_renderstate_instance_cache = weakref.WeakValueDictionary()
 
-    An environment object represents a "state type". It's attributes
-    will be changed by the renderer for each draw, but these changes
-    will be compatible with the source and pipeline. As an example, the
-    number of lights affects the format of the uniform, so it's part
-    of the hash, but the color of the lights do not matter for the
-    pipeline.
+
+def get_renderstate(scene, blender):
+    return CombinedRenderState.obtain_from_args(scene, blender)
+
+
+# Backwards compat for tests
+# todo: clean up
+get_environment = get_renderstate
+
+
+class BaseRenderState:
+    """Object for internal use, that represents a certain state related to
+    rendering, that affects the shader and/or pipeline
     """
 
-    _ambient_uniform_type = AmbientLight.uniform_type
-    _point_uniform_type = PointLight.uniform_type
-    _dir_uniform_type = DirectionalLight.uniform_type
-    _spot_uniform_type = SpotLight.uniform_type
+    # todo: must this be a Trackable?
 
-    def __init__(self, renderer_state_hash, scene_state_hash):
-        super().__init__()
-        # The hash consists of two parts. It does not change.
-        self._renderer_state_hash = renderer_state_hash
-        self._scene_state_hash = scene_state_hash
+    _hash = None
 
+    @classmethod
+    def obtain_from_args(cls, *args):
+        hash, state = cls.input_to_hash_and_state(*args)
+        ob = cls.obtain_from_hash(hash)
+        ob.prepare_for_draw(*state)
+        return ob
+
+    @classmethod
+    def obtain_from_hash(cls, hash):
+        ob = _renderstate_instance_cache.get(hash, None)
+        if ob is None:
+            ob = cls(*hash)
+            ob._hash = hash
+            _renderstate_instance_cache[hash] = ob
+        return ob
+
+    @property
+    def hash(self):
+        return self._hash
+
+    # subclasses must implement
+
+    @classmethod
+    def input_to_hash_and_state(cls, *args):
+        raise NotImplementedError()
+
+    def __init__(self, *hash):
+        raise NotImplementedError()
+
+    def prepare_for_draw(self, *state):
+        raise NotImplementedError()
+
+    def get_shader_kwargs(self, bind_group_index=1):
+        raise NotImplementedError()
+
+
+class LightRenderState(BaseRenderState):
+    """Represents the rendering state for a specific number of lights (of each type)."""
+
+    @classmethod
+    def input_to_hash_and_state(cls, scene):
+        point_lights = []
+        directional_lights = []
+        spot_lights = []
+        ambient_color = [0, 0, 0]
+
+        # todo: would be nice to have a flag to indicate on each wobject when was the last time that its downstream graph changed, so we can usually skip this step!
+        def visit(ob):
+            if isinstance(ob, PointLight):
+                point_lights.append(ob)
+            elif isinstance(ob, DirectionalLight):
+                directional_lights.append(ob)
+            elif isinstance(ob, SpotLight):
+                spot_lights.append(ob)
+            elif isinstance(ob, AmbientLight):
+                r, g, b = ob.color.to_physical()
+                ambient_color[0] += r * ob.intensity
+                ambient_color[1] += g * ob.intensity
+                ambient_color[2] += b * ob.intensity
+
+        scene.traverse(visit, True)
+
+        state = (
+            point_lights,
+            directional_lights,
+            spot_lights,
+            ambient_color,
+        )
+
+        hash = (
+            len(point_lights),
+            len(directional_lights),
+            len(spot_lights),
+        )
+
+        return hash, state
+
+    def __init__(self, point_lights_count, dir_lights_count, spot_lights_count):
         self.device = get_shared().device
 
-        # Keep track of all renders and scenes that make use of this
-        # environment, so that we can detect that the env has become
-        # inactive.
-        self._renderers = weakref.WeakSet()
-        self._scenes = weakref.WeakSet()
-
-        # keep track of all pipeline containers that have objects for this
-        # environment, so that we can remove those objects when this env
-        # becomes inactive.
-        self._pipeline_containers = weakref.WeakSet()
+        # Store counts
+        self.point_lights_count = point_lights_count
+        self.dir_lights_count = dir_lights_count
+        self.spot_lights_count = spot_lights_count
 
         # Note: we could make this configurable. Would probably have to be a global setting.
         self.shadow_map_size = (1024, 1024)
 
-        # List of binding objects
+        # Create list of binding objects
         self.bindings = []
-
-        # The wgpu bind group to collect the bindings in
-        self.wgpu_bind_group = None
-
-        # Init
         self._setup_light_resources()
-        if self.bindings:
-            self.wgpu_bind_group = self._collect_bindings()
 
     def _setup_light_resources(self):
-        (
-            self.point_lights_num,
-            self.dir_lights_num,
-            self.spot_lights_num,
-        ) = self._scene_state_hash
-
         # The ambient light binding is easy, because ambient lights can be combined on CPU
 
         self.ambient_lights_buffer = Buffer(
-            array_from_shadertype(self._ambient_uniform_type), force_contiguous=True
+            array_from_shadertype(AmbientLight.uniform_type), force_contiguous=True
         )
         self.bindings.append(
             Binding(
@@ -99,9 +156,11 @@ class Environment(Trackable):
 
         self.directional_lights_buffer = None
         self.directional_lights_shadow_texture = None
-        if self.dir_lights_num > 0:
+        if self.dir_lights_count > 0:
             self.directional_lights_buffer = Buffer(
-                array_from_shadertype(self._dir_uniform_type, self.dir_lights_num),
+                array_from_shadertype(
+                    DirectionalLight.uniform_type, self.dir_lights_count
+                ),
                 force_contiguous=True,
             )
             self.bindings.append(
@@ -116,7 +175,7 @@ class Environment(Trackable):
                 size=(
                     self.shadow_map_size[0],
                     self.shadow_map_size[1],
-                    self.dir_lights_num,
+                    self.dir_lights_count,
                 ),
                 usage=wgpu.TextureUsage.RENDER_ATTACHMENT
                 | wgpu.TextureUsage.TEXTURE_BINDING,
@@ -124,7 +183,7 @@ class Environment(Trackable):
             )
             self.directional_lights_shadow_texture_views = [
                 self.directional_lights_shadow_texture.create_view(base_array_layer=i)
-                for i in range(self.dir_lights_num)
+                for i in range(self.dir_lights_count)
             ]
             self.bindings.append(
                 Binding(
@@ -140,9 +199,9 @@ class Environment(Trackable):
 
         self.point_lights_buffer = None
         self.point_lights_shadow_texture = None
-        if self.point_lights_num > 0:
+        if self.point_lights_count > 0:
             self.point_lights_buffer = Buffer(
-                array_from_shadertype(self._point_uniform_type, self.point_lights_num),
+                array_from_shadertype(PointLight.uniform_type, self.point_lights_count),
                 force_contiguous=True,
             )
             self.bindings.append(
@@ -157,7 +216,7 @@ class Environment(Trackable):
                 size=(
                     self.shadow_map_size[0],
                     self.shadow_map_size[1],
-                    self.point_lights_num * 6,
+                    self.point_lights_count * 6,
                 ),
                 usage=wgpu.TextureUsage.RENDER_ATTACHMENT
                 | wgpu.TextureUsage.TEXTURE_BINDING,
@@ -165,7 +224,7 @@ class Environment(Trackable):
             )
             self.point_lights_shadow_texture_views = [
                 self.point_lights_shadow_texture.create_view(base_array_layer=i)
-                for i in range(self.point_lights_num * 6)
+                for i in range(self.point_lights_count * 6)
             ]
             self.bindings.append(
                 Binding(
@@ -181,9 +240,9 @@ class Environment(Trackable):
 
         self.spot_lights_buffer = None
         self.spot_lights_shadow_texture = None
-        if self.spot_lights_num > 0:
+        if self.spot_lights_count > 0:
             self.spot_lights_buffer = Buffer(
-                array_from_shadertype(self._spot_uniform_type, self.spot_lights_num),
+                array_from_shadertype(SpotLight.uniform_type, self.spot_lights_count),
                 force_contiguous=True,
             )
             self.bindings.append(
@@ -198,7 +257,7 @@ class Environment(Trackable):
                 size=(
                     self.shadow_map_size[0],
                     self.shadow_map_size[1],
-                    self.spot_lights_num,
+                    self.spot_lights_count,
                 ),
                 usage=wgpu.TextureUsage.RENDER_ATTACHMENT
                 | wgpu.TextureUsage.TEXTURE_BINDING,
@@ -206,7 +265,7 @@ class Environment(Trackable):
             )
             self.spot_lights_shadow_texture_views = [
                 self.spot_lights_shadow_texture.create_view(base_array_layer=i)
-                for i in range(self.spot_lights_num)
+                for i in range(self.spot_lights_count)
             ]
             self.bindings.append(
                 Binding(
@@ -216,9 +275,9 @@ class Environment(Trackable):
                 )
             )
 
-        # We only need a sampled if we have shadow-casting lights
+        # We only need a sampler if we have shadow-casting lights
 
-        if self.dir_lights_num + self.point_lights_num + self.spot_lights_num > 0:
+        if self.dir_lights_count + self.point_lights_count + self.spot_lights_count > 0:
             self.shadow_sampler = self.device.create_sampler(
                 mag_filter=wgpu.FilterMode.linear,
                 min_filter=wgpu.FilterMode.linear,
@@ -232,26 +291,19 @@ class Environment(Trackable):
                 )
             )
 
-    def _collect_bindings(self):
-        """Group the bindings into a wgpu bind group."""
-        bg_descriptor = []
-        bg_layout_descriptor = []
-        device = self.device
-
-        for index, binding in enumerate(self.bindings):
-            if binding.type.startswith("buffer/"):
-                binding.resource._wgpu_usage |= wgpu.BufferUsage.UNIFORM
-            binding_des, binding_layout_des = binding.get_bind_group_descriptors(index)
-            bg_descriptor.append(binding_des)
-            bg_layout_descriptor.append(binding_layout_des)
-
-        bind_group_layout = device.create_bind_group_layout(
-            entries=bg_layout_descriptor
-        )
-        bind_group = device.create_bind_group(
-            layout=bind_group_layout, entries=bg_descriptor
-        )
-        return bind_group_layout, bind_group
+    def get_shader_kwargs(self, bind_group_index=1):
+        """Get shader template kwargs specific to the environment.
+        Used by the pipeline to complete the shader.
+        """
+        light_definitions = self._get_light_structs_code()
+        light_definitions += self._get_light_vars_code(bind_group_index)
+        kwargs = {
+            "num_dir_lights": self.dir_lights_count,
+            "num_spot_lights": self.spot_lights_count,
+            "num_point_lights": self.point_lights_count,
+            "light_definitions": light_definitions,
+        }
+        return kwargs
 
     def _get_light_structs_code(self):
         """Generate the wgsl that defines the light structs."""
@@ -296,45 +348,9 @@ class Environment(Trackable):
 
         return "\n".join(codes)
 
-    def get_shader_kwargs(self, bind_group_index=1):
-        """Get shader template kwargs specific to the environment.
-        Used by the pipeline to complete the shader.
-        """
-        light_definitions = self._get_light_structs_code()
-        light_definitions += self._get_light_vars_code(bind_group_index)
-        args = {
-            "num_dir_lights": self.dir_lights_num,
-            "num_spot_lights": self.spot_lights_num,
-            "num_point_lights": self.point_lights_num,
-            "light_definitions": light_definitions,
-        }
-        return args
-
-    @property
-    def hash(self):
-        """The full hash for this environment."""
-        return self._renderer_state_hash, self._scene_state_hash
-
-    def update(self, renderer, scene, blender=None, lights=None):
-        """Update the content of the environment object.
-
-        An environment is shared between all renderers/scenes for which
-        the environment hash is a match (i.e. the number of light
-        matches). This method registers the renderer and scene, and
-        updates the uniform buffers.
-        """
-        # Register
-        self._renderers.add(renderer)
-        self._scenes.add(scene)
-
-        # Update
-        self.blender = blender
-        self.lights = lights
-
-        if lights:
-            self._update_light_buffers(lights)
-
-    def _update_light_buffers(self, lights):
+    def prepare_for_draw(
+        self, point_lights, directional_lights, spot_lights, ambient_color
+    ):
         """Update the contents of the uniform buffers for the lights,
         and create texture views if needed.
         """
@@ -342,8 +358,8 @@ class Environment(Trackable):
         # Update ambient buffer
 
         ambient_lights_buffer = self.ambient_lights_buffer
-        if not np.all(ambient_lights_buffer.data["color"][:3] == lights["ambient"]):
-            ambient_lights_buffer.data["color"].flat = lights["ambient"]
+        if not np.all(ambient_lights_buffer.data["color"][:3] == ambient_color):
+            ambient_lights_buffer.data["color"].flat = ambient_color
             ambient_lights_buffer.update_range(0, 1)
 
         # We update the uniform buffers of the lights below. These buffers
@@ -352,9 +368,8 @@ class Environment(Trackable):
 
         # Update directional light buffers
 
-        if self.dir_lights_num > 0:
+        if self.dir_lights_count > 0:
             dir_lights_buffer = self.directional_lights_buffer
-            directional_lights = lights["directional_lights"]
             for i, light in enumerate(directional_lights):
                 light._gfx_update_uniform_buffer()
                 if light.cast_shadow:
@@ -367,9 +382,8 @@ class Environment(Trackable):
                     dir_lights_buffer.update_range(i, 1)
 
         # Update point light buffers
-        if self.point_lights_num > 0:
+        if self.point_lights_count > 0:
             point_lights_buffer = self.point_lights_buffer
-            point_lights = lights["point_lights"]
             for i, light in enumerate(point_lights):
                 light._gfx_update_uniform_buffer()
                 if light.cast_shadow:
@@ -382,9 +396,8 @@ class Environment(Trackable):
                     point_lights_buffer.data[i] = light.uniform_buffer.data
                     point_lights_buffer.update_range(i, 1)
 
-        if self.spot_lights_num > 0:
+        if self.spot_lights_count > 0:
             spot_lights_buffer = self.spot_lights_buffer
-            spot_lights = lights["spot_lights"]
             for i, light in enumerate(spot_lights):
                 light._gfx_update_uniform_buffer()
                 if light.cast_shadow:
@@ -396,130 +409,214 @@ class Environment(Trackable):
                     spot_lights_buffer.data[i] = light.uniform_buffer.data
                     spot_lights_buffer.update_range(i, 1)
 
-    def register_pipeline_container(self, pipeline_container):
-        """Allow pipeline containers to register, so that their
-        env-specific wgpu objects can be removed.
-        """
-        self._pipeline_containers.add(pipeline_container)
 
-    def check_inactive(self, renderer, scene, renderer_state_hash, scene_state_hash):
-        """Do some clean-up for the given renderer and scene."""
-        renderers = set(self._renderers)
-        scenes = set(self._scenes)
+class BlendRenderState(BaseRenderState):
+    """Represents the rendering state for a specific blend mode."""
 
-        if renderer in renderers:
-            if renderer_state_hash != self._renderer_state_hash:
-                self._renderers.discard(renderer)
-                renderers.discard(renderer)
+    @classmethod
+    def input_to_hash_and_state(cls, blender):
+        state = (blender,)
+        hash = (blender.name,)
+        return hash, state
 
-        if scene in scenes:
-            if scene_state_hash != self._scene_state_hash:
-                self._scenes.discard(scene)
-                scenes.discard(renderer)
+    def __init__(self, blend_mode):
+        self.blend_mode = blend_mode
+        self.bindings = []
 
-        if not renderers or not scenes:
-            self.clear()
-            return True
+    def prepare_for_draw(self, blender):
+        self.blender = blender
 
-    def clear(self):
-        """Remove all wgpu objects associated with this environment."""
-        for pipeline_container in self._pipeline_containers:
-            pipeline_container.remove_env_hash(self.hash)
-        self._pipeline_containers.clear()
-        self._renderers.clear()
-        self._scenes.clear()
+    def get_shader_kwargs(self, bind_group_index=1):
+        return {"blend_mode": self.blend_mode}
 
 
-class GlobalEnvironmentManager:
-    """A little class to manage the different environments."""
+class CombinedRenderState(BaseRenderState):
+    """Represents the combined rendering state."""
 
-    def __init__(self):
-        self.environments = {}  # hash -> Environment
+    @classmethod
+    def input_to_hash_and_state(cls, scene, blend_mode):
+        light_hash, light_state = LightRenderState.input_to_hash_and_state(scene)
+        blend_hash, blend_state = BlendRenderState.input_to_hash_and_state(blend_mode)
 
-    def get_environment(self, renderer, scene):
-        """The main entrypoint. The renderer uses this to obtain an
-        environment object.
-        """
-        renderer_state_hash, scene_state_hash, state = get_hash_and_state(
-            renderer, scene
+        hash = light_hash, blend_hash
+        state = light_state, blend_state
+        return hash, state
+
+    def __init__(self, light_hash, blend_hash):
+        self.device = get_shared().device
+
+        self.light_renderstate = LightRenderState.obtain_from_hash(light_hash)
+        self.blend_renderstate = BlendRenderState.obtain_from_hash(blend_hash)
+
+        self.bindings = []
+        self.bindings += self.light_renderstate.bindings
+        self.bindings += self.blend_renderstate.bindings
+
+        self.wgpu_bind_group_layout = None
+        self.wgpu_bind_group = None
+        if self.bindings:
+            self.wgpu_bind_group_layout, self.wgpu_bind_group = self._collect_bindings()
+
+    def prepare_for_draw(self, light_state, blend_state):
+        self.light_renderstate.prepare_for_draw(*light_state)
+        self.blend_renderstate.prepare_for_draw(*blend_state)
+
+        self.lights = ....
+        self.blender = self.blend_renderstate.blender
+
+    def get_shader_kwargs(self, bind_group_index=1):
+        kwargs = {}
+        kwargs.update(self.light_renderstate.get_shader_kwargs())
+        kwargs.update(self.blend_renderstate.get_shader_kwargs())
+        return kwargs
+
+    # Stuff specific for the combined renderstate
+
+    def _collect_bindings(self):
+        """Group the bindings into a wgpu bind group."""
+        bg_descriptor = []
+        bg_layout_descriptor = []
+        device = self.device
+
+        for index, binding in enumerate(self.bindings):
+            if binding.type.startswith("buffer/"):
+                binding.resource._wgpu_usage |= wgpu.BufferUsage.UNIFORM
+            binding_des, binding_layout_des = binding.get_bind_group_descriptors(index)
+            bg_descriptor.append(binding_des)
+            bg_layout_descriptor.append(binding_layout_des)
+
+        bind_group_layout = device.create_bind_group_layout(
+            entries=bg_layout_descriptor
         )
-        env_hash = (renderer_state_hash, scene_state_hash)
+        bind_group = device.create_bind_group(
+            layout=bind_group_layout, entries=bg_descriptor
+        )
+        return bind_group_layout, bind_group
 
-        # Re-use or create an environment
-        if env_hash in self.environments:
-            env = self.environments[env_hash]
-        else:
-            env = Environment(renderer_state_hash, scene_state_hash)
-            assert env.hash == env_hash
-            self.environments[env_hash] = env
+    # def register_pipeline_container(self, pipeline_container):
+    #     """Allow pipeline containers to register, so that their
+    #     env-specific wgpu objects can be removed.
+    #     """
+    #     self._pipeline_containers.add(pipeline_container)
 
-        # Update the environment
-        env.update(renderer, scene, **state)
+    # def check_inactive(self, renderer, scene, renderer_state_hash, scene_state_hash):
+    #     """Do some clean-up for the given renderer and scene."""
+    #     renderers = set(self._renderers)
+    #     scenes = set(self._scenes)
 
-        # Cleanup
-        self._cleanup(renderer, scene, renderer_state_hash, scene_state_hash)
+    #     if renderer in renderers:
+    #         if renderer_state_hash != self._renderer_state_hash:
+    #             self._renderers.discard(renderer)
+    #             renderers.discard(renderer)
 
-        return env
+    #     if scene in scenes:
+    #         if scene_state_hash != self._scene_state_hash:
+    #             self._scenes.discard(scene)
+    #             scenes.discard(renderer)
 
-    def _cleanup(self, renderer, scene, renderer_state_hash, scene_state_hash):
-        """Remove all environments of which the associated renderer
-        or scene no longer exist, or their states have changed.
-        """
-        hashes_to_drop = []
-        for env_hash, env in self.environments.items():
-            if env.check_inactive(
-                renderer, scene, renderer_state_hash, scene_state_hash
-            ):
-                hashes_to_drop.append(env_hash)
-        for env_hash in hashes_to_drop:
-            self.environments.pop(env_hash)
+    #     if not renderers or not scenes:
+    #         self.clear()
+    #         return True
 
-
-environment_manager = GlobalEnvironmentManager()
-get_environment = environment_manager.get_environment
+    # def clear(self):
+    #     """Remove all wgpu objects associated with this environment."""
+    #     for pipeline_container in self._pipeline_containers:
+    #         pipeline_container.remove_env_hash(self.hash)
+    #     self._pipeline_containers.clear()
+    #     self._renderers.clear()
+    #     self._scenes.clear()
 
 
-def get_hash_and_state(renderer, scene):
-    state = {}
+# class GlobalEnvironmentManager:
+#     """A little class to manage the different environments."""
 
-    # For renderer
+#     def __init__(self):
+#         self.environments = {}  # hash -> Environment
 
-    state["blender"] = renderer._blender
-    renderer_hash = renderer.blend_mode
+#     def get_environment(self, renderer, scene):
+#         """The main entrypoint. The renderer uses this to obtain an
+#         environment object.
+#         """
+#         renderer_state_hash, scene_state_hash, state = get_hash_and_state(
+#             renderer, scene
+#         )
+#         env_hash = (renderer_state_hash, scene_state_hash)
 
-    # For scene
+#         # Re-use or create an environment
+#         if env_hash in self.environments:
+#             env = self.environments[env_hash]
+#         else:
+#             env = Environment(renderer_state_hash, scene_state_hash)
+#             assert env.hash == env_hash
+#             self.environments[env_hash] = env
 
-    point_lights = []
-    directional_lights = []
-    spot_lights = []
-    ambient_color = [0, 0, 0]
+#         # Update the environment
+#         env.update(renderer, scene, **state)
 
-    def visit(ob):
-        if isinstance(ob, PointLight):
-            point_lights.append(ob)
-        elif isinstance(ob, DirectionalLight):
-            directional_lights.append(ob)
-        elif isinstance(ob, SpotLight):
-            spot_lights.append(ob)
-        elif isinstance(ob, AmbientLight):
-            r, g, b = ob.color.to_physical()
-            ambient_color[0] += r * ob.intensity
-            ambient_color[1] += g * ob.intensity
-            ambient_color[2] += b * ob.intensity
+#         # Cleanup
+#         self._cleanup(renderer, scene, renderer_state_hash, scene_state_hash)
 
-    scene.traverse(visit, True)
+#         return env
 
-    state["lights"] = {
-        "point_lights": point_lights,
-        "directional_lights": directional_lights,
-        "spot_lights": spot_lights,
-        "ambient": ambient_color,
-    }
+#     def _cleanup(self, renderer, scene, renderer_state_hash, scene_state_hash):
+#         """Remove all environments of which the associated renderer
+#         or scene no longer exist, or their states have changed.
+#         """
+#         hashes_to_drop = []
+#         for env_hash, env in self.environments.items():
+#             if env.check_inactive(
+#                 renderer, scene, renderer_state_hash, scene_state_hash
+#             ):
+#                 hashes_to_drop.append(env_hash)
+#         for env_hash in hashes_to_drop:
+#             self.environments.pop(env_hash)
 
-    scene_hash = (
-        len(point_lights),
-        len(directional_lights),
-        len(spot_lights),
-    )
 
-    return renderer_hash, scene_hash, state
+# environment_manager = GlobalEnvironmentManager()
+# get_environment = environment_manager.get_environment
+
+
+# def get_hash_and_state(renderer, scene):
+#     state = {}
+
+#     # For renderer
+
+#     state["blender"] = renderer._blender
+#     renderer_hash = renderer.blend_mode
+
+#     # For scene
+
+#     point_lights = []
+#     directional_lights = []
+#     spot_lights = []
+#     ambient_color = [0, 0, 0]
+
+#     def visit(ob):
+#         if isinstance(ob, PointLight):
+#             point_lights.append(ob)
+#         elif isinstance(ob, DirectionalLight):
+#             directional_lights.append(ob)
+#         elif isinstance(ob, SpotLight):
+#             spot_lights.append(ob)
+#         elif isinstance(ob, AmbientLight):
+#             r, g, b = ob.color.to_physical()
+#             ambient_color[0] += r * ob.intensity
+#             ambient_color[1] += g * ob.intensity
+#             ambient_color[2] += b * ob.intensity
+
+#     scene.traverse(visit, True)
+
+#     state["lights"] = {
+#         "point_lights": point_lights,
+#         "directional_lights": directional_lights,
+#         "spot_lights": spot_lights,
+#         "ambient": ambient_color,
+#     }
+
+#     scene_hash = (
+#         len(point_lights),
+#         len(directional_lights),
+#         len(spot_lights),
+#     )
+
+#     return renderer_hash, scene_hash, state
