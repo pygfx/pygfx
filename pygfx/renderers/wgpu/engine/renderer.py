@@ -33,7 +33,7 @@ from .flusher import RenderFlusher
 from .pipeline import get_pipeline_container_group
 from .update import update_resource, ensure_wgpu_object
 from .shared import get_shared
-from .environment import get_environment
+from .environment import get_renderstate
 from .shadowutil import render_shadow_maps
 from .mipmapsutil import generate_texture_mipmaps
 from .utils import GfxTextureView
@@ -153,6 +153,9 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
         # Init counter to auto-clear
         self._renders_since_last_flush = 0
+
+        # Cache renderstate objects
+        self._renderstates_per_flush = []
 
         # Get target format
         self.gamma_correction = gamma_correction
@@ -343,6 +346,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # Set blender object
         self._blend_mode = value
         self._blender = m[value]()
+        self._blender.name = value
         # If the blend mode has changed, we may need a new _wobject_pipelines
         self._set_wobject_pipelines()
         # If our target is a canvas, request a new draw
@@ -430,6 +434,11 @@ class WgpuRenderer(RootEventHandler, Renderer):
                 the target (texture or canvas). Default True.
         """
 
+        # Manage stored renderstate objects.
+        if self._renders_since_last_flush == 0:
+            self._renderstates_per_flush.insert(0, [])
+            self._renderstates_per_flush[16:] = []
+
         # Define whether to clear color.
         if clear_color is None:
             clear_color = self._renders_since_last_flush == 0
@@ -493,8 +502,9 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # Update stdinfo uniform buffer object that we'll use during this render call
         self._update_stdinfo_buffer(camera, scene_psize, scene_lsize)
 
-        # Get environment
-        environment = get_environment(self, scene)
+        # Get renderstate object
+        renderstate = get_renderstate(scene, self._blender)
+        self._renderstates_per_flush[0].append(renderstate)
 
         # Flatten the scenegraph, categorised by render_order
         wobject_dict = {}
@@ -520,7 +530,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         for wobject in wobject_list:
             if not wobject.material:
                 continue
-            container_group = get_pipeline_container_group(wobject, environment)
+            container_group = get_pipeline_container_group(wobject, renderstate)
             compute_pipeline_containers.extend(container_group.compute_containers)
             render_pipeline_containers.extend(container_group.render_containers)
             # Enable pipelines to update data on the CPU. This usually includes
@@ -541,7 +551,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # Record the rendering of all world objects, or re-use previous recording
         command_buffers = []
         command_buffers += self._render_recording(
-            environment,
+            renderstate,
             wobject_list,
             compute_pipeline_containers,
             render_pipeline_containers,

@@ -137,7 +137,7 @@ def get_cached_render_pipeline(device, *args):
     return result
 
 
-def get_pipeline_container_group(wobject, environment, blender_thingy):
+def get_pipeline_container_group(wobject, environment):
     """Return the PipelineContainerGroup object for wobject.
 
     This is the entrypoint for the renderer.
@@ -163,9 +163,7 @@ def get_pipeline_container_group(wobject, environment, blender_thingy):
 
     # Update if necessary - this path is defined to be fast if there are no changes
     # Don't put this under an ``if changed``, because work may be needed for a new environment.
-    pipeline_container_group.update(
-        wobject, environment, blender_thingy, changed_labels
-    )
+    pipeline_container_group.update(wobject, environment, changed_labels)
 
     # Return the pipeline container group
     return pipeline_container_group
@@ -188,7 +186,7 @@ class PipelineContainerGroup:
         self.environments_known = set()
         self.environments_uptodate = set()
 
-    def update(self, wobject, environment, blender_thingy, changed):
+    def update(self, wobject, environment, changed):
         """Update the pipeline containers. Creates (and re-creates) the containers if necessary."""
 
         if "create" in changed:
@@ -233,9 +231,9 @@ class PipelineContainerGroup:
 
         # Manage known environments, so when an env is removed, we can remove our associated data too.
         env_hash = environment.hash
-        if env_hash not in self.environments_known:
-            self.environments_known.add(env_hash)
-            environment.register_pipeline_container(self)
+        # if env_hash not in self.environments_known:
+        #     self.environments_known.add(env_hash)
+        #     environment.register_pipeline_container(self)
 
         # If something has changed ...
         if changed:
@@ -610,7 +608,7 @@ class RenderPipelineContainer(PipelineContainer):
         cull_mode = self.pipeline_info["cull_mode"]
 
         # Create pipeline layout object from list of layouts
-        env_bind_group_layout, _ = env.wgpu_bind_group
+        env_bind_group_layout = env.wgpu_bind_group_layout
         bind_group_layouts = [*self.wgpu_bind_group_layouts, env_bind_group_layout]
 
         pipeline_layout = get_cached_pipeline_layout(self.device, bind_group_layouts)
@@ -658,7 +656,7 @@ class RenderPipelineContainer(PipelineContainer):
             render_pass.set_bind_group(bind_group_id, bind_group, [], 0, 99)
 
         env_bind_group_id = len(bind_groups)
-        _, env_bind_group = environment.wgpu_bind_group
+        env_bind_group = environment.wgpu_bind_group
         render_pass.set_bind_group(env_bind_group_id, env_bind_group, [], 0, 99)
 
         # Draw!
