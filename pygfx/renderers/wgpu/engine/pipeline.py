@@ -4,6 +4,7 @@ This object is responsible for creating the native wgpu objects and doing the
 actual dispatching / drawing.
 """
 
+import sys
 import wgpu
 
 from ....utils import logger
@@ -69,7 +70,18 @@ def get_cached_shader_module(device, shader, shader_kwargs):
     result = SHADER_CACHE.get(key)
     if result is None:
         wgsl = shader.generate_wgsl(**shader_kwargs)
-        result = device.create_shader_module(code=wgsl)
+        try:
+            result = device.create_shader_module(code=wgsl)
+        except wgpu.GPUValidationError:
+            # No need to be super fancy in the formatting but we want to
+            # help the users find their bugs
+            # We have seen some shaders with close to 1000 lines of code
+            # So we print numbers that would be aligned up to 5 digits.
+            wgsl_with_line_numbers = "\n".join(
+                f"{i+1:5d}: {line}" for i, line in enumerate(wgsl.splitlines())
+            )
+            print(wgsl_with_line_numbers, file=sys.stderr)
+            raise
 
         SHADER_CACHE.set(key, result)
 
