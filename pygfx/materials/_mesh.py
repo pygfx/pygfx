@@ -687,7 +687,7 @@ class MeshToonMaterial(MeshBasicMaterial):
     @property
     def gradient_map(self):
         """Gradient map for toon shading.
-        The gradient map sampler method is always 'nearest'.
+        It's usually to set filter to 'nearest' for the gradient map.
         """
         return self._store.gradient_map
 
@@ -695,7 +695,7 @@ class MeshToonMaterial(MeshBasicMaterial):
     def gradient_map(self, map):
         assert_type("gradient_map", map, None, Texture, TextureMap)
         if isinstance(map, Texture):
-            map = TextureMap(map)
+            map = TextureMap(map, filter="nearest")
         self._store.gradient_map = map
 
 
