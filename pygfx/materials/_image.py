@@ -43,6 +43,8 @@ class ImageBasicMaterial(Material):
         If None, the values themselves represents the color. The
         dimensionality of the texture map can be 1D, 2D or 3D, but
         should match the number of channels in the image.
+
+        Note: for scientific data, it is usually to set wrap mode to 'clamp'.
         """
         return self._store.map
 
@@ -50,7 +52,7 @@ class ImageBasicMaterial(Material):
     def map(self, map):
         assert_type("map", map, None, Texture, TextureMap)
         if isinstance(map, Texture):
-            map = TextureMap(map)
+            map = TextureMap(map, wrap="clamp")
         self._store.map = map
 
     @property
