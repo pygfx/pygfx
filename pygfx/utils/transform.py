@@ -6,15 +6,186 @@ import functools
 
 from typing import Tuple, Union
 
-
 PRECISION_EPSILON = 1e-7
+
+
+def _mat_inv(m):
+    # Reference:
+    # https://github.com/mrdoob/three.js/blob/dev/src/math/Matrix4.js
+    # based on http://www.euclideanspace.com/maths/algebra/matrix/functions/inverse/fourD/index.htm
+    out = np.empty((4, 4), dtype=m.dtype)
+    me = m.flat
+
+    n11 = me[0]
+    n21 = me[4]
+    n31 = me[8]
+    n41 = me[12]
+    n12 = me[1]
+    n22 = me[5]
+    n32 = me[9]
+    n42 = me[13]
+    n13 = me[2]
+    n23 = me[6]
+    n33 = me[10]
+    n43 = me[14]
+    n14 = me[3]
+    n24 = me[7]
+    n34 = me[11]
+    n44 = me[15]
+
+    t11 = (
+        n23 * n34 * n42
+        - n24 * n33 * n42
+        + n24 * n32 * n43
+        - n22 * n34 * n43
+        - n23 * n32 * n44
+        + n22 * n33 * n44
+    )
+    t12 = (
+        n14 * n33 * n42
+        - n13 * n34 * n42
+        - n14 * n32 * n43
+        + n12 * n34 * n43
+        + n13 * n32 * n44
+        - n12 * n33 * n44
+    )
+    t13 = (
+        n13 * n24 * n42
+        - n14 * n23 * n42
+        + n14 * n22 * n43
+        - n12 * n24 * n43
+        - n13 * n22 * n44
+        + n12 * n23 * n44
+    )
+    t14 = (
+        n14 * n23 * n32
+        - n13 * n24 * n32
+        - n14 * n22 * n33
+        + n12 * n24 * n33
+        + n13 * n22 * n34
+        - n12 * n23 * n34
+    )
+
+    det = n11 * t11 + n21 * t12 + n31 * t13 + n41 * t14
+
+    if det == 0:
+        return out  # singular matrix
+
+    det_inv = 1 / det
+
+    oe = out.flat
+    oe[0] = t11 * det_inv
+    oe[4] = (
+        n24 * n33 * n41
+        - n23 * n34 * n41
+        - n24 * n31 * n43
+        + n21 * n34 * n43
+        + n23 * n31 * n44
+        - n21 * n33 * n44
+    ) * det_inv
+    oe[8] = (
+        n22 * n34 * n41
+        - n24 * n32 * n41
+        + n24 * n31 * n42
+        - n21 * n34 * n42
+        - n22 * n31 * n44
+        + n21 * n32 * n44
+    ) * det_inv
+    oe[12] = (
+        n23 * n32 * n41
+        - n22 * n33 * n41
+        - n23 * n31 * n42
+        + n21 * n33 * n42
+        + n22 * n31 * n43
+        - n21 * n32 * n43
+    ) * det_inv
+
+    oe[1] = t12 * det_inv
+    oe[5] = (
+        n13 * n34 * n41
+        - n14 * n33 * n41
+        + n14 * n31 * n43
+        - n11 * n34 * n43
+        - n13 * n31 * n44
+        + n11 * n33 * n44
+    ) * det_inv
+    oe[9] = (
+        n14 * n32 * n41
+        - n12 * n34 * n41
+        - n14 * n31 * n42
+        + n11 * n34 * n42
+        + n12 * n31 * n44
+        - n11 * n32 * n44
+    ) * det_inv
+    oe[13] = (
+        n12 * n33 * n41
+        - n13 * n32 * n41
+        + n13 * n31 * n42
+        - n11 * n33 * n42
+        - n12 * n31 * n43
+        + n11 * n32 * n43
+    ) * det_inv
+
+    oe[2] = t13 * det_inv
+    oe[6] = (
+        n14 * n23 * n41
+        - n13 * n24 * n41
+        - n14 * n21 * n43
+        + n11 * n24 * n43
+        + n13 * n21 * n44
+        - n11 * n23 * n44
+    ) * det_inv
+    oe[10] = (
+        n12 * n24 * n41
+        - n14 * n22 * n41
+        + n14 * n21 * n42
+        - n11 * n24 * n42
+        - n12 * n21 * n44
+        + n11 * n22 * n44
+    ) * det_inv
+    oe[14] = (
+        n13 * n22 * n41
+        - n12 * n23 * n41
+        - n13 * n21 * n42
+        + n11 * n23 * n42
+        + n12 * n21 * n43
+        - n11 * n22 * n43
+    ) * det_inv
+
+    oe[3] = t14 * det_inv
+    oe[7] = (
+        n13 * n24 * n31
+        - n14 * n23 * n31
+        + n14 * n21 * n33
+        - n11 * n24 * n33
+        - n13 * n21 * n34
+        + n11 * n23 * n34
+    ) * det_inv
+    oe[11] = (
+        n14 * n22 * n31
+        - n12 * n24 * n31
+        - n14 * n21 * n32
+        + n11 * n24 * n32
+        + n12 * n21 * n34
+        - n11 * n22 * n34
+    ) * det_inv
+    oe[15] = (
+        n12 * n23 * n31
+        - n13 * n22 * n31
+        + n13 * n21 * n32
+        - n11 * n23 * n32
+        - n12 * n21 * n33
+        + n11 * n22 * n33
+    ) * det_inv
+
+    return out
 
 
 if int(np.__version__.split(".")[0]) >= 2:
     mat_inv = np.linalg.inv
 else:
     # Avoid cpu's spinning at 300%, see issue #763
-    mat_inv = np.linalg.pinv
+    mat_inv = _mat_inv
 
 
 class cached:  # noqa: N801
@@ -177,7 +348,10 @@ class AffineBase:
 
     @cached
     def _inverse_matrix(self) -> np.ndarray:
-        return mat_inv(self.matrix)
+        try:
+            return mat_inv(self.matrix)
+        except np.linalg.LinAlgError:
+            return np.zeros((4, 4), dtype=float)
 
     @property
     def scaling_signs(self):
