@@ -439,9 +439,10 @@ def test_scaling_signs_manual_matrix():
     npt.assert_array_almost_equal(child.world.scale, expected)
 
     s2 = (-4, -4, 4)
+    expected2 = np.array(expected) * np.array(s2)
     child.local.scale = s2
     npt.assert_array_almost_equal(child.local.scale, s2)
-    npt.assert_array_almost_equal(child.world.scale, [-4, 8, 12])
+    npt.assert_array_almost_equal(child.world.scale, expected2)
 
 
 def test_rotation_derived():
