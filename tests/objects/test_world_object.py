@@ -585,3 +585,32 @@ def test_update_propagation_reference_up():
     # but the property is only used in setters
     # so there is no local cache to invalidate
     assert level3.local.last_modified == l3llm
+
+
+def test_transform_state_basis():
+    """Test that state_basis=="matrix" works properly."""
+    ob = gfx.WorldObject()
+
+    pos = (5, 7, 8)
+    ob.local.position = pos
+
+    ob.local.state_basis = "matrix"
+    # check that the position is maintained after toggling
+    npt.assert_allclose(ob.local.position, pos)
+
+    mat = la.mat_compose(
+        pos,
+        la.quat_from_axis_angle((0, 0, 1), np.pi / 2),
+        (1, -2, 3),
+    )
+    ob.local.matrix = mat
+    npt.assert_array_equal(ob.local.matrix, mat)
+    npt.assert_allclose(ob.local.scale, (-1, 2, 3))
+    npt.assert_allclose(ob.local.scaling_signs, (1, 1, 1))  # bypassed in matrix mode
+
+    ob.local.state_basis = "components"
+    npt.assert_allclose(ob.local.position, pos)
+    npt.assert_allclose(ob.local.scale, (-1, 2, 3))
+    npt.assert_allclose(
+        ob.local.scaling_signs, (-1, 1, 1)
+    )  # derived in components mode
