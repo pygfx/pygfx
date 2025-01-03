@@ -583,7 +583,8 @@ class AffineTransform(AffineBase):
         self._scale_view = self._scale.view()
         self._scale_view.flags.writeable = False
 
-        if matrix is not None:
+        # The ._matrix is only used when state_basis is "matrix"
+        if state_basis == "matrix" and matrix is not None:
             self._matrix = np.asarray(matrix, dtype=float)
         else:
             self._matrix = np.identity(4, dtype=float)
