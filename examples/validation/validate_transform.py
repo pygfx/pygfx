@@ -1,6 +1,6 @@
 """
-Validate transorms
-==================
+Validate transforms
+===================
 
 Apply a variety of transform combinations.
 """
