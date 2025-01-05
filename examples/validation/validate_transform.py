@@ -23,14 +23,13 @@ material_a = gfx.MeshBasicMaterial(
 material_b = gfx.MeshBasicMaterial(color=(0, 1, 1))
 
 
-def create__boxes(ttype1, value1, ttype2, value2, ttype3, value3, *, state_basis):
+def create_boxes(ttype1, value1, ttype2, value2, ttype3, value3, *, state_basis):
     box_a = gfx.Mesh(geometry, material_a)
     box_b = gfx.Group()
     box_c = gfx.Mesh(geometry, material_b)
 
     for box in (box_a, box_b, box_c):
         box.local.state_basis = state_basis
-        box.world.state_basis = state_basis
 
     setattr(box_a.local, ttype1, value1)
     setattr(box_b.local, ttype2, value2)
@@ -49,7 +48,7 @@ for i, state_basis in enumerate(["components", "matrix"]):
         ("position", (8, dy, 0), "euler_z", 0.5, "scale", (1.0, 1.5, 1.0)),
         ("position", (10, dy, 0), "scale", (1.0, 1.5, 1.0), "euler_z", 0.5),
     ]:
-        create__boxes(*transforms, state_basis=state_basis)
+        create_boxes(*transforms, state_basis=state_basis)
 
 
 camera = gfx.OrthographicCamera(5, 5)
