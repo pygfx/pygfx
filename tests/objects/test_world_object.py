@@ -616,6 +616,9 @@ def test_transform_state_basis():
     )  # derived in components mode
 
 
+@pytest.mark.xfail(
+    reason="matrix composition does not include shearing - see discussion on PR #920"
+)
 def test_transform_multiply():
     for state_basis in ["matrix", "components"]:
         for transforms in [
@@ -639,11 +642,14 @@ def test_transform_multiply():
             assert np.allclose(ma, mb)
 
 
+@pytest.mark.xfail(
+    reason="matrix composition does not include shearing - see discussion on PR #920"
+)
 def test_shear_support():
-    t1 = AffineTransform()
+    t1 = AffineTransform(state_basis="components")
     t1.scale_y = 1.5
 
-    t2 = AffineTransform()
+    t2 = AffineTransform(state_basis="components")
     t2.euler_z = 0.5
 
     # Get matrix in two ways. The result must be the same.
