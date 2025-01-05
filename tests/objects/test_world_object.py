@@ -7,7 +7,7 @@ import numpy.testing as npt
 import pytest
 
 from pygfx import WorldObject
-from pygfx.utils.transform import RecursiveTransform
+from pygfx.utils.transform import AffineTransform, RecursiveTransform
 import pygfx as gfx
 
 
@@ -614,3 +614,26 @@ def test_transform_state_basis():
     npt.assert_allclose(
         ob.local.scaling_signs, (-1, 1, 1)
     )  # derived in components mode
+
+
+def test_transform_multiply():
+    for state_basis in ["matrix", "components"]:
+        for transforms in [
+            ("position", (0, 1, 0), "scale", (1.0, 1.5, 1.0)),
+            ("scale", (1.0, 1.5, 1.0), "position", (0, 1, 0)),
+            ("position", (0, 1, 0), "euler_z", 0.5),
+            ("euler_z", 0.5, "position", (0, 1, 0)),
+            ("euler_z", 0.5, "scale", (1.0, 1.5, 1.0)),
+            ("scale", (1.0, 1.5, 1.0), "euler_z", 0.5),  # shear here :)
+        ]:
+            ttype1, value1, ttype2, value2 = transforms
+
+            t1 = AffineTransform(state_basis=state_basis)
+            t2 = AffineTransform(state_basis=state_basis)
+            setattr(t1, ttype1, value1)
+            setattr(t2, ttype2, value2)
+
+            # Get matrix in two ways. The result must be the same.
+            ma = t1.matrix @ t2.matrix
+            mb = (t1 @ t2).matrix
+            assert np.allclose(ma, mb)
