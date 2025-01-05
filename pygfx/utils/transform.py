@@ -627,7 +627,7 @@ class AffineTransform(AffineBase):
             self._position[:] = value
             self.flag_update()
             return
-        super().position = value
+        AffineBase.position.fset(self, value)
 
     @property
     def rotation(self) -> np.ndarray:
@@ -642,7 +642,7 @@ class AffineTransform(AffineBase):
             self._rotation[:] = value
             self.flag_update()
             return
-        super().rotation = value
+        AffineBase.rotation.fset(self, value)
 
     @property
     def scale(self) -> np.ndarray:
@@ -657,7 +657,7 @@ class AffineTransform(AffineBase):
             self._scale[:] = value
             self.flag_update()
             return
-        super().scale = value
+        AffineBase.scale.fset(self, value)
 
     @cached
     def __scaling_signs(self):
