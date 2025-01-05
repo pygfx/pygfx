@@ -637,3 +637,16 @@ def test_transform_multiply():
             ma = t1.matrix @ t2.matrix
             mb = (t1 @ t2).matrix
             assert np.allclose(ma, mb)
+
+
+def test_shear_support():
+    t1 = AffineTransform()
+    t1.scale_y = 1.5
+
+    t2 = AffineTransform()
+    t2.euler_z = 0.5
+
+    # Get matrix in two ways. The result must be the same.
+    ma = t1.matrix @ t2.matrix
+    mb = (t1 @ t2).matrix
+    assert np.allclose(ma, mb)
