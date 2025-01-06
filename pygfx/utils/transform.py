@@ -17,6 +17,15 @@ else:
     mat_inv = np.linalg.pinv
 
 
+def mat_has_shear(matrix):
+    """Check if a matrix has shear by checking the orthogonality of its basis vectors."""
+    v1, v2, v3 = matrix[:3, :3].T
+    for pair in ((v1, v2), (v1, v3), (v2, v3)):
+        if np.abs(np.dot(*pair)) > PRECISION_EPSILON:
+            return True
+    return False
+
+
 class cached:  # noqa: N801
     """Cache for computed properties.
 
@@ -561,7 +570,6 @@ class AffineTransform(AffineBase):
         position=(0, 0, 0),
         rotation=(0, 0, 0, 1),
         scale=(1, 1, 1),
-        /,
         *,
         reference_up=(0, 1, 0),
         is_camera_space=False,
@@ -727,16 +735,32 @@ class AffineTransform(AffineBase):
     def __matmul__(self, other) -> Union["AffineTransform", np.ndarray]:
         if isinstance(other, AffineTransform):
             matrix = self.matrix @ other.matrix
+
+            state_basis = self.state_basis
+            if mat_has_shear(matrix):
+                # if the resulting transform has shearing
+                # force matrix state_basis - we don't
+                # support shearing in components, see #920
+                state_basis = "matrix"
+
             kwargs = dict(
                 is_camera_space=self.is_camera_space,
-                state_basis=self.state_basis,
+                state_basis=state_basis,
+                matrix=matrix,
             )
-            if self.state_basis == "matrix":
-                kwargs["matrix"] = matrix
-            transform = AffineTransform(**kwargs)
-            if self.state_basis == "components":
-                transform.matrix = matrix
-            return transform
+            if state_basis == "components":
+                try:
+                    decomposed = la.mat_decompose(
+                        matrix,
+                        scaling_signs=self.scaling_signs * other.scaling_signs,
+                    )
+                except ValueError:
+                    decomposed = la.mat_decompose(matrix)
+                kwargs["position"] = decomposed[0]
+                kwargs["rotation"] = decomposed[1]
+                kwargs["scale"] = decomposed[2]
+
+            return AffineTransform(**kwargs)
 
         return np.asarray(self) @ other
 
