@@ -7,7 +7,7 @@ import numpy.testing as npt
 import pytest
 
 from pygfx import WorldObject
-from pygfx.utils.transform import RecursiveTransform
+from pygfx.utils.transform import AffineTransform, RecursiveTransform
 import pygfx as gfx
 
 
@@ -585,3 +585,68 @@ def test_update_propagation_reference_up():
     # but the property is only used in setters
     # so there is no local cache to invalidate
     assert level3.local.last_modified == l3llm
+
+
+def test_transform_state_basis():
+    """Test that state_basis=="matrix" works properly."""
+    ob = gfx.WorldObject()
+
+    pos = (5, 7, 8)
+    ob.local.position = pos
+
+    ob.local.state_basis = "matrix"
+    # check that the position is maintained after toggling
+    npt.assert_allclose(ob.local.position, pos)
+
+    mat = la.mat_compose(
+        pos,
+        la.quat_from_axis_angle((0, 0, 1), np.pi / 2),
+        (1, -2, 3),
+    )
+    ob.local.matrix = mat
+    npt.assert_array_equal(ob.local.matrix, mat)
+    npt.assert_allclose(ob.local.scale, (-1, 2, 3))
+    npt.assert_allclose(ob.local.scaling_signs, (1, 1, 1))  # bypassed in matrix mode
+
+    ob.local.state_basis = "components"
+    npt.assert_allclose(ob.local.position, pos)
+    npt.assert_allclose(ob.local.scale, (-1, 2, 3))
+    npt.assert_allclose(
+        ob.local.scaling_signs, (-1, 1, 1)
+    )  # derived in components mode
+
+
+def test_transform_multiply():
+    for state_basis in ["matrix", "components"]:
+        for transforms in [
+            ("position", (0, 1, 0), "scale", (1.0, 1.5, 1.0)),
+            ("scale", (1.0, 1.5, 1.0), "position", (0, 1, 0)),
+            ("position", (0, 1, 0), "euler_z", 0.5),
+            ("euler_z", 0.5, "position", (0, 1, 0)),
+            ("euler_z", 0.5, "scale", (1.0, 1.5, 1.0)),
+            ("scale", (1.0, 1.5, 1.0), "euler_z", 0.5),  # shear here :)
+        ]:
+            ttype1, value1, ttype2, value2 = transforms
+
+            t1 = AffineTransform(state_basis=state_basis)
+            t2 = AffineTransform(state_basis=state_basis)
+            setattr(t1, ttype1, value1)
+            setattr(t2, ttype2, value2)
+
+            # Get matrix in two ways. The result must be the same.
+            ma = t1.matrix @ t2.matrix
+            mb = (t1 @ t2).matrix
+            assert np.allclose(ma, mb)
+
+
+def test_shear_support():
+    t1 = AffineTransform(state_basis="components")
+    t1.scale_y = 1.5
+
+    t2 = AffineTransform(state_basis="components")
+    t2.euler_z = 0.5
+
+    # Get matrix in two ways. The result must be the same.
+    ma = t1.matrix @ t2.matrix
+    mb = (t1 @ t2).matrix
+    assert np.allclose(ma, mb)
