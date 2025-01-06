@@ -29,7 +29,6 @@ image1 = gfx.Image(
         map=gfx.TextureMap(
             colormap,
             filter="nearest",
-            wrap="clamp",
         ),
     ),
 )
@@ -41,7 +40,6 @@ image2 = gfx.Image(
         map=gfx.TextureMap(
             colormap,
             filter="linear",
-            wrap="clamp",
         ),
     ),
 )
