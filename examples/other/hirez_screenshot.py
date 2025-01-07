@@ -230,6 +230,10 @@ def animate():
     renderer.render(scene, camera)
 
 
+# Create snapshot of tiles.
+# A possible improvement would be to write each tile-row once it is captured,
+# so we never need the full image as one contiguous array. This would enable
+# creating massive screenshots even on machines with little RAM.
 rows = []
 for iy in range(upscale_factor):
     row = []
@@ -243,12 +247,17 @@ for iy in range(upscale_factor):
             tile_size[1],
         )
         im = canvas.draw()
+        im = np.array(im, copy=False)  # memoryview -> ndarray
+        # im = im[:,:,:3]  # rgba -> rgb
         row.append(im)
     rows.append(np.column_stack(row))
 
+# Safe full image
 full_im = np.vstack(rows)
 print("full resolution:", full_im.shape)
-
 filename = os.path.join(tempfile.gettempdir(), "hirez_pygfx.png")
 iio.imwrite(filename, full_im)
+print(f"{os.stat(filename).st_size/2**20:0.3f} MiB")
+
+# Show the image
 webbrowser.open("file://" + filename)
