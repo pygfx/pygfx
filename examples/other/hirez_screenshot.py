@@ -66,7 +66,7 @@ geometry = gfx.Geometry(positions=positions, colors=colors)
 
 
 scene = gfx.Scene()
-scene.add(gfx.Background.from_color("#bbb", "#777"))
+scene.add(gfx.Background.from_color("#bbb", "#777", "#f00", "#0f0"))
 
 y = 0
 text = gfx.Text(

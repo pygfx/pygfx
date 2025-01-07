@@ -73,7 +73,8 @@ class Camera(WorldObject):
         height (float): The height of the current sub-view.
 
         """
-        self._view_offset = {
+        # Store values
+        self._view_offset = vo = {
             "full_width": float(full_width),
             "full_height": float(full_height),
             "x": float(x),
@@ -81,6 +82,16 @@ class Camera(WorldObject):
             "width": float(width),
             "height": float(height),
         }
+        # Calculate ndc_offset, a value that can be easily applied in the shader using
+        # virtual_ndc = ndc.xy * ndc_offset.xy + ndc_offset.zw
+        ax = vo["width"] / vo["full_width"]
+        ay = vo["height"] / vo["full_height"]
+        self._view_offset["ndc_offset"] = (
+            ax,
+            ay,
+            ax + 2.0 * vo["x"] / vo["full_width"] - 1.0,
+            -(ay + 2.0 * vo["y"] / vo["full_height"] - 1.0),
+        )
 
     def clear_view_offset(self):
         """Remove the currently set view offset, returning to a normal view."""
