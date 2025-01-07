@@ -17,20 +17,20 @@ class TextureMap(Trackable):
         Default is 0, which uses the `geometry.texcoords`.
     filter : str, optional
         The filter to use for magnification, minification znd mipmap, if not being set separately.
-        Default is "linear".
+        Can be "nearest" or "linear". Default is "linear".
     mag_filter : str, optional
-        The magnification filter to use. Default is "linear".
+        The magnification filter to use. Defaults to the value of ``filter``.
     min_filter : str, optional
-        The minification filter to use. Default is "linear".
+        The minification filter to use. Defaults to the value of ``filter``.
     mipmap_filter : str, optional
-        The mipmap filter to use. Default is "linear".
+        The mipmap filter to use. Defaults to the value of ``filter``.
     wrap : str, optional
         The wrap mode for both the s and t coordinates if not being set separately.
-        Default is "repeat".
+        Can be "clamp", "repeat", "mirror". Default is "repeat".
     wrap_s : str, optional
-        The wrap mode for the s coordinate. Default is "repeat".
+        The wrap mode for the s coordinate. Defaults to the value of ``wrap``.
     wrap_t : str, optional
-        The wrap mode for the t coordinate. Default is "repeat".
+        The wrap mode for the t coordinate. Defaults to the value of ``wrap``.
     """
 
     def __init__(
