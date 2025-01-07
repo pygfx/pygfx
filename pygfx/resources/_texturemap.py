@@ -26,7 +26,7 @@ class TextureMap(Trackable):
         The mipmap filter to use. Defaults to the value of ``filter``.
     wrap : str, optional
         The wrap mode for both the s and t coordinates if not being set separately.
-        Can be "clamp", "repeat", "mirror". Default is "clamp".
+        Can be "clamp", "repeat", "mirror". Default is "repeat".
     wrap_s : str, optional
         The wrap mode for the s coordinate. Defaults to the value of ``wrap``.
     wrap_t : str, optional
@@ -42,7 +42,7 @@ class TextureMap(Trackable):
         mag_filter=None,
         min_filter=None,
         mipmap_filter=None,
-        wrap="clamp",
+        wrap="repeat",
         wrap_s=None,
         wrap_t=None,
     ):
