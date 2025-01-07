@@ -524,6 +524,15 @@ class WgpuRenderer(RootEventHandler, Renderer):
             for render_order in sorted(wobject_dict.keys()):
                 wobject_list.extend(wobject_dict[render_order])
 
+        # Update transform uniform buffers
+        for wobject in wobject_list:
+            transform = WorldObject.transform_updates.pop(wobject, None)
+            if transform:
+                wobject._update_uniform_buffers(transform)
+
+        # Get environment
+        environment = get_environment(self, scene)
+
         # Collect all pipeline container objects
         compute_pipeline_containers = []
         render_pipeline_containers = []

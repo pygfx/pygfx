@@ -67,8 +67,6 @@ def create_mesh(geometry, bones):
     skeleton = gfx.Skeleton(bones)
 
     mesh.add(bones[0])
-    # update the world matrix from root to leaf bone manually
-    bones[0].update_matrix_world()
     mesh.bind(skeleton)
 
     mesh.local.rotation = la.quat_from_euler((-math.pi / 2, 0, 0))
