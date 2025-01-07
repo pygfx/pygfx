@@ -25,7 +25,6 @@ from ....cameras import Camera
 from ....resources import Texture
 from ....resources._base import resource_update_registry
 from ....utils import Color
-from ....utils.transform import mat_inv  # noqa
 
 from ... import Renderer
 from . import blender as blender_module
