@@ -246,8 +246,7 @@ for iy in range(upscale_factor):
             tile_size[0],
             tile_size[1],
         )
-        im = canvas.draw()
-        im = np.array(im, copy=False)  # memoryview -> ndarray
+        im = np.asarray(canvas.draw())
         # im = im[:,:,:3]  # rgba -> rgb
         row.append(im)
     rows.append(np.column_stack(row))
