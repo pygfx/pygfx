@@ -122,6 +122,8 @@ def animate2():
     renderer2.render(scene2, camera2)
 
 
+renderer = renderer2  # for the screenshot code
+
 if __name__ == "__main__":
     print(__doc__)
     loop.run()
