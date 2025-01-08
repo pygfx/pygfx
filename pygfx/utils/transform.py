@@ -17,15 +17,6 @@ else:
     mat_inv = np.linalg.pinv
 
 
-def mat_has_shear(matrix):
-    """Check if a matrix has shear by checking the orthogonality of its basis vectors."""
-    v1, v2, v3 = matrix[:3, :3].T
-    for pair in ((v1, v2), (v1, v3), (v2, v3)):
-        if np.abs(np.dot(*pair)) > PRECISION_EPSILON:
-            return True
-    return False
-
-
 class cached:  # noqa: N801
     """Cache for computed properties.
 
@@ -737,7 +728,7 @@ class AffineTransform(AffineBase):
             matrix = self.matrix @ other.matrix
 
             state_basis = self.state_basis
-            if mat_has_shear(matrix):
+            if la.mat_has_shear(matrix):
                 # if the resulting transform has shearing
                 # force matrix state_basis - we don't
                 # support shearing in components, see #920
