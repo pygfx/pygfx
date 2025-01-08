@@ -7,6 +7,8 @@ actual dispatching / drawing.
 import sys
 import wgpu
 
+import os
+
 from ....utils import logger
 
 from ..shader.base import ShaderInterface
@@ -23,6 +25,12 @@ LAYOUT_CACHE = GpuCache("layouts")
 BINDING_CACHE = GpuCache("bindings")
 SHADER_CACHE = GpuCache("shader_modules")
 PIPELINE_CACHE = GpuCache("pipelines")
+
+PRINT_WGSL_ON_ERROR = (
+    os.environ.get("PYGFX_PRINT_WGSL_ON_COMPILATION_ERROR", "0").lower() not in [
+        "false", "0"
+    ]
+)
 
 
 def get_cached_bind_group_layout(device, *args):
@@ -77,10 +85,14 @@ def get_cached_shader_module(device, shader, shader_kwargs):
             # help the users find their bugs
             # We have seen some shaders with close to 1000 lines of code
             # So we print numbers that would be aligned up to 5 digits.
-            wgsl_with_line_numbers = "\n".join(
-                f"{i+1:5d}: {line}" for i, line in enumerate(wgsl.splitlines())
-            )
-            print(wgsl_with_line_numbers, file=sys.stderr)
+            # Since this error may be confusing for end users due to the sheer
+            # volume of text printed, developers must enable this with
+            # PYGFX_PRINT_WGSL_ON_COMPILATION_ERROR
+            if PRINT_WGSL_ON_ERROR:
+                wgsl_with_line_numbers = "\n".join(
+                    f"{i+1:5d}: {line}" for i, line in enumerate(wgsl.splitlines())
+                )
+                print(wgsl_with_line_numbers, file=sys.stderr)
             raise
 
         SHADER_CACHE.set(key, result)
