@@ -26,11 +26,9 @@ BINDING_CACHE = GpuCache("bindings")
 SHADER_CACHE = GpuCache("shader_modules")
 PIPELINE_CACHE = GpuCache("pipelines")
 
-PRINT_WGSL_ON_ERROR = (
-    os.environ.get("PYGFX_PRINT_WGSL_ON_COMPILATION_ERROR", "0").lower() not in [
-        "false", "0"
-    ]
-)
+PRINT_WGSL_ON_ERROR = os.environ.get(
+    "PYGFX_PRINT_WGSL_ON_COMPILATION_ERROR", "0"
+).lower() not in ["false", "0"]
 
 
 def get_cached_bind_group_layout(device, *args):
