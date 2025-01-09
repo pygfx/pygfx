@@ -428,12 +428,6 @@ class _GLTF:
                 for joint in skin.joints:
                     node_marks[joint] = "Bone"
 
-        # Mark cameras
-        # if gltf.model.cameras:
-        #     for camera in gltf.model.cameras:
-        #         print(camera)
-        #         node_marks[camera.node] = "Camera"
-
         # Meshes are marked when they are loaded
         # Maybe mark lights and other special nodes here
         return node_marks
