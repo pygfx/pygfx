@@ -249,7 +249,7 @@ for iy in range(upscale_factor):
         im = np.asarray(canvas.draw())
         # im = im[:,:,:3]  # rgba -> rgb
         row.append(im)
-    rows.append(np.column_stack(row))
+    rows.append(row)
 
 # Safe full image
 full_im = np.block(rows)
