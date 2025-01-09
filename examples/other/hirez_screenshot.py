@@ -252,7 +252,7 @@ for iy in range(upscale_factor):
     rows.append(np.column_stack(row))
 
 # Safe full image
-full_im = np.vstack(rows)
+full_im = np.block(rows)
 print("full resolution:", full_im.shape)
 filename = os.path.join(tempfile.gettempdir(), "hirez_pygfx.png")
 iio.imwrite(filename, full_im)
