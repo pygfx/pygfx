@@ -45,7 +45,70 @@ def load_gltf(path, quiet=False, remote_ok=True):
     return _GLTF().load(path, quiet, remote_ok)
 
 
+async def load_gltf_async(path, quiet=False, remote_ok=True):
+    """
+    Load a gltf file and return the content asynchronously.
+
+    It is recommended to use this function when loading from URLs.
+    especially when the gltf model has multiple resources.
+
+    This function requires the gltflib library.
+
+    Parameters:
+    ----------
+    path : str
+        The path to the gltf file.
+    quiet : bool
+        Whether to suppress the warning messages.
+        Default is False.
+    remote_ok : bool
+        Whether to allow loading from URLs.
+        Default is True.
+
+    Returns:
+    ----------
+    gltf : object
+        The gltf object which contains the following attributes:
+        * `scenes`: [gfx.Group]
+        * `scene`: gfx.Group or None
+        * `cameras`: [gfx.Camera] or None
+        * `animations`: [gfx.Animation] or None
+    """
+    return await _GLTF().load_async(path, quiet, remote_ok)
+
+
 def load_gltf_mesh(path, materials=True, quiet=False, remote_ok=True):
+    """
+    Load meshes from a gltf file asynchronously, without skeletons, and no transformations applied.
+
+    It is recommended to use this function when loading from URLs.
+    especially when the gltf model has multiple resources.
+
+    This function requires the gltflib library.
+
+    Parameters:
+    ----------
+    path : str
+        The path to the gltf file.
+    materials : bool
+        Whether to load materials.
+        Default is True.
+    quiet : bool
+        Whether to suppress the warning messages.
+        Default is False.
+    remote_ok : bool
+        Whether to allow loading from URLs.
+        Default is True.
+
+    Returns:
+    ----------
+    meshes : list
+        A list of pygfx.Meshes.
+    """
+    return _GLTF().load_mesh(path, quiet, materials=materials, remote_ok=remote_ok)
+
+
+async def load_gltf_mesh_async(path, materials=True, quiet=False, remote_ok=True):
     """
     Load meshes from a gltf file, without skeletons, and no transformations applied.
 
@@ -70,7 +133,9 @@ def load_gltf_mesh(path, materials=True, quiet=False, remote_ok=True):
     meshes : list
         A list of pygfx.Meshes.
     """
-    return _GLTF().load_mesh(path, quiet, materials=materials, remote_ok=remote_ok)
+    return await _GLTF().load_mesh_async(
+        path, quiet, materials=materials, remote_ok=remote_ok
+    )
 
 
 class _GLTF:
@@ -130,10 +195,33 @@ class _GLTF:
 
         return self
 
+    async def load_async(self, path, quiet=False, remote_ok=True):
+        """Load the whole gltf file, including meshes, skeletons, cameras, and animations."""
+        await self.__inner_load_async(path, quiet, remote_ok)
+
+        self.scenes = self._load_scenes()
+        if self._gltf.model.scene is not None:
+            self.scene = self.scenes[self._gltf.model.scene]
+        if self._gltf.model.animations is not None:
+            self.animations = self._load_animations()
+
+        return self
+
     def load_mesh(self, path, quiet=False, materials=True, remote_ok=True):
         """Only load meshes from a gltf file, without skeletons, and no transformations applied."""
 
         self.__inner_load(path, quiet, remote_ok)
+
+        meshes = []
+        for gltf_mesh in self._gltf.model.meshes:
+            mesh = self._load_gltf_mesh_by_info(gltf_mesh, load_material=materials)
+            meshes.extend(mesh)
+        return meshes
+
+    async def load_mesh_async(self, path, quiet=False, materials=True, remote_ok=True):
+        """Only load meshes from a gltf file, without skeletons, and no transformations applied."""
+
+        await self.__inner_load_async(path, quiet, remote_ok)
 
         meshes = []
         for gltf_mesh in self._gltf.model.meshes:
@@ -164,7 +252,6 @@ class _GLTF:
             from os import path as os_path
             import urllib.parse
             import mimetypes
-            import asyncio
 
             # download
             response = httpx.get(path, follow_redirects=True)
@@ -184,12 +271,12 @@ class _GLTF:
                 for res in self._gltf.resources
                 if isinstance(res, gltflib.FileResource)
             ]
-            if downloadable_resources:
 
-                async def download_resource(res, client: httpx.AsyncClient):
+            if downloadable_resources:
+                for res in downloadable_resources:
                     res_path = urllib.parse.urljoin(path, res.uri)
                     try:
-                        response = await client.get(res_path)
+                        response = httpx.get(res_path)
                         response.raise_for_status()
                         res_file = BytesIO(response.content)
 
@@ -198,27 +285,100 @@ class _GLTF:
                             res._mimetype or mimetypes.guess_type(res.uri)[0]
                         )
                         res._loaded = True
-
-                        return res
                     except httpx.HTTPStatusError as e:
                         gfx.utils.logger.warning(f"download failed: {e} - {res_path}")
                     except Exception as e:
                         gfx.utils.logger.warning(f"download failed: {e} - {res_path}")
 
-                async def _download_resources():
-                    async with httpx.AsyncClient() as client:
-                        tasks = [
-                            download_resource(res, client)
-                            for res in downloadable_resources
-                        ]
-                        results = await asyncio.gather(*tasks)
-                    return results
+        else:  # local file
+            self._gltf = gltflib.GLTF.load(path, load_file_resources=True)
 
-                asyncio.run(_download_resources())
+        self.__post_inner_load(quiet)
+
+    async def __inner_load_async(self, path, quiet=False, remote_ok=True):
+        if not find_spec("gltflib"):
+            raise ImportError(
+                "The `gltflib` library is required to load gltf scene: pip install gltflib"
+            )
+        import gltflib
+
+        if "https://" in str(path) or "http://" in str(path):
+            if not remote_ok:
+                raise ValueError(
+                    "Loading meshes from URLs is disabled. "
+                    "Set remote_ok=True to allow loading from URLs."
+                )
+            if not find_spec("httpx"):
+                raise ImportError(
+                    "The `httpx` library is required to load meshes from URLs: pip install httpx"
+                )
+
+            import httpx
+            from io import BytesIO
+            from os import path as os_path
+            import urllib.parse
+            import mimetypes
+            import asyncio
+
+            async with httpx.AsyncClient() as client:
+                response = await client.get(path, follow_redirects=True)
+                response.raise_for_status()
+
+                file_obj = BytesIO(response.content)
+
+                ext = os_path.splitext(path)[1].lower()
+                if ext == ".gltf":
+                    self._gltf = gltflib.GLTF.read_gltf(
+                        file_obj, load_file_resources=False
+                    )
+
+                elif ext == ".glb":
+                    self._gltf = gltflib.GLTF.read_glb(
+                        file_obj, load_file_resources=False
+                    )
+
+                downloadable_resources = [
+                    res
+                    for res in self._gltf.resources
+                    if isinstance(res, gltflib.FileResource)
+                ]
+
+                if downloadable_resources:
+
+                    async def download_resource(res, client: httpx.AsyncClient):
+                        res_path = urllib.parse.urljoin(path, res.uri)
+                        try:
+                            response = await client.get(res_path)
+                            response.raise_for_status()
+                            res_file = BytesIO(response.content)
+
+                            res._data = res_file.read()
+                            res._mimetype = (
+                                res._mimetype or mimetypes.guess_type(res.uri)[0]
+                            )
+                            res._loaded = True
+
+                            return res
+                        except httpx.HTTPStatusError as e:
+                            gfx.utils.logger.warning(
+                                f"download failed: {e} - {res_path}"
+                            )
+                        except Exception as e:
+                            gfx.utils.logger.warning(
+                                f"download failed: {e} - {res_path}"
+                            )
+
+                    tasks = [
+                        download_resource(res, client) for res in downloadable_resources
+                    ]
+                    await asyncio.gather(*tasks)
 
         else:  # local file
             self._gltf = gltflib.GLTF.load(path, load_file_resources=True)
 
+        self.__post_inner_load(quiet)
+
+    def __post_inner_load(self, quiet):
         if not quiet:
             extensions_required = self._gltf.model.extensionsRequired or []
 

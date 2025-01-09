@@ -19,6 +19,7 @@ from imgui_bundle import portable_file_dialogs as pfd  # type: ignore
 
 import httpx
 import threading
+import asyncio
 
 canvas = WgpuCanvas(size=(1280, 720), max_fps=-1, title="glTF viewer", vsync=False)
 
@@ -115,7 +116,7 @@ open_file_dialog = None
 def load_model(model_path):
     global model_obj, skeleton_helper, actions
     try:
-        gltf = gfx.load_gltf(model_path)
+        gltf = asyncio.run(gfx.load_gltf_async(model_path))
 
         if model_obj:
             scene.remove(model_obj)
@@ -155,8 +156,7 @@ def draw_imgui():
     )
     if is_expand:
         if imgui.collapsing_header("Models", imgui.TreeNodeFlags_.default_open):
-            if state["loading"]:
-                imgui.begin_disabled()
+            imgui.begin_disabled(state["loading"])
 
             selected, state["selected_model"] = imgui.combo(
                 " ",
@@ -170,8 +170,8 @@ def draw_imgui():
                     target=load_remote_model, args=(state["selected_model"],)
                 ).start()
 
+            imgui.end_disabled()
             if state["loading"]:
-                imgui.end_disabled()
                 imgui.same_line()
                 imspinner.spinner_arc_rotation(
                     "loading", 8, 4.0, imgui.ImColor(0.3, 0.5, 0.9, 1.0), speed=1.0
