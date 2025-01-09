@@ -1,7 +1,7 @@
 import numpy as np
+import pylinalg as la
 
 from ..objects._base import WorldObject
-from ..utils.transform import mat_inv
 
 
 class Camera(WorldObject):
@@ -122,7 +122,7 @@ class Camera(WorldObject):
             )
             self.projection_matrix = ndc_matrix @ projection_matrix
 
-        self.projection_matrix_inverse = mat_inv(self.projection_matrix)
+        self.projection_matrix_inverse = la.mat_inverse(self.projection_matrix)
 
     def get_state(self):
         """Get the state of the camera as a dict."""
