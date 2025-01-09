@@ -368,7 +368,7 @@ class Texture(Resource):
         if any((o1 + s1) > s2 for o1, s1, s2 in zip(offset, size, self.size)):
             raise ValueError("The data with this offset does not fit.")
         # Create chunk
-        data = data.view()
+        data = np.asarray(data).view()
         data.shape = shape
         if not data.flags.c_contiguous:
             if self._force_contiguous:

@@ -468,6 +468,15 @@ class WgpuRenderer(RootEventHandler, Renderer):
                 "The viewport rect must be None or 4 elements (x, y, w, h)."
             )
 
+        # Apply the camera's native size (do this before we change scene_lsize based on view_offset)
+        camera.set_view_size(*scene_lsize)
+
+        # Camera view_offset overrides logical size
+        ndc_offset = (1.0, 1.0, 0.0, 0.0)  # (ax ay bx by)  virtual_ndc = a * ndc + b
+        if camera._view_offset is not None:
+            scene_lsize = camera._view_offset["width"], camera._view_offset["height"]
+            ndc_offset = camera._view_offset["ndc_offset"]
+
         # Allow objects to prepare just in time. When doing multiple
         # render calls, we don't want to spam. The clear_color flag is
         # a good indicator to detect the first render call.
@@ -483,7 +492,6 @@ class WgpuRenderer(RootEventHandler, Renderer):
             self.dispatch_event(ev)
 
         # Ensure that matrices are up-to-date
-        camera.set_view_size(*scene_lsize)
         camera.update_projection_matrix()
 
         # Flatten the scenegraph, categorised by render_order
@@ -514,7 +522,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         self._shared.pre_render_hook()
 
         # Update stdinfo uniform buffer object that we'll use during this render call
-        self._update_stdinfo_buffer(camera, scene_psize, scene_lsize)
+        self._update_stdinfo_buffer(camera, scene_psize, scene_lsize, ndc_offset)
 
         # Get environment
         environment = get_environment(self, scene)
@@ -679,14 +687,17 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
         return [command_encoder.finish()]
 
-    def _update_stdinfo_buffer(self, camera: Camera, physical_size, logical_size):
+    def _update_stdinfo_buffer(
+        self, camera: Camera, physical_size, logical_size, ndc_offset
+    ):
         # Update the stdinfo buffer's data
         stdinfo_data = self._shared.uniform_buffer.data
         stdinfo_data["cam_transform"] = camera.world.inverse_matrix.T
         stdinfo_data["cam_transform_inv"] = camera.world.matrix.T
         stdinfo_data["projection_transform"] = camera.projection_matrix.T
         stdinfo_data["projection_transform_inv"] = camera.projection_matrix_inverse.T
-        # stdinfo_data["ndc_to_world"].flat = mat_inv(stdinfo_data["cam_transform"] @ stdinfo_data["projection_transform"])
+        # stdinfo_data["ndc_to_world"].flat = la.mat_inverse(stdinfo_data["cam_transform"] @ stdinfo_data["projection_transform"])
+        stdinfo_data["ndc_offset"] = ndc_offset
         stdinfo_data["physical_size"] = physical_size
         stdinfo_data["logical_size"] = logical_size
         # Upload to GPU
