@@ -248,7 +248,7 @@ for iy in range(upscale_factor):
         )
         im = np.asarray(canvas.draw())
         # im = im[:,:,:3]  # rgba -> rgb
-        row.append(im)
+        row.append([im])  # the list-nesting is to make block work correctly
     rows.append(row)
 
 # Safe full image
