@@ -19,30 +19,14 @@ from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 
 
-# %% Prepare
-
-upscale_factor = 4
-canvas_size = 1200, 1000
-
-if True:
-    # The logical size is maintained, so the result is an image with a
-    # pixel_ratio of `upscale_factor`. Things sized in screen coordinates
-    # (like the texts on the left) scale the same as the rest.
-    tile_size = canvas_size[0] // upscale_factor, canvas_size[1] // upscale_factor
-    full_size = tile_size[0] * upscale_factor, tile_size[1] * upscale_factor
-else:
-    # The logical size is made upscale_factor as large. The pixel_ratio
-    # is 1. Things sized in screen coordinates (like the texts on the
-    # left) become tiny compared to the rest.
-    tile_size = canvas_size
-    full_size = tile_size[0] * upscale_factor, tile_size[1] * upscale_factor
+# -- Prepare canvases
 
 pixel_ratio = 2
 offscreen_canvas = OffscreenCanvas(size=(400, 300), pixel_ratio=pixel_ratio)
 canvas = RenderCanvas(size=(830, 630))
 
 
-# %% The visualization
+# -- scene that renders the visualization
 
 renderer1 = gfx.WgpuRenderer(offscreen_canvas)
 
@@ -61,7 +45,7 @@ camera1 = gfx.OrthographicCamera()
 camera1.show_object(scene1)
 
 
-# %% The tiled version
+# -- The scene to show the tiles
 
 renderer2 = gfx.WgpuRenderer(canvas)
 
@@ -92,7 +76,7 @@ camera2 = gfx.OrthographicCamera()
 camera2.show_rect(0, 830, 0, 630)
 
 
-## Tiling
+# -- Tiling
 
 
 @offscreen_canvas.request_draw
