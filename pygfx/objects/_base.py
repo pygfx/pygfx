@@ -132,6 +132,8 @@ class WorldObject(EventTarget, RootTrackable):
         id="i4",
     )
 
+    transform_updates = weakref.WeakKeyDictionary()
+
     def __init__(
         self,
         geometry=None,
@@ -164,7 +166,7 @@ class WorldObject(EventTarget, RootTrackable):
         self.world = RecursiveTransform(
             self.local, is_camera_space=self._FORWARD_IS_MINUS_Z, reference_up=(0, 1, 0)
         )
-        self.world.on_update(self._update_uniform_buffers)
+        self.world.on_update(self.flag_transform_update)
 
         # Set id
         self._id = id_provider.claim_id(self)
@@ -183,6 +185,9 @@ class WorldObject(EventTarget, RootTrackable):
         self.name = name
 
     @callback
+    def flag_transform_update(self, transform: AffineBase):
+        self.transform_updates[self] = transform
+
     def _update_uniform_buffers(self, transform: AffineBase):
         orig_err_setting = np.seterr(under="ignore")
         self.uniform_buffer.data["world_transform"] = transform.matrix.T
