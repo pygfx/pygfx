@@ -25,7 +25,6 @@ from ....cameras import Camera
 from ....resources import Texture
 from ....resources._base import resource_update_registry
 from ....utils import Color
-from ....utils.transform import mat_inv  # noqa
 
 from ... import Renderer
 from . import blender as blender_module
@@ -487,15 +486,6 @@ class WgpuRenderer(RootEventHandler, Renderer):
         camera.set_view_size(*scene_lsize)
         camera.update_projection_matrix()
 
-        # Prepare the shared object
-        self._shared.pre_render_hook()
-
-        # Update stdinfo uniform buffer object that we'll use during this render call
-        self._update_stdinfo_buffer(camera, scene_psize, scene_lsize)
-
-        # Get environment
-        environment = get_environment(self, scene)
-
         # Flatten the scenegraph, categorised by render_order
         wobject_dict = {}
         scene.traverse(
@@ -513,6 +503,21 @@ class WgpuRenderer(RootEventHandler, Renderer):
         else:
             for render_order in sorted(wobject_dict.keys()):
                 wobject_list.extend(wobject_dict[render_order])
+
+        # Update transform uniform buffers
+        for wobject in wobject_list:
+            transform = WorldObject.transform_updates.pop(wobject, None)
+            if transform:
+                wobject._update_uniform_buffers(transform)
+
+        # Prepare the shared object
+        self._shared.pre_render_hook()
+
+        # Update stdinfo uniform buffer object that we'll use during this render call
+        self._update_stdinfo_buffer(camera, scene_psize, scene_lsize)
+
+        # Get environment
+        environment = get_environment(self, scene)
 
         # Collect all pipeline container objects
         compute_pipeline_containers = []

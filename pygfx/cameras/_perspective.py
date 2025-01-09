@@ -4,7 +4,6 @@ import numpy as np
 import pylinalg as la
 
 from ..objects._base import WorldObject
-from ..utils.transform import mat_inv
 from ._base import Camera
 
 
@@ -296,7 +295,7 @@ class PerspectiveCamera(Camera):
             self.projection_matrix = la.mat_perspective(
                 left, right, top, bottom, near, far, depth_range=(0, 1)
             )
-            self.projection_matrix_inverse = mat_inv(self.projection_matrix)
+            self.projection_matrix_inverse = la.mat_inverse(self.projection_matrix)
 
         else:
             # The reference view plane is scaled with the zoom factor
@@ -319,7 +318,7 @@ class PerspectiveCamera(Camera):
             proj = la.mat_orthographic(
                 left, right, top, bottom, near, far, depth_range=(0, 1)
             )
-            proj_i = mat_inv(proj)
+            proj_i = la.mat_inverse(proj)
             self.projection_matrix = proj
             self.projection_matrix_inverse = proj_i
 
