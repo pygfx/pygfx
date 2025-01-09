@@ -28,7 +28,10 @@ upscale_factor = 4
 # The tile_size and full_size that we calculate below are both in logical pixels.
 canvas_size = 1200, 1000
 
-if True:
+# Maintain logical size or make it upscale_factor times larger
+maintain_logical_size = True
+
+if maintain_logical_size:
     # The logical size is maintained, so the result is an image with a
     # pixel_ratio of `upscale_factor`. Things sized in screen coordinates
     # (like the texts on the left) scale the same as the rest.
