@@ -385,27 +385,27 @@ class MeshShader(BaseShader):
         for i in range(morph_count):
             if morph_positions:
                 morph_position = morph_positions[i]
-                assert (
-                    len(morph_position) == vertice_count
-                ), f"Morph target {i} has {len(morph_position)} vertices, expected {vertice_count}"
+                assert len(morph_position) == vertice_count, (
+                    f"Morph target {i} has {len(morph_position)} vertices, expected {vertice_count}"
+                )
                 morph_position = np.pad(morph_position, ((0, 0), (0, 1)), "constant")
             else:
                 morph_position = np.zeros((vertice_count, 4), dtype=np.float32)
 
             if morph_normals:
                 morph_normal = morph_normals[i]
-                assert (
-                    len(morph_normal) == vertice_count
-                ), f"Morph normal {i} has {len(morph_normal)} vertices, expected {vertice_count}"
+                assert len(morph_normal) == vertice_count, (
+                    f"Morph normal {i} has {len(morph_normal)} vertices, expected {vertice_count}"
+                )
                 morph_normal = np.pad(morph_normal, ((0, 0), (0, 1)), "constant")
             else:
                 morph_normal = np.zeros((vertice_count, 4), dtype=np.float32)
 
             if morph_colors:
                 morph_color = morph_colors[i]
-                assert (
-                    len(morph_color) == vertice_count
-                ), f"Morph color {i} has {len(morph_colors[i])} vertices, expected {vertice_count}"
+                assert len(morph_color) == vertice_count, (
+                    f"Morph color {i} has {len(morph_colors[i])} vertices, expected {vertice_count}"
+                )
             else:
                 morph_color = np.zeros((vertice_count, 4), dtype=np.float32)
 
@@ -487,22 +487,22 @@ class MeshShader(BaseShader):
             texcoords = getattr(geometry, f"texcoords{uv_channel}", None)
         else:
             texcoords = getattr(geometry, "texcoords", None)
-        assert (
-            texcoords is not None
-        ), f"Texture {t} requires geometry.texcoords{uv_channel or ''}"
+        assert texcoords is not None, (
+            f"Texture {t} requires geometry.texcoords{uv_channel or ''}"
+        )
 
         if view_dim == "1d":
-            assert (
-                texcoords.data.ndim == 1 or texcoords.data.shape[-1] == 1
-            ), f"Texture {t} requires 1D texcoords"
+            assert texcoords.data.ndim == 1 or texcoords.data.shape[-1] == 1, (
+                f"Texture {t} requires 1D texcoords"
+            )
         elif view_dim == "2d" or view_dim == "2d-array":
-            assert (
-                texcoords.data.ndim == 2 and texcoords.data.shape[-1] == 2
-            ), f"Texture {t} requires 2D texcoords"
+            assert texcoords.data.ndim == 2 and texcoords.data.shape[-1] == 2, (
+                f"Texture {t} requires 2D texcoords"
+            )
         elif view_dim == "cube" or view_dim == "3d" or view_dim == "cube-array":
-            assert (
-                texcoords.data.ndim == 2 and texcoords.data.shape[-1] == 3
-            ), f"Texture {t} requires 3D texcoords"
+            assert texcoords.data.ndim == 2 and texcoords.data.shape[-1] == 3, (
+                f"Texture {t} requires 3D texcoords"
+            )
         else:
             raise ValueError(f"Unknown view_dim: {view_dim}")
 

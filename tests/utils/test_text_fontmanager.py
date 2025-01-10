@@ -316,7 +316,8 @@ def check_speed():
         font_manager.select_font(text, FontProps())
     dt = time.perf_counter() - t0
     print(
-        f"select_font: {1000*dt:0.1f} ms total", f"{1000*dt/(10000):0.3f} ms per char"
+        f"select_font: {1000 * dt:0.1f} ms total",
+        f"{1000 * dt / (10000):0.3f} ms per char",
     )
 
     # About 0.00 ms (0.3 us), so this  negligible.

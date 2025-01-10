@@ -301,9 +301,11 @@ class Color:
         """The CSS color string, e.g. "rgba(0,255,0,0.5)"."""
         r, g, b, a = self.rgba
         if a == 1:
-            return f"rgb({int(255*r+0.5)},{int(255*g+0.5)},{int(255*b+0.5)})"
+            return (
+                f"rgb({int(255 * r + 0.5)},{int(255 * g + 0.5)},{int(255 * b + 0.5)})"
+            )
         else:
-            return f"rgba({int(255*r+0.5)},{int(255*g+0.5)},{int(255*b+0.5)},{a:0.3f})"
+            return f"rgba({int(255 * r + 0.5)},{int(255 * g + 0.5)},{int(255 * b + 0.5)},{a:0.3f})"
 
     def clip(self):
         """Return a new Color with the values clipped between 0 and 1."""

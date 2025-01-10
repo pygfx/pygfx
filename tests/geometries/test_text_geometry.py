@@ -340,7 +340,7 @@ def test_check_speed():
     dt = time.perf_counter() - t0
     print(
         f"\ngenerate_glyph: {n_iter * dt:0.1f} ms total",
-        f"{1E6 * dt / (n_iter * n_glyphs):0.2f} us per glyph",
+        f"{1e6 * dt / (n_iter * n_glyphs):0.2f} us per glyph",
     )
 
 

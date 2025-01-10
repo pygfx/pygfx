@@ -720,7 +720,7 @@ class PyGfxCallback(Callback):
         self._queue.put(obj=mesh_data)
 
         # print current loss
-        print(f'Loss: {outputs["loss"]}')
+        print(f"Loss: {outputs['loss']}")
 
     def on_train_batch_end(self, *args, **kwargs) -> None:
         self._on_batch_end(*args)
