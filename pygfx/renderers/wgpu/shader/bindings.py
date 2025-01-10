@@ -66,19 +66,19 @@ class BindingDefinitions:
             structname = self._uniform_struct_names[struct_hash]
             if binding.structname is not None:
                 # Do we need to ensure that a dtype corresponds to only one struct?
-                assert (
-                    structname == binding.structname
-                ), "dtype[{struct_hash}] has been defined as struct[{structname}]"
+                assert structname == binding.structname, (
+                    "dtype[{struct_hash}] has been defined as struct[{structname}]"
+                )
         except KeyError:
             # sometimes, we need a meaningful alias for the struct name.
             if binding.structname is not None:
                 structname = binding.structname
-                assert (
-                    structname not in self._uniform_struct_names.values()
-                ), "structname has been used for another dtype"
+                assert structname not in self._uniform_struct_names.values(), (
+                    "structname has been used for another dtype"
+                )
             else:
                 # auto generate struct name
-                structname = f"Struct_u_{len(self._uniform_struct_names)+1}"
+                structname = f"Struct_u_{len(self._uniform_struct_names) + 1}"
 
             self._uniform_struct_names[struct_hash] = structname
 

@@ -58,9 +58,9 @@ def test_environment_reuse2():
 
     assert env1 is not env2, "env1 and env2 have different number of lights"
     assert env2 is env3, "env2 and env3 have same number of lights"
-    assert (
-        env2 is env4
-    ), "env2 and env4 have same number of lights, ambient lights dont count"
+    assert env2 is env4, (
+        "env2 and env4 have same number of lights, ambient lights dont count"
+    )
     assert env2 is not env5, "env2 and env5 have different number of lights"
 
 

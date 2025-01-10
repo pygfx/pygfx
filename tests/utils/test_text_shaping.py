@@ -217,8 +217,8 @@ def check_speed():
         shape_text_hb(text, font.filename)
     dt = time.perf_counter() - t0
     print(
-        f"shape_text_hb: {1000*dt:0.1f} ms total",
-        f"{1000*dt/(10000):0.3f} ms per glyph",
+        f"shape_text_hb: {1000 * dt:0.1f} ms total",
+        f"{1000 * dt / (10000):0.3f} ms per glyph",
     )
 
     t0 = time.perf_counter()
@@ -226,8 +226,8 @@ def check_speed():
         shape_text_ft(text, font.filename)
     dt = time.perf_counter() - t0
     print(
-        f"shape_text_ft: {1000*dt:0.1f} ms total",
-        f"{1000*dt/(10000):0.3f} ms per glyph",
+        f"shape_text_ft: {1000 * dt:0.1f} ms total",
+        f"{1000 * dt / (10000):0.3f} ms per glyph",
     )
 
     # No cache:    about 0.03  and 0.02  ms per glyph for Harfbuzz and FreeType, respectively.
