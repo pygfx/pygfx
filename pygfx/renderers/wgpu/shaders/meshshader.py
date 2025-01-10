@@ -425,14 +425,17 @@ class MeshShader(BaseShader):
     def get_pipeline_info(self, wobject, shared):
         material = wobject.material
 
+        # The MeshMaterial can be applied to lines and points, so that we can fully support gltf
         if isinstance(wobject, Line):
             topology = wgpu.PrimitiveTopology.line_strip
             # todo: wgpu.PrimitiveTopology.line_list, wgpu.PrimitiveTopology.line_loop
         elif isinstance(wobject, Points):
             topology = wgpu.PrimitiveTopology.point_list
-        else:
+        elif isinstance(wobject, Mesh):
             topology = wgpu.PrimitiveTopology.triangle_list
             # todo: wgpu.PrimitiveTopology.triangle_strip
+        else:
+            raise TypeError(f"MeshMaterial cannot be applied to a {wobject.__class.__name__}")
 
         if material.side == "front":
             cull_mode = wgpu.CullMode.back
