@@ -4,7 +4,6 @@ import numpy as np
 import pylinalg as la
 
 from ..objects._base import WorldObject
-from ..utils.transform import mat_inv
 from ._base import Camera
 
 
@@ -267,12 +266,17 @@ class PerspectiveCamera(Camera):
                 # Simple props
                 setattr(self, key, value)
 
-    def set_view_size(self, width, height):
-        self._view_aspect = width / height
-
     def update_projection_matrix(self):
         zoom_factor = self._zoom
         near, far = self._get_near_and_far_plane()
+
+        view_aspect = self._view_size[0] / self._view_size[1]
+
+        if self._view_offset is not None:
+            # The view_offset should override the aspect, via its full (virtual) size
+            view_aspect = (
+                self._view_offset["full_width"] / self._view_offset["full_height"]
+            )
 
         if self.fov > 0:
             # Get the reference width / height
@@ -283,20 +287,19 @@ class PerspectiveCamera(Camera):
             # Increase either the width or height, depending on the view size
             if not self._maintain_aspect:
                 pass
-            elif self.aspect < self._view_aspect:
-                width *= self._view_aspect / self.aspect
+            elif self.aspect < view_aspect:
+                width *= view_aspect / self.aspect
             else:
-                height *= self.aspect / self._view_aspect
+                height *= self.aspect / view_aspect
             # Calculate bounds
             top = +0.5 * height
             bottom = -0.5 * height
             left = -0.5 * width
             right = +0.5 * width
             # Set matrices
-            self.projection_matrix = la.mat_perspective(
+            projection_matrix = la.mat_perspective(
                 left, right, top, bottom, near, far, depth_range=(0, 1)
             )
-            self.projection_matrix_inverse = mat_inv(self.projection_matrix)
 
         else:
             # The reference view plane is scaled with the zoom factor
@@ -306,22 +309,21 @@ class PerspectiveCamera(Camera):
             aspect = width / height
             if not self._maintain_aspect:
                 pass
-            elif aspect < self._view_aspect:
-                width *= self._view_aspect / aspect
+            elif aspect < view_aspect:
+                width *= view_aspect / aspect
             else:
-                height *= aspect / self._view_aspect
-
+                height *= aspect / view_aspect
+            # Calculate bounds
             bottom = -0.5 * height
             top = +0.5 * height
             left = -0.5 * width
             right = +0.5 * width
             # Set matrices
-            proj = la.mat_orthographic(
+            projection_matrix = la.mat_orthographic(
                 left, right, top, bottom, near, far, depth_range=(0, 1)
             )
-            proj_i = mat_inv(proj)
-            self.projection_matrix = proj
-            self.projection_matrix_inverse = proj_i
+
+        self._finalize_projection_matrix(projection_matrix)
 
     def show_pos(self, target, *, up=None):
         """Look at the given position or object.

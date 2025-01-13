@@ -25,7 +25,6 @@ from ....cameras import Camera
 from ....resources import Texture
 from ....resources._base import resource_update_registry
 from ....utils import Color
-from ....utils.transform import mat_inv  # noqa
 
 from ... import Renderer
 from . import blender as blender_module
@@ -478,6 +477,15 @@ class WgpuRenderer(RootEventHandler, Renderer):
                 "The viewport rect must be None or 4 elements (x, y, w, h)."
             )
 
+        # Apply the camera's native size (do this before we change scene_lsize based on view_offset)
+        camera.set_view_size(*scene_lsize)
+
+        # Camera view_offset overrides logical size
+        ndc_offset = (1.0, 1.0, 0.0, 0.0)  # (ax ay bx by)  virtual_ndc = a * ndc + b
+        if camera._view_offset is not None:
+            scene_lsize = camera._view_offset["width"], camera._view_offset["height"]
+            ndc_offset = camera._view_offset["ndc_offset"]
+
         # Allow objects to prepare just in time. When doing multiple
         # render calls, we don't want to spam. The clear_color flag is
         # a good indicator to detect the first render call.
@@ -493,14 +501,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
             self.dispatch_event(ev)
 
         # Ensure that matrices are up-to-date
-        camera.set_view_size(*scene_lsize)
         camera.update_projection_matrix()
-
-        # Prepare the shared object
-        self._shared.pre_render_hook()
-
-        # Update stdinfo uniform buffer object that we'll use during this render call
-        self._update_stdinfo_buffer(camera, scene_psize, scene_lsize)
 
         # Get renderstate object
         renderstate = get_renderstate(scene, self._blender)
@@ -530,8 +531,11 @@ class WgpuRenderer(RootEventHandler, Renderer):
             if transform:
                 wobject._update_uniform_buffers(transform)
 
-        # Get environment
-        environment = get_environment(self, scene)
+        # Prepare the shared object
+        self._shared.pre_render_hook()
+
+        # Update stdinfo uniform buffer object that we'll use during this render call
+        self._update_stdinfo_buffer(camera, scene_psize, scene_lsize, ndc_offset)
 
         # Collect all pipeline container objects
         compute_pipeline_containers = []
@@ -584,7 +588,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         now = time.perf_counter()
         if self._show_fps:
             if self._fps["count"] == 0:
-                print(f"Time to first draw: {now-self._fps['start']:0.2f}")
+                print(f"Time to first draw: {now - self._fps['start']:0.2f}")
                 self._fps["start"] = now
                 self._fps["count"] = 1
             elif now > self._fps["start"] + 1:
@@ -693,14 +697,17 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
         return [command_encoder.finish()]
 
-    def _update_stdinfo_buffer(self, camera: Camera, physical_size, logical_size):
+    def _update_stdinfo_buffer(
+        self, camera: Camera, physical_size, logical_size, ndc_offset
+    ):
         # Update the stdinfo buffer's data
         stdinfo_data = self._shared.uniform_buffer.data
         stdinfo_data["cam_transform"] = camera.world.inverse_matrix.T
         stdinfo_data["cam_transform_inv"] = camera.world.matrix.T
         stdinfo_data["projection_transform"] = camera.projection_matrix.T
         stdinfo_data["projection_transform_inv"] = camera.projection_matrix_inverse.T
-        # stdinfo_data["ndc_to_world"].flat = mat_inv(stdinfo_data["cam_transform"] @ stdinfo_data["projection_transform"])
+        # stdinfo_data["ndc_to_world"].flat = la.mat_inverse(stdinfo_data["cam_transform"] @ stdinfo_data["projection_transform"])
+        stdinfo_data["ndc_offset"] = ndc_offset
         stdinfo_data["physical_size"] = physical_size
         stdinfo_data["logical_size"] = logical_size
         # Upload to GPU
