@@ -180,7 +180,7 @@ def test_change_blend_mode():
 
     # Render in the first again
     # The fact that it recompiles is an indication that the
-    # environment-specific wgpu objects were cleaned up.
+    # renderstate-specific wgpu objects were cleaned up.
     renderer1.blend_mode = "ordered1"
     changed = render(cube, renderer1)
     assert changed == {"compose_pipeline", "compile_shader"}

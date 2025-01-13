@@ -159,7 +159,7 @@ def get_cached_render_pipeline(device, *args):
     return result
 
 
-def get_pipeline_container_group(wobject, environment):
+def get_pipeline_container_group(wobject, renderstate):
     """Return the PipelineContainerGroup object for wobject.
 
     This is the entrypoint for the renderer.
@@ -184,8 +184,8 @@ def get_pipeline_container_group(wobject, environment):
         changed_labels = wobject.tracker.pop_changed()
 
     # Update if necessary - this path is defined to be fast if there are no changes
-    # Don't put this under an ``if changed``, because work may be needed for a new environment.
-    pipeline_container_group.update(wobject, environment, changed_labels)
+    # Don't put this under an ``if changed``, because work may be needed for a new renderstate.
+    pipeline_container_group.update(wobject, renderstate, changed_labels)
 
     # Return the pipeline container group
     return pipeline_container_group
@@ -199,16 +199,16 @@ class PipelineContainerGroup:
     """
 
     def __init__(self):
-        # Publis attributes used by the renderer
+        # Publish attributes used by the renderer
         self.compute_containers = None
         self.render_containers = None
         self.bake_functions = None
 
-        # Track the environment
-        self.environments_known = set()
-        self.environments_uptodate = set()
+        # Track the renderstate
+        self.renderstates_known = set()
+        self.renderstates_uptodate = set()
 
-    def update(self, wobject, environment, changed):
+    def update(self, wobject, renderstate, changed):
         """Update the pipeline containers. Creates (and re-creates) the containers if necessary."""
 
         if "create" in changed:
@@ -231,7 +231,7 @@ class PipelineContainerGroup:
                 if isinstance(shaders, ShaderInterface):
                     shaders = [shaders]
 
-            # Divide result over two bins, one for compute, and one for render. Plus collect backe funcs.
+            # Divide result over two bins, one for compute, and one for render. Plus collect bake funcs.
             compute_containers = []
             render_containers = []
             bake_functions = []
@@ -251,33 +251,33 @@ class PipelineContainerGroup:
             self.render_containers = tuple(render_containers)
             self.bake_functions = tuple(bake_functions)
 
-        # Manage known environments, so when an env is removed, we can remove our associated data too.
-        env_hash = environment.hash
-        # if env_hash not in self.environments_known:
-        #     self.environments_known.add(env_hash)
-        #     environment.register_pipeline_container(self)
+        # Manage known renderstates, so when an env is removed, we can remove our associated data too.
+        env_hash = renderstate.hash
+        # if env_hash not in self.renderstates_known:
+        #     self.renderstates_known.add(env_hash)
+        #     renderstate.register_pipeline_container(self)
 
         # If something has changed ...
         if changed:
             # update compute containers (env_hash is "" for compute containers)
             for container in self.compute_containers:
-                container.update(wobject, environment, "", changed)
-            # the pipelines for all environments will need to be updated.
-            self.environments_uptodate.clear()
+                container.update(wobject, renderstate, "", changed)
+            # the pipelines for all renderstates will need to be updated.
+            self.renderstates_uptodate.clear()
 
-        # Update for the current environment
-        if env_hash not in self.environments_uptodate:
-            self.environments_uptodate.add(env_hash)
+        # Update for the current renderstate
+        if env_hash not in self.renderstates_uptodate:
+            self.renderstates_uptodate.add(env_hash)
             for container in self.render_containers:
-                container.update(wobject, environment, env_hash, changed)
+                container.update(wobject, renderstate, env_hash, changed)
 
     def remove_env_hash(self, env_hash):
-        """Called from the environment when it becomes inactive.
+        """Called from the renderstate when it becomes inactive.
         This allows this object to remove all references to wgpu objects
         that won't be used, reclaiming memory on both CPU and GPU.
         """
-        self.environments_known.discard(env_hash)
-        self.environments_uptodate.discard(env_hash)
+        self.renderstates_known.discard(env_hash)
+        self.renderstates_uptodate.discard(env_hash)
         for container in self.render_containers:
             container.remove_env_hash(env_hash)
 
@@ -286,7 +286,7 @@ class PipelineContainer:
     """Object that wraps a set of wgpu pipeline objects for a single Shader object.
 
     One shader results into multiple pipelines because of different render passes, and
-    different environments (most notably lights).
+    different renderstates (most notably lights).
 
     The intermediate steps are also stored. When a dependency of a certain step
     changes (which we track) then only the steps below it need to be re-run.
@@ -331,12 +331,12 @@ class PipelineContainer:
                 assert isinstance(b, Binding), f"binding must be Binding, not {b}"
 
     def remove_env_hash(self, env_hash):
-        """Called from the PipelineContainerGroup when an environment becomes inactive."""
+        """Called from the PipelineContainerGroup when an renderstate becomes inactive."""
         self.wgpu_shaders.pop(env_hash, None)
         self.wgpu_pipelines.pop(env_hash, None)
 
-    def update(self, wobject, environment, env_hash, changed):
-        """Make sure that the pipeline is up-to-date for the given environment."""
+    def update(self, wobject, renderstate, env_hash, changed):
+        """Make sure that the pipeline is up-to-date for the given renderstate."""
 
         # Ensure that the information provided by the shader is up-to-date
         if changed:
@@ -348,10 +348,10 @@ class PipelineContainer:
             else:
                 self.broken = 0
 
-        # Ensure that the (environment specific) wgpu objects are up-to-date
+        # Ensure that the (renderstate specific) wgpu objects are up-to-date
         if not self.broken:
             try:
-                self.update_wgpu_data(environment, env_hash, changed)
+                self.update_wgpu_data(renderstate, env_hash, changed)
             except Exception as err:
                 self.broken = 2
                 raise err
@@ -362,7 +362,7 @@ class PipelineContainer:
             logger.info(f"{wobject} shader update: {', '.join(sorted(changed))}.")
 
     def update_shader_data(self, wobject, changed):
-        """Update the info that applies to all passes and environments."""
+        """Update the info that applies to all passes and renderstates."""
 
         if "create" in changed or "reset" in changed:
             with wobject.tracker.track_usage("reset"):
@@ -392,7 +392,7 @@ class PipelineContainer:
                 self.render_info = self.shader.get_render_info(wobject, self.shared)
             self._check_render_info()
 
-    def update_wgpu_data(self, environment, env_hash, changed):
+    def update_wgpu_data(self, renderstate, env_hash, changed):
         """Update the actual wgpu objects."""
 
         # Note: from here-on, we cannot access the wobject anymore, because any tracking should
@@ -402,7 +402,7 @@ class PipelineContainer:
         # Determine what render-passes apply, for this combination of shader and blender
         if isinstance(self, RenderPipelineContainer):
             render_mask = self.render_info["render_mask"]
-            blender = environment.blender
+            blender = renderstate.blender
             pass_indices = []
             for pass_index in range(blender.get_pass_count()):
                 if not render_mask & blender.passes[pass_index].render_mask:
@@ -415,7 +415,7 @@ class PipelineContainer:
         else:
             pass_indices = [0]
 
-        # Get shader objects for this environment
+        # Get shader objects for this renderstate
         env_shaders = self.wgpu_shaders.setdefault(env_hash, {})
         env_pipelines = self.wgpu_pipelines.setdefault(env_hash, {})
 
@@ -423,7 +423,7 @@ class PipelineContainer:
         for pass_index in pass_indices:
             if pass_index not in env_shaders:
                 changed.add("compile_shader")
-                env_shaders[pass_index] = self._compile_shader(pass_index, environment)
+                env_shaders[pass_index] = self._compile_shader(pass_index, renderstate)
                 env_pipelines.pop(pass_index, None)
 
         # Update pipelines
@@ -431,7 +431,7 @@ class PipelineContainer:
             if pass_index not in env_pipelines:
                 changed.add("compose_pipeline")
                 env_pipelines[pass_index] = self._compose_pipeline(
-                    pass_index, environment, env_shaders
+                    pass_index, renderstate, env_shaders
                 )
 
     def update_shader_hash(self):
@@ -658,7 +658,7 @@ class RenderPipelineContainer(PipelineContainer):
             color_descriptors,
         )
 
-    def draw(self, render_pass, environment, pass_index, render_mask):
+    def draw(self, render_pass, renderstate, pass_index, render_mask):
         """Draw the pipeline, doing the actual rendering job."""
         if self.broken:
             return
@@ -667,7 +667,7 @@ class RenderPipelineContainer(PipelineContainer):
             return
 
         # Collect what's needed
-        pipeline = self.wgpu_pipelines[environment.hash][pass_index]
+        pipeline = self.wgpu_pipelines[renderstate.hash][pass_index]
         indices = self.render_info["indices"]
         bind_groups = self.wgpu_bind_groups
 
@@ -678,7 +678,7 @@ class RenderPipelineContainer(PipelineContainer):
             render_pass.set_bind_group(bind_group_id, bind_group, [], 0, 99)
 
         env_bind_group_id = len(bind_groups)
-        env_bind_group = environment.wgpu_bind_group
+        env_bind_group = renderstate.wgpu_bind_group
         render_pass.set_bind_group(env_bind_group_id, env_bind_group, [], 0, 99)
 
         # Draw!

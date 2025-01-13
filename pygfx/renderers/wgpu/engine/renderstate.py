@@ -1,6 +1,6 @@
 """
-The environment object defines details on how objects are rendered,
-related to the environment.
+The renderstate object defines details on how objects are rendered,
+related to statefull stuff like lights in the scene and blend mode.
 """
 
 import weakref
@@ -76,11 +76,6 @@ def _scene_to_light_state(scene):
         ambient_color,
     )
     return light_state
-
-
-# Backwards compat for tests
-# todo: clean up
-get_environment = get_renderstate
 
 
 # ----------
@@ -310,7 +305,7 @@ class LightRenderState(BaseRenderState):
             )
 
     def get_shader_kwargs(self, bind_group_index=1):
-        """Get shader template kwargs specific to the environment.
+        """Get shader template kwargs specific to the renderstate.
         Used by the pipeline to complete the shader.
         """
         light_definitions = self._get_light_structs_code()
@@ -389,7 +384,7 @@ class LightRenderState(BaseRenderState):
             ambient_lights_buffer.update_range(0, 1)
 
         # We update the uniform buffers of the lights below. These buffers
-        # are not actually used directly but copied to the environment's buffer.
+        # are not actually used directly but copied to the renderstate's buffer.
         # Seems like a detour, but kindof the simplest solution still.
 
         # Update directional light buffers

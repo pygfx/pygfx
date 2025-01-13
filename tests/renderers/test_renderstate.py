@@ -2,7 +2,10 @@ import gc
 
 import wgpu
 import pygfx as gfx
-from pygfx.renderers.wgpu.engine.environment import environment_manager
+from pygfx.renderers.wgpu.engine.renderstate import (
+    get_renderstate,
+    _renderstate_instance_cache as renderstate_cache,
+)
 
 from ..testutils import can_use_wgpu_lib
 import pytest
@@ -15,18 +18,18 @@ if not can_use_wgpu_lib:
 render_tex = gfx.Texture(dim=2, size=(10, 10, 1), format=wgpu.TextureFormat.rgba8unorm)
 
 
-def test_environment_reuse1():
+def test_renderstate_reuse1():
     renderer1 = gfx.renderers.WgpuRenderer(render_tex)
     renderer2 = gfx.renderers.WgpuRenderer(render_tex)
     scene1 = gfx.Scene()
     scene2 = gfx.Scene()
 
-    env1 = environment_manager.get_environment(renderer1, scene1)
-    env2 = environment_manager.get_environment(renderer2, scene2)
+    env1 = get_renderstate(scene1, renderer1._blender)
+    env2 = get_renderstate(scene2, renderer2._blender)
     assert env1 is env2
 
 
-def test_environment_reuse2():
+def test_renderstate_reuse2():
     renderer1 = gfx.renderers.WgpuRenderer(render_tex)
 
     scene1 = gfx.Scene()
@@ -50,11 +53,11 @@ def test_environment_reuse2():
     scene5.add(gfx.DirectionalLight())
     scene5.add(gfx.DirectionalLight())
 
-    env1 = environment_manager.get_environment(renderer1, scene1)
-    env2 = environment_manager.get_environment(renderer1, scene2)
-    env3 = environment_manager.get_environment(renderer1, scene3)
-    env4 = environment_manager.get_environment(renderer1, scene4)
-    env5 = environment_manager.get_environment(renderer1, scene5)
+    env1 = get_renderstate(scene1, renderer1._blender)
+    env2 = get_renderstate(scene2, renderer1._blender)
+    env3 = get_renderstate(scene3, renderer1._blender)
+    env4 = get_renderstate(scene4, renderer1._blender)
+    env5 = get_renderstate(scene5, renderer1._blender)
 
     assert env1 is not env2, "env1 and env2 have different number of lights"
     assert env2 is env3, "env2 and env3 have same number of lights"
@@ -72,48 +75,48 @@ def prepare_for_cleanup():
     scene1 = gfx.Scene()
     scene2 = gfx.Scene()
 
-    env1 = environment_manager.get_environment(renderer1, scene1)
-    assert env1.hash in environment_manager.environments
+    env1 = get_renderstate(scene1, renderer1._blender)
+    assert env1.hash in renderstate_cache
 
-    env2 = environment_manager.get_environment(renderer2, scene2)
+    env2 = get_renderstate(scene2, renderer2._blender)
     assert env1 is not env2
-    assert env1.hash in environment_manager.environments
-    assert env2.hash in environment_manager.environments
+    assert env1.hash in renderstate_cache
+    assert env2.hash in renderstate_cache
 
     return renderer1, renderer2, scene1, scene2, env1, env2
 
 
-def test_environment_cleanup_noop():
+def test_renderstate_cleanup_noop():
     renderer1, renderer2, scene1, scene2, env1, env2 = prepare_for_cleanup()
 
-    env2 = environment_manager.get_environment(renderer2, scene2)
-    assert env1.hash in environment_manager.environments
-    assert env2.hash in environment_manager.environments
+    env2 = get_renderstate(scene2, renderer2._blender)
+    assert env1.hash in renderstate_cache
+    assert env2.hash in renderstate_cache
 
 
-def test_environment_cleanup_by_scene_del():
+def test_renderstate_cleanup_by_scene_del():
     renderer1, renderer2, scene1, scene2, env1, env2 = prepare_for_cleanup()
 
     del scene1
     gc.collect()
 
-    env2 = environment_manager.get_environment(renderer2, scene2)
-    assert env1.hash not in environment_manager.environments
-    assert env2.hash in environment_manager.environments
+    env2 = get_renderstate(scene2, renderer2._blender)
+    assert env1.hash not in renderstate_cache
+    assert env2.hash in renderstate_cache
 
 
-def test_environment_cleanup_by_renderer_del():
+def test_renderstate_cleanup_by_renderer_del():
     renderer1, renderer2, scene1, scene2, env1, env2 = prepare_for_cleanup()
 
     del renderer1
     gc.collect()
 
-    env2 = environment_manager.get_environment(renderer2, scene2)
-    assert env1.hash not in environment_manager.environments
-    assert env2.hash in environment_manager.environments
+    env2 = get_renderstate(scene2, renderer2._blender)
+    assert env1.hash not in renderstate_cache
+    assert env2.hash in renderstate_cache
 
 
-def test_environment_cleanup_by_scene_change():
+def test_renderstate_cleanup_by_scene_change():
     renderer1, renderer2, scene1, scene2, env1, env2 = prepare_for_cleanup()
 
     # cannot test this yet, as currently the scene does not result in state
@@ -125,15 +128,15 @@ def test_environment_cleanup_by_renderer_change():
     renderer1.blend_mode = "weighted"
 
     # Rendering render2 doesn't check renderer1
-    env2 = environment_manager.get_environment(renderer2, scene2)
-    assert env1.hash in environment_manager.environments
-    assert env2.hash in environment_manager.environments
+    env2 = get_renderstate(scene2, renderer2._blender)
+    assert env1.hash in renderstate_cache
+    assert env2.hash in renderstate_cache
 
     # But rendering with renderer1 does
-    env3 = environment_manager.get_environment(renderer1, scene1)
-    assert env1.hash not in environment_manager.environments
-    assert env2.hash in environment_manager.environments
-    assert env3.hash in environment_manager.environments
+    env3 = get_renderstate(scene1, renderer1._blender)
+    assert env1.hash not in renderstate_cache
+    assert env2.hash in renderstate_cache
+    assert env3.hash in renderstate_cache
     assert env3 is not env1
     assert env3 is not env2
 

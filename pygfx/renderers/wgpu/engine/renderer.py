@@ -32,7 +32,7 @@ from .flusher import RenderFlusher
 from .pipeline import get_pipeline_container_group
 from .update import update_resource, ensure_wgpu_object
 from .shared import get_shared
-from .environment import get_renderstate
+from .renderstate import get_renderstate
 from .shadowutil import render_shadow_maps
 from .mipmapsutil import generate_texture_mipmaps
 from .utils import GfxTextureView
@@ -635,7 +635,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
     def _render_recording(
         self,
-        environment,
+        renderstate,
         wobject_list,
         compute_pipeline_containers,
         render_pipeline_containers,
@@ -660,7 +660,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         compute_pass = command_encoder.begin_compute_pass()
 
         for compute_pipeline_container in compute_pipeline_containers:
-            compute_pipeline_container.dispatch(compute_pass, environment)
+            compute_pipeline_container.dispatch(compute_pass, renderstate)
 
         compute_pass.end()
 
@@ -668,9 +668,9 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
         # -- process shadow maps
         lights = (
-            environment.lights["point_lights"]
-            + environment.lights["spot_lights"]
-            + environment.lights["directional_lights"]
+            renderstate.lights["point_lights"]
+            + renderstate.lights["spot_lights"]
+            + renderstate.lights["directional_lights"]
         )
         render_shadow_maps(lights, wobject_list, command_encoder)
 
@@ -690,7 +690,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
             for render_pipeline_container in render_pipeline_containers:
                 render_pipeline_container.draw(
-                    render_pass, environment, pass_index, render_mask
+                    render_pass, renderstate, pass_index, render_mask
                 )
 
             render_pass.end()

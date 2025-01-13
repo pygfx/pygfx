@@ -52,7 +52,7 @@ class Light(WorldObject):
 
     """
 
-    # Note that for lights and shadows, the uniform data is stored on the environment.
+    # Note that for lights and shadows, the uniform data is stored on the renderstate.
     # We can use the uniform_buffer as usual though. We'll just copy it over.
 
     _FORWARD_IS_MINUS_Z = True

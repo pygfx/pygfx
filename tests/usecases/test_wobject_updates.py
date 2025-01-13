@@ -14,7 +14,7 @@ import numpy as np
 import pygfx as gfx
 from rendercanvas.offscreen import RenderCanvas
 from pygfx.renderers.wgpu.engine.pipeline import get_pipeline_container_group
-from pygfx.renderers.wgpu.engine.environment import get_environment
+from pygfx.renderers.wgpu.engine.renderstate import get_renderstate
 
 from ..testutils import can_use_wgpu_lib
 import pytest
@@ -28,7 +28,7 @@ class PipelineSnapshotter:
     def __init__(self, renderer, scene, world_object):
         self.world_object = world_object
         self.renderer = renderer
-        self.env = get_environment(renderer, scene)
+        self.env = get_renderstate(scene, renderer._blender)
         self._snapshot()
 
     def get_shaders_pipelines_bindings(self):
@@ -43,7 +43,7 @@ class PipelineSnapshotter:
         )
         pipeline_container = pipeline_container_group.render_containers[0]
 
-        # Assume a single environment is in use, get its hash.
+        # Assume a single renderstate is in use, get its hash.
         env_hashes = list(pipeline_container.wgpu_shaders.keys())
         assert len(env_hashes) == 1
         env_hash = env_hashes[0]

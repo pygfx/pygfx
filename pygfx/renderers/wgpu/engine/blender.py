@@ -1,6 +1,6 @@
 """
 Defines the classes for the different render passes and the blender
-objects that contain them. A blender becomes part of the environment
+objects that contain them. A blender becomes part of the renderstate
 object.
 """
 
