@@ -153,7 +153,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # Init counter to auto-clear
         self._renders_since_last_flush = 0
 
-        # Cache renderstate objects
+        # Cache renderstate objects for n draws
         self._renderstates_per_flush = []
 
         # Get target format

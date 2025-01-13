@@ -22,13 +22,60 @@ from .utils import generate_uniform_struct
 from .shared import get_shared
 
 
-# This cash is only used so renderstate objects can be re-used.
+# This cache is only used so renderstate objects can be re-used.
 # The instances must be stored somewhere to prevent them from being deleted.
 _renderstate_instance_cache = weakref.WeakValueDictionary()
 
 
 def get_renderstate(scene, blender):
-    return CombinedRenderState.obtain_from_args(scene, blender)
+    """Get the renderstate object for the given scene and blender."""
+
+    # Convert args to states
+    light_state = _scene_to_light_state(scene)
+    blend_state = (blender,)
+    combined_state = light_state, blend_state
+
+    # Create renderstate object and prepare it with the current state
+    hash = CombinedRenderState.state_to_hash(*combined_state)
+    ob = CombinedRenderState.obtain_from_hash(hash)
+    ob.prepare_for_draw(*combined_state)
+
+    return ob
+
+
+def _scene_to_light_state(scene):
+    """Convert scene object to light state.
+    If we introduce more renderstates based on the scene, we should probably update this function,
+    so we need to traverse it just once.
+    """
+    point_lights = []
+    directional_lights = []
+    spot_lights = []
+    ambient_color = [0, 0, 0]
+
+    # todo: would be nice to have a flag to indicate on each wobject when was the last time that its downstream graph changed, so we can usually skip this step!
+    def visit(ob):
+        if isinstance(ob, PointLight):
+            point_lights.append(ob)
+        elif isinstance(ob, DirectionalLight):
+            directional_lights.append(ob)
+        elif isinstance(ob, SpotLight):
+            spot_lights.append(ob)
+        elif isinstance(ob, AmbientLight):
+            r, g, b = ob.color.to_physical()
+            ambient_color[0] += r * ob.intensity
+            ambient_color[1] += g * ob.intensity
+            ambient_color[2] += b * ob.intensity
+
+    scene.traverse(visit, True)
+
+    light_state = (
+        point_lights,
+        directional_lights,
+        spot_lights,
+        ambient_color,
+    )
+    return light_state
 
 
 # Backwards compat for tests
@@ -36,9 +83,17 @@ def get_renderstate(scene, blender):
 get_environment = get_renderstate
 
 
+# ----------
+
+
 class BaseRenderState:
     """Object for internal use, that represents a certain state related to
-    rendering, that affects the shader and/or pipeline
+    rendering, that affects the shader and/or pipeline.
+
+    We distinguish the following three concepts: args -> state -> hash.
+
+    The args is the incoming argument, e.g. the scene object. The state
+    is derived from that, e.g. lists of light objects.
     """
 
     # todo: must this be a Trackable?
@@ -46,14 +101,8 @@ class BaseRenderState:
     _hash = None
 
     @classmethod
-    def obtain_from_args(cls, *args):
-        hash, state = cls.input_to_hash_and_state(*args)
-        ob = cls.obtain_from_hash(hash)
-        ob.prepare_for_draw(*state)
-        return ob
-
-    @classmethod
     def obtain_from_hash(cls, hash):
+        # Could do this in an __init__, but I like how this is more explicit
         ob = _renderstate_instance_cache.get(hash, None)
         if ob is None:
             ob = cls(*hash)
@@ -68,7 +117,8 @@ class BaseRenderState:
     # subclasses must implement
 
     @classmethod
-    def input_to_hash_and_state(cls, *args):
+    def state_to_hash(cls, *state):
+        """Convert state-tuple to a hash-tuple."""
         raise NotImplementedError()
 
     def __init__(self, *hash):
@@ -85,42 +135,10 @@ class LightRenderState(BaseRenderState):
     """Represents the rendering state for a specific number of lights (of each type)."""
 
     @classmethod
-    def input_to_hash_and_state(cls, scene):
-        point_lights = []
-        directional_lights = []
-        spot_lights = []
-        ambient_color = [0, 0, 0]
-
-        # todo: would be nice to have a flag to indicate on each wobject when was the last time that its downstream graph changed, so we can usually skip this step!
-        def visit(ob):
-            if isinstance(ob, PointLight):
-                point_lights.append(ob)
-            elif isinstance(ob, DirectionalLight):
-                directional_lights.append(ob)
-            elif isinstance(ob, SpotLight):
-                spot_lights.append(ob)
-            elif isinstance(ob, AmbientLight):
-                r, g, b = ob.color.to_physical()
-                ambient_color[0] += r * ob.intensity
-                ambient_color[1] += g * ob.intensity
-                ambient_color[2] += b * ob.intensity
-
-        scene.traverse(visit, True)
-
-        state = (
-            point_lights,
-            directional_lights,
-            spot_lights,
-            ambient_color,
-        )
-
-        hash = (
-            len(point_lights),
-            len(directional_lights),
-            len(spot_lights),
-        )
-
-        return hash, state
+    def state_to_hash(
+        cls, point_lights, directional_lights, spot_lights, ambient_color
+    ):
+        return (len(point_lights), len(directional_lights), len(spot_lights))
 
     def __init__(self, point_lights_count, dir_lights_count, spot_lights_count):
         self.device = get_shared().device
@@ -355,6 +373,14 @@ class LightRenderState(BaseRenderState):
         and create texture views if needed.
         """
 
+        # Make light info available to other parts of the pygfx engine
+        self.lights = {
+            "point_lights": point_lights,
+            "directional_lights": directional_lights,
+            "spot_lights": spot_lights,
+            "ambient_color": ambient_color,
+        }
+
         # Update ambient buffer
 
         ambient_lights_buffer = self.ambient_lights_buffer
@@ -414,16 +440,15 @@ class BlendRenderState(BaseRenderState):
     """Represents the rendering state for a specific blend mode."""
 
     @classmethod
-    def input_to_hash_and_state(cls, blender):
-        state = (blender,)
-        hash = (blender.name,)
-        return hash, state
+    def state_to_hash(cls, blender):
+        return (blender.name,)
 
     def __init__(self, blend_mode):
         self.blend_mode = blend_mode
         self.bindings = []
 
     def prepare_for_draw(self, blender):
+        # Make blender available for other parts or the pygfx engine
         self.blender = blender
 
     def get_shader_kwargs(self, bind_group_index=1):
@@ -434,13 +459,11 @@ class CombinedRenderState(BaseRenderState):
     """Represents the combined rendering state."""
 
     @classmethod
-    def input_to_hash_and_state(cls, scene, blend_mode):
-        light_hash, light_state = LightRenderState.input_to_hash_and_state(scene)
-        blend_hash, blend_state = BlendRenderState.input_to_hash_and_state(blend_mode)
+    def state_to_hash(cls, light_state, blend_state):
+        light_hash = LightRenderState.state_to_hash(*light_state)
+        blend_hash = BlendRenderState.state_to_hash(*blend_state)
 
-        hash = light_hash, blend_hash
-        state = light_state, blend_state
-        return hash, state
+        return light_hash, blend_hash
 
     def __init__(self, light_hash, blend_hash):
         self.device = get_shared().device
@@ -458,16 +481,18 @@ class CombinedRenderState(BaseRenderState):
             self.wgpu_bind_group_layout, self.wgpu_bind_group = self._collect_bindings()
 
     def prepare_for_draw(self, light_state, blend_state):
+        # Delegate
         self.light_renderstate.prepare_for_draw(*light_state)
         self.blend_renderstate.prepare_for_draw(*blend_state)
 
-        self.lights = ....
+        # Make state available for other parts or the pygfx engine
+        self.lights = self.light_renderstate.lights
         self.blender = self.blend_renderstate.blender
 
     def get_shader_kwargs(self, bind_group_index=1):
         kwargs = {}
-        kwargs.update(self.light_renderstate.get_shader_kwargs())
-        kwargs.update(self.blend_renderstate.get_shader_kwargs())
+        kwargs.update(self.light_renderstate.get_shader_kwargs(bind_group_index))
+        kwargs.update(self.blend_renderstate.get_shader_kwargs(bind_group_index))
         return kwargs
 
     # Stuff specific for the combined renderstate
