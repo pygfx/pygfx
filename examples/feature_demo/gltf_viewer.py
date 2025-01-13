@@ -98,7 +98,7 @@ def load_remote_model(model_index):
             if variant in model_desc["variants"]:
                 model_path = (
                     model_folder
-                    + f"/{model_desc["name"]}/{variant}/{model_desc["variants"][variant]}"
+                    + f"/{model_desc['name']}/{variant}/{model_desc['variants'][variant]}"
                 )
                 print("Loading model", model_path)
 

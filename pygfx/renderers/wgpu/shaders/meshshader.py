@@ -435,7 +435,9 @@ class MeshShader(BaseShader):
             topology = wgpu.PrimitiveTopology.triangle_list
             # todo: wgpu.PrimitiveTopology.triangle_strip
         else:
-            raise TypeError(f"MeshMaterial cannot be applied to a {wobject.__class.__name__}")
+            raise TypeError(
+                f"MeshMaterial cannot be applied to a {wobject.__class.__name__}"
+            )
 
         if material.side == "front":
             cull_mode = wgpu.CullMode.back
