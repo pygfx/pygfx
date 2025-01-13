@@ -30,10 +30,11 @@ def test_weak_associative_container1():
     f1 = Foo()
     f2 = Foo()
     f3 = Foo()
+    f9 = Foo()
 
-    something1 = wac.set(f1, value=Something())
-    something2 = wac.set(f2, value=Something())
-    something3 = wac.set(f3, value=Something())
+    something1 = wac.setdefault((f1,), Something())
+    something2 = wac.setdefault((f2,), Something())
+    something3 = wac[(f3,)] = Something()
 
     # All somethings are different
     assert something1 is not something2
@@ -41,9 +42,11 @@ def test_weak_associative_container1():
     assert something3 is not something1
 
     # Proper re-use
-    assert wac.get(f1) is something1
-    assert wac.get(f2) is something2
-    assert wac.get(f3) is something3
+    assert wac[(f1,)] is something1
+    assert wac[(f2,)] is something2
+    assert wac.get((f3,)) is something3
+
+    assert wac.get((f9,)) is None
 
     # Prepare for deleting stuff
     something_refs = weakref.WeakSet((something1, something2, something3))
@@ -74,11 +77,12 @@ def test_weak_associative_container2():
     f2 = Foo()
     b1 = Bar()
     b2 = Bar()
+    f9 = Foo()
 
-    something11 = wac.set(f1, b1, value=Something())
-    something12 = wac.set(f1, b2, value=Something())
-    something21 = wac.set(f2, b1, value=Something())
-    something22 = wac.set(f2, b2, value=Something())
+    something11 = wac.setdefault((f1, b1), Something())
+    something12 = wac.setdefault((f1, b2), Something())
+    something21 = wac.setdefault((f2, b1), Something())
+    something22 = wac.setdefault((f2, b2), Something())
 
     # Get refs
 
@@ -87,10 +91,12 @@ def test_weak_associative_container2():
     assert len(set(id(something) for something in somethings)) == 4
 
     # Proper re-use
-    assert wac.get(f1, b1) is something11
-    assert wac.get(f2, b1) is something21
-    assert wac.get(f1, b2) is something12
-    assert wac.get(f2, b2) is something22
+    assert wac[(f1, b1)] is something11
+    assert wac[(f2, b1)] is something21
+    assert wac.get((f1, b2)) is something12
+    assert wac.get((f2, b2)) is something22
+
+    assert wac.get((f9, b1)) is None
 
     # Prepare for deleting stuff
     something_refs = weakref.WeakSet(somethings)
@@ -123,15 +129,16 @@ def test_weak_associative_container3():
     b2 = Bar()
     s1 = Spam()
     s2 = Spam()
+    f9 = Foo()
 
-    something111 = wac.set(f1, b1, s1, value=Something())
-    something222 = wac.set(f2, b2, s2, value=Something())
-    something211 = wac.set(f2, b1, s1, value=Something())
-    something121 = wac.set(f1, b2, s1, value=Something())
-    something112 = wac.set(f1, b1, s2, value=Something())
-    something122 = wac.set(f1, b2, s2, value=Something())
-    something212 = wac.set(f2, b1, s2, value=Something())
-    something221 = wac.set(f2, b2, s1, value=Something())
+    something111 = wac.setdefault((f1, b1, s1), Something())
+    something222 = wac.setdefault((f2, b2, s2), Something())
+    something211 = wac.setdefault((f2, b1, s1), Something())
+    something121 = wac.setdefault((f1, b2, s1), Something())
+    something112 = wac.setdefault((f1, b1, s2), Something())
+    something122 = wac.setdefault((f1, b2, s2), Something())
+    something212 = wac.setdefault((f2, b1, s2), Something())
+    something221 = wac.setdefault((f2, b2, s1), Something())
 
     # Get refs
 
@@ -150,11 +157,13 @@ def test_weak_associative_container3():
     assert len(set(id(something) for something in somethings)) == 8
 
     # Proper re-use
-    assert wac.get(f1, b1, s1) is something111
-    assert wac.get(f2, b2, s2) is something222
-    assert wac.get(f2, b1, s1) is something211
-    assert wac.get(f1, b2, s1) is something121
-    assert wac.get(f1, b1, s2) is something112
+    assert wac[(f1, b1, s1)] is something111
+    assert wac[(f2, b2, s2)] is something222
+    assert wac[(f2, b1, s1)] is something211
+    assert wac[(f1, b2, s1)] is something121
+    assert wac[(f1, b1, s2)] is something112
+
+    assert wac.get((f9, b1, s1)) is None
 
     # Prepare for deleting stuff
     something_refs = weakref.WeakSet(somethings)

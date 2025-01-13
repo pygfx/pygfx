@@ -17,14 +17,28 @@ class WeakAssociativeContainer:
 
         self._remove = remove
 
-    def get(self, *objects):
-        h = hash(tuple(objects))
-        return self.hash2value.get(h, None)
+    def get(self, keys, default=None):
+        if not isinstance(keys, tuple):
+            raise TypeError("WeakAssociativeContainer keys must be tuple.")
+        return self.hash2value.get(hash(keys), default)
 
-    def set(self, *objects, value):
-        h = hash(tuple(objects))
+    def __getitem__(self, keys):
+        if not isinstance(keys, tuple):
+            raise TypeError("WeakAssociativeContainer keys must be tuple.")
+        return self.hash2value[hash(keys)]
+
+    def __setitem__(self, keys, value):
+        if not isinstance(keys, tuple):
+            raise TypeError("WeakAssociativeContainer keys must be tuple.")
+        h = hash(keys)
         self.hash2value[h] = value
-        for ob in objects:
-            ref = weakref.ref(ob, self._remove)
+        for key in keys:
+            ref = weakref.ref(key, self._remove)
             self.ref2hashes.setdefault(ref, set()).add(h)
-        return value
+
+    def setdefault(self, keys, default=None):
+        try:
+            return self[keys]
+        except KeyError:
+            self[keys] = default
+            return default
