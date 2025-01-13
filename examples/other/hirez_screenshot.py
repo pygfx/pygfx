@@ -259,7 +259,7 @@ full_im = np.block(rows)
 print("full resolution:", full_im.shape)
 filename = os.path.join(tempfile.gettempdir(), "hirez_pygfx.png")
 iio.imwrite(filename, full_im)
-print(f"{os.stat(filename).st_size/2**20:0.3f} MiB")
+print(f"{os.stat(filename).st_size / 2**20:0.3f} MiB")
 
 # Show the image
 webbrowser.open("file://" + filename)

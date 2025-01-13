@@ -578,7 +578,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         now = time.perf_counter()
         if self._show_fps:
             if self._fps["count"] == 0:
-                print(f"Time to first draw: {now-self._fps['start']:0.2f}")
+                print(f"Time to first draw: {now - self._fps['start']:0.2f}")
                 self._fps["start"] = now
                 self._fps["count"] = 1
             elif now > self._fps["start"] + 1:

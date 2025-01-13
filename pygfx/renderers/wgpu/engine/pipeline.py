@@ -88,7 +88,7 @@ def get_cached_shader_module(device, shader, shader_kwargs):
             # PYGFX_PRINT_WGSL_ON_COMPILATION_ERROR
             if PRINT_WGSL_ON_ERROR:
                 wgsl_with_line_numbers = "\n".join(
-                    f"{i+1:5d}: {line}" for i, line in enumerate(wgsl.splitlines())
+                    f"{i + 1:5d}: {line}" for i, line in enumerate(wgsl.splitlines())
                 )
                 print(wgsl_with_line_numbers, file=sys.stderr)
             raise
