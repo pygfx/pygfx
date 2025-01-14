@@ -23,7 +23,7 @@ from .utils.load_gltf import (
     load_gltf_async,
     load_gltf_mesh,
     load_gltf_mesh_async,
-    print_tree,
+    print_scene_graph,
 )
 from .utils.show import show, Display
 from .utils.viewport import Viewport

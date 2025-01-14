@@ -79,10 +79,7 @@ async def load_gltf_async(path, quiet=False, remote_ok=True):
 
 def load_gltf_mesh(path, materials=True, quiet=False, remote_ok=True):
     """
-    Load meshes from a gltf file asynchronously, without skeletons, and no transformations applied.
-
-    It is recommended to use this function when loading from URLs.
-    especially when the gltf model has multiple resources.
+    Load meshes from a gltf file, without skeletons, and no transformations applied.
 
     This function requires the gltflib library.
 
@@ -110,7 +107,10 @@ def load_gltf_mesh(path, materials=True, quiet=False, remote_ok=True):
 
 async def load_gltf_mesh_async(path, materials=True, quiet=False, remote_ok=True):
     """
-    Load meshes from a gltf file, without skeletons, and no transformations applied.
+    Load meshes from a gltf file asynchronously, without skeletons, and no transformations applied.
+
+    It is recommended to use this function when loading from URLs.
+    especially when the gltf model has multiple resources.
 
     This function requires the gltflib library.
 
@@ -931,7 +931,7 @@ class _GLTF:
         return animations
 
 
-def print_tree(obj, show_pos=False, show_rot=False, show_scale=False):
+def print_scene_graph(obj, show_pos=False, show_rot=False, show_scale=False):
     """
     Print the tree structure of the scene, including the optional position, rotation, and scale of each object.
 
