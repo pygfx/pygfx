@@ -7,7 +7,6 @@ import weakref
 import numpy as np
 import wgpu
 
-from ....utils.trackable import Trackable
 from ....objects import (
     PointLight,
     DirectionalLight,
@@ -90,8 +89,6 @@ class BaseRenderState:
     The args is the incoming argument, e.g. the scene object. The state
     is derived from that, e.g. lists of light objects.
     """
-
-    # todo: must this be a Trackable?
 
     _hash = None
 
