@@ -59,7 +59,7 @@ scene.add(background)
 gltf_path = model_dir / "DamagedHelmet" / "glTF" / "DamagedHelmet.gltf"
 
 gltf = gfx.load_gltf(gltf_path)
-# gfx.print_tree(gltf.scene) # Uncomment to see the tree structure
+# gfx.print_scene_graph(gltf.scene) # Uncomment to see the tree structure
 
 m = gltf.scene.children[0]
 

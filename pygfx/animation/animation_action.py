@@ -198,6 +198,9 @@ class AnimationAction:
     def _update_time(self, dt):
         time = self.time + dt
         duration = self._clip.duration
+        if duration == 0:
+            self.enabled = False
+            return time
 
         if time >= duration:
             self.repetitions -= 1

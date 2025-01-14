@@ -50,7 +50,7 @@ scene.add(gfx.AmbientLight(), gfx.DirectionalLight())
 
 gltf = gfx.load_gltf(gltf_path, quiet=True)
 
-# gfx.print_tree(gltf.scene) # Uncomment to see the tree structure
+# gfx.print_scene_graph(gltf.scene) # Uncomment to see the tree structure
 
 # Group[Scene]
 # - WorldObject[Character]
