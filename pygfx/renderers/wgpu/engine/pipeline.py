@@ -182,7 +182,7 @@ def get_pipeline_container_group(wobject, renderstate):
     # When any of these objects (wobject, material, renderstate) is removed by the gc. the associated
     # pipeline_container object is removed as well. This provides a mechanism where re-use can be
     # controlled by the user in an intuitive way (e.g. hold on to material objects).
-    pcg_key = wobject, wobject.material, renderstate
+    pcg_key = wobject, renderstate  # todo: add material later
 
     pipeline_container_group = PIPELINE_CONTAINER_GROUPS.get(pcg_key, None)
     if pipeline_container_group is None:

@@ -296,7 +296,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
     @property
     def blend_mode(self):
-        """The method for handling transparency:
+        """The method for blending fragments bases on their alpha values:
 
         * "default" or None: Select the default: currently this is "ordered2".
         * "additive": single-pass approach that adds fragments together.
@@ -346,8 +346,6 @@ class WgpuRenderer(RootEventHandler, Renderer):
         self._blend_mode = value
         self._blender = m[value]()
         self._blender.name = value
-        # If the blend mode has changed, we may need a new _wobject_pipelines
-        self._set_wobject_pipelines()
         # If our target is a canvas, request a new draw
         if isinstance(self._target, AnyBaseCanvas):
             self._target.request_draw()
@@ -378,35 +376,6 @@ class WgpuRenderer(RootEventHandler, Renderer):
         self._gamma_correction = 1.0 if value is None else float(value)
         if isinstance(self._target, AnyBaseCanvas):
             self._target.request_draw()
-
-    def _set_wobject_pipelines(self):
-        # Each WorldObject has associated with it a wobject_pipeline:
-        # a dict that contains the wgpu pipeline objects. This
-        # wobject_pipeline is also associated with the blend_mode,
-        # because the blend mode affects the pipelines.
-        #
-        # Each renderer has ._wobject_pipelines, a dict that maps
-        # wobject -> wobject_pipeline. This dict is a WeakKeyDictionary -
-        # when the wobject is destroyed, the associated pipeline is
-        # collected as well.
-        #
-        # Renderers with the same blend mode can safely share these
-        # wobject_pipeline dicts. Therefore, we make use of a global
-        # collection. Since this global collection is a
-        # WeakValueDictionary, if all renderers stop using a certain
-        # blend mode, the associated pipelines are removed as well.
-        #
-        # In a diagram:
-        #
-        # _wobject_pipelines_collection -> _wobject_pipelines -> wobject_pipeline
-        #        global                         renderer              wobject
-        #   WeakValueDictionary              WeakKeyDictionary         dict
-
-        # Below we set this renderer's _wobject_pipelines. Note that if the
-        # blending has changed, we automatically invalidate all "our" pipelines.
-        self._wobject_pipelines = WgpuRenderer._wobject_pipelines_collection.setdefault(
-            self.blend_mode, weakref.WeakKeyDictionary()
-        )
 
     def render(
         self,
@@ -660,7 +629,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         compute_pass = command_encoder.begin_compute_pass()
 
         for compute_pipeline_container in compute_pipeline_containers:
-            compute_pipeline_container.dispatch(compute_pass, renderstate)
+            compute_pipeline_container.dispatch(compute_pass)
 
         compute_pass.end()
 
