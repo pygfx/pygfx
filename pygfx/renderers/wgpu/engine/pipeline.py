@@ -20,10 +20,9 @@ from .binding import Binding
 
 PIPELINE_CONTAINER_GROUPS = WeakAssociativeContainer()
 
-# These caches enables sharing gpu resources for similar objects. It
-# makes creating such objects faster (i.e. faster startup). It also
-# saves gpu resources. It does not necessarily make the visualization
-# faster.
+# These caches enables sharing gpu resources for similar objects. It makes
+# creating such objects faster (i.e. faster startup). It also saves gpu
+# resources. It does not necessarily make the visualization faster.
 LAYOUT_CACHE = GpuCache("layouts")
 BINDING_CACHE = GpuCache("bindings")
 SHADER_CACHE = GpuCache("shader_modules")
@@ -175,14 +174,14 @@ def get_pipeline_container_group(wobject, renderstate):
     quickly if no changes are needed.
     """
 
-    # Get pipeline container group. They are associated weakly by wobject, material and renderstate.
-    # This means that while the material is alive, the corresponding pipeline object is not removed,
-    # so switching between materials is fast if a material was used earlier!
-    # TODO: test this, because this is different from before!
-    # When any of these objects (wobject, material, renderstate) is removed by the gc. the associated
-    # pipeline_container object is removed as well. This provides a mechanism where re-use can be
-    # controlled by the user in an intuitive way (e.g. hold on to material objects).
-    pcg_key = wobject, renderstate  # todo: add material later
+    # TODO: may be interesting to also bind to material. This would mean that
+    # while the material is alive, the corresponding pipeline object is not
+    # removed, so switching between materials is fast if a material was used earlier!
+
+    # Get pipeline container group. They are associated weakly by wobject and renderstate.
+    # When any of these objects (wobject, renderstate) is removed by the gc, the associated
+    # pipeline_container object is removed as well.
+    pcg_key = wobject, renderstate
 
     pipeline_container_group = PIPELINE_CONTAINER_GROUPS.get(pcg_key, None)
     if pipeline_container_group is None:
@@ -274,8 +273,10 @@ class PipelineContainerGroup:
 class PipelineContainer:
     """Object that wraps a set of wgpu pipeline objects for a single Shader object.
 
-    One shader results into multiple pipelines because of different render passes, and
-    different renderstates (most notably lights).
+    A PipelineContainer is created for a specific combination of WorldObject and Renderstate
+    (each differtent combination results in a different PipelineContainer).
+
+    One shader results into multiple pipelines because of different render passes.
 
     The intermediate steps are also stored. When a dependency of a certain step
     changes (which we track) then only the steps below it need to be re-run.

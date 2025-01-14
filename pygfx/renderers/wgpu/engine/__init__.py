@@ -84,10 +84,8 @@ flushed.
 
 ## Caching
 
-Objects are stored for each specific renderstate type, by using the
-renderstate's hash. The renderstate includes a system to detect that
-it is no longer used to that all objects related to that renderstate
-can be cleaned up.
+Objects are stored in a `WeakAssociativeContainer`, effectively binding
+their lifetime to both the world object and renderstate object.
 
 We also re-use wgpu objects like shadermodules. If there are a lot of
 objects in a scene, its likely that many of these have the same material.

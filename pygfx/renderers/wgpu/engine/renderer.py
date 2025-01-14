@@ -402,7 +402,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
                 the target (texture or canvas). Default True.
         """
 
-        # Manage stored renderstate objects.
+        # Manage stored renderstate objects. Each renderstate object used will be stored at least a few draws.
         if self._renders_since_last_flush == 0:
             self._renderstates_per_flush.insert(0, [])
             self._renderstates_per_flush[16:] = []
