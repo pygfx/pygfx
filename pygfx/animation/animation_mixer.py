@@ -55,7 +55,7 @@ class AnimationMixer(RootEventHandler):
         for t in action._clip.tracks:
             key = (t.target, t.path)
             if key not in self.__property_ori_cache:
-                ori_value = self._get_path_value(t.target, t.path)
+                ori_value = self._get_path_value(t.target, t.path).copy()
                 if isinstance(ori_value, list):
                     ori_value = np.array(ori_value)
                 self.__property_ori_cache[key] = ori_value
