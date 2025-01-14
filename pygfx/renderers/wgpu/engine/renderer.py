@@ -472,10 +472,6 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # Ensure that matrices are up-to-date
         camera.update_projection_matrix()
 
-        # Get renderstate object
-        renderstate = get_renderstate(scene, self._blender)
-        self._renderstates_per_flush[0].append(renderstate)
-
         # Flatten the scenegraph, categorised by render_order
         wobject_dict = {}
         scene.traverse(
@@ -505,6 +501,10 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
         # Update stdinfo uniform buffer object that we'll use during this render call
         self._update_stdinfo_buffer(camera, scene_psize, scene_lsize, ndc_offset)
+
+        # Get renderstate object
+        renderstate = get_renderstate(scene, self._blender)
+        self._renderstates_per_flush[0].append(renderstate)
 
         # Collect all pipeline container objects
         compute_pipeline_containers = []
