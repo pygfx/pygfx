@@ -48,6 +48,8 @@ def test_weak_associative_container1():
 
     assert wac.get((f9,)) is None
 
+    assert wac.get_associated(f1) == {something1}
+
     # Prepare for deleting stuff
     something_refs = weakref.WeakSet((something1, something2, something3))
     del something1, something2, something3
@@ -97,6 +99,8 @@ def test_weak_associative_container2():
     assert wac.get((f2, b2)) is something22
 
     assert wac.get((f9, b1)) is None
+
+    assert wac.get_associated(f1) == {something11, something12}
 
     # Prepare for deleting stuff
     something_refs = weakref.WeakSet(somethings)
@@ -164,6 +168,13 @@ def test_weak_associative_container3():
     assert wac[(f1, b1, s2)] is something112
 
     assert wac.get((f9, b1, s1)) is None
+
+    assert wac.get_associated(f1) == {
+        something111,
+        something121,
+        something112,
+        something122,
+    }
 
     # Prepare for deleting stuff
     something_refs = weakref.WeakSet(somethings)
