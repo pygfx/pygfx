@@ -94,51 +94,49 @@ def test_renderstate_cleanup_noop():
     assert env2.hash in renderstate_cache
 
 
-def test_renderstate_cleanup_by_scene_del():
+def test_renderstate_cleanup_by_renderer_not_using_it():
     renderer1, renderer2, scene1, scene2, env1, env2 = prepare_for_cleanup()
 
-    del scene1
-    gc.collect()
+    camera = gfx.OrthographicCamera()
 
-    env2 = get_renderstate(scene2, renderer2._blender)
-    assert env1.hash not in renderstate_cache
-    assert env2.hash in renderstate_cache
+    renderer1.blend_mode = "weighted"
+    env1 = get_renderstate(scene1, renderer1._blender)
+    hash1 = env1.hash
+    del env1
+
+    # Renderer holds ref to the renderstate
+    for _ in range(4):
+        renderer1.render(scene1, camera)
+        gc.collect()
+        assert hash1 in renderstate_cache
+
+    renderer1.blend_mode = "ordered1"
+
+    # Renderer remembers for at least 8 draws
+    for _ in range(8):
+        renderer1.render(scene1, camera)
+    gc.collect()
+    assert hash1 in renderstate_cache
+
+    # But no more than 16
+    for _ in range(8):
+        renderer1.render(scene1, camera)
+    gc.collect()
+    assert hash1 not in renderstate_cache
 
 
 def test_renderstate_cleanup_by_renderer_del():
     renderer1, renderer2, scene1, scene2, env1, env2 = prepare_for_cleanup()
 
+    renderer1.blend_mode = "weighted"
+    env1 = get_renderstate(scene1, renderer1._blender)
+    hash1 = env1.hash
+    del env1
+
     del renderer1
     gc.collect()
 
-    env2 = get_renderstate(scene2, renderer2._blender)
-    assert env1.hash not in renderstate_cache
-    assert env2.hash in renderstate_cache
-
-
-def test_renderstate_cleanup_by_scene_change():
-    renderer1, renderer2, scene1, scene2, env1, env2 = prepare_for_cleanup()
-
-    # cannot test this yet, as currently the scene does not result in state
-
-
-def test_environment_cleanup_by_renderer_change():
-    renderer1, renderer2, scene1, scene2, env1, env2 = prepare_for_cleanup()
-
-    renderer1.blend_mode = "weighted"
-
-    # Rendering render2 doesn't check renderer1
-    env2 = get_renderstate(scene2, renderer2._blender)
-    assert env1.hash in renderstate_cache
-    assert env2.hash in renderstate_cache
-
-    # But rendering with renderer1 does
-    env3 = get_renderstate(scene1, renderer1._blender)
-    assert env1.hash not in renderstate_cache
-    assert env2.hash in renderstate_cache
-    assert env3.hash in renderstate_cache
-    assert env3 is not env1
-    assert env3 is not env2
+    assert hash1 not in renderstate_cache
 
 
 if __name__ == "__main__":

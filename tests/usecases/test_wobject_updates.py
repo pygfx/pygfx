@@ -43,16 +43,11 @@ class PipelineSnapshotter:
         )
         pipeline_container = pipeline_container_group.render_containers[0]
 
-        # Assume a single renderstate is in use, get its hash.
-        env_hashes = list(pipeline_container.wgpu_shaders.keys())
-        assert len(env_hashes) == 1
-        env_hash = env_hashes[0]
-
         # Store shaders
-        shaders = pipeline_container.wgpu_pipelines[env_hash].copy()
+        shaders = pipeline_container.wgpu_pipelines.copy()
 
         # Store pipelines
-        pipelines = pipeline_container.wgpu_pipelines[env_hash].copy()
+        pipelines = pipeline_container.wgpu_pipelines.copy()
 
         # Store bindings:  bind group -> binding id -> Binding
         bindings = {k: v.copy() for k, v in pipeline_container.bindings_dicts.items()}
