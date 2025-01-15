@@ -16,7 +16,7 @@ from importlib.util import find_spec
 from functools import lru_cache
 
 
-def load_gltf(path, quiet=False):
+def load_gltf(path, quiet=False, remote_ok=True):
     """
     Load a gltf file and return the content.
 
@@ -28,6 +28,10 @@ def load_gltf(path, quiet=False):
         The path to the gltf file.
     quiet : bool
         Whether to suppress the warning messages.
+        Default is False.
+    remote_ok : bool
+        Whether to allow loading from URLs.
+        Default is True.
 
     Returns:
     ----------
@@ -38,10 +42,42 @@ def load_gltf(path, quiet=False):
         * `cameras`: [gfx.Camera] or None
         * `animations`: [gfx.Animation] or None
     """
-    return _GLTF(path, quiet).load()
+    return _GLTF().load(path, quiet, remote_ok)
 
 
-def load_gltf_mesh(path, materials=True, quiet=False):
+async def load_gltf_async(path, quiet=False, remote_ok=True):
+    """
+    Load a gltf file and return the content asynchronously.
+
+    It is recommended to use this function when loading from URLs.
+    especially when the gltf model has multiple resources.
+
+    This function requires the gltflib library.
+
+    Parameters:
+    ----------
+    path : str
+        The path to the gltf file.
+    quiet : bool
+        Whether to suppress the warning messages.
+        Default is False.
+    remote_ok : bool
+        Whether to allow loading from URLs.
+        Default is True.
+
+    Returns:
+    ----------
+    gltf : object
+        The gltf object which contains the following attributes:
+        * `scenes`: [gfx.Group]
+        * `scene`: gfx.Group or None
+        * `cameras`: [gfx.Camera] or None
+        * `animations`: [gfx.Animation] or None
+    """
+    return await _GLTF().load_async(path, quiet, remote_ok)
+
+
+def load_gltf_mesh(path, materials=True, quiet=False, remote_ok=True):
     """
     Load meshes from a gltf file, without skeletons, and no transformations applied.
 
@@ -53,15 +89,53 @@ def load_gltf_mesh(path, materials=True, quiet=False):
         The path to the gltf file.
     materials : bool
         Whether to load materials.
+        Default is True.
     quiet : bool
         Whether to suppress the warning messages.
+        Default is False.
+    remote_ok : bool
+        Whether to allow loading from URLs.
+        Default is True.
 
     Returns:
     ----------
     meshes : list
         A list of pygfx.Meshes.
     """
-    return _GLTF(path, quiet).load_mesh(materials=materials)
+    return _GLTF().load_mesh(path, quiet, materials=materials, remote_ok=remote_ok)
+
+
+async def load_gltf_mesh_async(path, materials=True, quiet=False, remote_ok=True):
+    """
+    Load meshes from a gltf file asynchronously, without skeletons, and no transformations applied.
+
+    It is recommended to use this function when loading from URLs.
+    especially when the gltf model has multiple resources.
+
+    This function requires the gltflib library.
+
+    Parameters:
+    ----------
+    path : str
+        The path to the gltf file.
+    materials : bool
+        Whether to load materials.
+        Default is True.
+    quiet : bool
+        Whether to suppress the warning messages.
+        Default is False.
+    remote_ok : bool
+        Whether to allow loading from URLs.
+        Default is True.
+
+    Returns:
+    ----------
+    meshes : list
+        A list of pygfx.Meshes.
+    """
+    return await _GLTF().load_mesh_async(
+        path, quiet, materials=materials, remote_ok=remote_ok
+    )
 
 
 class _GLTF:
@@ -103,17 +177,15 @@ class _GLTF:
 
     SUPPORTED_EXTENSIONS = ["KHR_mesh_quantization"]
 
-    def __init__(self, path, quiet=False):
-        self._path = path
+    def __init__(self):
         self.scene = None
         self.scenes = []
-        self.cameras = None
+        self.cameras = []
         self.animations = None
 
-        self.__inner_load(quiet)
-
-    def load(self):
+    def load(self, path, quiet=False, remote_ok=True):
         """Load the whole gltf file, including meshes, skeletons, cameras, and animations."""
+        self.__inner_load(path, quiet, remote_ok)
 
         self.scenes = self._load_scenes()
         if self._gltf.model.scene is not None:
@@ -121,12 +193,24 @@ class _GLTF:
         if self._gltf.model.animations is not None:
             self.animations = self._load_animations()
 
-        # TODO:
-        # self.cameras
         return self
 
-    def load_mesh(self, materials=True):
+    async def load_async(self, path, quiet=False, remote_ok=True):
+        """Load the whole gltf file, including meshes, skeletons, cameras, and animations."""
+        await self.__inner_load_async(path, quiet, remote_ok)
+
+        self.scenes = self._load_scenes()
+        if self._gltf.model.scene is not None:
+            self.scene = self.scenes[self._gltf.model.scene]
+        if self._gltf.model.animations is not None:
+            self.animations = self._load_animations()
+
+        return self
+
+    def load_mesh(self, path, quiet=False, materials=True, remote_ok=True):
         """Only load meshes from a gltf file, without skeletons, and no transformations applied."""
+
+        self.__inner_load(path, quiet, remote_ok)
 
         meshes = []
         for gltf_mesh in self._gltf.model.meshes:
@@ -134,16 +218,167 @@ class _GLTF:
             meshes.extend(mesh)
         return meshes
 
-    def __inner_load(self, quiet=False):
+    async def load_mesh_async(self, path, quiet=False, materials=True, remote_ok=True):
+        """Only load meshes from a gltf file, without skeletons, and no transformations applied."""
+
+        await self.__inner_load_async(path, quiet, remote_ok)
+
+        meshes = []
+        for gltf_mesh in self._gltf.model.meshes:
+            mesh = self._load_gltf_mesh_by_info(gltf_mesh, load_material=materials)
+            meshes.extend(mesh)
+        return meshes
+
+    def __inner_load(self, path, quiet=False, remote_ok=True):
         if not find_spec("gltflib"):
             raise ImportError(
                 "The `gltflib` library is required to load gltf scene: pip install gltflib"
             )
         import gltflib
 
-        path = self._path
-        self._gltf = gltflib.GLTF.load(path, load_file_resources=True)
+        if "https://" in str(path) or "http://" in str(path):
+            if not remote_ok:
+                raise ValueError(
+                    "Loading meshes from URLs is disabled. "
+                    "Set remote_ok=True to allow loading from URLs."
+                )
+            if not find_spec("httpx"):
+                raise ImportError(
+                    "The `httpx` library is required to load meshes from URLs: pip install httpx"
+                )
 
+            import httpx
+            from io import BytesIO
+            from os import path as os_path
+            import urllib.parse
+            import mimetypes
+
+            # download
+            response = httpx.get(path, follow_redirects=True)
+            response.raise_for_status()
+
+            file_obj = BytesIO(response.content)
+
+            ext = os_path.splitext(path)[1].lower()
+            if ext == ".gltf":
+                self._gltf = gltflib.GLTF.read_gltf(file_obj, load_file_resources=False)
+
+            elif ext == ".glb":
+                self._gltf = gltflib.GLTF.read_glb(file_obj, load_file_resources=False)
+
+            downloadable_resources = [
+                res
+                for res in self._gltf.resources
+                if isinstance(res, gltflib.FileResource)
+            ]
+
+            if downloadable_resources:
+                for res in downloadable_resources:
+                    res_path = urllib.parse.urljoin(path, res.uri)
+                    try:
+                        response = httpx.get(res_path)
+                        response.raise_for_status()
+                        res_file = BytesIO(response.content)
+
+                        res._data = res_file.read()
+                        res._mimetype = (
+                            res._mimetype or mimetypes.guess_type(res.uri)[0]
+                        )
+                        res._loaded = True
+                    except httpx.HTTPStatusError as e:
+                        gfx.utils.logger.warning(f"download failed: {e} - {res_path}")
+                    except Exception as e:
+                        gfx.utils.logger.warning(f"download failed: {e} - {res_path}")
+
+        else:  # local file
+            self._gltf = gltflib.GLTF.load(path, load_file_resources=True)
+
+        self.__post_inner_load(quiet)
+
+    async def __inner_load_async(self, path, quiet=False, remote_ok=True):
+        if not find_spec("gltflib"):
+            raise ImportError(
+                "The `gltflib` library is required to load gltf scene: pip install gltflib"
+            )
+        import gltflib
+
+        if "https://" in str(path) or "http://" in str(path):
+            if not remote_ok:
+                raise ValueError(
+                    "Loading meshes from URLs is disabled. "
+                    "Set remote_ok=True to allow loading from URLs."
+                )
+            if not find_spec("httpx"):
+                raise ImportError(
+                    "The `httpx` library is required to load meshes from URLs: pip install httpx"
+                )
+
+            import httpx
+            from io import BytesIO
+            from os import path as os_path
+            import urllib.parse
+            import mimetypes
+            import asyncio
+
+            async with httpx.AsyncClient() as client:
+                response = await client.get(path, follow_redirects=True)
+                response.raise_for_status()
+
+                file_obj = BytesIO(response.content)
+
+                ext = os_path.splitext(path)[1].lower()
+                if ext == ".gltf":
+                    self._gltf = gltflib.GLTF.read_gltf(
+                        file_obj, load_file_resources=False
+                    )
+
+                elif ext == ".glb":
+                    self._gltf = gltflib.GLTF.read_glb(
+                        file_obj, load_file_resources=False
+                    )
+
+                downloadable_resources = [
+                    res
+                    for res in self._gltf.resources
+                    if isinstance(res, gltflib.FileResource)
+                ]
+
+                if downloadable_resources:
+
+                    async def download_resource(res, client: httpx.AsyncClient):
+                        res_path = urllib.parse.urljoin(path, res.uri)
+                        try:
+                            response = await client.get(res_path)
+                            response.raise_for_status()
+                            res_file = BytesIO(response.content)
+
+                            res._data = res_file.read()
+                            res._mimetype = (
+                                res._mimetype or mimetypes.guess_type(res.uri)[0]
+                            )
+                            res._loaded = True
+
+                            return res
+                        except httpx.HTTPStatusError as e:
+                            gfx.utils.logger.warning(
+                                f"download failed: {e} - {res_path}"
+                            )
+                        except Exception as e:
+                            gfx.utils.logger.warning(
+                                f"download failed: {e} - {res_path}"
+                            )
+
+                    tasks = [
+                        download_resource(res, client) for res in downloadable_resources
+                    ]
+                    await asyncio.gather(*tasks)
+
+        else:  # local file
+            self._gltf = gltflib.GLTF.load(path, load_file_resources=True)
+
+        self.__post_inner_load(quiet)
+
+    def __post_inner_load(self, quiet):
         if not quiet:
             extensions_required = self._gltf.model.extensionsRequired or []
 
@@ -193,11 +428,6 @@ class _GLTF:
                 for joint in skin.joints:
                     node_marks[joint] = "Bone"
 
-        # Mark cameras
-        if gltf.model.cameras:
-            for camera in gltf.model.cameras:
-                node_marks[camera.node] = "Camera"
-
         # Meshes are marked when they are loaded
         # Maybe mark lights and other special nodes here
         return node_marks
@@ -242,12 +472,35 @@ class _GLTF:
             node_obj.local.rotation = rotation
             node_obj.local.scale = scale
             node_obj.local.matrix = matrix
-        elif node_mark == "Camera":
-            # TODO: implement camera loading
-            # node_obj = gfx.Camera()
-            pass
+        elif node.camera is not None:
+            camera_info = gltf.model.cameras[node.camera]
+            if camera_info.type == "perspective":
+                node_obj = gfx.PerspectiveCamera(
+                    camera_info.perspective.yfov,
+                    camera_info.perspective.aspectRatio,
+                    depth_range=(
+                        camera_info.perspective.znear,
+                        camera_info.perspective.zfar,
+                    ),
+                )
+            elif camera_info.type == "orthographic":
+                node_obj = gfx.OrthographicCamera(
+                    camera_info.orthographic.xmag,
+                    camera_info.orthographic.ymag,
+                    depth_range=(
+                        camera_info.orthographic.znear,
+                        camera_info.orthographic.zfar,
+                    ),
+                )
+            else:
+                raise ValueError(f"Unsupported camera type: {camera_info.type}")
+
+            self.cameras.append(node_obj)
         elif node.mesh is not None:  # Mesh or SkinnedMesh
-            meshes = self._load_gltf_mesh(node.mesh, node.skin)
+            # meshes = self._load_gltf_mesh(node.mesh, node.skin)
+            # Do not use mesh cache here, we need to create a new mesh object for each node.
+            mesh_info = self._gltf.model.meshes[node.mesh]
+            meshes = self._load_gltf_mesh_by_info(mesh_info, node.skin)
             if len(meshes) == 1:
                 node_obj = meshes[0]
             else:
@@ -273,23 +526,25 @@ class _GLTF:
             geometry = self._load_gltf_geometry(primitive)
             primitive_mode = primitive.mode
 
+            if load_material and primitive.material is not None:
+                material = self._load_gltf_material(primitive.material)
+            else:
+                material = gfx.MeshStandardMaterial()
+                if hasattr(geometry, "colors"):
+                    material.color_mode = "vertex"
+
             if primitive_mode is None:
                 primitive_mode = 4  # default to triangles
 
             if primitive_mode == 0:
-                material = gfx.PointsMaterial()
                 gfx_mesh = gfx.Points(geometry, material)
 
             elif primitive_mode in (1, 2, 3):
-                material = gfx.LineSegmentMaterial()
+                # todo: distinguish lines, line_strip, line_loop
                 gfx_mesh = gfx.Line(geometry, material)
 
             elif primitive_mode in (4, 5):
-                if load_material and primitive.material is not None:
-                    material = self._load_gltf_material(primitive.material)
-                else:
-                    material = gfx.MeshBasicMaterial()
-
+                # todo: distinguish triangles, triangle_strip, triangle_fan
                 if skin_index is not None:
                     gfx_mesh = gfx.SkinnedMesh(geometry, material)
                     skeleton = self._load_skins(skin_index)
@@ -327,8 +582,13 @@ class _GLTF:
         material = self._gltf.model.materials[material_index]
         pbr_metallic_roughness = material.pbrMetallicRoughness
 
+        gfx_material = gfx.MeshStandardMaterial()
+
         if pbr_metallic_roughness is not None:
-            gfx_material = gfx.MeshStandardMaterial()
+            if pbr_metallic_roughness.baseColorFactor is not None:
+                gfx_material.color = gfx.Color.from_physical(
+                    *pbr_metallic_roughness.baseColorFactor
+                )
 
             if pbr_metallic_roughness.baseColorTexture is not None:
                 gfx_material.map = self._load_gltf_texture(
@@ -350,9 +610,6 @@ class _GLTF:
             if pbr_metallic_roughness.metallicFactor is not None:
                 gfx_material.metalness = pbr_metallic_roughness.metallicFactor
 
-        else:
-            gfx_material = gfx.MeshPhongMaterial()
-
         if material.normalTexture is not None:
             gfx_material.normal_map = self._load_gltf_texture(material.normalTexture)
             scale_factor = material.normalTexture.scale
@@ -368,12 +625,21 @@ class _GLTF:
             gfx_material.ao_map = self._load_gltf_texture(material.occlusionTexture)
 
         if material.emissiveFactor is not None:
-            gfx_material.emissive = gfx.Color(*material.emissiveFactor)
+            gfx_material.emissive = gfx.Color.from_physical(*material.emissiveFactor)
 
         if material.emissiveTexture is not None:
             gfx_material.emissive_map = self._load_gltf_texture(
                 material.emissiveTexture
             )
+
+        # todo alphaMode
+        # todo alphaCutoff
+
+        gfx_material.side = (
+            gfx.enums.VisibleSide.both
+            if material.doubleSided
+            else gfx.enums.VisibleSide.front
+        )
 
         return gfx_material
 
@@ -454,7 +720,7 @@ class _GLTF:
             raise ValueError("No image data found")
 
         # need consider mimeType?
-        image = iio.imread(image_data)
+        image = iio.imread(image_data, pilmode="RGBA")
         return image
 
     def _load_gltf_geometry(self, primitive):
@@ -485,7 +751,7 @@ class _GLTF:
             # TODO: For now, pygfx not support non-indexed geometry, so we need to generate indices for them.
             # Remove this after pygfx support non-indexed geometry.
             indices = np.arange(
-                len(geometry_args["positions"]) * 3, dtype=np.int32
+                len(geometry_args["positions"]) // 3 * 3, dtype=np.int32
             ).reshape((-1, 3))
 
         geometry_args["indices"] = indices
@@ -520,7 +786,8 @@ class _GLTF:
         buffer = gltf.model.buffers[buffer_view.buffer]
         m = memoryview(buffer.data)
         view = m[
-            buffer_view.byteOffset : buffer_view.byteOffset + buffer_view.byteLength
+            buffer_view.byteOffset : (buffer_view.byteOffset or 0)
+            + buffer_view.byteLength
         ]
         return view
 
@@ -531,6 +798,10 @@ class _GLTF:
 
         buffer_view = gltf.model.bufferViews[accessor.bufferView]
         view = self._get_buffer_memory_view(accessor.bufferView)
+
+        # todo accessor.sparse
+        if accessor.sparse is not None:
+            gfx.utils.logger.warning("Sparse accessor is not supported yet.")
 
         accessor_type = accessor.type
         accessor_component_type = accessor.componentType
@@ -599,10 +870,14 @@ class _GLTF:
             target = channel.target
             sampler = samplers[channel.sampler]
 
+            if target.node is None:
+                # todo: now we only support node animation
+                continue
+
             target_node = self._load_node(target.node)
             name = target_node.name
             target_property = target.path
-            interpolation = sampler.interpolation
+            interpolation = sampler.interpolation or "LINEAR"
             times = self._load_accessor(sampler.input)
             if times[-1] > duration:
                 duration = times[-1]
@@ -616,9 +891,32 @@ class _GLTF:
             elif interpolation == "STEP":
                 interpolation_fn = gfx.StepInterpolant
             elif interpolation == "CUBICSPLINE":
-                interpolation_fn = gfx.CubicSplineInterpolant
+                # interpolation_fn = gfx.CubicSplineInterpolant
+                # A CUBICSPLINE keyframe in glTF has three output values for each input value,
+                # representing inTangent, splineVertex, and outTangent.
+                interpolation_fn = (
+                    GLTFCubicSplineInterpolant
+                    if target_property != "rotation"
+                    else GLTFCubicSplineQuaternionInterpolant
+                )
+            else:
+                raise ValueError(f"Unsupported interpolation type: {interpolation}")
 
-            values = values.reshape(len(times), -1)
+            if interpolation == "CUBICSPLINE":
+                # Layout of keyframe output values for CUBICSPLINE animations:
+                # [ inTangent_1, splineVertex_1, outTangent_1, inTangent_2, splineVertex_2, ... ]
+                values = values.reshape(len(times), -1, values.shape[-1])
+            else:
+                values = values.reshape(len(times), -1)
+
+            if len(times) != len(values):
+                gfx.utils.logger.warning(
+                    f"keyframe: {name}, times and values have different lengths, {len(times)} != {len(values)}"
+                )
+                length = min(len(times), len(values))
+                times = times[:length]
+                values = values[:length]
+
             keyframe = gfx.KeyframeTrack(
                 name, target_node, target_property, times, values, interpolation_fn
             )
@@ -637,7 +935,7 @@ class _GLTF:
         return animations
 
 
-def print_tree(obj, show_pos=False, show_rot=False, show_scale=False):
+def print_scene_graph(obj, show_pos=False, show_rot=False, show_scale=False):
     """
     Print the tree structure of the scene, including the optional position, rotation, and scale of each object.
 
@@ -668,3 +966,43 @@ def print_tree(obj, show_pos=False, show_rot=False, show_scale=False):
             _print_tree(child, level=level + 1)
 
     _print_tree(obj)
+
+
+class GLTFCubicSplineInterpolant(gfx.Interpolant):
+    """
+    See: https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#interpolation-cubic
+    """
+
+    def __init__(self, times, values):
+        super().__init__(times, values)
+
+    def _interpolate(self, i1, t0, t, t1):
+        dt = t1 - t0
+
+        p = (t - t0) / dt
+        pp = p * p
+        ppp = pp * p
+
+        s2 = -2 * ppp + 3 * pp
+        s3 = ppp - pp
+        s0 = 1 - s2
+        s1 = s3 - pp + p
+
+        # Layout of keyframe output values for CUBICSPLINE animations:
+        # [ [inTangent_1, splineVertex_1, outTangent_1], [inTangent_2, splineVertex_2, outTangent_2], ... ]
+
+        values = self.sample_values
+        p0 = values[i1 - 1][1]
+        m0 = values[i1 - 1][2] * dt
+
+        p1 = values[i1][1]
+        m1 = values[i1][0] * dt
+
+        return s0 * p0 + s1 * m0 + s2 * p1 + s3 * m1
+
+
+class GLTFCubicSplineQuaternionInterpolant(GLTFCubicSplineInterpolant):
+    def _interpolate(self, i1, t0, t, t1):
+        res = super()._interpolate(i1, t0, t, t1)
+        # remember normalize the quaternion
+        return res / np.linalg.norm(res)

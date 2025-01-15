@@ -336,7 +336,7 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
         let color_value = varyings.color;
         let albeido = color_value.rgb;
     $$ elif color_mode == 'vertex_map' or color_mode == 'face_map'
-        let color_value = sample_colormap(varyings.texcoord);
+        let color_value = sample_colormap(varyings.texcoord) * u_material.color;
         let albeido = color_value.rgb;  // no more colormap
     $$ elif color_mode == 'normal'
         let albeido = normalize(surface_normal) * 0.5 + 0.5;

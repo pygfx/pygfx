@@ -3,7 +3,7 @@ import numpy as np
 import wgpu  # only for flags/enums
 
 
-from ....objects import Mesh, InstancedMesh, SkinnedMesh
+from ....objects import Mesh, InstancedMesh, SkinnedMesh, WorldObject, Line, Points
 from ....resources import Buffer, Texture, TextureMap
 from ....utils import normals_from_vertices
 from ....materials import (
@@ -29,7 +29,7 @@ from .. import (
 )
 
 
-@register_wgpu_render_function(Mesh, MeshBasicMaterial)
+@register_wgpu_render_function(WorldObject, MeshBasicMaterial)
 class MeshShader(BaseShader):
     type = "render"
 
@@ -425,7 +425,19 @@ class MeshShader(BaseShader):
     def get_pipeline_info(self, wobject, shared):
         material = wobject.material
 
-        topology = wgpu.PrimitiveTopology.triangle_list
+        # The MeshMaterial can be applied to lines and points, so that we can fully support gltf
+        if isinstance(wobject, Line):
+            topology = wgpu.PrimitiveTopology.line_strip
+            # todo: wgpu.PrimitiveTopology.line_list, wgpu.PrimitiveTopology.line_loop
+        elif isinstance(wobject, Points):
+            topology = wgpu.PrimitiveTopology.point_list
+        elif isinstance(wobject, Mesh):
+            topology = wgpu.PrimitiveTopology.triangle_list
+            # todo: wgpu.PrimitiveTopology.triangle_strip
+        else:
+            raise TypeError(
+                f"MeshMaterial cannot be applied to a {wobject.__class.__name__}"
+            )
 
         if material.side == "front":
             cull_mode = wgpu.CullMode.back
@@ -559,7 +571,7 @@ class MeshToonShader(MeshShader):
         return result
 
 
-@register_wgpu_render_function(Mesh, MeshStandardMaterial)
+@register_wgpu_render_function(WorldObject, MeshStandardMaterial)
 class MeshStandardShader(MeshShader):
     def __init__(self, wobject):
         super().__init__(wobject)

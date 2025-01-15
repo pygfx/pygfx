@@ -228,8 +228,21 @@ def get_shadow_pipeline(device, wobject, cull_mode):
     is_instanced = isinstance(wobject, objects.InstancedMesh)
 
     key = (stride, format, topology, cull_mode, is_instanced)
+    wobject_attr_name = f"_gfx_shadow_pipeline_{cull_mode}"
 
-    pipeline = SHADOW_CACHE.get(key)
+    # Try getting the pipeline from the wobject
+    try:
+        current_key, pipeline = getattr(wobject, wobject_attr_name)
+    except AttributeError:
+        current_key, pipeline = None, None
+    if current_key != key:
+        pipeline = None
+
+    # If not existing or compatible, try getting from caache (i.e. re-use from other object)
+    if pipeline is None:
+        pipeline = SHADOW_CACHE.get(key)
+
+    # If still nothing, create the pipeline and make available for re-use.
     if pipeline is None:
         # Create pipeline and store in the cache (with a weakref).
         pipeline = create_shadow_pipeline(
@@ -238,7 +251,7 @@ def get_shadow_pipeline(device, wobject, cull_mode):
         SHADOW_CACHE.set(key, pipeline)
 
     # Store on the wobject to bind it to its lifetime, but per shadow-cull-mode
-    setattr(wobject, f"_gfx_shadow_pipeline_{cull_mode}", pipeline)
+    setattr(wobject, wobject_attr_name, (key, pipeline))
     return pipeline
 
 

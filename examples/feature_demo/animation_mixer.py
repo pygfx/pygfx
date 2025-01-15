@@ -55,7 +55,7 @@ scene.add(gfx.AmbientLight(), dl)
 
 gltf = gfx.load_gltf(gltf_path, quiet=True)
 
-# gfx.print_tree(gltf.scene) # Uncomment to see the tree structure
+# gfx.print_scene_graph(gltf.scene) # Uncomment to see the tree structure
 
 model_obj = gltf.scene.children[0]
 
