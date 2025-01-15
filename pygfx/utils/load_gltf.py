@@ -894,24 +894,28 @@ class _GLTF:
                 # interpolation_fn = gfx.CubicSplineInterpolant
                 # A CUBICSPLINE keyframe in glTF has three output values for each input value,
                 # representing inTangent, splineVertex, and outTangent.
-                # todo: implement GLTF 2.0 Cubic Spline Interpolation
-                gfx.utils.logger.warning(
-                    "GLTF CUBICSPLINE interpolation is not supported yet."
+                interpolation_fn = (
+                    GLTFCubicSplineInterpolant
+                    if target_property != "rotation"
+                    else GLTFCubicSplineQuaternionInterpolant
                 )
-                continue
             else:
                 raise ValueError(f"Unsupported interpolation type: {interpolation}")
 
-            if target_property == "weights":
-                values = values.reshape(len(times), -1)
+            if interpolation == "CUBICSPLINE":
+                # Layout of keyframe output values for CUBICSPLINE animations:
+                # [ inTangent_1, splineVertex_1, outTangent_1, inTangent_2, splineVertex_2, ... ]
+                values = values.reshape(len(times), -1, values.shape[-1])
             else:
-                if len(times) != len(values):
-                    gfx.utils.logger.warning(
-                        f"keyframe: {name}, times and values have different lengths, {len(times)} != {len(values)}"
-                    )
-                    length = min(len(times), len(values))
-                    times = times[:length]
-                    values = values[:length]
+                values = values.reshape(len(times), -1)
+
+            if len(times) != len(values):
+                gfx.utils.logger.warning(
+                    f"keyframe: {name}, times and values have different lengths, {len(times)} != {len(values)}"
+                )
+                length = min(len(times), len(values))
+                times = times[:length]
+                values = values[:length]
 
             keyframe = gfx.KeyframeTrack(
                 name, target_node, target_property, times, values, interpolation_fn
@@ -962,3 +966,43 @@ def print_scene_graph(obj, show_pos=False, show_rot=False, show_scale=False):
             _print_tree(child, level=level + 1)
 
     _print_tree(obj)
+
+
+class GLTFCubicSplineInterpolant(gfx.Interpolant):
+    """
+    See: https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#interpolation-cubic
+    """
+
+    def __init__(self, times, values):
+        super().__init__(times, values)
+
+    def _interpolate(self, i1, t0, t, t1):
+        dt = t1 - t0
+
+        p = (t - t0) / dt
+        pp = p * p
+        ppp = pp * p
+
+        s2 = -2 * ppp + 3 * pp
+        s3 = ppp - pp
+        s0 = 1 - s2
+        s1 = s3 - pp + p
+
+        # Layout of keyframe output values for CUBICSPLINE animations:
+        # [ [inTangent_1, splineVertex_1, outTangent_1], [inTangent_2, splineVertex_2, outTangent_2], ... ]
+
+        values = self.sample_values
+        p0 = values[i1 - 1][1]
+        m0 = values[i1 - 1][2] * dt
+
+        p1 = values[i1][1]
+        m1 = values[i1][0] * dt
+
+        return s0 * p0 + s1 * m0 + s2 * p1 + s3 * m1
+
+
+class GLTFCubicSplineQuaternionInterpolant(GLTFCubicSplineInterpolant):
+    def _interpolate(self, i1, t0, t, t1):
+        res = super()._interpolate(i1, t0, t, t1)
+        # remember normalize the quaternion
+        return res / np.linalg.norm(res)
