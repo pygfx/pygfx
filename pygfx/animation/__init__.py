@@ -21,6 +21,7 @@ This module contains classes for working with animations.
 # flake8: noqa
 
 from .interpolant import (
+    Interpolant,
     LinearInterpolant,
     StepInterpolant,
     QuaternionLinearInterpolant,
