@@ -8,7 +8,7 @@ import numpy as np
 
 from ..resources import Buffer
 from ..utils import array_from_shadertype, logger
-from ..utils.trackable import RootTrackable
+from ..utils.trackable import Trackable
 from ._events import EventTarget
 from ..utils.transform import (
     AffineBase,
@@ -75,7 +75,7 @@ class IdProvider:
 id_provider = IdProvider()
 
 
-class WorldObject(EventTarget, RootTrackable):
+class WorldObject(EventTarget, Trackable):
     """Base class for objects.
 
     This class represents objects in the world, i.e., the scene graph.Each
@@ -229,10 +229,6 @@ class WorldObject(EventTarget, RootTrackable):
         return self._id
 
     @property
-    def tracker(self):
-        return self._root_tracker
-
-    @property
     def visible(self):
         """Whether is object is rendered or not. Default True."""
         return self._store.visible
@@ -307,11 +303,11 @@ class WorldObject(EventTarget, RootTrackable):
     @property
     def material(self):
         """Whether is object is rendered or not. Default True."""
-        return self._store.material
+        return self._material
 
     @material.setter
     def material(self, material):
-        self._store.material = material
+        self._material = material
 
     @property
     def cast_shadow(self):

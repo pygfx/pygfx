@@ -11,6 +11,7 @@ import os
 
 from ....utils import logger
 from ....utils.weak import WeakAssociativeContainer
+from ....utils.trackable import Root
 
 from ..shader.base import ShaderInterface
 from .utils import registry, GpuCache, hash_from_value
@@ -20,9 +21,10 @@ from .binding import Binding
 
 PIPELINE_CONTAINER_GROUPS = WeakAssociativeContainer()
 
-# These caches enables sharing gpu resources for similar objects. It makes
-# creating such objects faster (i.e. faster startup). It also saves gpu
-# resources. It does not necessarily make the visualization faster.
+# These caches use a WeakValueDictionary; they don't actually store object, but
+# enable sharing gpu resources for similar objects. It makes creating such
+# objects faster (i.e. faster startup). It also saves gpu resources. It does not
+# necessarily make the visualization faster.
 LAYOUT_CACHE = GpuCache("layouts")
 BINDING_CACHE = GpuCache("bindings")
 SHADER_CACHE = GpuCache("shader_modules")
@@ -174,29 +176,20 @@ def get_pipeline_container_group(wobject, renderstate):
     quickly if no changes are needed.
     """
 
-    # TODO: may be interesting to also bind to material. This would mean that
-    # while the material is alive, the corresponding pipeline object is not
-    # removed, so switching between materials is fast if a material was used earlier!
-
-    # Get pipeline container group. They are associated weakly by wobject and renderstate.
-    # When any of these objects (wobject, renderstate) is removed by the gc, the associated
-    # pipeline_container object is removed as well.
-    pcg_key = wobject, renderstate
+    # Get pipeline container group. They are associated weakly by wobject and
+    # renderstate. By also associating with the material the material can be
+    # used by users to 'store' the pipeline, and hot-swap it. When any of these
+    # objects (wobject, renderstate, material) is removed by the gc, the
+    # associated pipeline_container object is removed as well.
+    pcg_key = wobject, renderstate, wobject.material
 
     pipeline_container_group = PIPELINE_CONTAINER_GROUPS.get(pcg_key, None)
     if pipeline_container_group is None:
         pipeline_container_group = PipelineContainerGroup()
         PIPELINE_CONTAINER_GROUPS[pcg_key] = pipeline_container_group
 
-    # Get whether the object has changes. If so, notify all associated pipeline container groups
-    changed_labels = wobject.tracker.pop_changed()
-    if changed_labels:
-        for pcg in PIPELINE_CONTAINER_GROUPS.get_associated(wobject):
-            pcg.changed.update(changed_labels)
-
-    # Update if necessary
-    if pipeline_container_group.changed:
-        pipeline_container_group.update(wobject, renderstate)
+    # Update. Quickly returns if no work to do.
+    pipeline_container_group.update(wobject, renderstate)
 
     # Return the pipeline container group
     return pipeline_container_group
@@ -210,7 +203,8 @@ class PipelineContainerGroup:
     """
 
     def __init__(self):
-        self.changed = {"create"}
+        self.tracker = Root()
+        self.initialized = False
         # Public attributes used by the renderer
         self.compute_containers = None
         self.render_containers = None
@@ -219,7 +213,17 @@ class PipelineContainerGroup:
     def update(self, wobject, renderstate):
         """Update the pipeline containers. Creates (and re-creates) the containers if necessary."""
 
-        if "create" in self.changed:
+        # Get what has changed
+        tracker = self.tracker
+        changed = tracker.pop_changed()
+        if not self.initialized:
+            self.initialized = True
+            changed.add("create")
+
+        if not changed:
+            return
+
+        if "create" in changed:
             self.compute_containers = ()
             self.render_containers = ()
             self.bake_functions = ()
@@ -234,7 +238,7 @@ class PipelineContainerGroup:
                 )
 
             # Call render function
-            with wobject.tracker.track_usage("create"):
+            with tracker.track_usage("create"):
                 shaders = renderfunc(wobject)
                 if isinstance(shaders, ShaderInterface):
                     shaders = [shaders]
@@ -260,14 +264,11 @@ class PipelineContainerGroup:
             self.bake_functions = tuple(bake_functions)
 
         # If something has changed, update containers
-        if self.changed:
-            changed = self.changed
-            self.changed = set()
-
+        if changed:
             for container in self.compute_containers:
-                container.update(wobject, renderstate, changed)
+                container.update(wobject, renderstate, changed, tracker)
             for container in self.render_containers:
-                container.update(wobject, renderstate, changed)
+                container.update(wobject, renderstate, changed, tracker)
 
 
 class PipelineContainer:
@@ -319,13 +320,13 @@ class PipelineContainer:
                 assert isinstance(key2, int), f"bind group slot must be int, not {key2}"
                 assert isinstance(b, Binding), f"binding must be Binding, not {b}"
 
-    def update(self, wobject, renderstate, changed):
+    def update(self, wobject, renderstate, changed, tracker):
         """Make sure that the pipeline is up-to-date for the given renderstate."""
 
         # Ensure that the information provided by the shader is up-to-date
         if changed:
             try:
-                self.update_shader_data(wobject, changed)
+                self.update_shader_data(wobject, changed, tracker)
             except Exception as err:
                 self.broken = 1
                 raise err
@@ -345,18 +346,18 @@ class PipelineContainer:
         if changed:
             logger.info(f"{wobject} shader update: {', '.join(sorted(changed))}.")
 
-    def update_shader_data(self, wobject, changed):
+    def update_shader_data(self, wobject, changed, tracker):
         """Update the info that applies to all passes and renderstates."""
 
         if "create" in changed or "reset" in changed:
-            with wobject.tracker.track_usage("reset"):
+            with tracker.track_usage("reset"):
                 self.wobject_info["pick_write"] = wobject.material.pick_write
             changed.update(("bindings", "pipeline_info", "render_info"))
             self.wgpu_shaders = {}
 
         if "bindings" in changed:
             self.shader.unlock_hash()
-            with wobject.tracker.track_usage("!bindings"):
+            with tracker.track_usage("bindings"):
                 self.bindings_dicts = self.shader.get_bindings(wobject, self.shared)
             self.shader.lock_hash()
             self._check_bindings()
@@ -364,7 +365,7 @@ class PipelineContainer:
             self.update_bind_groups()
 
         if "pipeline_info" in changed:
-            with wobject.tracker.track_usage("pipeline_info"):
+            with tracker.track_usage("pipeline_info"):
                 self.pipeline_info = self.shader.get_pipeline_info(wobject, self.shared)
                 self.wobject_info["depth_test"] = wobject.material.depth_test
             self._check_pipeline_info()
@@ -372,7 +373,7 @@ class PipelineContainer:
             self.wgpu_pipelines = {}
 
         if "render_info" in changed:
-            with wobject.tracker.track_usage("render_info"):
+            with tracker.track_usage("render_info"):
                 self.render_info = self.shader.get_render_info(wobject, self.shared)
             self._check_render_info()
 

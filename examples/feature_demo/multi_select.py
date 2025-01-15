@@ -17,12 +17,12 @@ event handler). Holding shift will add to the selection.
 from functools import partial
 from random import randint, random
 
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 import pylinalg as la
 
 
-canvas = WgpuCanvas()
+canvas = RenderCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 
 camera = gfx.PerspectiveCamera(70, 16 / 9)
@@ -92,7 +92,19 @@ def random_rotation():
     )
 
 
+initialized = False
+
+
 def animate():
+    global initialized
+
+    # Render with both materials, to initialize them.
+    if not initialized:
+        initialized = True
+        scene.traverse(lambda obj: set_material(selected_material, obj))
+        renderer.render(scene, camera)
+        scene.traverse(lambda obj: set_material(default_material, obj))
+
     def random_rot(obj):
         if hasattr(obj, "random_rotation"):
             obj.local.rotation = la.quat_mul(obj.random_rotation, obj.local.rotation)
@@ -125,4 +137,4 @@ if __name__ == "__main__":
             group.add(cube)
 
     canvas.request_draw(animate)
-    run()
+    loop.run()

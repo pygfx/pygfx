@@ -168,6 +168,7 @@ class Store(dict):
                 global_context.root._track_get(self, key, value, global_context.label)
 
 
+# todo: rename to tracker?
 class Root:
     """Object to store all the tracking data for a RootTrackable."""
 
