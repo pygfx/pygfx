@@ -1,6 +1,6 @@
  // Provides lighting_phong()
  //
- // This implementation uses hard-coded lights, ignoring the environment's lights.
+ // This implementation uses hard-coded lights, ignoring the renderstate's lights.
 
  fn lighting_phong(
     is_front: bool,

@@ -82,7 +82,7 @@ class Shared(Trackable):
         # process. Having a global device provides the benefit that we can draw
         # any object anywhere. Supporting different devices per renderer/canvas
         # is technically possible, but would require an extra layer of
-        # indirection in the pipeline objects (device -> environment -> passes).
+        # indirection in the pipeline objects (device -> renderstate -> passes).
         # So out of scope for the time being.
         self._device = self.adapter.request_device_sync(
             required_features=list(Shared._features), required_limits=Shared._limits

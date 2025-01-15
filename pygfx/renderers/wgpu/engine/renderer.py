@@ -32,7 +32,7 @@ from .flusher import RenderFlusher
 from .pipeline import get_pipeline_container_group
 from .update import update_resource, ensure_wgpu_object
 from .shared import get_shared
-from .environment import get_environment
+from .renderstate import get_renderstate
 from .shadowutil import render_shadow_maps
 from .mipmapsutil import generate_texture_mipmaps
 from .utils import GfxTextureView
@@ -152,6 +152,9 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
         # Init counter to auto-clear
         self._renders_since_last_flush = 0
+
+        # Cache renderstate objects for n draws
+        self._renderstates_per_flush = []
 
         # Get target format
         self.gamma_correction = gamma_correction
@@ -293,7 +296,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
     @property
     def blend_mode(self):
-        """The method for handling transparency:
+        """The method for blending fragments bases on their alpha values:
 
         * "default" or None: Select the default: currently this is "ordered2".
         * "additive": single-pass approach that adds fragments together.
@@ -342,8 +345,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # Set blender object
         self._blend_mode = value
         self._blender = m[value]()
-        # If the blend mode has changed, we may need a new _wobject_pipelines
-        self._set_wobject_pipelines()
+        self._blender.name = value
         # If our target is a canvas, request a new draw
         if isinstance(self._target, AnyBaseCanvas):
             self._target.request_draw()
@@ -375,35 +377,6 @@ class WgpuRenderer(RootEventHandler, Renderer):
         if isinstance(self._target, AnyBaseCanvas):
             self._target.request_draw()
 
-    def _set_wobject_pipelines(self):
-        # Each WorldObject has associated with it a wobject_pipeline:
-        # a dict that contains the wgpu pipeline objects. This
-        # wobject_pipeline is also associated with the blend_mode,
-        # because the blend mode affects the pipelines.
-        #
-        # Each renderer has ._wobject_pipelines, a dict that maps
-        # wobject -> wobject_pipeline. This dict is a WeakKeyDictionary -
-        # when the wobject is destroyed, the associated pipeline is
-        # collected as well.
-        #
-        # Renderers with the same blend mode can safely share these
-        # wobject_pipeline dicts. Therefore, we make use of a global
-        # collection. Since this global collection is a
-        # WeakValueDictionary, if all renderers stop using a certain
-        # blend mode, the associated pipelines are removed as well.
-        #
-        # In a diagram:
-        #
-        # _wobject_pipelines_collection -> _wobject_pipelines -> wobject_pipeline
-        #        global                         renderer              wobject
-        #   WeakValueDictionary              WeakKeyDictionary         dict
-
-        # Below we set this renderer's _wobject_pipelines. Note that if the
-        # blending has changed, we automatically invalidate all "our" pipelines.
-        self._wobject_pipelines = WgpuRenderer._wobject_pipelines_collection.setdefault(
-            self.blend_mode, weakref.WeakKeyDictionary()
-        )
-
     def render(
         self,
         scene: WorldObject,
@@ -428,6 +401,11 @@ class WgpuRenderer(RootEventHandler, Renderer):
             flush (bool, optional): Whether to flush the rendered result into
                 the target (texture or canvas). Default True.
         """
+
+        # Manage stored renderstate objects. Each renderstate object used will be stored at least a few draws.
+        if self._renders_since_last_flush == 0:
+            self._renderstates_per_flush.insert(0, [])
+            self._renderstates_per_flush[16:] = []
 
         # Define whether to clear color.
         if clear_color is None:
@@ -524,8 +502,9 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # Update stdinfo uniform buffer object that we'll use during this render call
         self._update_stdinfo_buffer(camera, scene_psize, scene_lsize, ndc_offset)
 
-        # Get environment
-        environment = get_environment(self, scene)
+        # Get renderstate object
+        renderstate = get_renderstate(scene, self._blender)
+        self._renderstates_per_flush[0].append(renderstate)
 
         # Collect all pipeline container objects
         compute_pipeline_containers = []
@@ -533,7 +512,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         for wobject in wobject_list:
             if not wobject.material:
                 continue
-            container_group = get_pipeline_container_group(wobject, environment)
+            container_group = get_pipeline_container_group(wobject, renderstate)
             compute_pipeline_containers.extend(container_group.compute_containers)
             render_pipeline_containers.extend(container_group.render_containers)
             # Enable pipelines to update data on the CPU. This usually includes
@@ -554,7 +533,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # Record the rendering of all world objects, or re-use previous recording
         command_buffers = []
         command_buffers += self._render_recording(
-            environment,
+            renderstate,
             wobject_list,
             compute_pipeline_containers,
             render_pipeline_containers,
@@ -625,7 +604,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
     def _render_recording(
         self,
-        environment,
+        renderstate,
         wobject_list,
         compute_pipeline_containers,
         render_pipeline_containers,
@@ -650,7 +629,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         compute_pass = command_encoder.begin_compute_pass()
 
         for compute_pipeline_container in compute_pipeline_containers:
-            compute_pipeline_container.dispatch(compute_pass, environment)
+            compute_pipeline_container.dispatch(compute_pass)
 
         compute_pass.end()
 
@@ -658,9 +637,9 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
         # -- process shadow maps
         lights = (
-            environment.lights["point_lights"]
-            + environment.lights["spot_lights"]
-            + environment.lights["directional_lights"]
+            renderstate.lights["point_lights"]
+            + renderstate.lights["spot_lights"]
+            + renderstate.lights["directional_lights"]
         )
         render_shadow_maps(lights, wobject_list, command_encoder)
 
@@ -680,7 +659,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
             for render_pipeline_container in render_pipeline_containers:
                 render_pipeline_container.draw(
-                    render_pass, environment, pass_index, render_mask
+                    render_pass, renderstate, pass_index, render_mask
                 )
 
             render_pass.end()

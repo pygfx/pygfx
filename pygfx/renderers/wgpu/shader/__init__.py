@@ -18,7 +18,7 @@ Basically, based on the class of the world object and material, the
 corresponding shader class is selected. Shader classes produce templated wgsl
 (jinja2), which is then transformed into the final shader code using templating
 variables, based on properties of the material and geometry, as well as external
-features such as the render pass and environment (e.g. lights).
+features such as the render pass and renderstate (e.g. lights).
 
 Wgsl templates can be provided in-line or loaded from wgsl files. Jinja2's
 include mechanics is used to write snippets that can be used in multiple

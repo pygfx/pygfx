@@ -163,9 +163,12 @@ def test_reactivity_mesh3():
 
 
 def test_change_blend_mode():
+    geometry = gfx.box_geometry(200, 200, 200)
+    geometry.texcoords = gfx.Buffer(geometry.texcoords.data[:, 0])
+
     cube = gfx.Mesh(
-        gfx.box_geometry(200, 200, 200),
-        gfx.MeshPhongMaterial(color="#336699"),
+        geometry,
+        gfx.MeshPhongMaterial(map=gfx.cm.plasma),
     )
 
     # Render once
@@ -176,19 +179,29 @@ def test_change_blend_mode():
     # Render with another blend mode
     renderer1.blend_mode = "ordered2"
     changed = render(cube, renderer1)
-    assert changed == {"compose_pipeline", "compile_shader"}
+    assert "create" in changed
 
-    # Render in the first again
-    # The fact that it recompiles is an indication that the
-    # environment-specific wgpu objects were cleaned up.
+    # Render in the first again, the pipeline-group is still alive
     renderer1.blend_mode = "ordered1"
     changed = render(cube, renderer1)
-    assert changed == {"compose_pipeline", "compile_shader"}
+    assert changed == set()
 
     # Setting the blend_mode to the same current value should not trigger
     renderer1.blend_mode = "ordered1"
     changed = render(cube, renderer1)
     assert changed == set()
+
+    # Now change something in the material
+    cube.material.map = gfx.cm.viridis
+
+    # Detected
+    changed = render(cube, renderer1)
+    assert changed == {"bindings"}
+
+    # Also detected in other blend mode
+    renderer1.blend_mode = "ordered2"
+    changed = render(cube, renderer1)
+    assert changed == {"bindings"}
 
 
 def test_two_renders_with_same_blend_modes():
@@ -222,7 +235,7 @@ def test_two_renders_with_different_blend_modes():
     # Render in another renderer
     renderer2.blend_mode = "ordered2"
     changed = render(cube, renderer2)
-    assert changed == {"compose_pipeline", "compile_shader"}
+    assert "create" in changed
 
 
 if __name__ == "__main__":
