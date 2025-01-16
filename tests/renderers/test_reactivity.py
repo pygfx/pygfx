@@ -75,7 +75,7 @@ def test_reactivity_mesh1():
     # Changing the side requires a new pipeline
     cube.material.side = "front"
     changed = render(cube)
-    assert changed == {"pipeline_info", "render_info", "compose_pipeline"}
+    assert changed == {"pipeline_info", "render_info", "pipeline"}
 
     # Changing the wireframe requires a new shader
     cube.material.wireframe = True
@@ -93,7 +93,7 @@ def test_reactivity_mesh2():
         gfx.MeshPhongMaterial(color="#336699"),
     )
 
-    m1 = cube.material  # noqa
+    m1 = cube.material
     m2 = gfx.MeshPhongMaterial(color="#ff6699")
     m3 = gfx.MeshBasicMaterial(color="#11ff99")
 
@@ -109,17 +109,32 @@ def test_reactivity_mesh2():
     # Render once
     render(cube)
 
-    # Swap out the material - same type
+    # Swap out the material - same type, still new container
     cube.material = m2
     changed = render(cube)
-    assert changed == {"bindings"}
+    assert "create" in changed
+    assert "shader" in changed
+    assert "pipeline" in changed
 
     # Swap out the material - different type
     cube.material = m3
     changed = render(cube)
     assert "create" in changed
-    assert "compile_shader" in changed
-    assert "compose_pipeline" in changed
+    assert "shader" in changed
+    assert "pipeline" in changed
+
+    # But swapping to a previously used material is free
+    cube.material = m1
+    changed = render(cube)
+    assert not changed
+
+    cube.material = m2
+    changed = render(cube)
+    assert not changed
+
+    cube.material = m3
+    changed = render(cube)
+    assert not changed
 
     # Swap out the positions
     cube.geometry.positions = p2
@@ -159,7 +174,7 @@ def test_reactivity_mesh3():
     print("uv", geometry.texcoords.data.shape)
     print("map", obj.material.map.texture.dim)
     changed = render(obj)
-    assert changed == {"bindings", "compile_shader", "compose_pipeline"}
+    assert changed == {"bindings", "shader", "pipeline"}
 
 
 def test_change_blend_mode():
