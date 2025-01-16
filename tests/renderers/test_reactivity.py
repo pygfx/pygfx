@@ -177,6 +177,71 @@ def test_reactivity_mesh3():
     assert changed == {"bindings", "shader", "pipeline"}
 
 
+def test_reactivity_mesh4():
+    # Test basics with shared materials
+
+    # Prepare
+
+    m1 = gfx.MeshPhongMaterial(color="#00ff99")
+    m2 = gfx.MeshPhongMaterial(color="#ff6699")
+
+    cube1 = gfx.Mesh(gfx.box_geometry(200, 200, 200), m1)
+    cube2 = gfx.Mesh(gfx.box_geometry(200, 200, 200), m1)
+
+    # Render once
+    render(cube1)
+    render(cube2)
+
+    # Changing the color should not change anything
+    cube1.material.color = "red"
+    changed = render(cube1)
+    assert changed == set()
+    changed = render(cube2)
+    assert changed == set()
+
+    # Changing the wireframe requires a new shader
+    cube1.material.wireframe = True
+    changed = render(cube1)
+    assert "shader" in changed
+    changed = render(cube2)
+    assert "shader" in changed
+
+    # Now change material for one object
+    cube1.material = m2
+
+    changed = render(cube1)
+    assert "create" in changed
+    changed = render(cube2)
+    assert changed == set()
+
+    # Swap the other too, to prime it
+    cube2.material = m2
+
+    changed = render(cube1)
+    assert changed == set()
+    changed = render(cube2)
+    assert "create" in changed
+
+    # Now assign different materials
+    cube1.material = m1
+    cube2.material = m2
+
+    assert not render(cube1)
+    assert not render(cube2)
+
+    # And change the wireframe back of m1
+    cube1.material.wireframe = False
+
+    assert "shader" in render(cube1)
+    assert not render(cube2)
+
+    # And when we change cube2 to use that material ... it detects the change
+    cube2.material = m1
+
+    assert not render(cube1)
+    assert "shader" in render(cube2)
+
+
 def test_change_blend_mode():
     geometry = gfx.box_geometry(200, 200, 200)
     geometry.texcoords = gfx.Buffer(geometry.texcoords.data[:, 0])
