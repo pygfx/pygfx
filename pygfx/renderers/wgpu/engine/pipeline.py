@@ -11,7 +11,7 @@ import os
 
 from ....utils import logger
 from ....utils.weak import WeakAssociativeContainer
-from ....utils.trackable import Root
+from ....utils.trackable import PropTracker
 
 from ..shader.base import ShaderInterface
 from .utils import registry, GpuCache, hash_from_value
@@ -203,7 +203,7 @@ class PipelineContainerGroup:
     """
 
     def __init__(self):
-        self.tracker = Root()
+        self.tracker = PropTracker()
         self.initialized = False
         # Public attributes used by the renderer
         self.compute_containers = None

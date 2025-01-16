@@ -3,7 +3,7 @@ Implements the base classes for trackable classes.
 
 ## Introduction
 
-This module implemented in a more or less generic way. The code does not
+This module is implemented in a more or less generic way. The code does not
 refer to world objects, geometry, materials or resources. But don't be
 fooled - this code is *very* much tailored to the needs of such objects.
 In particular:
@@ -15,21 +15,19 @@ In particular:
 * we want to be able to swap out similar objects and not trigger of the
   new object has the same properties as before (so that we can e.g. replace
   colormaps or texture atlasses).
-* we also want to track "external objects" that are not in the tree of the root.
+* we want to be able to track multiple trees independently.
 
 The last two points mean that the code must be aware of the tree
-structure, but must also be able to track external Trackable objects
-(which may also have a tree).
+structures that trackables make up.
 
 ## High level overview
 
 We define a Trackable object as something of which the properties can
 be tracked (its properties can be other Trackable objects).
 
-The RootTrackable is the object that keeps track of the changes. One
+The PropTracker is the object that keeps track of the changes. One
 first tracks usage of properties, after which any changes to these
-properties get communicated to this root. Any trackable can participate
-(not only the trackables in the tree of the root).
+properties get communicated to the tracker.
 
 ## Finer details
 
@@ -39,19 +37,15 @@ object itself is just a container for the store. This has the benefit
 that subclasses of Trackable just store the props that they want to
 track on its store.
 
-Similarly the functionality of the RootTrackable is offloaded to an
-internal Root object. That way the RootTrackable (and its subclasses)
-stay clean, and can implement their own API for the tracking.
-
-The Store keeps a set of what roots need to be notified (using weak
-refs). The root keeps a set of what stores notify it, for the sole
-reason that the root can disconnect these stores when usage is
+The Store keeps a set of what trackers need to be notified (using weak
+refs). The tracker keeps a set of what stores notify it, for the sole
+reason that the tracker can disconnect these stores when usage is
 re-tracked.
 
-Every store has a unique id, and the root uses (id, prop) tuples as
+Every store has a unique id, and the tracker uses (id, prop) tuples as
 keys to keep track of things. When a property sets/unsets a Trackable,
-the tree is resolved at that moment (i.e. the root is temporary aware
-of the tree). This avoids the need for the root (or stores?) to keep
+the tree is resolved at that moment (i.e. the tracker is temporary aware
+of the tree). This avoids the need for the tracker (or stores?) to keep
 track of a hierarchy which would make the code a lot more complex (I
 tried and it was not fun). The only downside (that I can think of) is
 that setting `matererial.map = other_map` works while
@@ -95,34 +89,26 @@ class Trackable:
         self._store = Store()
 
 
-class RootTrackable(Trackable):
-    """Base class for the root trackable object."""
-
-    def __init__(self):
-        super().__init__()
-        self._root_tracker = Root()
-
-
 class TrackContext:
     """A context used when tracking usage of trackable objects."""
 
-    def __init__(self, root, label):
-        assert isinstance(root, Root)
+    def __init__(self, tracker, label):
+        assert isinstance(tracker, PropTracker)
         assert isinstance(label, str)
-        self.root = root
+        self.tracker = tracker
         self.label = label
 
     def __enter__(self):
         global global_context
         global_lock.acquire()
         global_context = self
-        self.root._track_init(self.label)
+        self.tracker._track_init(self.label)
         return None
 
     def __exit__(self, value, type, tb):
         global global_context
-        self.root._track_done(self.label)
-        self.root = None
+        self.tracker._track_done(self.label)
+        self.tracker = None
         self.label = 0
         global_context = None
         global_lock.release()
@@ -141,8 +127,8 @@ class Store(dict):
         with global_lock:
             global_id_counter += 1
             self["_trackable_id"] = global_id_counter  # f"t{global_id_counter}"
-        # Store what roots we need to notify of changes
-        self["_trackable_roots"] = weakref.WeakSet()
+        # Store what trackers we need to notify of changes
+        self["_trackable_trackers"] = weakref.WeakSet()
 
     def __hash__(self):
         return self["_trackable_id"]
@@ -151,10 +137,10 @@ class Store(dict):
         # Apply
         old_value = dict.get(self, key, undefined)
         self[key] = new_value
-        # Notify the roots
+        # Notify the trackers
         id = self["_trackable_id"]
-        for root in self["_trackable_roots"]:
-            root._track_set((id, key), old_value, new_value)
+        for tracker in self["_trackable_trackers"]:
+            tracker._track_set((id, key), old_value, new_value)
 
     def __getattribute__(self, key):
         value = undefined
@@ -165,17 +151,18 @@ class Store(dict):
             raise AttributeError(key) from None
         finally:
             if global_context:
-                global_context.root._track_get(self, key, value, global_context.label)
+                global_context.tracker._track_get(
+                    self, key, value, global_context.label
+                )
 
 
-# todo: rename to tracker?
-class Root:
-    """Object to store all the tracking data for a RootTrackable."""
+class PropTracker:
+    """Object to store all the tracking data."""
 
     def __init__(self):
         # Keep track of what stores have a reference to *this*,
         # so that we can clear that reference when we want.
-        # The store and root are always connected/disconnected together.
+        # The store and tracker are always connected/disconnected together.
         self._stores = weakref.WeakKeyDictionary()  # store -> labels
         # The names to track. Names are (id, key)  -  name -> labels
         self._trackable_names = {}
@@ -218,18 +205,18 @@ class Root:
         return set(label.lstrip("!") for label in result)
 
     def _track_store(self, store, label):
-        # Introduce the store and root to each-other
-        store["_trackable_roots"].add(self)
+        # Introduce the store and tracker to each-other
+        store["_trackable_trackers"].add(self)
         labels = self._stores.setdefault(store, set())
         labels.add(label)
 
     def _untrack_store(self, store, label):
-        # Break the connection between root and store
+        # Break the connection between tracker and store
         labels = self._stores.setdefault(store, set())
         labels.discard(label)
         if not labels:
             self._stores.pop(store, None)
-            store["_trackable_roots"].discard(self)
+            store["_trackable_trackers"].discard(self)
 
     def _track_init(self, label):
         # Reset the tracking data for the given label
@@ -248,7 +235,7 @@ class Root:
                 to_remove.append(store)
         for store in to_remove:
             self._stores.pop(store, None)
-            store["_trackable_roots"].discard(self)
+            store["_trackable_trackers"].discard(self)
 
     def _track_done(self, label):
         pass
@@ -256,7 +243,7 @@ class Root:
     def _track_get(self, store, key, value, label):
         # Called when *any* trackable has an attribute GET while a
         # global context is active. The trackable can be in the tree
-        # of the root (a (grand)child), but can also be part of a
+        # of the tracker (a (grand)child), but can also be part of a
         # detached tree.
 
         self._track_store(store, label)
@@ -269,7 +256,7 @@ class Root:
         self._trackable_values[name] = comp_value, comp_value
 
     def _track_set(self, name, old_value, new_value):
-        # Called when a trackable, that is setup to notify this root,
+        # Called when a trackable, that is setup to notify this tracker,
         # has an attribute SET. When this attribute was itself a
         # trackable, and/or is a trackable, we must update the complete
         # tree behind that trackable (to the extend that we track it).

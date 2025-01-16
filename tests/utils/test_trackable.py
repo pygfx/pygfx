@@ -2,7 +2,7 @@ import gc
 import time
 import weakref
 
-from pygfx.utils.trackable import Trackable, RootTrackable
+from pygfx.utils.trackable import Trackable, PropTracker
 
 # ruff: noqa: B018 - in these tests we access values for their side-effect
 
@@ -45,26 +45,30 @@ class Mixin:
         self._store.sub3 = value
 
 
-class MyRootTrackable(Mixin, RootTrackable):
+class MyRootTrackable(Mixin, Trackable):
+    def __init__(self):
+        super().__init__()
+        self._tracker = PropTracker()
+
     @property
     def tracker(self):
-        return self._root_tracker
+        return self._tracker
 
     def track_usage(self, label):
-        return self._root_tracker.track_usage(label)
+        return self._tracker.track_usage(label)
 
     def pop_changed(self):
-        return self._root_tracker.pop_changed()
+        return self._tracker.pop_changed()
 
     @property
     def all_known_store_ids(self):
-        return set(s["_trackable_id"] for s in self._root_tracker._stores.keys())
+        return set(s["_trackable_id"] for s in self._tracker._stores.keys())
 
 
 class MyTrackable(Mixin, Trackable):
     @property
-    def known_roots(self):
-        return set(self._store["_trackable_roots"])
+    def known_trackers(self):
+        return set(self._store["_trackable_trackers"])
 
 
 class MyTrackable2(MyTrackable):
@@ -754,8 +758,8 @@ def test_cleanup4():
     assert id1 not in root.all_known_store_ids
     assert id2 not in root.all_known_store_ids
 
-    assert root not in ext.known_roots
-    assert root not in ext.sub1.known_roots
+    assert root not in ext.known_trackers
+    assert root not in ext.sub1.known_trackers
 
     # Listen to stuff in ext
 
@@ -766,8 +770,8 @@ def test_cleanup4():
     assert id1 in root.all_known_store_ids
     assert id2 in root.all_known_store_ids
 
-    assert root.tracker in ext.known_roots
-    assert root.tracker in ext.sub1.known_roots
+    assert root.tracker in ext.known_trackers
+    assert root.tracker in ext.sub1.known_trackers
 
     # Now listen to stuff in root's tree
 
@@ -778,8 +782,8 @@ def test_cleanup4():
     assert id1 not in root.all_known_store_ids
     assert id2 not in root.all_known_store_ids
 
-    assert root.tracker not in ext.known_roots
-    assert root.tracker not in ext.sub1.known_roots
+    assert root.tracker not in ext.known_trackers
+    assert root.tracker not in ext.sub1.known_trackers
 
     ext.sub1.foo = 42
     assert not root.pop_changed()
