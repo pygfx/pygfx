@@ -303,6 +303,9 @@ class WorldObject(EventTarget, Trackable):
     @property
     def material(self):
         """Whether is object is rendered or not. Default True."""
+        # In contrast to the geometry, the material is not stored on self._store,
+        # because it should not be tracked, because pipeline-containers are unique
+        # for each combi of (wobject, material, renderstate).
         return self._material
 
     @material.setter
