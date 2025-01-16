@@ -584,7 +584,7 @@ class _GLTF:
 
         extensions = material.extensions
 
-        if "KHR_materials_clearcoat" in extensions:
+        if extensions and "KHR_materials_clearcoat" in extensions:
 
             def _load_texture(texture_info):
                 texture_index = texture_info["index"]
