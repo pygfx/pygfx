@@ -357,7 +357,7 @@ class PipelineContainer:
 
         if "bindings" in changed:
             self.shader.unlock_hash()
-            with tracker.track_usage("bindings"):
+            with tracker.track_usage("!bindings"):
                 self.bindings_dicts = self.shader.get_bindings(wobject, self.shared)
             self.shader.lock_hash()
             self._check_bindings()
@@ -403,8 +403,8 @@ class PipelineContainer:
         # Update shaders
         for pass_index in pass_indices:
             if pass_index not in self.wgpu_shaders:
-                changed.add("compile_shader")
-                self.wgpu_shaders[pass_index] = self._compile_shader(
+                changed.add("shader")
+                self.wgpu_shaders[pass_index] = self._get_shader(
                     pass_index, renderstate
                 )
                 self.wgpu_pipelines.pop(pass_index, None)
@@ -412,7 +412,7 @@ class PipelineContainer:
         # Update pipelines
         for pass_index in pass_indices:
             if pass_index not in self.wgpu_pipelines:
-                changed.add("compose_pipeline")
+                changed.add("pipeline")
                 self.wgpu_pipelines[pass_index] = self._compose_pipeline(
                     pass_index, renderstate
                 )
@@ -510,8 +510,8 @@ class ComputePipelineContainer(PipelineContainer):
         assert all(isinstance(i, int) for i in indices)
         assert len(indices) == 3
 
-    def _compile_shader(self, pass_index, renderstate):
-        """Compile the templated wgsl shader to a wgpu shader module."""
+    def _get_shader(self, pass_index, renderstate):
+        """Get the wgpu shader module for the templated wgsl shade."""
         shader_kwargs = {}
         return get_cached_shader_module(self.device, self.shader, shader_kwargs)
 
@@ -592,8 +592,8 @@ class RenderPipelineContainer(PipelineContainer):
             self.strip_index_format = strip_index_format
             self.wgpu_pipelines = {}
 
-    def _compile_shader(self, pass_index, renderstate):
-        """Compile the templated shader to a wgpu shader module."""
+    def _get_shader(self, pass_index, renderstate):
+        """Get the wgpu shader module for the templated shader."""
         blender = renderstate.blender
         renderstate_bind_group_index = len(self.wgpu_bind_groups)
 
