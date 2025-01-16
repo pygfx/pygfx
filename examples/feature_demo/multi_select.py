@@ -2,13 +2,17 @@
 Multi-Object Selection
 ======================
 
-
 Example demonstrating multi object selection using mouse events.
 
 Hovering the mouse over a cube will highlight it with a bounding box.
 Clicking on a cube will select it. Double-clicking a cube will select
 all the items from that group (because the group has a double-click
 event handler). Holding shift will add to the selection.
+
+This example keeps two materials, one for the default and one for the
+selected appearance. The low-level wgpu objects are associated with
+both the world object and the material. This means that swapping to a
+material that was already used (with that object) has zero overhead.
 """
 
 # sphinx_gallery_pygfx_docs = 'screenshot'
