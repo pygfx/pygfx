@@ -59,7 +59,7 @@ gltf_path = model_dir / "ClearcoatWicker.glb"
 
 gltf = gfx.load_gltf(gltf_path)
 
-# gfx.print_tree(gltf.scene)  # Uncomment to see the tree structure
+# gfx.print_scene_graph(gltf.scene)  # Uncomment to see the tree structure
 
 scene.add(gltf.scene)
 
@@ -81,38 +81,8 @@ camera.show_object(gltf.scene, view_dir=(1.8, -0.6, -2.7))
 controller = gfx.OrbitController(camera, register_events=renderer)
 
 
-# gui_renderer = ImguiRenderer(renderer.device, canvas)
-
-# def draw_imgui():
-#     imgui.new_frame()
-#     imgui.set_next_window_size((250, 0), imgui.Cond_.always)
-#     imgui.set_next_window_pos(
-#         (gui_renderer.backend.io.display_size.x - 250, 0), imgui.Cond_.always
-#     )
-#     is_expand, _ = imgui.begin(
-#         "Controls",
-#         None,
-#         flags=imgui.WindowFlags_.no_move | imgui.WindowFlags_.no_resize,
-#     )
-#     if is_expand:
-#         changed, clearcoat = imgui.slider_float(
-#             "clearcoat", m.material.clearcoat, 0, 1
-#         )
-#         if changed:
-#             m.material.clearcoat = clearcoat
-
-#     imgui.end()
-#     imgui.end_frame()
-#     imgui.render()
-#     return imgui.get_draw_data()
-
-
-# gui_renderer.set_gui(draw_imgui)
-
-
 def animate():
     renderer.render(scene, camera)
-    # gui_renderer.render()
     canvas.request_draw()
 
 

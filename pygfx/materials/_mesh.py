@@ -1060,6 +1060,33 @@ class MeshStandardMaterial(MeshBasicMaterial):
 
 
 class MeshPhysicalMaterial(MeshStandardMaterial):
+    """Physical mesh material.
+
+    This is an extension of the MeshStandardMaterial,
+    providing more advanced physically-based rendering properties.
+
+    Parameters
+    ----------
+
+    ior : float
+        The index of refraction (IOR) of the material. Default is 1.5.
+    specular : Color
+        The specular (highlight) color of the mesh.
+    clearcoat : float
+        How much the material has a clearcoat layer. Default is 0.0.
+    clearcoat_roughness : float
+        How rough the clearcoat layer is. 0.0 means a smooth mirror
+        reflection, 1.0 means fully diffuse. Default is 0.0.
+    clearcoat_normal_scale : tuple
+        How much the clearcoat normal map affects the material. This 2-tuple
+        is multiplied with the clearcoat_normal_map's xy components (z is unaffected).
+        Typical ranges are 0-1. Default is (1,1).
+    kwargs : Any
+        Additional kwargs will be passed to the :class:`base class
+        <pygfx.MeshStandardMaterial>`.
+
+    """
+
     uniform_type = dict(
         MeshStandardMaterial.uniform_type,
         ior="f4",
