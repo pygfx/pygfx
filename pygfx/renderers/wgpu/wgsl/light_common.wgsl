@@ -30,6 +30,9 @@ struct GeometricContext {
     position: vec3<f32>,
     normal: vec3<f32>,
     view_dir: vec3<f32>,
+    $$ if USE_CLEARCOAT is defined
+    clearcoat_normal: vec3<f32>,
+    $$ endif
 };
 
 $$ if num_dir_lights > 0
@@ -89,7 +92,7 @@ fn F_Schlick(f0: vec3<f32>, f90: f32, dot_vh: f32,) -> vec3<f32> {
     return f0 * ( 1.0 - fresnel ) + ( f90 * fresnel );
 }
 
-$$ if use_normal_map is defined
+$$ if use_normal_map is defined or use_clearcoat_normal_map is defined
 fn perturbNormal2Arb( eye_pos: vec3<f32>, surf_norm: vec3<f32>, mapN: vec3<f32>, uv: vec2<f32>, is_front: bool) -> vec3<f32> {
     let q0 = dpdx( eye_pos.xyz );
     let q1 = dpdy( eye_pos.xyz );

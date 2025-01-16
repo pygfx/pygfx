@@ -175,7 +175,7 @@ class _GLTF:
         10497: "repeat",  # REPEAT
     }
 
-    SUPPORTED_EXTENSIONS = ["KHR_mesh_quantization"]
+    SUPPORTED_EXTENSIONS = ["KHR_mesh_quantization", "KHR_materials_clearcoat"]
 
     def __init__(self):
         self.scene = None
@@ -582,7 +582,53 @@ class _GLTF:
         material = self._gltf.model.materials[material_index]
         pbr_metallic_roughness = material.pbrMetallicRoughness
 
-        gfx_material = gfx.MeshStandardMaterial()
+        extensions = material.extensions
+
+        if extensions and "KHR_materials_clearcoat" in extensions:
+
+            def _load_texture(texture_info):
+                texture_index = texture_info["index"]
+                texture_map = self._load_gltf_texture_map(texture_index)
+                uv_channel = texture_info.get("texCoord", 0)
+                texture_map.channel = uv_channel or 0
+                return texture_map
+
+            gfx_material = gfx.MeshPhysicalMaterial()
+            extension = extensions["KHR_materials_clearcoat"]
+
+            clearcoat_factor = extension.get("clearcoatFactor", None)
+            if clearcoat_factor is not None:
+                gfx_material.clearcoat = clearcoat_factor
+
+            clearcoat_texture = extension.get("clearcoatTexture", None)
+            if clearcoat_texture is not None:
+                gfx_material.clearcoat_map = _load_texture(clearcoat_texture)
+
+            clearcoat_roughness_factor = extension.get("clearcoatRoughnessFactor", None)
+            if clearcoat_roughness_factor is not None:
+                gfx_material.clearcoat_roughness = clearcoat_roughness_factor
+
+            clearcoat_rughness_texture = extension.get(
+                "clearcoatRoughnessTexture", None
+            )
+            if clearcoat_rughness_texture is not None:
+                gfx_material.clearcoat_roughness_map = _load_texture(
+                    clearcoat_rughness_texture
+                )
+
+            clearcoat_normal_texture = extension.get("clearcoatNormalTexture", None)
+            if clearcoat_normal_texture is not None:
+                gfx_material.clearcoat_normal_map = _load_texture(
+                    clearcoat_normal_texture
+                )
+                clearcoat_normal_scale = clearcoat_normal_texture.get("scale", None)
+                if clearcoat_normal_scale is not None:
+                    gfx_material.clearcoat_normal_scale = (
+                        clearcoat_normal_scale,
+                        clearcoat_normal_scale,
+                    )
+        else:
+            gfx_material = gfx.MeshStandardMaterial()
 
         if pbr_metallic_roughness is not None:
             if pbr_metallic_roughness.baseColorFactor is not None:
