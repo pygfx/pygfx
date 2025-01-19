@@ -4,7 +4,6 @@ import numpy as np
 from ._base import WorldObject
 from ..resources import Buffer
 from ..utils import unpack_bitfield, array_from_shadertype
-from ..utils.transform import AffineBase
 from ..materials import BackgroundMaterial
 
 
@@ -434,8 +433,8 @@ class Text(WorldObject):
             name=name,
         )
 
-    def _update_uniform_buffers(self, transform: AffineBase):
-        super()._update_uniform_buffers(transform)
+    def _update_uniform_buffers(self):
+        super()._update_uniform_buffers()
         # When rendering in screen space, the world transform is used
         # to establish the point in the scene where the text is placed.
         # The only part of the local transform that is used is the

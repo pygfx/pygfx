@@ -70,10 +70,10 @@ class callback:  # noqa: N801
 
         @functools.wraps(self.callback_fn)
         def inner(*args, **kwargs):
-            if weak_instance() is None:
+            if (instance := weak_instance()) is None:
                 return
 
-            return self.callback_fn(weak_instance(), *args, **kwargs)
+            return self.callback_fn(instance, *args, **kwargs)
 
         return inner
 
@@ -124,7 +124,7 @@ class AffineBase:
 
     Notes
     -----
-    Subclasses need to define and implement ``last_modified`` for the caching
+    Subclasses need to implement ``last_modified`` for the caching
     mechanism to work correctly. Check out existing subclasses for an example of
     how this might look like.
 
@@ -133,10 +133,9 @@ class AffineBase:
 
     """
 
-    last_modified: int
-
     def __init__(self, /, *, reference_up=(0, 1, 0), is_camera_space=False):
         self.update_callbacks = {}
+        self.last_modified = perf_counter_ns()
 
         self.is_camera_space = int(is_camera_space)
 
@@ -231,8 +230,9 @@ class AffineBase:
         euler.flags.writeable = False
         return euler
 
-    def flag_update(self):
+    def flag_update(self, *args, **kwargs):
         """Signal that this transform has updated."""
+        self.last_modified = perf_counter_ns()
         for callback in list(self.update_callbacks.values()):
             callback(self)
 
@@ -561,7 +561,6 @@ class AffineTransform(AffineBase):
         matrix=None,
     ) -> None:
         super().__init__(reference_up=reference_up, is_camera_space=is_camera_space)
-        self.last_modified = perf_counter_ns()
         self._state_basis = state_basis
 
         self._position = np.asarray(position, dtype=float)
@@ -583,10 +582,6 @@ class AffineTransform(AffineBase):
 
         self._matrix_view = self._matrix.view()
         self._matrix_view.flags.writeable = False
-
-    def flag_update(self):
-        self.last_modified = perf_counter_ns()
-        super().flag_update()
 
     @property
     def state_basis(self) -> str:
@@ -823,7 +818,6 @@ class RecursiveTransform(AffineBase):
         super().__init__(reference_up=reference_up, is_camera_space=is_camera_space)
         self._parent = None
         self.own = None
-        self.last_modified = perf_counter_ns()
 
         self.own = base
         self.own._set_reference_up_provider(self)
@@ -833,20 +827,8 @@ class RecursiveTransform(AffineBase):
         else:
             self._parent = parent
 
-        self.parent.on_update(self._parent_updated)
-        self.own.on_update(self._own_updated)
-
-    def flag_update(self):
-        self.last_modified = perf_counter_ns()
-        super().flag_update()
-
-    @callback
-    def _parent_updated(self, parent: AffineBase):
-        self.flag_update()
-
-    @callback
-    def _own_updated(self, own: AffineBase):
-        self.flag_update()
+        self.parent.on_update(self.flag_update)
+        self.own.on_update(self.flag_update)
 
     @cached
     def __own_reference_up(self) -> np.ndarray:
@@ -877,14 +859,14 @@ class RecursiveTransform(AffineBase):
 
     @parent.setter
     def parent(self, value):
-        self.parent.remove_callback(self._parent_updated)
+        self.parent.remove_callback(self.flag_update)
 
         if value is None:
             self._parent = AffineTransform()
         else:
             self._parent = value
 
-        self.parent.on_update(self._parent_updated)
+        self.parent.on_update(self.flag_update)
         self.flag_update()
 
     @cached

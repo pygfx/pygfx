@@ -132,8 +132,6 @@ class WorldObject(EventTarget, Trackable):
         id="i4",
     )
 
-    transform_updates = weakref.WeakKeyDictionary()
-
     def __init__(
         self,
         geometry=None,
@@ -167,6 +165,7 @@ class WorldObject(EventTarget, Trackable):
             self.local, is_camera_space=self._FORWARD_IS_MINUS_Z, reference_up=(0, 1, 0)
         )
         self.world.on_update(self.flag_transform_update)
+        self._uniform_buffers_dirty = True
 
         # Set id
         self._id = id_provider.claim_id(self)
@@ -186,12 +185,12 @@ class WorldObject(EventTarget, Trackable):
 
     @callback
     def flag_transform_update(self, transform: AffineBase):
-        self.transform_updates[self] = transform
+        self._uniform_buffers_dirty = True
 
-    def _update_uniform_buffers(self, transform: AffineBase):
+    def _update_uniform_buffers(self):
         orig_err_setting = np.seterr(under="ignore")
-        self.uniform_buffer.data["world_transform"] = transform.matrix.T
-        self.uniform_buffer.data["world_transform_inv"] = transform.inverse_matrix.T
+        self.uniform_buffer.data["world_transform"] = self.world.matrix.T
+        self.uniform_buffer.data["world_transform_inv"] = self.world.inverse_matrix.T
         self.uniform_buffer.update_full()
         np.seterr(**orig_err_setting)
 
