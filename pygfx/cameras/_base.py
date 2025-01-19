@@ -32,9 +32,6 @@ class Camera(WorldObject):
         self._view_size = 1.0, 1.0
         self._view_offset = None
 
-        # self.projection_matrix = np.eye(4, dtype=float)
-        # self.projection_matrix_inverse = np.eye(4, dtype=float)
-
     def flag_update(self):
         self.last_modified = perf_counter_ns()
 
@@ -123,7 +120,7 @@ class Camera(WorldObject):
         return self.world.inverse_matrix
 
     @cached
-    def _projection_matrix(self) -> np.ndarray:
+    def projection_matrix(self) -> np.ndarray:
         base = self._update_projection_matrix()
         if self._view_offset is None:
             return base
@@ -146,25 +143,13 @@ class Camera(WorldObject):
         )
         return ndc_matrix @ base
 
-    @property
-    def projection_matrix(self) -> np.ndarray:
-        return self._projection_matrix
-
     @cached
-    def _projection_matrix_inverse(self) -> np.ndarray:
+    def projection_matrix_inverse(self) -> np.ndarray:
         return la.mat_inverse(self.projection_matrix)
 
-    @property
-    def projection_matrix_inverse(self) -> np.ndarray:
-        return self._projection_matrix_inverse
-
     @cached
-    def _camera_matrix(self) -> np.ndarray:
-        return self._projection_matrix @ self.view_matrix
-
-    @property
     def camera_matrix(self) -> np.ndarray:
-        return self._camera_matrix
+        return self._projection_matrix @ self.view_matrix
 
 
 class NDCCamera(Camera):
