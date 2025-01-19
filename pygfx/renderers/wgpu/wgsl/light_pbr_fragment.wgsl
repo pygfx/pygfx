@@ -24,7 +24,7 @@ material.roughness += geometry_roughness;
 material.roughness = min( material.roughness, 1.0 );
 
 
-$$ if IOR is defined
+$$ if USE_IOR is defined
     material.ior = u_material.ior;
 
     $$ if USE_SPECULAR
@@ -42,8 +42,8 @@ $$ if IOR is defined
         material.specular_f90 = mix( specular_intensity, 1.0, metalness_factor );
     
     $$ else
-        specular_intensity = 1.0;
-        specular_color = vec3f( 1.0 );
+        let specular_intensity = 1.0;
+        let specular_color = vec3f( 1.0 );
         material.specular_f90 = 1.0;
 
     $$ endif

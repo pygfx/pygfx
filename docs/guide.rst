@@ -244,6 +244,11 @@ Materials also have properties to tune things like color,
 line thickness, colormap, etc. Multiple world objects may share the same material
 object, so their appearance can be changed simultaneously.
 
+Performance tip: changing the material on a world object incurs some
+overhead for creating the low-level wgpu objects. However, switching
+to a material that was already used (with that object) has zero
+overhead.
+
 
 Cameras and controllers
 -----------------------
