@@ -250,9 +250,6 @@ class Ruler(WorldObject):
     def _configure_for_screen(self, camera, canvas_size):
         """Make the ruler aware of the camera and viewport size."""
 
-        # Yuk, but needed
-        camera.update_projection_matrix()
-
         half_canvas_size = 0.5 * np.array(canvas_size, np.float64).reshape(1, 2)
 
         # Get ndc coords for begin and end pos. Use numpy broadcasting for performance and compactness.
