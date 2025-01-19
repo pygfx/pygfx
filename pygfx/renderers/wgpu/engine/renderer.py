@@ -489,9 +489,9 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
         # Update transform uniform buffers
         for wobject in wobject_list:
-            transform = WorldObject.transform_updates.pop(wobject, None)
-            if transform:
-                wobject._update_uniform_buffers(transform)
+            if wobject._uniform_buffers_dirty:
+                wobject._update_uniform_buffers()
+                wobject._uniform_buffers_dirty = False
 
         # Prepare the shared object
         self._shared.pre_render_hook()
