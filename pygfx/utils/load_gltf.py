@@ -164,6 +164,8 @@ class _GLTF:
         "TANGENT": "tangents",
         "TEXCOORD_0": "texcoords",
         "TEXCOORD_1": "texcoords1",
+        "TEXCOORD_2": "texcoords2",
+        "TEXCOORD_3": "texcoords3",
         "COLOR_0": "colors",
         "JOINTS_0": "skin_indices",
         "WEIGHTS_0": "skin_weights",
@@ -175,13 +177,18 @@ class _GLTF:
         10497: "repeat",  # REPEAT
     }
 
-    SUPPORTED_EXTENSIONS = ["KHR_mesh_quantization", "KHR_materials_clearcoat"]
-
     def __init__(self):
         self.scene = None
         self.scenes = []
         self.cameras = []
         self.animations = None
+
+        self._plugins = []
+
+        self._plugins.append(GLTFMeshQuantizationExtension(self))
+        self._plugins.append(GLTFMaterialsIorExtension(self))
+        self._plugins.append(GLTFMaterialsSpecularExtension(self))
+        self._plugins.append(GLTFMaterialsClearcoatExtension(self))
 
     def load(self, path, quiet=False, remote_ok=True):
         """Load the whole gltf file, including meshes, skeletons, cameras, and animations."""
@@ -382,8 +389,10 @@ class _GLTF:
         if not quiet:
             extensions_required = self._gltf.model.extensionsRequired or []
 
+            supported_extensions = [plugin.name for plugin in self._plugins]
+
             unsupported_extensions_required = set(extensions_required) - set(
-                self.SUPPORTED_EXTENSIONS
+                supported_extensions
             )
 
             if unsupported_extensions_required:
@@ -396,7 +405,7 @@ class _GLTF:
             extensions_used = self._gltf.model.extensionsUsed or []
 
             unsupported_extensions_used = set(extensions_used) - set(
-                self.SUPPORTED_EXTENSIONS
+                supported_extensions
             )
             if unsupported_extensions_used:
                 gfx.utils.logger.warning(
@@ -580,56 +589,29 @@ class _GLTF:
     @lru_cache(maxsize=None)
     def _load_gltf_material(self, material_index):
         material = self._gltf.model.materials[material_index]
-        pbr_metallic_roughness = material.pbrMetallicRoughness
+
+        material_type = gfx.MeshStandardMaterial
 
         extensions = material.extensions
+        # check if any plugin can handle this material type
+        if extensions:
+            for plugin in self._plugins:
+                if plugin.name in extensions:
+                    if hasattr(plugin, "get_material_type"):
+                        # get the material type from the first plugin that can handle it
+                        material_type = plugin.get_material_type(material)
+                        break
 
-        if extensions and "KHR_materials_clearcoat" in extensions:
+        gfx_material = material_type()
 
-            def _load_texture(texture_info):
-                texture_index = texture_info["index"]
-                texture_map = self._load_gltf_texture_map(texture_index)
-                uv_channel = texture_info.get("texCoord", 0)
-                texture_map.channel = uv_channel or 0
-                return texture_map
+        # check if any plugin can extend the material
+        if extensions:
+            for plugin in self._plugins:
+                if plugin.name in extensions:
+                    if hasattr(plugin, "extend_material"):
+                        plugin.extend_material(material, gfx_material)
 
-            gfx_material = gfx.MeshPhysicalMaterial()
-            extension = extensions["KHR_materials_clearcoat"]
-
-            clearcoat_factor = extension.get("clearcoatFactor", None)
-            if clearcoat_factor is not None:
-                gfx_material.clearcoat = clearcoat_factor
-
-            clearcoat_texture = extension.get("clearcoatTexture", None)
-            if clearcoat_texture is not None:
-                gfx_material.clearcoat_map = _load_texture(clearcoat_texture)
-
-            clearcoat_roughness_factor = extension.get("clearcoatRoughnessFactor", None)
-            if clearcoat_roughness_factor is not None:
-                gfx_material.clearcoat_roughness = clearcoat_roughness_factor
-
-            clearcoat_rughness_texture = extension.get(
-                "clearcoatRoughnessTexture", None
-            )
-            if clearcoat_rughness_texture is not None:
-                gfx_material.clearcoat_roughness_map = _load_texture(
-                    clearcoat_rughness_texture
-                )
-
-            clearcoat_normal_texture = extension.get("clearcoatNormalTexture", None)
-            if clearcoat_normal_texture is not None:
-                gfx_material.clearcoat_normal_map = _load_texture(
-                    clearcoat_normal_texture
-                )
-                clearcoat_normal_scale = clearcoat_normal_texture.get("scale", None)
-                if clearcoat_normal_scale is not None:
-                    gfx_material.clearcoat_normal_scale = (
-                        clearcoat_normal_scale,
-                        clearcoat_normal_scale,
-                    )
-        else:
-            gfx_material = gfx.MeshStandardMaterial()
-
+        pbr_metallic_roughness = material.pbrMetallicRoughness
         if pbr_metallic_roughness is not None:
             if pbr_metallic_roughness.baseColorFactor is not None:
                 gfx_material.color = gfx.Color.from_physical(
@@ -786,6 +768,8 @@ class _GLTF:
                     "tangents",
                     "texcoords",
                     "texcoords1",
+                    "texcoords2",
+                    "texcoords3",
                 ):
                     data = data.astype(np.float32, copy=False)
 
@@ -918,6 +902,9 @@ class _GLTF:
 
             if target.node is None:
                 # todo: now we only support node animation
+                gfx.utils.logger.warning(
+                    f"Animation channel target [{target}] node is None, skip it for now."
+                )
                 continue
 
             target_node = self._load_node(target.node)
@@ -1052,3 +1039,130 @@ class GLTFCubicSplineQuaternionInterpolant(GLTFCubicSplineInterpolant):
         res = super()._interpolate(i1, t0, t, t1)
         # remember normalize the quaternion
         return res / np.linalg.norm(res)
+
+
+### GLTF Extensions ###
+
+
+class GLTFExtension:
+    """
+    Abstract Base class for GLTF extensions.
+    """
+
+    EXTENSION_NAME = ""
+
+    def __init__(self, parser):
+        self.name = self.EXTENSION_NAME
+        self.parser = parser
+
+
+class GLTFMeshQuantizationExtension(GLTFExtension):
+    EXTENSION_NAME = "KHR_mesh_quantization"
+
+
+class GLTFBaseMaterialsExtension(GLTFExtension):
+    """
+    Abstract Base class for GLTF materials extensions.
+    """
+
+    MATERIAL_TYPE = gfx.MeshPhysicalMaterial
+
+    def _load_texture(self, texture_info):
+        texture_index = texture_info["index"]
+        texture_map = self.parser._load_gltf_texture_map(texture_index)
+        uv_channel = texture_info.get("texCoord", 0)
+        texture_map.channel = uv_channel or 0
+        return texture_map
+
+    def get_material_type(self, material_def):
+        if material_def.extensions and self.EXTENSION_NAME in material_def.extensions:
+            return self.MATERIAL_TYPE
+        else:
+            return None
+
+    def extend_material(self, material_def, material):
+        pass
+
+
+class GLTFMaterialsIorExtension(GLTFBaseMaterialsExtension):
+    EXTENSION_NAME = "KHR_materials_ior"
+
+    def extend_material(self, material_def, material):
+        if (
+            not material_def.extensions
+            or self.EXTENSION_NAME not in material_def.extensions
+        ):
+            return
+
+        extension = material_def.extensions[self.EXTENSION_NAME]
+
+        material.ior = extension.get("ior", 1.5)
+
+
+class GLTFMaterialsSpecularExtension(GLTFBaseMaterialsExtension):
+    EXTENSION_NAME = "KHR_materials_specular"
+
+    def extend_material(self, material_def, material):
+        if (
+            not material_def.extensions
+            or self.EXTENSION_NAME not in material_def.extensions
+        ):
+            return
+
+        extension = material_def.extensions[self.EXTENSION_NAME]
+
+        material.specular_intensity = extension.get("specularFactor", 1.0)
+
+        specular_texture = extension.get("specularTexture", None)
+
+        if specular_texture is not None:
+            material.specular_intensity_map = self._load_texture(specular_texture)
+
+        specular_color = extension.get("specularColorFactor", [1.0, 1.0, 1.0])
+        material.specular = gfx.Color.from_physical(*specular_color)
+
+        specular_color_texture = extension.get("specularColorTexture", None)
+
+        if specular_color_texture is not None:
+            material.specular_map = self._load_texture(specular_color_texture)
+
+
+class GLTFMaterialsClearcoatExtension(GLTFBaseMaterialsExtension):
+    EXTENSION_NAME = "KHR_materials_clearcoat"
+
+    def extend_material(self, material_def, material):
+        if (
+            not material_def.extensions
+            or self.EXTENSION_NAME not in material_def.extensions
+        ):
+            return
+
+        extension = material_def.extensions[self.EXTENSION_NAME]
+
+        clearcoat_factor = extension.get("clearcoatFactor", None)
+        if clearcoat_factor is not None:
+            material.clearcoat = clearcoat_factor
+
+        clearcoat_texture = extension.get("clearcoatTexture", None)
+        if clearcoat_texture is not None:
+            material.clearcoat_map = self._load_texture(clearcoat_texture)
+
+        clearcoat_roughness_factor = extension.get("clearcoatRoughnessFactor", None)
+        if clearcoat_roughness_factor is not None:
+            material.clearcoat_roughness = clearcoat_roughness_factor
+
+        clearcoat_rughness_texture = extension.get("clearcoatRoughnessTexture", None)
+        if clearcoat_rughness_texture is not None:
+            material.clearcoat_roughness_map = self._load_texture(
+                clearcoat_rughness_texture
+            )
+
+        clearcoat_normal_texture = extension.get("clearcoatNormalTexture", None)
+        if clearcoat_normal_texture is not None:
+            material.clearcoat_normal_map = self._load_texture(clearcoat_normal_texture)
+            clearcoat_normal_scale = clearcoat_normal_texture.get("scale", None)
+            if clearcoat_normal_scale is not None:
+                material.clearcoat_normal_scale = (
+                    clearcoat_normal_scale,
+                    clearcoat_normal_scale,
+                )
