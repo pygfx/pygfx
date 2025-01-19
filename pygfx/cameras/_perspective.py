@@ -493,16 +493,6 @@ class PerspectiveCamera(Camera):
         self.world.position = new_position
 
     @cached
-    def _frustum(self):
-        projection_matrix = self.projection_matrix
-
-        ndc_corners = np.array([(-1, -1), (1, -1), (1, 1), (-1, 1)])
-        depths = np.array((0, 1))[:, None]
-        local_corners = la.vec_unproject(ndc_corners, projection_matrix, depth=depths)
-        world_corners = la.vec_transform(local_corners, self.world.matrix)
-        return world_corners
-
-    @property
     def frustum(self):
         """Corner positions of the viewing frustum in world space.
 
@@ -515,7 +505,13 @@ class PerspectiveCamera(Camera):
             and the third to the world position of that corner.
 
         """
-        return self._frustum
+        projection_matrix = self.projection_matrix
+
+        ndc_corners = np.array([(-1, -1), (1, -1), (1, 1), (-1, 1)])
+        depths = np.array((0, 1))[:, None]
+        local_corners = la.vec_unproject(ndc_corners, projection_matrix, depth=depths)
+        world_corners = la.vec_transform(local_corners, self.world.matrix)
+        return world_corners
 
 
 def fov_distance_factor(fov):

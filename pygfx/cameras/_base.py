@@ -149,7 +149,7 @@ class Camera(WorldObject):
 
     @cached
     def camera_matrix(self) -> np.ndarray:
-        return self._projection_matrix @ self.view_matrix
+        return self.projection_matrix @ self.view_matrix
 
 
 class NDCCamera(Camera):
