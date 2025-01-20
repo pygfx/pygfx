@@ -578,8 +578,6 @@ class DirectionalLightShadow(LightShadow):
         super().__init__(OrthographicCamera(1000, 1000, depth_range=(-500, 500)))
 
     def _update_matrix(self, light):
-        camera = self.camera
-        camera.update_projection_matrix()
         super()._update_matrix(light)
 
 
@@ -602,7 +600,6 @@ class SpotLightShadow(LightShadow):
             camera.fov = fov
             camera.aspect = aspect
             camera.depth_range = far / 1000000, far
-            camera.update_projection_matrix()
 
         super()._update_matrix(light)
 
@@ -642,7 +639,6 @@ class PointLightShadow(LightShadow):
 
         if far != camera.far:
             camera.depth_range = far / 1000000, far
-            camera.update_projection_matrix()
 
         for i in range(6):
             # Note: the direction may align with `up`, but we have logic in

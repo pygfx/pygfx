@@ -469,9 +469,6 @@ class WgpuRenderer(RootEventHandler, Renderer):
             )
             self.dispatch_event(ev)
 
-        # Ensure that matrices are up-to-date
-        camera.update_projection_matrix()
-
         # Flatten the scenegraph, categorised by render_order
         wobject_dict = {}
         scene.traverse(

@@ -1,7 +1,10 @@
+from time import perf_counter_ns
+
 import numpy as np
 import pylinalg as la
 
 from ..objects._base import WorldObject
+from ..utils.transform import cached, callback
 
 
 class Camera(WorldObject):
@@ -24,16 +27,21 @@ class Camera(WorldObject):
 
     def __init__(self):
         super().__init__()
+        self.last_modified = perf_counter_ns()
 
         self._view_size = 1.0, 1.0
         self._view_offset = None
 
-        self.projection_matrix = np.eye(4, dtype=float)
-        self.projection_matrix_inverse = np.eye(4, dtype=float)
+        self.world.on_update(self.flag_update)
+
+    @callback
+    def flag_update(self, *args, **kwargs):
+        self.last_modified = perf_counter_ns()
 
     def set_view_size(self, width, height):
         """Sets the logical size of the target. Set by the renderer; you should typically not use this."""
         self._view_size = float(width), float(height)
+        self.flag_update()
 
     def set_view_offset(
         self,
@@ -92,37 +100,15 @@ class Camera(WorldObject):
             ax + 2.0 * vo["x"] / vo["full_width"] - 1.0,
             -(ay + 2.0 * vo["y"] / vo["full_height"] - 1.0),
         )
+        self.flag_update()
 
     def clear_view_offset(self):
         """Remove the currently set view offset, returning to a normal view."""
         self._view_offset = None
+        self.flag_update()
 
-    def update_projection_matrix(self):
+    def _update_projection_matrix(self) -> np.ndarray:
         raise NotImplementedError()
-
-    def _finalize_projection_matrix(self, projection_matrix):
-        if self._view_offset is None:
-            self.projection_matrix = projection_matrix
-        else:
-            view_offset = self._view_offset
-            s_x = view_offset["full_width"] / view_offset["width"]
-            s_y = view_offset["full_height"] / view_offset["height"]
-            d_x = view_offset["x"] / view_offset["full_width"]
-            d_y = view_offset["y"] / view_offset["full_height"]
-            t_x = +(s_x - 1.0 - 2.0 * s_x * d_x)
-            t_y = -(s_y - 1.0 - 2.0 * s_y * d_y)
-            ndc_matrix = np.array(
-                [
-                    [s_x, 0.0, 0.0, t_x],
-                    [0.0, s_y, 0.0, t_y],
-                    [0.0, 0.0, 1.0, 0.0],
-                    [0.0, 0.0, 0.0, 1.0],
-                ],
-                np.float32,
-            )
-            self.projection_matrix = ndc_matrix @ projection_matrix
-
-        self.projection_matrix_inverse = la.mat_inverse(self.projection_matrix)
 
     def get_state(self):
         """Get the state of the camera as a dict."""
@@ -130,13 +116,41 @@ class Camera(WorldObject):
 
     def set_state(self, state):
         """Set the state of the camera from a dict."""
-        pass
+        self.flag_update()
 
     @property
     def view_matrix(self) -> np.ndarray:
         return self.world.inverse_matrix
 
-    @property
+    @cached
+    def projection_matrix(self) -> np.ndarray:
+        base = self._update_projection_matrix()
+        if self._view_offset is None:
+            return base
+
+        view_offset = self._view_offset
+        s_x = view_offset["full_width"] / view_offset["width"]
+        s_y = view_offset["full_height"] / view_offset["height"]
+        d_x = view_offset["x"] / view_offset["full_width"]
+        d_y = view_offset["y"] / view_offset["full_height"]
+        t_x = +(s_x - 1.0 - 2.0 * s_x * d_x)
+        t_y = -(s_y - 1.0 - 2.0 * s_y * d_y)
+        ndc_matrix = np.array(
+            [
+                [s_x, 0.0, 0.0, t_x],
+                [0.0, s_y, 0.0, t_y],
+                [0.0, 0.0, 1.0, 0.0],
+                [0.0, 0.0, 0.0, 1.0],
+            ],
+            np.float32,
+        )
+        return ndc_matrix @ base
+
+    @cached
+    def projection_matrix_inverse(self) -> np.ndarray:
+        return la.mat_inverse(self.projection_matrix)
+
+    @cached
     def camera_matrix(self) -> np.ndarray:
         return self.projection_matrix @ self.view_matrix
 
@@ -151,8 +165,8 @@ class NDCCamera(Camera):
     the bottom left corner.
     """
 
-    def update_projection_matrix(self):
-        self._finalize_projection_matrix(np.eye(4))
+    def _update_projection_matrix(self):
+        return np.eye(4, dtype=float)
 
 
 class ScreenCoordsCamera(Camera):
@@ -161,9 +175,9 @@ class ScreenCoordsCamera(Camera):
     The depth range is the same as in NDC (0 to 1).
     """
 
-    def update_projection_matrix(self):
+    def _update_projection_matrix(self):
         width, height = self._view_size
         sx, sy, sz = 2 / width, 2 / height, 1
         dx, dy, dz = -1, -1, 0
         m = sx, 0, 0, dx, 0, sy, 0, dy, 0, 0, sz, dz, 0, 0, 0, 1
-        self._finalize_projection_matrix(np.array(m, np.float32).reshape(4, 4))
+        return np.array(m, dtype=float).reshape(4, 4)

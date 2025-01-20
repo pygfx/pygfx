@@ -61,7 +61,6 @@ sunlight.local.position = -14.5, 31, 4.5
 sunlight.target.local.position = 5.3, -1.4, -2.5
 sunlight.cast_shadow = True
 sunlight.shadow.camera.depth_range = (0, 250)
-sunlight.shadow.camera.update_projection_matrix()
 scene.add(sunlight)
 
 # Add torches
@@ -75,7 +74,6 @@ for pos in [
     torch.local.position = pos
     torch.cast_shadow = True
     torch.shadow.camera.depth_range = (0.01, 200)
-    torch.shadow.camera.update_projection_matrix()
     torch.shadow.cull_mode = "none"
     torch.shadow.bias = 0.001
     # torch.add(gfx.PointLightHelper(size=0.01))
