@@ -78,9 +78,9 @@ class SizeMode(Enum):
 class CoordSpace(Enum):
     """The CoordSpace enum specifies a coordinate space."""
 
-    model = None  #: the WorldObject's own coordinate space.
-    world = None  #: the coordinate space of the scene.
-    screen = None  #: the coordiate space in logical pixels.
+    model = None  #: The space relative to the object. When the object (or one of its parents) is e.g. scaled with ``wobject.local.scale = 2`` the thing becomes bigger.
+    world = None  #: The size is expressed in the scene's space. Scaling of objects will not affect the thing's size.
+    screen = None  #: The size is expressed in (logical) screen pixels, and are the same size regardless of zooming or scaling.
 
 
 class MarkerShape(Enum):
