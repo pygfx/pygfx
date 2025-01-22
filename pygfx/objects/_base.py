@@ -3,6 +3,7 @@ import weakref
 import threading
 from typing import List, Tuple
 import pylinalg as la
+from time import perf_counter_ns
 
 import numpy as np
 
@@ -11,10 +12,8 @@ from ..utils import array_from_shadertype, logger
 from ..utils.trackable import Trackable
 from ._events import EventTarget
 from ..utils.transform import (
-    AffineBase,
     AffineTransform,
     RecursiveTransform,
-    callback,
 )
 from ..utils.enums import RenderMask
 
@@ -158,14 +157,14 @@ class WorldObject(EventTarget, Trackable):
         buffer.data["world_transform"] = np.eye(4)
         buffer.data["world_transform_inv"] = np.eye(4)
 
+        self._world_last_modified = perf_counter_ns()
+
         #: The object's transform expressed in parent space.
         self.local = AffineTransform(is_camera_space=self._FORWARD_IS_MINUS_Z)
         #: The object's transform expressed in world space.
         self.world = RecursiveTransform(
             self.local, is_camera_space=self._FORWARD_IS_MINUS_Z, reference_up=(0, 1, 0)
         )
-        self.world.on_update(self.flag_transform_update)
-        self._uniform_buffers_dirty = True
 
         # Set id
         self._id = id_provider.claim_id(self)
@@ -183,9 +182,11 @@ class WorldObject(EventTarget, Trackable):
 
         self.name = name
 
-    @callback
-    def flag_transform_update(self, transform: AffineBase):
-        self._uniform_buffers_dirty = True
+    def update_uniform_buffers(self):
+        world_last_modified = self.world.last_modified
+        if world_last_modified > self._world_last_modified:
+            self._world_last_modified = world_last_modified
+            self._update_uniform_buffers()
 
     def _update_uniform_buffers(self):
         orig_err_setting = np.seterr(under="ignore")

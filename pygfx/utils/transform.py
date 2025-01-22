@@ -1,8 +1,6 @@
 import numpy as np
 import pylinalg as la
 from time import perf_counter_ns
-import weakref
-import functools
 
 from typing import Tuple, Union
 
@@ -44,40 +42,6 @@ class cached:  # noqa: N801
         return cache[1]
 
 
-class callback:  # noqa: N801
-    """Weakref support for AffineTransform callbacks.
-
-    This decorator replaces the instance reference of a class method (self) with
-    a weakref to the instance. It also dynamically resolves this weakref
-    so that users don't have to.
-
-    The use-case for it is to avoid the circular reference that happens when a
-    WorldObject registers a callback to keep it's local transform in sync with
-    its world transform. This speeds up garbage collection as WorldObjects will
-    get removed once the last reference is deleted instead of waiting for GC's
-    cycle detection phase.
-
-    """
-
-    def __init__(self, callback_fn) -> None:
-        self.callback_fn = callback_fn
-
-    def __get__(self, instance, clazz=None):
-        if instance is None:
-            return self
-
-        weak_instance = weakref.ref(instance)
-
-        @functools.wraps(self.callback_fn)
-        def inner(*args, **kwargs):
-            if (instance := weak_instance()) is None:
-                return
-
-            return self.callback_fn(instance, *args, **kwargs)
-
-        return inner
-
-
 class AffineBase:
     """Base class for affine transformations.
 
@@ -91,17 +55,6 @@ class AffineBase:
     of an affine transformation used in pygfx. If you are looking for
     `obj.local.<something>` or `obj.world.<something>` it is probably defined
     here.
-
-    The class further implements a basic callback system that will eagerly
-    inform callees whenever the transform's state changes. Callees register
-    callbacks using the ``callback_id = transform.on_update(...)`` method and -
-    if the callee is a class - may optionally choose to decorate the callback
-    method with the ``@callback`` descriptor defined above. This will turn the
-    callback into a weakref and allow the callee to be garbage collected more
-    swiftly. After registration callees can remove the callback by calling
-    ``transform.remove_callback`` and passing the callback. Callees can also
-    pass the ``callback_id`` returned when the callback was first registered
-    (useful e.g. if the callback was a lambda).
 
     It also implements a basic caching mechanism that keeps computed properties
     around until the underlying transform changes. This makes use of the
@@ -124,20 +77,14 @@ class AffineBase:
 
     Notes
     -----
-    Subclasses need to implement ``last_modified`` for the caching
-    mechanism to work correctly. Check out existing subclasses for an example of
-    how this might look like.
-
     All properties are **expressed in the target frame**, i.e., they use the
     target's basis, unless otherwise specified.
 
     """
 
     def __init__(self, /, *, reference_up=(0, 1, 0), is_camera_space=False):
-        self.update_callbacks = {}
-        self.last_modified = perf_counter_ns()
-
         self.is_camera_space = int(is_camera_space)
+        self._last_modified = perf_counter_ns()
 
         self._reference_up_provider = None
         self._reference_up = la.vec_normalize(reference_up, dtype=float)
@@ -147,6 +94,13 @@ class AffineBase:
         self._scaling_signs = np.asarray([1, 1, 1], dtype=float)
         self._scaling_signs_view = self._scaling_signs.view()
         self._scaling_signs_view.flags.writeable = False
+
+    def flag_update(self):
+        self._last_modified = perf_counter_ns()
+
+    @property
+    def last_modified(self) -> int:
+        return self._last_modified
 
     def _set_reference_up_provider(self, provider: "RecursiveTransform"):
         self._reference_up_provider = provider
@@ -229,52 +183,6 @@ class AffineBase:
         euler = la.quat_to_euler(self._decomposed[1])
         euler.flags.writeable = False
         return euler
-
-    def flag_update(self, *args, **kwargs):
-        """Signal that this transform has updated."""
-        self.last_modified = perf_counter_ns()
-        for callback in list(self.update_callbacks.values()):
-            callback(self)
-
-    def on_update(self, callback) -> int:
-        """Subscribe to updates of this transform.
-
-        The provided callback will be executed after this transform has updated
-        using the signature ``callback(self)``, i.e., it is passed a reference to
-        this transform.
-
-        Parameters
-        ----------
-        callback : Callable
-            The callback to be executed after an update.
-
-        Returns
-        -------
-        callback_id : int
-            A ID to uniquely identify this callback and allow unsubscribing.
-
-        """
-        callback_id = id(callback)
-        self.update_callbacks[callback_id] = callback
-
-        return callback_id
-
-    def remove_callback(self, ref) -> None:
-        """Unsubscribe from updates of this transform.
-
-        Parameters
-        ----------
-        ref : int, Callable
-            The callback (or callback_id) to unsubscribe.
-
-        """
-
-        if isinstance(ref, int):
-            callback_id = ref
-        else:
-            callback_id = id(ref)
-
-        self.update_callbacks.pop(callback_id, None)
 
     @property
     def inverse_matrix(self) -> np.ndarray:
@@ -772,12 +680,6 @@ class RecursiveTransform(AffineBase):
     obtained value on the wrapped transform. This means that the ``parent``
     transform is not affected by changes made to this transform.
 
-    Further, this transform monitors ``parent`` for changes (via a callback) and
-    will update (invalidate own caches and trigger callbacks) whenever the
-    parent updates. This allows propagating updates from the parent to its
-    children, e.g., to update a child's world transform when it's parent changes
-    position.
-
     Parameters
     ----------
     base : AffineBase
@@ -827,8 +729,11 @@ class RecursiveTransform(AffineBase):
         else:
             self._parent = parent
 
-        self.parent.on_update(self.flag_update)
-        self.own.on_update(self.flag_update)
+    @property
+    def last_modified(self) -> int:
+        return max(
+            self._last_modified, self.own.last_modified, self.parent.last_modified
+        )
 
     @cached
     def __own_reference_up(self) -> np.ndarray:
@@ -859,14 +764,10 @@ class RecursiveTransform(AffineBase):
 
     @parent.setter
     def parent(self, value):
-        self.parent.remove_callback(self.flag_update)
-
         if value is None:
             self._parent = AffineTransform()
         else:
             self._parent = value
-
-        self.parent.on_update(self.flag_update)
         self.flag_update()
 
     @cached

@@ -3,7 +3,6 @@ import pylinalg as la
 from typing import List
 from ._base import WorldObject
 from ..utils import array_from_shadertype
-from ..utils.transform import callback
 from ..utils.enums import BindMode
 from ..resources import Buffer
 from ._more import Mesh
@@ -173,7 +172,6 @@ class SkinnedMesh(Mesh):
         assert value in BindMode, f"bind_mode must be one of {BindMode}, not {value}"
         self._bind_mode = value
 
-    @callback
     def _update_uniform_buffers(self):
         super()._update_uniform_buffers()
 
