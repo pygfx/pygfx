@@ -21,6 +21,13 @@ from ....objects import (
     WindowEvent,
     WorldObject,
 )
+from ....objects._lights import (
+    Light,
+    PointLight,
+    DirectionalLight,
+    SpotLight,
+    AmbientLight,
+)
 from ....cameras import Camera
 from ....resources import Texture
 from ....resources._base import resource_update_registry
@@ -377,6 +384,59 @@ class WgpuRenderer(RootEventHandler, Renderer):
         if isinstance(self._target, AnyBaseCanvas):
             self._target.request_draw()
 
+    def _get_flat_scene(self, scene, camera):
+        class Flat:
+            def __init__(self):
+                self.wobjects = []
+                self.lights = {
+                    "point_lights": [],
+                    "directional_lights": [],
+                    "spot_lights": [],
+                    "ambient_color": [0, 0, 0],
+                }
+
+        flat = Flat()
+
+        def visit_wobject(ob):
+            # Add to semi-flat data structure
+            wobject_dict.setdefault(ob.render_order, []).append(ob)
+
+            # Update transform uniform buffers
+            transform = WorldObject.transform_updates.pop(ob, None)
+            if transform:
+                ob._update_uniform_buffers(transform)
+
+            if isinstance(ob, Light):
+                if isinstance(ob, PointLight):
+                    flat.lights["point_lights"].append(ob)
+                elif isinstance(ob, DirectionalLight):
+                    flat.lights["directional_lights"].append(ob)
+                elif isinstance(ob, SpotLight):
+                    flat.lights["spot_lights"].append(ob)
+                elif isinstance(ob, AmbientLight):
+                    r, g, b = ob.color.to_physical()
+                    ambient_color = flat.lights["ambient_color"]
+                    ambient_color[0] += r * ob.intensity
+                    ambient_color[1] += g * ob.intensity
+                    ambient_color[2] += b * ob.intensity
+
+        # Flatten the scenegraph, categorised by render_order
+        wobject_dict = {}
+        scene.traverse(visit_wobject, True)
+
+        # Produce a sorted list of world objects
+        if self._sort_objects:
+            depth_sort_func = _get_sort_function(camera)
+            for render_order in sorted(wobject_dict.keys()):
+                wobjects = wobject_dict[render_order]
+                wobjects.sort(key=depth_sort_func)
+                flat.wobjects.extend(wobjects)
+        else:
+            for render_order in sorted(wobject_dict.keys()):
+                flat.wobjects.extend(wobject_dict[render_order])
+
+        return flat
+
     def render(
         self,
         scene: WorldObject,
@@ -469,29 +529,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
             )
             self.dispatch_event(ev)
 
-        # Flatten the scenegraph, categorised by render_order
-        wobject_dict = {}
-        scene.traverse(
-            lambda ob: wobject_dict.setdefault(ob.render_order, []).append(ob), True
-        )
-
-        # Produce a sorted list of world objects
-        wobject_list = []
-        if self._sort_objects:
-            depth_sort_func = _get_sort_function(camera)
-            for render_order in sorted(wobject_dict.keys()):
-                wobjects = wobject_dict[render_order]
-                wobjects.sort(key=depth_sort_func)
-                wobject_list.extend(wobjects)
-        else:
-            for render_order in sorted(wobject_dict.keys()):
-                wobject_list.extend(wobject_dict[render_order])
-
-        # Update transform uniform buffers
-        for wobject in wobject_list:
-            transform = WorldObject.transform_updates.pop(wobject, None)
-            if transform:
-                wobject._update_uniform_buffers(transform)
+        flat = self._get_flat_scene(scene, camera)
 
         # Prepare the shared object
         self._shared.pre_render_hook()
@@ -500,13 +538,14 @@ class WgpuRenderer(RootEventHandler, Renderer):
         self._update_stdinfo_buffer(camera, scene_psize, scene_lsize, ndc_offset)
 
         # Get renderstate object
-        renderstate = get_renderstate(scene, self._blender)
+        renderstate = get_renderstate(flat.lights, self._blender)
         self._renderstates_per_flush[0].append(renderstate)
 
         # Collect all pipeline container objects
+        # todo: can we get this into _get_flat_scene?
         compute_pipeline_containers = []
         render_pipeline_containers = []
-        for wobject in wobject_list:
+        for wobject in flat.wobjects:
             if not wobject.material:
                 continue
             container_group = get_pipeline_container_group(wobject, renderstate)
@@ -531,7 +570,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         command_buffers = []
         command_buffers += self._render_recording(
             renderstate,
-            wobject_list,
+            flat.wobjects,
             compute_pipeline_containers,
             render_pipeline_containers,
             physical_viewport,
