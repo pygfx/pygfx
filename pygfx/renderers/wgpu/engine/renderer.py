@@ -484,7 +484,6 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
         # Update transform uniform buffers
         for wobject in wobject_list:
-            # TODO: precompute last_modified for all nodes while traversing
             wobject.update_uniform_buffers()
 
         # Prepare the shared object

@@ -29,14 +29,11 @@ class cached:  # noqa: N801
         if instance is None:
             return self
 
-        if not hasattr(instance, self.name):
-            cache = (instance.last_modified, self.compute_fn(instance))
-            setattr(instance, self.name, cache)
-        else:
-            cache = getattr(instance, self.name)
+        last_modified = instance.last_modified
+        cache = getattr(instance, self.name, None)
 
-        if instance.last_modified > cache[0]:
-            cache = (instance.last_modified, self.compute_fn(instance))
+        if cache is None or last_modified > cache[0]:
+            cache = (last_modified, self.compute_fn(instance))
             setattr(instance, self.name, cache)
 
         return cache[1]
@@ -77,14 +74,19 @@ class AffineBase:
 
     Notes
     -----
+    Subclasses need to define and implement ``last_modified`` for the caching
+    mechanism to work correctly. Check out existing subclasses for an example of
+    how this might look like.
+
     All properties are **expressed in the target frame**, i.e., they use the
     target's basis, unless otherwise specified.
 
     """
 
+    last_modified: int
+
     def __init__(self, /, *, reference_up=(0, 1, 0), is_camera_space=False):
         self.is_camera_space = int(is_camera_space)
-        self._last_modified = perf_counter_ns()
 
         self._reference_up_provider = None
         self._reference_up = la.vec_normalize(reference_up, dtype=float)
@@ -96,11 +98,8 @@ class AffineBase:
         self._scaling_signs_view.flags.writeable = False
 
     def flag_update(self):
-        self._last_modified = perf_counter_ns()
-
-    @property
-    def last_modified(self) -> int:
-        return self._last_modified
+        """Signal that this transform has updated."""
+        raise NotImplementedError()
 
     def _set_reference_up_provider(self, provider: "RecursiveTransform"):
         self._reference_up_provider = provider
@@ -470,6 +469,7 @@ class AffineTransform(AffineBase):
     ) -> None:
         super().__init__(reference_up=reference_up, is_camera_space=is_camera_space)
         self._state_basis = state_basis
+        self.last_modified = perf_counter_ns()
 
         self._position = np.asarray(position, dtype=float)
         self._rotation = np.asarray(rotation, dtype=float)
@@ -490,6 +490,10 @@ class AffineTransform(AffineBase):
 
         self._matrix_view = self._matrix.view()
         self._matrix_view.flags.writeable = False
+
+    def flag_update(self):
+        """Signal that this transform has updated."""
+        self.last_modified = perf_counter_ns()
 
     @property
     def state_basis(self) -> str:
@@ -718,6 +722,8 @@ class RecursiveTransform(AffineBase):
         is_camera_space=False,
     ) -> None:
         super().__init__(reference_up=reference_up, is_camera_space=is_camera_space)
+        self._last_modified = perf_counter_ns()
+
         self._parent = None
         self.own = None
 
@@ -728,6 +734,10 @@ class RecursiveTransform(AffineBase):
             self._parent = AffineTransform()
         else:
             self._parent = parent
+
+    def flag_update(self):
+        """Signal that this transform has updated."""
+        self._last_modified = perf_counter_ns()
 
     @property
     def last_modified(self) -> int:
