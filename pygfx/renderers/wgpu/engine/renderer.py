@@ -248,12 +248,13 @@ class WgpuRenderer(RootEventHandler, Renderer):
         """The relative strength of the filter applied to the final pixels.
 
         The renderer renders everything to an internal texture, which,
-        depending on the `pixel_ratio`, may have a different size than
+        depending on the ``pixel_ratio``, may have a different physical size than
         the target (i.e. canvas). In the process of rendering the result
         to the target, a filter is applied, resulting in SSAA if the
-        size was larger, and a smoothing effect otherwise.
+        target size is smaller. The filter is a Gaussian kernel with sigma equal to
+        half the pixel ratio.
 
-        The value of `pixel_filter` is multiplied with the default filter value.
+        The value of ``pixel_filter`` multiplies the filter sigma (i.e. filter strength).
         So using 1.0 uses the default, higher values result in more blur, and 0
         disables the filter.
         """
