@@ -742,7 +742,7 @@ class RecursiveTransform(AffineBase):
     @property
     def last_modified(self) -> int:
         return max(
-            self._last_modified, self.own.last_modified, self.parent.last_modified
+            self._last_modified, self.own.last_modified, self._parent.last_modified
         )
 
     @cached
