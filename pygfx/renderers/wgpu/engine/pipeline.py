@@ -4,9 +4,14 @@ This object is responsible for creating the native wgpu objects and doing the
 actual dispatching / drawing.
 """
 
+import sys
 import wgpu
 
+import os
+
 from ....utils import logger
+from ....utils.weak import WeakAssociativeContainer
+from ....utils.trackable import PropTracker
 
 from ..shader.base import ShaderInterface
 from .utils import registry, GpuCache, hash_from_value
@@ -14,14 +19,20 @@ from .shared import get_shared
 from .binding import Binding
 
 
-# These caches enables sharing gpu resources for similar objects. It
-# makes creating such objects faster (i.e. faster startup). It also
-# saves gpu resources. It does not necessarily make the visualization
-# faster.
+PIPELINE_CONTAINER_GROUPS = WeakAssociativeContainer()
+
+# These caches use a WeakValueDictionary; they don't actually store object, but
+# enable sharing gpu resources for similar objects. It makes creating such
+# objects faster (i.e. faster startup). It also saves gpu resources. It does not
+# necessarily make the visualization faster.
 LAYOUT_CACHE = GpuCache("layouts")
 BINDING_CACHE = GpuCache("bindings")
 SHADER_CACHE = GpuCache("shader_modules")
 PIPELINE_CACHE = GpuCache("pipelines")
+
+PRINT_WGSL_ON_ERROR = os.environ.get(
+    "PYGFX_PRINT_WGSL_ON_COMPILATION_ERROR", "0"
+).lower() not in ["false", "0"]
 
 
 def get_cached_bind_group_layout(device, *args):
@@ -69,7 +80,22 @@ def get_cached_shader_module(device, shader, shader_kwargs):
     result = SHADER_CACHE.get(key)
     if result is None:
         wgsl = shader.generate_wgsl(**shader_kwargs)
-        result = device.create_shader_module(code=wgsl)
+        try:
+            result = device.create_shader_module(code=wgsl)
+        except wgpu.GPUValidationError:
+            # No need to be super fancy in the formatting but we want to
+            # help the users find their bugs
+            # We have seen some shaders with close to 1000 lines of code
+            # So we print numbers that would be aligned up to 5 digits.
+            # Since this error may be confusing for end users due to the sheer
+            # volume of text printed, developers must enable this with
+            # PYGFX_PRINT_WGSL_ON_COMPILATION_ERROR
+            if PRINT_WGSL_ON_ERROR:
+                wgsl_with_line_numbers = "\n".join(
+                    f"{i + 1:5d}: {line}" for i, line in enumerate(wgsl.splitlines())
+                )
+                print(wgsl_with_line_numbers, file=sys.stderr)
+            raise
 
         SHADER_CACHE.set(key, result)
 
@@ -137,48 +163,65 @@ def get_cached_render_pipeline(device, *args):
     return result
 
 
-def get_pipeline_container_group(wobject, environment):
-    """Update the GPU objects associated with the given wobject. Returns
-    quickly if no changes are needed. Only this function is used by the
-    renderer.
+def get_pipeline_container_group(wobject, renderstate):
+    """Return the PipelineContainerGroup object for wobject.
+
+    This is the entrypoint for the renderer.
+
+    The returned object has attributes ``bake_functions``, ``compute_containers``, and ``render_containers``.
+    The latter two are lists to PipelineContainer objects. Most wobjects have just a single pipeline,
+    but some may do preprocessing in a compute shader and/or consist of multiple passes.
+
+    This call updates the GPU objects associated with the given wobject. It returns
+    quickly if no changes are needed.
     """
 
-    # Get pipeline_container
-    try:
-        pipeline_container_group = wobject._wgpu_pipeline_container_group
-    except AttributeError:
-        pipeline_container_group = PipelineContainerGroup()
-        wobject._wgpu_pipeline_container_group = pipeline_container_group
-        changed_labels = {"create"}
-    else:
-        # Get whether the object has changes
-        changed_labels = wobject.tracker.pop_changed()
+    # Get pipeline container group. They are associated weakly by wobject and
+    # renderstate. By also associating with the material the material can be
+    # used by users to 'store' the pipeline, and hot-swap it. When any of these
+    # objects (wobject, renderstate, material) is removed by the gc, the
+    # associated pipeline_container object is removed as well.
+    pcg_key = wobject, renderstate, wobject.material
 
-    # Update if necessary - this path is defined to be fast if there are no changes
-    # Don't put this under an ``if changed``, because work may be needed for a new environment.
-    pipeline_container_group.update(wobject, environment, changed_labels)
+    pipeline_container_group = PIPELINE_CONTAINER_GROUPS.get(pcg_key, None)
+    if pipeline_container_group is None:
+        pipeline_container_group = PipelineContainerGroup()
+        PIPELINE_CONTAINER_GROUPS[pcg_key] = pipeline_container_group
+
+    # Update. Quickly returns if no work to do.
+    pipeline_container_group.update(wobject, renderstate)
 
     # Return the pipeline container group
     return pipeline_container_group
 
 
 class PipelineContainerGroup:
-    """This is a thin wrapper for a list of compute pipeline containers,
-    and render pipeline containers. The purpose of this object is to
-    obtain the appropriate shader objects and store them.
+    """Pipeline countainer group.
+
+    This is a thin wrapper for a list of compute pipeline containers and render pipeline containers.
+    The purpose of this object is to obtain the appropriate shader objects and store them.
     """
 
     def __init__(self):
-        self.environments_known = set()
-        self.environments_uptodate = set()
+        self.tracker = PropTracker()
+        self.initialized = False
+        # Public attributes used by the renderer
         self.compute_containers = None
         self.render_containers = None
         self.bake_functions = None
 
-    def update(self, wobject, environment, changed):
-        """Update the pipeline containers that are wrapped. Creates (and re-creates)
-        the containers if necessary.
-        """
+    def update(self, wobject, renderstate):
+        """Update the pipeline containers. Creates (and re-creates) the containers if necessary."""
+
+        # Get what has changed
+        tracker = self.tracker
+        changed = tracker.pop_changed()
+        if not self.initialized:
+            self.initialized = True
+            changed.add("create")
+
+        if not changed:
+            return
 
         if "create" in changed:
             self.compute_containers = ()
@@ -195,12 +238,12 @@ class PipelineContainerGroup:
                 )
 
             # Call render function
-            with wobject.tracker.track_usage("create"):
+            with tracker.track_usage("create"):
                 shaders = renderfunc(wobject)
                 if isinstance(shaders, ShaderInterface):
                     shaders = [shaders]
 
-            # Divide result over two bins, one for compute, and one for render
+            # Divide result over two bins, one for compute, and one for render. Plus collect bake funcs.
             compute_containers = []
             render_containers = []
             bake_functions = []
@@ -220,48 +263,30 @@ class PipelineContainerGroup:
             self.render_containers = tuple(render_containers)
             self.bake_functions = tuple(bake_functions)
 
-        # Manage known environments
-        env_hash = environment.hash
-        if env_hash not in self.environments_known:
-            self.environments_known.add(env_hash)
-            environment.register_pipeline_container(self)  # allows us to clean up
-
-        # Update compute containers if something changed. Note that env_hash is "" for this path.
+        # If something has changed, update containers
         if changed:
             for container in self.compute_containers:
-                container.update(wobject, environment, "", changed)
-
-        # If something has changed, and it was not updated for the current environment yet, update render pipelines now
-        if changed:
-            self.environments_uptodate.clear()
-        if env_hash not in self.environments_uptodate:
+                container.update(wobject, renderstate, changed, tracker)
             for container in self.render_containers:
-                container.update(wobject, environment, env_hash, changed)
-
-        # Mark this environment as up-to-date
-        self.environments_uptodate.add(env_hash)
-
-    def remove_env_hash(self, env_hash):
-        """Called from the environment when it becomes inactive.
-        This allows this object to remove all references to wgpu objects
-        that won't be used, reclaiming memory on both CPU and GPU.
-        """
-        self.environments_known.discard(env_hash)
-        self.environments_uptodate.discard(env_hash)
-        for container in self.render_containers:
-            container.remove_env_hash(env_hash)
+                container.update(wobject, renderstate, changed, tracker)
 
 
 class PipelineContainer:
-    """The pipeline container stores the wgpu pipeline object as well as intermediate
-    steps needed to create it. When an dependency of a certain step changes (which we track)
-    then only the steps below it need to be re-run.
+    """Object that wraps a set of wgpu pipeline objects for a single Shader object.
+
+    A PipelineContainer is created for a specific combination of WorldObject and Renderstate
+    (each differtent combination results in a different PipelineContainer).
+
+    One shader results into multiple pipelines because of different render passes.
+
+    The intermediate steps are also stored. When a dependency of a certain step
+    changes (which we track) then only the steps below it need to be re-run.
     """
 
     def __init__(self, shader: ShaderInterface):
-        self.shader = shader
+        self.shader = shader  # the corresponding ShaderInterface object
         self.shared = get_shared()  # the globally Shared object
-        self.device = self.shared.device
+        self.device = self.shared.device  # the global device
 
         # Dict to store info on the wobject that affects shaders or pipeline.
         # Fields are set in a tracking-context to make sure things update accordingly.
@@ -273,10 +298,8 @@ class PipelineContainer:
         self.pipeline_info = None  # dict
         self.render_info = None  # dict
 
-        # The wgpu objects that we generate
-        # These map env_hash to a list of objects (one for each pass).
-        # For compute shaders the blend_mode is always "" and there is
-        # one object in each.
+        # The wgpu objects that we generate. These are dicts; keys are pass indices.
+        # For compute shaders the only key is 0.
         self.wgpu_shaders = {}
         self.wgpu_pipelines = {}
 
@@ -297,28 +320,23 @@ class PipelineContainer:
                 assert isinstance(key2, int), f"bind group slot must be int, not {key2}"
                 assert isinstance(b, Binding), f"binding must be Binding, not {b}"
 
-    def remove_env_hash(self, env_hash):
-        """Called from the PipelineContainerGroup when an environment becomes inactive."""
-        self.wgpu_shaders.pop(env_hash, None)
-        self.wgpu_pipelines.pop(env_hash, None)
-
-    def update(self, wobject, environment, env_hash, changed):
-        """Make sure that the pipeline is up-to-date."""
+    def update(self, wobject, renderstate, changed, tracker):
+        """Make sure that the pipeline is up-to-date for the given renderstate."""
 
         # Ensure that the information provided by the shader is up-to-date
         if changed:
             try:
-                self.update_shader_data(wobject, changed)
+                self.update_shader_data(wobject, changed, tracker)
             except Exception as err:
                 self.broken = 1
                 raise err
             else:
                 self.broken = 0
 
-        # Ensure that the (environment specific) wgpu objects are up-to-date
+        # Ensure that the (renderstate specific) wgpu objects are up-to-date
         if not self.broken:
             try:
-                self.update_wgpu_data(environment, env_hash, changed)
+                self.update_wgpu_data(renderstate, changed)
             except Exception as err:
                 self.broken = 2
                 raise err
@@ -328,17 +346,18 @@ class PipelineContainer:
         if changed:
             logger.info(f"{wobject} shader update: {', '.join(sorted(changed))}.")
 
-    def update_shader_data(self, wobject, changed):
-        """Update the info that applies to all passes and environments."""
+    def update_shader_data(self, wobject, changed, tracker):
+        """Update the info that applies to all passes and renderstates."""
 
         if "create" in changed or "reset" in changed:
-            with wobject.tracker.track_usage("reset"):
+            with tracker.track_usage("reset"):
                 self.wobject_info["pick_write"] = wobject.material.pick_write
             changed.update(("bindings", "pipeline_info", "render_info"))
+            self.wgpu_shaders = {}
 
         if "bindings" in changed:
             self.shader.unlock_hash()
-            with wobject.tracker.track_usage("!bindings"):
+            with tracker.track_usage("!bindings"):
                 self.bindings_dicts = self.shader.get_bindings(wobject, self.shared)
             self.shader.lock_hash()
             self._check_bindings()
@@ -346,7 +365,7 @@ class PipelineContainer:
             self.update_bind_groups()
 
         if "pipeline_info" in changed:
-            with wobject.tracker.track_usage("pipeline_info"):
+            with tracker.track_usage("pipeline_info"):
                 self.pipeline_info = self.shader.get_pipeline_info(wobject, self.shared)
                 self.wobject_info["depth_test"] = wobject.material.depth_test
             self._check_pipeline_info()
@@ -354,11 +373,11 @@ class PipelineContainer:
             self.wgpu_pipelines = {}
 
         if "render_info" in changed:
-            with wobject.tracker.track_usage("render_info"):
+            with tracker.track_usage("render_info"):
                 self.render_info = self.shader.get_render_info(wobject, self.shared)
             self._check_render_info()
 
-    def update_wgpu_data(self, environment, env_hash, changed):
+    def update_wgpu_data(self, renderstate, changed):
         """Update the actual wgpu objects."""
 
         # Note: from here-on, we cannot access the wobject anymore, because any tracking should
@@ -368,7 +387,7 @@ class PipelineContainer:
         # Determine what render-passes apply, for this combination of shader and blender
         if isinstance(self, RenderPipelineContainer):
             render_mask = self.render_info["render_mask"]
-            blender = environment.blender
+            blender = renderstate.blender
             pass_indices = []
             for pass_index in range(blender.get_pass_count()):
                 if not render_mask & blender.passes[pass_index].render_mask:
@@ -381,23 +400,21 @@ class PipelineContainer:
         else:
             pass_indices = [0]
 
-        # Get shader objects for this environment
-        env_shaders = self.wgpu_shaders.setdefault(env_hash, {})
-        env_pipelines = self.wgpu_pipelines.setdefault(env_hash, {})
-
         # Update shaders
         for pass_index in pass_indices:
-            if pass_index not in env_shaders:
-                changed.add("compile_shader")
-                env_shaders[pass_index] = self._compile_shader(pass_index, environment)
-                env_pipelines.pop(pass_index, None)
+            if pass_index not in self.wgpu_shaders:
+                changed.add("shader")
+                self.wgpu_shaders[pass_index] = self._get_shader(
+                    pass_index, renderstate
+                )
+                self.wgpu_pipelines.pop(pass_index, None)
 
         # Update pipelines
         for pass_index in pass_indices:
-            if pass_index not in env_pipelines:
-                changed.add("compose_pipeline")
-                env_pipelines[pass_index] = self._compose_pipeline(
-                    pass_index, environment, env_shaders
+            if pass_index not in self.wgpu_pipelines:
+                changed.add("pipeline")
+                self.wgpu_pipelines[pass_index] = self._compose_pipeline(
+                    pass_index, renderstate
                 )
 
     def update_shader_hash(self):
@@ -493,12 +510,12 @@ class ComputePipelineContainer(PipelineContainer):
         assert all(isinstance(i, int) for i in indices)
         assert len(indices) == 3
 
-    def _compile_shader(self, pass_index, env):
-        """Compile the templateds wgsl shader to a wgpu shader module."""
+    def _get_shader(self, pass_index, renderstate):
+        """Get the wgpu shader module for the templated wgsl shade."""
         shader_kwargs = {}
         return get_cached_shader_module(self.device, self.shader, shader_kwargs)
 
-    def _compose_pipeline(self, pass_index, env, shader_modules):
+    def _compose_pipeline(self, pass_index, renderstate):
         """Create the wgpu pipeline object from the shader and bind group layouts."""
 
         # Create pipeline layout object from list of layouts
@@ -508,7 +525,7 @@ class ComputePipelineContainer(PipelineContainer):
 
         # Create pipeline object
         return get_cached_compute_pipeline(
-            self.device, pipeline_layout, shader_modules[0]
+            self.device, pipeline_layout, self.wgpu_shaders[0]
         )
 
     def dispatch(self, compute_pass):
@@ -517,7 +534,7 @@ class ComputePipelineContainer(PipelineContainer):
             return
 
         # Collect what's needed
-        pipeline = self.wgpu_pipelines[""][0]
+        pipeline = self.wgpu_pipelines[0]
         indices = self.render_info["indices"]
         bind_groups = self.wgpu_bind_groups
 
@@ -575,33 +592,32 @@ class RenderPipelineContainer(PipelineContainer):
             self.strip_index_format = strip_index_format
             self.wgpu_pipelines = {}
 
-    def _compile_shader(self, pass_index, env):
-        """Compile the templated shader to a list of wgpu shader modules
-        (one for each pass of the blender).
-        """
-        blender = env.blender
-        env_bind_group_index = len(self.wgpu_bind_groups)
+    def _get_shader(self, pass_index, renderstate):
+        """Get the wgpu shader module for the templated shader."""
+        blender = renderstate.blender
+        renderstate_bind_group_index = len(self.wgpu_bind_groups)
 
         blender_kwargs = blender.get_shader_kwargs(pass_index)
-        env_kwargs = env.get_shader_kwargs(env_bind_group_index)
+        renderstate_kwargs = renderstate.get_shader_kwargs(renderstate_bind_group_index)
         shader_kwargs = blender_kwargs.copy()
-        shader_kwargs.update(env_kwargs)
+        shader_kwargs.update(renderstate_kwargs)
         shader_kwargs["write_pick"] &= self.wobject_info["pick_write"]
 
         return get_cached_shader_module(self.device, self.shader, shader_kwargs)
 
-    def _compose_pipeline(self, pass_index, env, shader_modules):
-        """Create a list of wgpu pipeline objects from the shader, bind group
-        layouts and other pipeline info (one for each pass of the blender).
-        """
+    def _compose_pipeline(self, pass_index, renderstate):
+        """Create the wgpu pipeline object from the shader, bind group layouts and other pipeline info."""
 
         strip_index_format = self.strip_index_format
         primitive_topology = self.pipeline_info["primitive_topology"]
         cull_mode = self.pipeline_info["cull_mode"]
 
         # Create pipeline layout object from list of layouts
-        env_bind_group_layout, _ = env.wgpu_bind_group
-        bind_group_layouts = [*self.wgpu_bind_group_layouts, env_bind_group_layout]
+        renderstate_bind_group_layout = renderstate.wgpu_bind_group_layout
+        bind_group_layouts = [
+            *self.wgpu_bind_group_layouts,
+            renderstate_bind_group_layout,
+        ]
 
         pipeline_layout = get_cached_pipeline_layout(self.device, bind_group_layouts)
 
@@ -609,13 +625,13 @@ class RenderPipelineContainer(PipelineContainer):
         # Note: The pipeline relies on the color and depth descriptors, which
         # include the texture format and a few other static things.
         # This step should *not* rerun when e.g. the canvas resizes.
-        blender = env.blender
+        blender = renderstate.blender
         depth_test = self.wobject_info["depth_test"]
         color_descriptors = blender.get_color_descriptors(
             pass_index, self.wobject_info["pick_write"]
         )
         depth_descriptor = blender.get_depth_descriptor(pass_index, depth_test)
-        shader_module = shader_modules[pass_index]
+        shader_module = self.wgpu_shaders[pass_index]
 
         return get_cached_render_pipeline(
             self.device,
@@ -628,7 +644,7 @@ class RenderPipelineContainer(PipelineContainer):
             color_descriptors,
         )
 
-    def draw(self, render_pass, environment, pass_index, render_mask):
+    def draw(self, render_pass, renderstate, pass_index, render_mask):
         """Draw the pipeline, doing the actual rendering job."""
         if self.broken:
             return
@@ -637,7 +653,7 @@ class RenderPipelineContainer(PipelineContainer):
             return
 
         # Collect what's needed
-        pipeline = self.wgpu_pipelines[environment.hash][pass_index]
+        pipeline = self.wgpu_pipelines[pass_index]
         indices = self.render_info["indices"]
         bind_groups = self.wgpu_bind_groups
 
@@ -647,9 +663,11 @@ class RenderPipelineContainer(PipelineContainer):
         for bind_group_id, bind_group in enumerate(bind_groups):
             render_pass.set_bind_group(bind_group_id, bind_group, [], 0, 99)
 
-        env_bind_group_id = len(bind_groups)
-        _, env_bind_group = environment.wgpu_bind_group
-        render_pass.set_bind_group(env_bind_group_id, env_bind_group, [], 0, 99)
+        renderstate_bind_group_id = len(bind_groups)
+        renderstate_bind_group = renderstate.wgpu_bind_group
+        render_pass.set_bind_group(
+            renderstate_bind_group_id, renderstate_bind_group, [], 0, 99
+        )
 
         # Draw!
         # draw(count_vertex, count_instance, first_vertex, first_instance)

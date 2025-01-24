@@ -49,7 +49,7 @@ class TextMaterial(Material):
         outline_thickness=0,
         weight_offset=0,
         aa=True,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(**kwargs)
 

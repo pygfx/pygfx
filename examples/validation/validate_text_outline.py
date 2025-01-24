@@ -10,7 +10,6 @@ one character may overlap with the neighboring one.
 # sphinx_gallery_pygfx_docs = 'screenshot'
 # sphinx_gallery_pygfx_test = 'compare'
 
-
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 

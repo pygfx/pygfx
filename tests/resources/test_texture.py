@@ -66,7 +66,6 @@ def test_simple_shapes():
 
 
 def test_ambiguous_shapes():
-
     # ----
 
     # A 2D scalar image, 1D rgba, or stack of 1D grayscale?
@@ -189,7 +188,6 @@ def test_unsupported_shapes():
 
 
 def test_set_data():
-
     a = np.zeros((10, 3), np.float32)
     b = np.ones((10, 3), np.float32)
     c = np.ones((20, 3), np.float32)[::2]  # not contiguous
@@ -221,7 +219,6 @@ def test_set_data():
 
 
 def test_chunk_size_small():
-
     # 1 x uint8
 
     # Small textures have just one chunk
@@ -290,7 +287,6 @@ def test_chunk_size_small():
 
 
 def test_chunk_size_large():
-
     # Caps to 16MB
 
     a = np.zeros((10, 1024, 1024), np.uint8)
@@ -337,24 +333,23 @@ def test_custom_chunk_size():
 
 
 def test_contiguous():
-
     im1 = np.zeros((100, 100), np.float32)[10:-10, 10:-10]
     im2 = np.ascontiguousarray(im1)
 
     # This works, because at upload time the data is copied if necessary
     tex = gfx.Texture(im1, dim=2)
-    chunk = tex._gfx_get_chunk_data((0, 0, 0), im1.shape + (1,))
+    chunk = tex._gfx_get_chunk_data((0, 0, 0), (*im1.shape, 1))
     assert chunk.flags.c_contiguous
 
     # Dito when the data is a memoryview (did not work in an earlier version).
     # For textures with non-contiguous data this takes a performance hit due to an extra data copy.
     tex = gfx.Texture(memoryview(im1), dim=2)
-    chunk = tex._gfx_get_chunk_data((0, 0, 0), im1.shape + (1,))
+    chunk = tex._gfx_get_chunk_data((0, 0, 0), (*im1.shape, 1))
     assert chunk.flags.c_contiguous
 
     # This works, and avoids the aforementioned copy
     tex = gfx.Texture(im2, dim=2)
-    chunk = tex._gfx_get_chunk_data((0, 0, 0), im2.shape + (1,))
+    chunk = tex._gfx_get_chunk_data((0, 0, 0), (*im2.shape, 1))
     assert chunk.flags.c_contiguous
     assert chunk is tex.view
 
@@ -380,7 +375,6 @@ def test_endianness():
 
 
 def test_rgb_support():
-
     # 1D
     im = np.zeros((100, 3), np.float32)
     tex = gfx.Texture(im, dim=1)
@@ -412,9 +406,7 @@ def test_rgb_support():
 
 
 def upload_validity_checker_2d(func):
-
     def wrapper():
-
         for contiguous, nchannels, dtype in [
             (True, 1, np.uint8),
             (True, 1, np.float32),
@@ -423,7 +415,6 @@ def upload_validity_checker_2d(func):
             (False, 1, np.uint8),
             (False, 3, np.float32),
         ]:
-
             if contiguous:
                 data = np.zeros((10, 10, nchannels), dtype)
             else:
@@ -460,9 +451,7 @@ def upload_validity_checker_2d(func):
 
 
 def upload_validity_checker_3d(func):
-
     def wrapper():
-
         for contiguous, nchannels, dtype in [
             (True, 1, np.uint8),
             (True, 1, np.float32),
@@ -471,7 +460,6 @@ def upload_validity_checker_3d(func):
             (False, 1, np.uint8),
             (False, 3, np.float32),
         ]:
-
             if contiguous:
                 data = np.zeros((40, 30, 20, nchannels), dtype)
             else:
@@ -594,7 +582,7 @@ def test_upload_validity_single_1(tex):
 
 @upload_validity_checker_2d
 def test_upload_validity_single_20(tex):
-    for i in range(20):
+    for _i in range(20):
         x = np.random.randint(0, tex.size[0])
         y = np.random.randint(0, tex.size[1])
         tex.data[y, x] = 1
@@ -687,7 +675,7 @@ def test_3d_upload_validity_single_1(tex):
 
 @upload_validity_checker_3d
 def test_3d_upload_validity_single_20(tex):
-    for i in range(20):
+    for _i in range(20):
         x = np.random.randint(0, tex.size[0])
         y = np.random.randint(0, tex.size[1])
         z = np.random.randint(0, tex.size[2])

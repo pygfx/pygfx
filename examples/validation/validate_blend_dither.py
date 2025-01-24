@@ -1,8 +1,8 @@
 """
-Transparency
-============
+Validate dither
+===============
 
-This example draws a series of semitransparent planes using weighted_plus.
+This example draws a series of semitransparent planes using dither mode.
 """
 
 # sphinx_gallery_pygfx_docs = 'screenshot'
@@ -14,7 +14,7 @@ import pylinalg as la
 
 canvas = WgpuCanvas(size=(600, 600))
 renderer = gfx.renderers.WgpuRenderer(canvas)
-renderer.blend_mode = "weighted_plus"
+renderer.blend_mode = "dither"
 
 scene = gfx.Scene()
 

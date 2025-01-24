@@ -1,6 +1,6 @@
 """
 Defines the classes for the different render passes and the blender
-objects that contain them. A blender becomes part of the environment
+objects that contain them. A blender becomes part of the renderstate
 object.
 """
 
@@ -155,7 +155,7 @@ class OpaquePass(BasePass):
             @location(0) color: vec4<f32>,
             @location(1) pick: vec4<u32>,
         };
-        fn get_fragment_output(depth: f32, color: vec4<f32>) -> FragmentOutput {
+        fn get_fragment_output(position: vec4<f32>, color: vec4<f32>) -> FragmentOutput {
             if (color.a < 1.0 - ALPHA_COMPARE_EPSILON ) { discard; }
             var out : FragmentOutput;
             out.color = vec4<f32>(color.rgb, 1.0);
@@ -176,9 +176,45 @@ class FullOpaquePass(OpaquePass):
             @location(0) color: vec4<f32>,
             @location(1) pick: vec4<u32>,
         };
-        fn get_fragment_output(depth: f32, color: vec4<f32>) -> FragmentOutput {
+       fn get_fragment_output(position: vec4<f32>, color: vec4<f32>) -> FragmentOutput {
             var out : FragmentOutput;
-            out.color = vec4<f32>(color.rgb, 1.0);  // always opaque
+            out.color = vec4<f32>(color.rgb, 1.0);  // make every fragment opaque
+            return out;
+        }
+        """
+
+
+class DitherPass(OpaquePass):
+    """A pass that uses dithering based on alpha (stochastic transparency)."""
+
+    render_mask = RenderMask.opaque | RenderMask.transparent
+    write_pick = True
+
+    def get_shader_code(self, blender):
+        return """
+
+        struct FragmentOutput {
+            @location(0) color: vec4<f32>,
+            @location(1) pick: vec4<u32>,
+        };
+        fn get_fragment_output(position: vec4<f32>, color: vec4<f32>) -> FragmentOutput {
+            // We want the seed for the ramdon function to be such that the result is
+            // deterministic, so that rendered images can be visually compared. This
+            // is why the object-id should not be used. Using the xy ndc coord is a
+            // no-brainer seed. Using only these will give an effect often observed
+            // in games, where the pattern is "stuck to the screen". We also seed with
+            // the depth, since this covers *a lot* of cases, e.g. different objects
+            // behind each-other, as well as the same object having different parts
+            // at the same screen pixel. This only does not cover cases where objects
+            // are exactly on top of each other. Therefore we use rgba as another seed.
+            // So the only case where the same pattern may be used for different
+            // fragments if an object is at the same depth and has the same color.
+            var out : FragmentOutput;
+            let seed1 = position.x * position.y * position.z;
+            let seed2 = color.r * 0.12 + color.g * 0.34 + color.b * 0.56 + color.a * 0.78;
+            let rand = random2(vec2<f32>(seed1, seed2));
+            if ( color.a < 1.0 - ALPHA_COMPARE_EPSILON && color.a < rand ) { discard; }
+            out.color = vec4<f32>(color.rgb, 1.0);  // fragments that pass through are opaque
             return out;
         }
         """
@@ -215,7 +251,7 @@ class SimpleSinglePass(OpaquePass):
             @location(0) color: vec4<f32>,
             @location(1) pick: vec4<u32>,
         };
-        fn get_fragment_output(depth: f32, color: vec4<f32>) -> FragmentOutput {
+        fn get_fragment_output(position: vec4<f32>, color: vec4<f32>) -> FragmentOutput {
             var out : FragmentOutput;
             out.color = vec4<f32>(color.rgb * color.a, color.a);
             return out;
@@ -274,6 +310,7 @@ class SimpleTransparencyPass(BasePass):
             depth_load_op = wgpu.LoadOp.clear
         return {
             "view": blender.depth_view,
+            "depth_clear_value": 1.0,
             "depth_load_op": depth_load_op,
             "depth_store_op": wgpu.StoreOp.store,
         }
@@ -283,7 +320,7 @@ class SimpleTransparencyPass(BasePass):
         struct FragmentOutput {
             @location(0) color: vec4<f32>,
         };
-        fn get_fragment_output(depth: f32, color: vec4<f32>) -> FragmentOutput {
+        fn get_fragment_output(position: vec4<f32>, color: vec4<f32>) -> FragmentOutput {
             if (color.a <= ALPHA_COMPARE_EPSILON) { discard; }
             var out : FragmentOutput;
             out.color = vec4<f32>(color.rgb * color.a, color.a);
@@ -373,20 +410,20 @@ class WeightedTransparencyPass(BasePass):
 
     def get_depth_attachment(self, blender):
         # We never clear the depth buffer in this pass
-        depth_load_op = wgpu.LoadOp.load
         return {
             "view": blender.depth_view,
-            "depth_load_op": depth_load_op,
+            "depth_load_op": wgpu.LoadOp.load,
             "depth_store_op": wgpu.StoreOp.store,
         }
 
     def get_shader_code(self, blender):
-        return """
+        code = """
         struct FragmentOutput {
             @location(0) accum: vec4<f32>,
             @location(1) reveal: f32,
         };
-        fn get_fragment_output(depth: f32, color: vec4<f32>) -> FragmentOutput {
+        fn get_fragment_output(position: vec4<f32>, color: vec4<f32>) -> FragmentOutput {
+            let depth = position.z;
             let alpha = color.a;
             if (alpha <= ALPHA_COMPARE_EPSILON) { discard; }
             let premultiplied = color.rgb * alpha;
@@ -402,9 +439,8 @@ class WeightedTransparencyPass(BasePass):
             //    out.accum = - out.accum;
             //    out.reveal = 1.0 - 1.0 / (1.0 - alpha);
         }
-        """.replace(
-            "WEIGHT_CODE", self._weight_code
-        )
+        """
+        return code.replace("WEIGHT_CODE", self._weight_code)
 
 
 class FrontmostTransparencyPass(BasePass):
@@ -482,7 +518,7 @@ class FrontmostTransparencyPass(BasePass):
             @location(0) color: vec4<f32>,
             @location(1) pick: vec4<u32>,
         };
-        fn get_fragment_output(depth: f32, color: vec4<f32>) -> FragmentOutput {
+        fn get_fragment_output(position: vec4<f32>, color: vec4<f32>) -> FragmentOutput {
             if (color.a <= ALPHA_COMPARE_EPSILON || color.a >= 1.0 - ALPHA_COMPARE_EPSILON) { discard; }
             var out : FragmentOutput;
             out.color = vec4<f32>(color.rgb * color.a, color.a);
@@ -561,7 +597,7 @@ class BaseFragmentBlender:
 
         # Set new size
         self.size = size
-        tex_size = size + (1,)
+        tex_size = (*size, 1)
 
         # Any bind group is now invalid because they include source textures.
         self._combine_pass_bind_group = None
@@ -598,12 +634,9 @@ class BaseFragmentBlender:
         }
 
     def get_depth_attachment(self, pass_index):
-        return {
-            **self.passes[pass_index].get_depth_attachment(self),
-            "stencil_read_only": True,
-            "stencil_load_op": wgpu.LoadOp.clear,
-            "stencil_store_op": wgpu.StoreOp.discard,
-        }
+        return self.passes[pass_index].get_depth_attachment(self)
+        # We don't use the stencil yet, but when we do, we will also have to specify
+        # "stencil_read_only", "stencil_load_op", and "stencil_store_op"
 
     def get_shader_kwargs(self, pass_index):
         return {
@@ -663,6 +696,14 @@ class OpaqueFragmentBlender(BaseFragmentBlender):
     """
 
     passes = [FullOpaquePass()]
+
+
+class DitherFragmentBlender(BaseFragmentBlender):
+    """A fragment blender that pretends that all surfaces are opaque,
+    even if they're not.
+    """
+
+    passes = [DitherPass()]
 
 
 class Ordered1FragmentBlender(BaseFragmentBlender):
@@ -968,6 +1009,7 @@ class AdditivePass(BasePass):
             depth_load_op = wgpu.LoadOp.clear
         return {
             "view": blender.depth_view,
+            "depth_clear_value": 1.0,
             "depth_load_op": depth_load_op,
             "depth_store_op": wgpu.StoreOp.store,
         }
@@ -977,7 +1019,8 @@ class AdditivePass(BasePass):
         struct FragmentOutput {
             @location(0) color: vec4<f32>,
         };
-        fn get_fragment_output(depth: f32, color: vec4<f32>) -> FragmentOutput {
+        fn get_fragment_output(position: vec4<f32>, color: vec4<f32>) -> FragmentOutput {
+            let depth = position.z;
             var out : FragmentOutput;
             out.color = color;
             return out;

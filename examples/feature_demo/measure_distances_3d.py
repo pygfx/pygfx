@@ -66,7 +66,6 @@ def handle_clicks(event):
 
 
 def animate():
-
     ruler.update(camera, canvas.get_logical_size())
     renderer.render(scene, camera)
 

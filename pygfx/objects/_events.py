@@ -1,10 +1,10 @@
 from collections import defaultdict
 from enum import Enum
 from time import perf_counter
-from typing import Union
+from typing import Union, Optional
 from weakref import ref
 
-from wgpu.gui.base import log_exception
+from rendercanvas.base import log_exception
 
 
 CLICK_DEBOUNCE = 0.5  # in seconds
@@ -66,10 +66,10 @@ class Event:
         bubbles=True,
         target: "EventTarget" = None,
         root: "RootEventHandler" = None,
-        time_stamp: float = None,
+        time_stamp: Optional[float] = None,
         cancelled: bool = False,
         # Swallow event_type to ease conversion from wgpu events to Event objects
-        event_type: str = None,
+        event_type: Optional[str] = None,
     ):
         self._type = type
         # Using perf_counter_ns instead of perf_counter
@@ -528,9 +528,11 @@ class RootEventHandler(EventTarget):
             if (
                 tracked_click
                 and (
-                    tracked_click["target"] is not None
-                    and tracked_click["target"]() is not None
-                    and tracked_click["target"]() is event.target
+                    (
+                        tracked_click["target"] is not None
+                        and tracked_click["target"]() is not None
+                        and tracked_click["target"]() is event.target
+                    )
                     or (tracked_click["target"] is None and event.target is None)
                 )
                 and event.time_stamp - tracked_click["time_stamp"] < CLICK_DEBOUNCE
@@ -550,9 +552,11 @@ class RootEventHandler(EventTarget):
         elif event.type == EventType.POINTER_UP:
             tracked_click = self._click_tracker.get(pointer_id)
             if tracked_click and (
-                tracked_click["target"] is not None
-                and tracked_click["target"]() is not None
-                and tracked_click["target"]() is event.target
+                (
+                    tracked_click["target"] is not None
+                    and tracked_click["target"]() is not None
+                    and tracked_click["target"]() is event.target
+                )
                 or (tracked_click["target"] is None and event.target is None)
             ):
                 ev = event.copy(type="click", clicks=tracked_click["count"])

@@ -1,6 +1,6 @@
 # Damaged Helmet
 
-https://github.com/KhronosGroup/glTF-Sample-Models/tree/master/2.0/DamagedHelmet
+https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/DamagedHelmet
 
 ## License Information
 

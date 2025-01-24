@@ -2,13 +2,17 @@
 Multi-Object Selection
 ======================
 
-
 Example demonstrating multi object selection using mouse events.
 
 Hovering the mouse over a cube will highlight it with a bounding box.
 Clicking on a cube will select it. Double-clicking a cube will select
 all the items from that group (because the group has a double-click
 event handler). Holding shift will add to the selection.
+
+This example keeps two materials, one for the default and one for the
+selected appearance. The low-level wgpu objects are associated with
+both the world object and the material. This means that swapping to a
+material that was already used (with that object) has zero overhead.
 """
 
 # sphinx_gallery_pygfx_docs = 'screenshot'
@@ -17,12 +21,12 @@ event handler). Holding shift will add to the selection.
 from functools import partial
 from random import randint, random
 
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 import pylinalg as la
 
 
-canvas = WgpuCanvas()
+canvas = RenderCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 
 camera = gfx.PerspectiveCamera(70, 16 / 9)
@@ -92,7 +96,19 @@ def random_rotation():
     )
 
 
+initialized = False
+
+
 def animate():
+    global initialized
+
+    # Render with both materials, to initialize them.
+    if not initialized:
+        initialized = True
+        scene.traverse(lambda obj: set_material(selected_material, obj))
+        renderer.render(scene, camera)
+        scene.traverse(lambda obj: set_material(default_material, obj))
+
     def random_rot(obj):
         if hasattr(obj, "random_rotation"):
             obj.local.rotation = la.quat_mul(obj.random_rotation, obj.local.rotation)
@@ -125,4 +141,4 @@ if __name__ == "__main__":
             group.add(cube)
 
     canvas.request_draw(animate)
-    run()
+    loop.run()

@@ -1,3 +1,4 @@
+from colorsys import ONE_THIRD
 from pytest import raises
 import numpy as np
 
@@ -144,7 +145,7 @@ def test_color_hex():
     # values are stable and won't "jump"
     for v in [0.0, 0.1, 0.23, 1 / 7, 0.99, 1.0]:
         c = Color(v, v, v, 1)
-        for i in range(10):
+        for _i in range(10):
             c = TColor(c.hex)
             assert c.matches(v, v, v, 1)
 
@@ -164,6 +165,7 @@ def test_color_css():
     assert Color("rgba(10, 20, 30, 0.5)").hexa == "#0a141e80"
     assert TColor("rgb(10%, 20%, 30%)").matches(0.1, 0.2, 0.3, 1)
     assert TColor("rgba(10%, 20%, 30%, 0.5)").matches(0.1, 0.2, 0.3, 0.5)
+    assert TColor("rgba(10%, 20%, 30%, 50%)").matches(0.1, 0.2, 0.3, 0.5)
 
     assert Color("#0a141eff").css == "rgb(10,20,30)"
     assert Color("#0a141e80").css == "rgba(10,20,30,0.502)"
@@ -172,6 +174,22 @@ def test_color_css():
         Color("rgb(10, 20, 30, 40, 50)")
     with raises(ValueError):
         Color("rgb(10, 20)")
+
+    assert Color("hsl(120deg, 100%, 50%)").hexa == "#00ff00ff"
+    assert Color("hsla(120deg, 100%, 50%, 50%)").hexa == "#00ff0080"
+
+    assert Color("hsv(120deg, 100%, 50%)").hexa == "#008000ff"
+    assert Color("hsva(120deg, 100%, 50%, 50%)").hexa == "#00800080"
+
+    assert Color("hsluv(120deg, 50%, 50%)").hexa == "#5e8052ff"
+    assert Color("hsluva(120deg, 50%, 50%, 50%)").hexa == "#5e805280"
+
+    with raises(ValueError):
+        Color("hsl(120deg, 100%)")
+    with raises(ValueError):
+        Color("hsv(120deg, 100%)")
+    with raises(ValueError):
+        Color("hsluv(120deg, 100%)")
 
 
 def test_color_min_max():
@@ -240,11 +258,70 @@ def test_color_colorspaces():
         Color.from_physical(0.0, 0.5, 1.0).to_physical(), (0.0, 0.5, 1.0)
     )
 
-    assert Color.from_hsv(0.333333, 1, 0.5).hex == "#008000"
-    assert np.allclose(Color.from_hsv(0.333333, 1, 0.5).to_hsv(), (0.333333, 1, 0.5))
+    assert Color.from_hsv(ONE_THIRD, 1, 0.5).hex == "#008000"
+    assert np.allclose(Color.from_hsv(ONE_THIRD, 1, 0.5).to_hsv(), (ONE_THIRD, 1, 0.5))
 
-    assert Color.from_hsl(0.333333, 1, 0.5).hex == "#00ff00"
-    assert np.allclose(Color.from_hsl(0.333333, 1, 0.5).to_hsl(), (0.333333, 1, 0.5))
+    assert Color.from_hsl(ONE_THIRD, 1, 0.5).hex == "#00ff00"
+    assert np.allclose(Color.from_hsl(ONE_THIRD, 1, 0.5).to_hsl(), (ONE_THIRD, 1, 0.5))
+
+    assert Color.from_hsluv(ONE_THIRD, 0.5, 0.5).hexa == "#5e8052ff"
+    assert np.allclose(
+        Color.from_hsluv(ONE_THIRD, 0.5, 0.5).to_hsluv(), (ONE_THIRD, 0.5, 0.5)
+    )
+
+    assert Color.from_hsv(ONE_THIRD, 1.0, 0.5).hexa == "#008000ff"
+    assert np.allclose(
+        Color.from_hsv(ONE_THIRD, 1.0, 0.5).to_hsv(), (ONE_THIRD, 1.0, 0.5)
+    )
+
+    assert Color.from_hsl(ONE_THIRD, 1.0, 0.5).hexa == "#00ff00ff"
+    assert np.allclose(
+        Color.from_hsl(ONE_THIRD, 1.0, 0.5).to_hsl(), (ONE_THIRD, 1.0, 0.5)
+    )
+
+
+def test_color_lerp_lighter_darker():
+    green = Color("#00ff00")
+    red = Color("#ff0000")
+
+    # half way between green and red
+    assert np.allclose(green.lerp(red, 0.5).rgb, (0.5, 0.5, 0))
+    # green
+    assert np.allclose(green.lerp(red, 0.0).rgb, (0.0, 1.0, 0))
+    # red
+    assert np.allclose(green.lerp(red, 1.0).rgb, (1.0, 0.0, 0.0))
+
+    assert np.allclose(green.lerp_in_hue(red, 0.0, "hsl").to_hsl(), green.to_hsl())
+    assert np.allclose(green.lerp_in_hue(red, 1.0, "hsl").to_hsl(), red.to_hsl())
+
+    assert np.allclose(green.lerp_in_hue(red, 0.0, "hsv").to_hsv(), green.to_hsv())
+    assert np.allclose(green.lerp_in_hue(red, 1.0, "hsv").to_hsv(), red.to_hsv())
+
+    assert np.allclose(
+        green.lerp_in_hue(red, 0.0, "hsluv").to_hsluv(), green.to_hsluv()
+    )
+    assert np.allclose(green.lerp_in_hue(red, 1.0, "hsluv").to_hsluv(), red.to_hsluv())
+
+    # Test lighter() and darker()
+    assert np.allclose(
+        green.lighter(0.5, "hsl").to_hsl()[2],
+        green.to_hsl()[2] + (1 - green.to_hsl()[2]) * 0.5,
+    )
+    assert np.allclose(green.darker(0.5, "hsl").to_hsl()[2], green.to_hsl()[2] * 0.5)
+
+    assert np.allclose(
+        green.lighter(0.5, "hsluv").to_hsluv()[2],
+        green.to_hsluv()[2] + (1 - green.to_hsluv()[2]) * 0.5,
+    )
+    assert np.allclose(
+        green.darker(0.5, "hsluv").to_hsluv()[2], green.to_hsluv()[2] * 0.5
+    )
+
+    assert np.allclose(
+        green.lighter(0.5, "hsv").to_hsv()[2],
+        green.to_hsv()[2] + (1 - green.to_hsv()[2]) * 0.5,
+    )
+    assert np.allclose(green.darker(0.5, "hsv").to_hsv()[2], green.to_hsv()[2] * 0.5)
 
 
 if __name__ == "__main__":

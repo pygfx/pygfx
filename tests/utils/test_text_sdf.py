@@ -50,12 +50,12 @@ def check_speed():
     generate_glyph(indices, font.filename)
 
     t0 = time.perf_counter()
-    for i in range(1000):
+    for _i in range(1000):
         generate_glyph(indices, font.filename)
     dt = time.perf_counter() - t0
     print(
-        f"generate_glyph: {1000*dt:0.1f} ms total",
-        f"{1000*dt/(10000):0.3f} ms per glyph",
+        f"generate_glyph: {1000 * dt:0.1f} ms total",
+        f"{1000 * dt / (10000):0.3f} ms per glyph",
     )
 
     # If I tweak generate_glyph() to include the time in the hash,

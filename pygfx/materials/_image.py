@@ -1,5 +1,6 @@
-from ..resources import Texture
+from ..resources import Texture, TextureMap
 from ._base import Material
+from ..utils import assert_type
 
 
 class ImageBasicMaterial(Material):
@@ -9,12 +10,10 @@ class ImageBasicMaterial(Material):
     ----------
     clim : tuple
         The contrast limits to scale the data values with. Default (0, 1).
-    map : Texture
+    map : TextureMap | Texture
         The texture map to turn the image values into its final color. Optional.
     interpolation : str
         The method to interpolate the image data. Either 'nearest' or 'linear'. Default 'nearest'.
-    map_interpolation: str
-        The method to interpolate the color map. Either 'nearest' or 'linear'. Default 'linear'.
     kwargs : Any
         Additional kwargs will be passed to the :class:`material base class
         <pygfx.Material>`.
@@ -31,14 +30,12 @@ class ImageBasicMaterial(Material):
         clim=None,
         map=None,
         interpolation="nearest",
-        map_interpolation="linear",
-        **kwargs
+        **kwargs,
     ):
         super().__init__(**kwargs)
         self.map = map
         self.clim = clim
         self.interpolation = interpolation
-        self.map_interpolation = map_interpolation
 
     @property
     def map(self):
@@ -46,12 +43,16 @@ class ImageBasicMaterial(Material):
         If None, the values themselves represents the color. The
         dimensionality of the texture map can be 1D, 2D or 3D, but
         should match the number of channels in the image.
+
+        Note: for scientific data, it is usually to set wrap mode to 'clamp'.
         """
         return self._store.map
 
     @map.setter
     def map(self, map):
-        assert map is None or isinstance(map, Texture)
+        assert_type("map", map, None, Texture, TextureMap)
+        if isinstance(map, Texture):
+            map = TextureMap(map, wrap="clamp")
         self._store.map = map
 
     @property
@@ -79,13 +80,3 @@ class ImageBasicMaterial(Material):
     def interpolation(self, value):
         assert value in ("nearest", "linear")
         self._store.interpolation = value
-
-    @property
-    def map_interpolation(self):
-        """The method to interpolate the colormap. Either 'nearest' or 'linear'."""
-        return self._store.map_interpolation
-
-    @map_interpolation.setter
-    def map_interpolation(self, value):
-        assert value in ("nearest", "linear")
-        self._store.map_interpolation = value

@@ -58,7 +58,7 @@ text_camera = gfx.OrthographicCamera(12, 4)
 def create_scene(material, x_pos):
     scene = gfx.Scene()
     m = meshes[0]
-    material.light_map = light_map_tex
+    material.light_map = gfx.TextureMap(light_map_tex, uv_channel=1)
     mesh = gfx.Mesh(m.geometry, material)
     mesh.local.scale = 100
     scene.add(mesh)

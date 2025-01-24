@@ -22,9 +22,9 @@ def test_uniform_types_uniform_type():
             else:
                 for key, val in super_cls.uniform_type.items():
                     assert key in ob.uniform_type, f"{cls.__name__}:{key} missing"
-                    assert (
-                        val == ob.uniform_type[key]
-                    ), f"{cls.__name__}:{key} different"
+                    assert val == ob.uniform_type[key], (
+                        f"{cls.__name__}:{key} different"
+                    )
 
 
 if __name__ == "__main__":

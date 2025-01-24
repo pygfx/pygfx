@@ -14,7 +14,6 @@ def test_ortho_camera_near_far():
         (300, 500),
     ]:
         camera = gfx.OrthographicCamera(20, 20, depth_range=(near, far))
-        camera.update_projection_matrix()
         assert camera.near == near
         assert camera.far == far
         _run_for_camera(camera, near, far, True)
@@ -29,7 +28,6 @@ def test_perspective_camera_near_far():
         (490, 500),
     ]:
         camera = gfx.PerspectiveCamera(50, 1, depth_range=(near, far))
-        camera.update_projection_matrix()
         assert camera.near == near
         assert camera.far == far
         _run_for_camera(camera, near, far, False)

@@ -53,10 +53,10 @@ position_pairs = 50 * np.array(position_pairs, np.float32)
 
 
 if True:  # use segment
-    Material = gfx.LineSegmentMaterial  # noqa
+    Material = gfx.LineSegmentMaterial
     positions = np.array(position_pairs, np.float32)
 else:  # use nans
-    Material = gfx.LineMaterial  # noqa
+    Material = gfx.LineMaterial
     positions = np.zeros((3 * len(position_pairs) // 2, 3), np.float32)
     positions[0::3] = position_pairs[0::2]
     positions[1::3] = position_pairs[1::2]

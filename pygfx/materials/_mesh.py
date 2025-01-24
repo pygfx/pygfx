@@ -1,7 +1,7 @@
 import math
 from ._base import Material
-from ..resources import Texture
-from ..utils import logger
+from ..resources import Texture, TextureMap
+from ..utils import logger, assert_type
 from ..utils.color import Color
 from ..utils.enums import ColorMode, VisibleSide
 
@@ -17,10 +17,8 @@ class MeshAbstractMaterial(Material):
         The uniform color of the mesh (used depending on the ``color_mode``).
     color_mode : str | ColorMode
         The mode by which the mesh is coloured. Default 'auto'.
-    map : Texture
+    map : TextureMap | Texture
         The texture map specifying the color at each texture coordinate. Optional.
-    map_interpolation: str
-        The method to interpolate the color map. Either 'nearest' or 'linear'. Default 'linear'.
     side : str | VisibleSide
         What side of the mesh is visible. Default "both".
     kwargs : Any
@@ -52,7 +50,6 @@ class MeshAbstractMaterial(Material):
         color="#fff",
         color_mode="auto",
         map=None,
-        map_interpolation="linear",
         side="both",
         **kwargs,
     ):
@@ -61,7 +58,6 @@ class MeshAbstractMaterial(Material):
         self.color = color
         self.color_mode = color_mode
         self.map = map
-        self.map_interpolation = map_interpolation
         self.side = side
 
     @property
@@ -97,7 +93,7 @@ class MeshAbstractMaterial(Material):
         value = value or "auto"
         if value not in ColorMode:
             raise ValueError(
-                f"MeshMaterial.color_mode must be a string in {ColorMode}, not {repr(value)}"
+                f"MeshMaterial.color_mode must be a string in {ColorMode}, not {value!r}"
             )
         self._store.color_mode = value
 
@@ -125,18 +121,10 @@ class MeshAbstractMaterial(Material):
 
     @map.setter
     def map(self, map):
-        assert map is None or isinstance(map, Texture)
+        assert_type("map", map, None, Texture, TextureMap)
+        if isinstance(map, Texture):
+            map = TextureMap(map)
         self._store.map = map
-
-    @property
-    def map_interpolation(self):
-        """The method to interpolate the colormap. Either 'nearest' or 'linear'."""
-        return self._store.map_interpolation
-
-    @map_interpolation.setter
-    def map_interpolation(self, value):
-        assert value in ("nearest", "linear")
-        self._store.map_interpolation = value
 
     @property
     def side(self):
@@ -155,7 +143,7 @@ class MeshAbstractMaterial(Material):
         value = (value or "both").lower()
         if value not in VisibleSide:
             raise ValueError(
-                f"MeshMaterial.side must be a string in {VisibleSide}, not {repr(value)}"
+                f"MeshMaterial.side must be a string in {VisibleSide}, not {value!r}"
             )
         self._store.side = value
 
@@ -211,6 +199,9 @@ class MeshBasicMaterial(MeshAbstractMaterial):
         refraction_ratio=0.98,
         env_combine_mode="MULTIPLY",
         env_mapping_mode="CUBE-REFLECTION",
+        light_map=None,
+        ao_map=None,
+        specular_map=None,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -225,20 +216,25 @@ class MeshBasicMaterial(MeshAbstractMaterial):
         self.reflectivity = reflectivity
         self.refraction_ratio = refraction_ratio
 
-        self.light_map = None
+        self.light_map = light_map
         self.light_map_intensity = 1.0
 
-        self.ao_map = None
+        self.ao_map = ao_map
         self.ao_map_intensity = 1.0
+
+        self.specular_map = specular_map
 
     @property
     def env_map(self):
         """The environment map."""
-        return self._env_map
+        return self._store.env_map
 
     @env_map.setter
     def env_map(self, env_map):
-        self._env_map = env_map
+        assert env_map is None or isinstance(env_map, (Texture, TextureMap))
+        if isinstance(env_map, Texture):
+            env_map = TextureMap(env_map)
+        self._store.env_map = env_map
 
     @property
     def wireframe(self):
@@ -347,15 +343,14 @@ class MeshBasicMaterial(MeshAbstractMaterial):
     @property
     def light_map(self):
         """The light map to define pre-baked lighting (in srgb). Default is None.
-        It requires a second set of texture coordinates (geometry.texcoords1)."""
+        It usually requires a second set of texture coordinates."""
         return self._store.light_map
 
     @light_map.setter
     def light_map(self, map):
-        if map is not None and not isinstance(map, Texture):
-            raise ValueError(
-                f"light_map must be a Texture or None, received: {type(map)}"
-            )
+        assert_type("light_map", map, None, Texture, TextureMap)
+        if isinstance(map, Texture):
+            map = TextureMap(map)
         self._store.light_map = map
 
     @property
@@ -373,13 +368,14 @@ class MeshBasicMaterial(MeshAbstractMaterial):
     @property
     def ao_map(self):
         """The red channel of this texture is used as the ambient occlusion map. Default is None.
-        It requires a second set of texture coordinates (geometry.texcoords1)."""
+        It usually requires a second set of texture coordinates."""
         return self._store.ao_map
 
     @ao_map.setter
     def ao_map(self, map):
-        if map is not None and not isinstance(map, Texture):
-            raise ValueError(f"ao_map must be a Texture or None, received: {type(map)}")
+        assert_type("ao_map", map, None, Texture, TextureMap)
+        if isinstance(map, Texture):
+            map = TextureMap(map)
         self._store.ao_map = map
 
     @property
@@ -391,6 +387,18 @@ class MeshBasicMaterial(MeshAbstractMaterial):
     def ao_map_intensity(self, value):
         self.uniform_buffer.data["ao_map_intensity"] = value
         self.uniform_buffer.update_full()
+
+    @property
+    def specular_map(self):
+        """The specular map. Default is None."""
+        return self._store.specular_map
+
+    @specular_map.setter
+    def specular_map(self, map):
+        assert_type("specular_map", map, None, Texture, TextureMap)
+        if isinstance(map, Texture):
+            map = TextureMap(map)
+        self._store.specular_map = map
 
 
 class MeshPhongMaterial(MeshBasicMaterial):
@@ -450,7 +458,9 @@ class MeshPhongMaterial(MeshBasicMaterial):
         MeshBasicMaterial.uniform_type,
         emissive_color="4xf4",
         specular_color="4xf4",
+        normal_scale="2xf4",
         shininess="f4",
+        emissive_intensity="f4",
     )
 
     def __init__(
@@ -503,11 +513,190 @@ class MeshPhongMaterial(MeshBasicMaterial):
         self.uniform_buffer.data["shininess"] = value
         self.uniform_buffer.update_full()
 
-    # TODO: more advanced mproperties, Unified with "MeshStandardMaterial".
+    @property
+    def emissive_map(self):
+        """The emissive map color is modulated by the emissive color
+        and the emissive intensity. If you have an emissive map, be
+        sure to set the emissive color to something other than black.
+        Note that both emissive color and emissive map are considered
+        in srgb colorspace. Default None.
+        """
+        return self._store.emissive_map
+
+    @emissive_map.setter
+    def emissive_map(self, map):
+        assert_type("emissive_map", map, None, Texture, TextureMap)
+        if isinstance(map, Texture):
+            map = TextureMap(map)
+        self._store.emissive_map = map
+
+    @property
+    def emissive_intensity(self):
+        """Intensity of the emissive light. Modulates the emissive color
+        and emissive map. Default is 1.
+
+        Note that the intensity is applied in the physical colorspace.
+        You can think of it as scaling the number of photons. Therefore
+        using an intensity of 0.5 is not the same as halving the
+        emissive color, which is in srgb space.
+        """
+        return self.uniform_buffer.data["emissive_intensity"]
+
+    @emissive_intensity.setter
+    def emissive_intensity(self, value):
+        self.uniform_buffer.data["emissive_intensity"] = value
+        self.uniform_buffer.update_full()
+
+    @property
+    def normal_scale(self):
+        """How much the normal map affects the material. This 2-tuple
+        is multiplied with the normal_map's xy components (z is
+        unaffected). Typical ranges are 0-1. Default is (1,1).
+        """
+        return tuple(self.uniform_buffer.data["normal_scale"])
+
+    @normal_scale.setter
+    def normal_scale(self, value):
+        self.uniform_buffer.data["normal_scale"] = value
+        self.uniform_buffer.update_range(0, 1)
+
+    @property
+    def normal_map(self):
+        """The texture to create a normal map. Affects the surface
+        normal for each pixel fragment and change the way the color is
+        lit. Normal maps do not change the actual shape of the surface,
+        only the lighting.
+        """
+        return self._store.normal_map
+
+    @normal_map.setter
+    def normal_map(self, map):
+        assert_type("normal_map", map, None, Texture, TextureMap)
+        if isinstance(map, Texture):
+            map = TextureMap(map)
+        self._store.normal_map = map
 
 
-# todo: MeshToonMaterial(MeshBasicMaterial):
-# A cartoon-style mesh material.
+class MeshToonMaterial(MeshBasicMaterial):
+    """
+    A material implementing toon shading.
+
+    Parameters
+    ----------
+    emissive : Color
+        The emissive (light) color of the mesh. This color is added to the final
+        color and is unaffected by lighting. The alpha channel of this color is
+        ignored.
+
+    gradient_map : Texture
+        Gradient map for toon shading. The gradient map sampler method is always 'nearest'.
+
+    kwargs : Any
+        Additional kwargs will be passed to the :class:`base class
+        <pygfx.MeshBasicMaterial>`.
+    """
+
+    uniform_type = dict(
+        MeshBasicMaterial.uniform_type,
+        emissive_color="4xf4",
+        normal_scale="2xf4",
+        emissive_intensity="f4",
+    )
+
+    def __init__(
+        self,
+        emissive="#000",
+        gradient_map=None,
+        emissive_intensity=1.0,
+        emissive_map=None,
+        normal_map=None,
+        normal_scale=(1, 1),
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+
+        self.emissive = emissive
+        self.emissive_map = emissive_map
+        self.emissive_intensity = emissive_intensity
+
+        self.normal_map = normal_map
+        self.normal_scale = normal_scale
+
+        self.gradient_map = gradient_map
+
+    @property
+    def emissive(self):
+        """The emissive (light) color of the mesh.
+        This color is added to the final color and is unaffected by lighting.
+        The alpha channel of this color is ignored.
+        """
+        return Color(self.uniform_buffer.data["emissive_color"])
+
+    @emissive.setter
+    def emissive(self, color):
+        color = Color(color)
+        self.uniform_buffer.data["emissive_color"] = color
+        self.uniform_buffer.update_range(0, 1)
+
+    @property
+    def emissive_intensity(self):
+        """Intensity of the emissive light. Modulates the emissive color
+        and emissive map. Default is 1.
+
+        Note that the intensity is applied in the physical colorspace.
+        You can think of it as scaling the number of photons. Therefore
+        using an intensity of 0.5 is not the same as halving the
+        emissive color, which is in srgb space.
+        """
+        return float(self.uniform_buffer.data["emissive_intensity"])
+
+    @emissive_intensity.setter
+    def emissive_intensity(self, value):
+        self.uniform_buffer.data["emissive_intensity"] = value
+        self.uniform_buffer.update_range(0, 1)
+
+    @property
+    def normal_scale(self):
+        """How much the normal map affects the material. This 2-tuple
+        is multiplied with the normal_map's xy components (z is
+        unaffected). Typical ranges are 0-1. Default is (1,1).
+        """
+        return tuple(self.uniform_buffer.data["normal_scale"])
+
+    @normal_scale.setter
+    def normal_scale(self, value):
+        self.uniform_buffer.data["normal_scale"] = value
+        self.uniform_buffer.update_range(0, 1)
+
+    @property
+    def normal_map(self):
+        """The texture to create a normal map. Affects the surface
+        normal for each pixel fragment and change the way the color is
+        lit. Normal maps do not change the actual shape of the surface,
+        only the lighting.
+        """
+        return self._store.normal_map
+
+    @normal_map.setter
+    def normal_map(self, map):
+        assert_type("normal_map", map, None, Texture, TextureMap)
+        if isinstance(map, Texture):
+            map = TextureMap(map)
+        self._store.normal_map = map
+
+    @property
+    def gradient_map(self):
+        """Gradient map for toon shading.
+        It's usually to set filter to 'nearest' for the gradient map.
+        """
+        return self._store.gradient_map
+
+    @gradient_map.setter
+    def gradient_map(self, map):
+        assert_type("gradient_map", map, None, Texture, TextureMap)
+        if isinstance(map, Texture):
+            map = TextureMap(map, filter="nearest")
+        self._store.gradient_map = map
 
 
 class MeshNormalMaterial(MeshAbstractMaterial):
@@ -663,9 +852,17 @@ class MeshStandardMaterial(MeshBasicMaterial):
 
     def __init__(
         self,
+        *,
         emissive="#000",
         metalness=0.0,
         roughness=1.0,
+        roughness_map=None,
+        metalness_map=None,
+        emissive_map=None,
+        normal_map=None,
+        env_map_intensity=1.0,
+        normal_scale=(1, 1),
+        emissive_intensity=1.0,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -673,16 +870,16 @@ class MeshStandardMaterial(MeshBasicMaterial):
         self.roughness = roughness
         self.metalness = metalness
 
-        self.roughness_map = None
-        self.metalness_map = None
+        self.roughness_map = roughness_map
+        self.metalness_map = metalness_map
 
-        self.emissive_map = None
-        self.emissive_intensity = 1.0
+        self.emissive_map = emissive_map
+        self.emissive_intensity = emissive_intensity
 
-        self.normal_map = None
-        self.normal_scale = (1, 1)
+        self.normal_map = normal_map
+        self.normal_scale = normal_scale
 
-        self.env_map_intensity = 1.0
+        self.env_map_intensity = env_map_intensity
 
         # Note: there are more advanced properties to add, e.g. displacement_map, alpha_map
 
@@ -713,7 +910,9 @@ class MeshStandardMaterial(MeshBasicMaterial):
 
     @emissive_map.setter
     def emissive_map(self, map):
-        assert map is None or isinstance(map, Texture)
+        assert_type("emissive_map", map, None, Texture, TextureMap)
+        if isinstance(map, Texture):
+            map = TextureMap(map)
         self._store.emissive_map = map
 
     @property
@@ -755,7 +954,9 @@ class MeshStandardMaterial(MeshBasicMaterial):
 
     @metalness_map.setter
     def metalness_map(self, map):
-        assert map is None or isinstance(map, Texture)
+        assert_type("metalness_map", map, None, Texture, TextureMap)
+        if isinstance(map, Texture):
+            map = TextureMap(map)
         self._store.metalness_map = map
 
     @property
@@ -778,7 +979,9 @@ class MeshStandardMaterial(MeshBasicMaterial):
 
     @roughness_map.setter
     def roughness_map(self, map):
-        assert map is None or isinstance(map, Texture)
+        assert_type("roughness_map", map, None, Texture, TextureMap)
+        if isinstance(map, Texture):
+            map = TextureMap(map)
         self._store.roughness_map = map
 
     @property
@@ -805,7 +1008,9 @@ class MeshStandardMaterial(MeshBasicMaterial):
 
     @normal_map.setter
     def normal_map(self, map):
-        assert map is None or isinstance(map, Texture)
+        assert_type("normal_map", map, None, Texture, TextureMap)
+        if isinstance(map, Texture):
+            map = TextureMap(map)
         self._store.normal_map = map
 
     @property
@@ -824,16 +1029,19 @@ class MeshStandardMaterial(MeshBasicMaterial):
 
     @env_map.setter
     def env_map(self, map):
-        assert map is None or isinstance(map, Texture)
+        assert_type("env_map", map, None, Texture, TextureMap)
+        if isinstance(map, Texture):
+            map = TextureMap(map)
+
         self._env_map = map
         if map is None:
             self.uniform_buffer.data["env_map_max_mip_level"] = 0
         else:
-            if not map.generate_mipmaps:
+            if not map.texture.generate_mipmaps:
                 logger.warning(
                     "The env_map texture must have generate_mipmaps=True in order for roughness to work."
                 )
-            width, height, _ = map.size
+            width, height, _ = map.texture.size
             max_level = math.floor(math.log2(max(width, height))) + 1
             self.uniform_buffer.data["env_map_max_mip_level"] = float(max_level)
         self.uniform_buffer.update_full()
@@ -849,3 +1057,189 @@ class MeshStandardMaterial(MeshBasicMaterial):
     def env_map_intensity(self, value):
         self.uniform_buffer.data["env_map_intensity"] = value
         self.uniform_buffer.update_full()
+
+
+class MeshPhysicalMaterial(MeshStandardMaterial):
+    """Physical mesh material.
+
+    This is an extension of the MeshStandardMaterial,
+    providing more advanced physically-based rendering properties.
+
+    Parameters
+    ----------
+
+    ior : float
+        The index of refraction (IOR) of the material. Default is 1.5.
+    specular : Color
+        The specular (highlight) color of the mesh.
+    clearcoat : float
+        How much the material has a clearcoat layer. Default is 0.0.
+    clearcoat_roughness : float
+        How rough the clearcoat layer is. 0.0 means a smooth mirror
+        reflection, 1.0 means fully diffuse. Default is 0.0.
+    clearcoat_normal_scale : tuple
+        How much the clearcoat normal map affects the material. This 2-tuple
+        is multiplied with the clearcoat_normal_map's xy components (z is unaffected).
+        Typical ranges are 0-1. Default is (1,1).
+    kwargs : Any
+        Additional kwargs will be passed to the :class:`base class
+        <pygfx.MeshStandardMaterial>`.
+
+    """
+
+    uniform_type = dict(
+        MeshStandardMaterial.uniform_type,
+        ior="f4",
+        specular_color="4xf4",
+        specular_intensity="f4",
+        clearcoat="f4",
+        clearcoat_roughness="f4",
+        clearcoat_normal_scale="2xf4",
+    )
+
+    def __init__(
+        self,
+        ior=1.5,
+        specular="#fff",
+        specular_map=None,
+        specular_intensity=1.0,
+        specular_intensity_map=None,
+        clearcoat=0.0,
+        clearcoat_map=None,
+        clearcoat_normal_map=None,
+        clearcoat_normal_scale=(1, 1),
+        clearcoat_roughness=0.0,
+        clearcoat_roughness_map=None,
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        self.ior = ior
+        self.specular = specular
+        self.specular_map = specular_map
+        self.specular_intensity = specular_intensity
+        self.specular_intensity_map = specular_intensity_map
+        self.clearcoat = clearcoat
+        self.clearcoat_map = clearcoat_map
+        self.clearcoat_normal_map = clearcoat_normal_map
+        self.clearcoat_normal_scale = clearcoat_normal_scale
+        self.clearcoat_roughness = clearcoat_roughness
+        self.clearcoat_roughness_map = clearcoat_roughness_map
+
+    @property
+    def ior(self):
+        """The index of refraction (IOR) of the material. Default is 1.5."""
+        return float(self.uniform_buffer.data["ior"])
+
+    @ior.setter
+    def ior(self, value):
+        self.uniform_buffer.data["ior"] = value
+        self.uniform_buffer.update_full()
+
+    @property
+    def specular(self):
+        """The specular (highlight) color of the mesh."""
+        return Color(self.uniform_buffer.data["specular_color"])
+
+    @specular.setter
+    def specular(self, color):
+        color = Color(color)
+        self.uniform_buffer.data["specular_color"] = color
+        self.uniform_buffer.update_full()
+
+    @property
+    def specular_map(self):
+        """The specular map. Default is None."""
+        return self._store.specular_map
+
+    @specular_map.setter
+    def specular_map(self, map):
+        assert_type("specular_map", map, None, Texture, TextureMap)
+        if isinstance(map, Texture):
+            map = TextureMap(map)
+        self._store.specular_map = map
+
+    @property
+    def specular_intensity(self):
+        """Intensity of the specular highlight. Default is 1.0."""
+        return float(self.uniform_buffer.data["specular_intensity"])
+
+    @specular_intensity.setter
+    def specular_intensity(self, value):
+        self.uniform_buffer.data["specular_intensity"] = value
+        self.uniform_buffer.update_full()
+
+    @property
+    def specular_intensity_map(self):
+        """The red channel of this texture is used to alter the specular intensity of the material."""
+        return self._store.specular_intensity_map
+
+    @specular_intensity_map.setter
+    def specular_intensity_map(self, map):
+        assert_type("specular_intensity_map", map, None, Texture, TextureMap)
+        if isinstance(map, Texture):
+            map = TextureMap(map)
+        self._store.specular_intensity_map = map
+
+    @property
+    def clearcoat(self):
+        """How much the material has a clearcoat layer. Default is 0.0."""
+        return float(self.uniform_buffer.data["clearcoat"])
+
+    @clearcoat.setter
+    def clearcoat(self, value):
+        self.uniform_buffer.data["clearcoat"] = value
+        self.uniform_buffer.update_full()
+
+    @property
+    def clearcoat_normal_scale(self):
+        """How much the clearcoat normal map affects the material. This 2-tuple
+        is multiplied with the clearcoat_normal_map's xy components (z is
+        unaffected). Typical ranges are 0-1. Default is (1,1).
+        """
+        return tuple(self.uniform_buffer.data["clearcoat_normal_scale"])
+
+    @clearcoat_normal_scale.setter
+    def clearcoat_normal_scale(self, value):
+        self.uniform_buffer.data["clearcoat_normal_scale"] = value
+        self.uniform_buffer.update_full()
+
+    @property
+    def clearcoat_normal_map(self):
+        """The texture to create a clearcoat normal map. Affects the surface
+        normal for each pixel fragment and change the way the color is
+        lit. Normal maps do not change the actual shape of the surface,
+        only the lighting.
+        """
+        return self._store.clearcoat_normal_map
+
+    @clearcoat_normal_map.setter
+    def clearcoat_normal_map(self, map):
+        assert_type("clearcoat_normal_map", map, None, Texture, TextureMap)
+        if isinstance(map, Texture):
+            map = TextureMap(map)
+        self._store.clearcoat_normal_map = map
+
+    @property
+    def clearcoat_roughness(self):
+        """How rough the clearcoat layer is. 0.0 means a smooth mirror
+        reflection, 1.0 means fully diffuse. Default is 0.0.
+        If clearcoat_roughness_map is also provided, both values are multiplied.
+        """
+        return float(self.uniform_buffer.data["clearcoat_roughness"])
+
+    @clearcoat_roughness.setter
+    def clearcoat_roughness(self, value):
+        self.uniform_buffer.data["clearcoat_roughness"] = value
+        self.uniform_buffer.update_full()
+
+    @property
+    def clearcoat_roughness_map(self):
+        """The green channel of this texture is used to alter the clearcoat roughness of the material."""
+        return self._store.clearcoat_roughness_map
+
+    @clearcoat_roughness_map.setter
+    def clearcoat_roughness_map(self, map):
+        assert_type("clearcoat_roughness_map", map, None, Texture, TextureMap)
+        if isinstance(map, Texture):
+            map = TextureMap(map)
+        self._store.clearcoat_roughness_map = map

@@ -19,7 +19,7 @@ import pygfx as gfx
 gfx.renderers.wgpu.select_power_preference("high-performance")
 
 # Get a list of all adapters from wgpu
-adapters = wgpu.gpu.enumerate_adapters()
+adapters = wgpu.gpu.enumerate_adapters_sync()
 
 # Show the options
 print("Available adapters:")

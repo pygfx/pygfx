@@ -8,10 +8,9 @@ import importlib.resources
 
 
 @functools.lru_cache(maxsize=None)
-def load_wgsl(shader_name):
+def load_wgsl(shader_name, package_name="pygfx.renderers.wgpu.wgsl"):
     """Load wgsl code from pygfx builtin shader snippets."""
 
-    package_name = "pygfx.renderers.wgpu.wgsl"
     if sys.version_info < (3, 9):
         context = importlib.resources.path(package_name, shader_name)
     else:

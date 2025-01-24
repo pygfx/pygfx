@@ -168,7 +168,9 @@ class Ruler(WorldObject):
             try:
                 r = tick_format(0, -1, 1)
             except TypeError as err:
-                raise ValueError(f"Incompatible tick_format function: {str(err)}")
+                raise ValueError(
+                    f"Incompatible tick_format function: {err!s}"
+                ) from None
             if not isinstance(r, str):
                 raise ValueError(
                     f"Incompatible tick_format function: it must return str, not {r.__class__.__name__}"
@@ -248,15 +250,12 @@ class Ruler(WorldObject):
     def _configure_for_screen(self, camera, canvas_size):
         """Make the ruler aware of the camera and viewport size."""
 
-        # Yuk, but needed
-        camera.update_projection_matrix()
-
         half_canvas_size = 0.5 * np.array(canvas_size, np.float64).reshape(1, 2)
 
         # Get ndc coords for begin and end pos. Use numpy broadcasting for performance and compactness.
         positions = np.column_stack(
             [
-                np.row_stack([self._start_pos, self._end_pos]),
+                np.vstack([self._start_pos, self._end_pos]),
                 np.ones((2, 1), np.float64),
             ]
         )
@@ -479,7 +478,7 @@ class Ruler(WorldObject):
             define_text(start_pos, f"{self._start_value:0.4g}")
         else:
             sizes[0] = 0
-            define_text(start_pos, f"")
+            define_text(start_pos, "")
 
         # Collect ticks
         index += 1

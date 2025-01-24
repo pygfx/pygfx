@@ -57,14 +57,13 @@ Currently, the best way to ask for help from the maintainers is to start a
 
 ## Coding Style
 
-The Pygfx project uses `black` to automatically format the code. Additionally
-`flake8` is used to ensure "clean code". Use these commands:
+The Pygfx project uses `ruff` to format and lint the code:
 
 ```bash
-# Run black to auto-format all code in the current directory
-black .
-# Run flake8 to check the code quality
-flake8 .
+# Reformat the code if necessary
+ruff format .
+# Check for linting errors.
+ruff check .
 ```
 
 

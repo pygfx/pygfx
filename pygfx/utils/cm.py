@@ -25,7 +25,7 @@ from ._cmdata_mpl import (
 from ..resources import Texture
 
 
-__all__ = ["viridis", "plasma", "inferno", "magma", "cividis"]
+__all__ = ["cividis", "inferno", "magma", "plasma", "viridis"]
 
 
 viridis = Texture(_viridis_data, dim=1)

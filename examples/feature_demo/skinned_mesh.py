@@ -26,7 +26,6 @@ def create_geometry(sizing):
     skin_weights = np.zeros((positions.nitems, 4), dtype=np.float32)
 
     for i in range(positions.nitems):
-
         vertex = positions.data[i]
         z = vertex[2] + sizing["half_height"]
         skin_index = z // sizing["segment_height"]

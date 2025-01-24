@@ -176,10 +176,11 @@ class LightViewer(QtWidgets.QWidget):
         return color_btn
 
     def create_checkbox(
-        self, name, target=None, property=None, callback=None, toggle=[], index=None
+        self, name, target=None, property=None, callback=None, toggle=None, index=None
     ):
         checkbox = QtWidgets.QCheckBox(name)
-
+        if not toggle:
+            toggle = []
         if target and property:
             checkbox.setChecked(bool(getattr(target, property)))
 

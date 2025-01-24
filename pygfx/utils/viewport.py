@@ -62,7 +62,7 @@ class Viewport:
     def _get_rect(self):
         """Can be overloaded, e.g. for viewports that define their own rect."""
         if self._rect is None:
-            return (0, 0) + self.renderer.logical_size
+            return (0, 0, *self.renderer.logical_size)
         else:
             return self._rect
 

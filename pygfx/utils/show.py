@@ -162,9 +162,9 @@ class Display:
         # Process renderer
 
         if self.renderer is None and self.canvas is None:
-            from wgpu.gui.auto import WgpuCanvas
+            from rendercanvas.auto import RenderCanvas
 
-            self.canvas = WgpuCanvas()
+            self.canvas = RenderCanvas()
             self.renderer = WgpuRenderer(self.canvas)
         elif self.renderer is not None:
             self.canvas = self.renderer.target
@@ -204,7 +204,7 @@ class Display:
             self.controller.add_camera(self.camera)
 
         self.canvas.request_draw(self.draw_function)
-        sys.modules[self.canvas.__module__].run()
+        sys.modules[self.canvas.__module__].loop.run()
 
 
 def show(

@@ -24,7 +24,6 @@ author = "Almar Klein, Korijn van Golen"
 # The full version, including alpha/beta/rc tags
 # release = '0.1.0'
 
-
 # -- General configuration ---------------------------------------------------
 
 # Add any Sphinx extension module names here, as strings. They can be
@@ -36,6 +35,7 @@ extensions = [
     "sphinx_gallery.gen_gallery",
     "sphinx.ext.autosummary",
     "sphinx_rtd_theme",
+    "sphinx.ext.intersphinx",
     # "nbsphinx",
 ]
 
@@ -50,6 +50,16 @@ shutil.rmtree(os.path.join(os.path.dirname(__file__), "_autosummary"), True)
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
+# -- Read The Docs integration ---------------------------------------------------
+
+# Define the canonical URL for custom domain on RTD
+html_baseurl = os.environ.get("READTHEDOCS_CANONICAL_URL", "")
+
+# Tell Jinja2 templates the build is running on RTD
+if os.environ.get("READTHEDOCS", "") == "True":
+    if "html_context" not in globals():
+        html_context = {}
+    html_context["READTHEDOCS"] = True
 
 # -- Sphix Gallery -----------------------------------------------------
 
@@ -116,3 +126,10 @@ html_logo = "_static/pygfx.svg"
 html_css_files = [
     "style.css",
 ]
+
+intersphinx_mapping = {
+    "python": ("https://docs.python.org/3", None),
+    "numpy": ("https://numpy.org/doc/stable", None),
+    "pygfx": ("https://docs.pygfx.org/stable", None),
+    "wgpu": ("https://wgpu-py.readthedocs.io/en/latest", None),
+}

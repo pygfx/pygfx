@@ -50,11 +50,11 @@ class BindingDefinitions:
             dtype_struct = array_from_shadertype(resource).dtype
         elif isinstance(resource, Buffer):
             if resource.data.dtype.fields is None:
-                raise TypeError(f"define_uniform() needs a structured dtype")
+                raise TypeError("define_uniform() needs a structured dtype")
             dtype_struct = resource.data.dtype
         elif isinstance(resource, np.dtype):
             if resource.fields is None:
-                raise TypeError(f"define_uniform() needs a structured dtype")
+                raise TypeError("define_uniform() needs a structured dtype")
             dtype_struct = resource
         else:
             raise TypeError(f"Unsupported struct type {resource.__class__.__name__}")
@@ -66,19 +66,19 @@ class BindingDefinitions:
             structname = self._uniform_struct_names[struct_hash]
             if binding.structname is not None:
                 # Do we need to ensure that a dtype corresponds to only one struct?
-                assert (
-                    structname == binding.structname
-                ), "dtype[{struct_hash}] has been defined as struct[{structname}]"
+                assert structname == binding.structname, (
+                    "dtype[{struct_hash}] has been defined as struct[{structname}]"
+                )
         except KeyError:
             # sometimes, we need a meaningful alias for the struct name.
             if binding.structname is not None:
                 structname = binding.structname
-                assert (
-                    structname not in self._uniform_struct_names.values()
-                ), "structname has been used for another dtype"
+                assert structname not in self._uniform_struct_names.values(), (
+                    "structname has been used for another dtype"
+                )
             else:
                 # auto generate struct name
-                structname = f"Struct_u_{len(self._uniform_struct_names)+1}"
+                structname = f"Struct_u_{len(self._uniform_struct_names) + 1}"
 
             self._uniform_struct_names[struct_hash] = structname
 
@@ -134,7 +134,7 @@ class BindingDefinitions:
             element_type1 = element_type2 = f"vec{nchannels}<{scalar_type}>"
             stride = 4 * nchannels
 
-        stride  # not actually used anymore in wgsl?
+        stride  # noqa: B018 - not actually used anymore in wgsl?
 
         # Produce the binding code and accessor function
         type_modifier = "read" if "read_only" in binding.type else "read_write"
@@ -170,8 +170,12 @@ class BindingDefinitions:
             format = "u32"
         else:
             format = "i32"
+
+        view_dim = texture.view_dim
+        view_dim = view_dim.replace("-", "_")  # 2d-array -> 2d_array
+
         code = f"""
         @group({bindgroup}) @binding({index})
-        var {binding.name}: texture_{texture.view_dim}<{format}>;
+        var {binding.name}: texture_{view_dim}<{format}>;
         """.rstrip()
         self._binding_codes[binding.name] = code

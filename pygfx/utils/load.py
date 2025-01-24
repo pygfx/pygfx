@@ -2,10 +2,12 @@
 Utilities to load scenes from files, using trimesh.
 """
 
-import pygfx as gfx
+from importlib.util import find_spec
+from typing import List
+
 import numpy as np
 
-from importlib.util import find_spec
+import pygfx as gfx
 
 
 def load_meshes(path, remote_ok=False):
@@ -58,7 +60,7 @@ def load_mesh(path, remote_ok=False):
             "The `trimesh` library is required to load meshes: pip install trimesh"
         )
 
-    import trimesh  # noqa
+    import trimesh
 
     # Trimesh's load() performs a similar check and refers
     # loading from URLs to load_remote()
@@ -144,7 +146,7 @@ def load_scene(
     if camera not in ("auto", "file", "none"):
         raise ValueError(f"Invalid value for `camera`: {camera}")
 
-    import trimesh  # noqa
+    import trimesh
 
     # Trimesh's load() performs a similar check and refers
     # loading from URLs to load_remote()
@@ -192,7 +194,7 @@ def meshes_from_trimesh(scene, materials=True, apply_transforms=True):
         A list of loaded meshes.
 
     """
-    import trimesh  # noqa
+    import trimesh
 
     # If this is a single object we can just convert and return it
     if isinstance(scene, trimesh.Trimesh):
@@ -332,7 +334,7 @@ def scene_from_trimesh(
     if camera not in ("auto", "file", "none"):
         raise ValueError(f"Invalid value for `camera`: {camera}")
 
-    import trimesh  # noqa
+    import trimesh
 
     # Basic scene setup
     gfx_scene = gfx.Scene()
@@ -522,7 +524,7 @@ def _volume_from_voxelgrid(vxl, cmap=None, clim="data"):
         The volume object.
 
     """
-    import trimesh  # noqa
+    import trimesh
 
     if not isinstance(vxl, trimesh.voxel.VoxelGrid):
         raise ValueError(f"Unexpected trimesh data: {type(vxl)}")
@@ -562,3 +564,61 @@ def _volume_from_voxelgrid(vxl, cmap=None, clim="data"):
     vol.local.matrix = vxl.transform
 
     return vol
+
+
+def meshes_from_open3d(mesh_model, materials: bool = True) -> List[gfx.Mesh]:
+    """
+    Converts an Open3D TriangleMeshModel into a list of gfx.Mesh objects.
+
+    Parameters
+    ----------
+    mesh_model : open3d.visualization.rendering.TriangleMeshModel
+        The Open3D TriangleMeshModel to be converted.
+    materials : bool, optional
+        Whether to include materials in the conversion process. Default is True.
+
+    Returns
+    -------
+    results : list of gfx.Mesh
+        A list of gfx.Mesh objects converted from the input mesh model.
+
+    Raises
+    ------
+    ImportError
+        If the open3d library is not installed.
+    ValueError
+        If the input is not an Open3D TriangleMeshModel.
+    """
+    if not find_spec("open3d"):
+        raise ImportError(
+            "The `open3d` library is required for this function: pip install open3d"
+        )
+
+    import open3d
+
+    if not isinstance(mesh_model, open3d.visualization.rendering.TriangleMeshModel):
+        raise ValueError(f"Unexpected open3d data: {type(mesh_model)}")
+
+    results = []
+
+    model_materials: List[open3d.visualization.rendering.MaterialRecord] = (
+        mesh_model.materials
+    )
+    mesh_info: open3d.visualization.rendering.TriangleMeshModel.MeshInfo
+
+    for mesh_info in mesh_model.meshes:
+        mesh: open3d.geometry.TriangleMesh = mesh_info.mesh
+        material_idx: int = mesh_info.material_idx
+
+        gfx_geometry = gfx.geometries.geometry_from_open3d(mesh)
+
+        if materials and 0 <= material_idx < len(model_materials):
+            material = model_materials[material_idx]
+            gfx_material = gfx.materials.material_from_open3d(material)
+        else:
+            gfx_material = gfx.MeshStandardMaterial()
+
+        gfx_mesh = gfx.Mesh(gfx_geometry, gfx_material)
+        results.append(gfx_mesh)
+
+    return results

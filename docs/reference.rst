@@ -118,11 +118,14 @@ Currently this includes the following classes, which comprise the public API:
     ~pygfx.resources.Resource
     ~pygfx.resources.Buffer
     ~pygfx.resources.Texture
+    ~pygfx.resources.TextureMap
 
     ~pygfx.utils.color.Color
     ~pygfx.utils.load_gltf.load_gltf
+    ~pygfx.utils.load_gltf.load_gltf_async
     ~pygfx.utils.load_gltf.load_gltf_mesh
-    ~pygfx.utils.load_gltf.print_tree
+    ~pygfx.utils.load_gltf.load_gltf_mesh_async
+    ~pygfx.utils.load_gltf.print_scene_graph
     ~pygfx.utils.load.load_mesh
     ~pygfx.utils.load.load_meshes
     ~pygfx.utils.load.load_scene

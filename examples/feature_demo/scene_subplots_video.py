@@ -93,7 +93,7 @@ def animate():
 
 
 def center_objects(ev):  # center objects upon double-click event
-    for con, cam, img in zip(controllers, cameras, images):
+    for _con, cam, img in zip(controllers, cameras, images):
         cam.show_object(img)
 
 

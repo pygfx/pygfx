@@ -114,9 +114,9 @@ we can choose from, but for starters the most important one is ``auto``, which
 automatically selects an appropriate backend to create a window on your screen::
 
     import pygfx as gfx
-    from wgpu.gui.auto import WgpuCanvas
+    from rendercanvas.auto import RenderCanvas
 
-    canvas = WgpuCanvas(size=(200, 200), title="A cube!")
+    canvas = RenderCanvas(size=(200, 200), title="A cube!")
     cube = gfx.Mesh(
         gfx.box_geometry(200, 200, 200),
         gfx.MeshPhongMaterial(color="#336699"),
@@ -144,9 +144,9 @@ any good artist, a `Renderer` is never seen without its `Canvas`, so to create a
 `Renderer` we also need to create a `Canvas`::
 
     import pygfx as gfx
-    from wgpu.gui.auto import WgpuCanvas
+    from rendercanvas.auto import RenderCanvas
 
-    canvas = WgpuCanvas()
+    canvas = RenderCanvas()
     renderer = gfx.renderers.WgpuRenderer(canvas)
 
     cube = gfx.Mesh(
@@ -243,6 +243,11 @@ different material classes, e.g. for meshes you have a
 Materials also have properties to tune things like color,
 line thickness, colormap, etc. Multiple world objects may share the same material
 object, so their appearance can be changed simultaneously.
+
+Performance tip: changing the material on a world object incurs some
+overhead for creating the low-level wgpu objects. However, switching
+to a material that was already used (with that object) has zero
+overhead.
 
 
 Cameras and controllers
@@ -540,6 +545,21 @@ argument to "physical".
 Similarly you can use ``Color.from_physical()`` to convert a physical color to sRGB.
 
 
+Antialiasing
+------------
+
+Pygfx supports two forms of anti-aliasing. Firstly, the whole scene is rendered to a larger texture,
+and the rendered result is smoothed as it is copied to the final texture (i.e. the screen). This
+is known as super-sampling anti-aliasing (SSAA), or full-scene anti-aliasing (FSAA).
+To turn it off, set the renderer's ``pixel_ratio`` to one and its ``pixel_filter`` to zero.
+
+Secondly, some objects produce semi-transparent fragments to soften their edges (i.e. remove jagggies).
+Objects that do this include lines and points. Note that the introduction of the semi-transparent fragments
+can have side-effects, depending on the renderer's ``blend_mode``. To turn it off, set the material's ``aa`` to False.
+
+Multisample anti-aliasing (MSAA), a common method intended mostly for mesh objects, is currently not implemented.
+
+
 Using Pygfx in Jupyter
 ----------------------
 
@@ -548,9 +568,9 @@ use the Jupyter canvas provided by WGPU, and use that canvas as the cell output.
 
 .. code-block:: python
 
-    from wgpu.gui.jupyter import WgpuCanvas
+    from rendercanvas.jupyter import RenderCanvas
 
-    canvas = WgpuCanvas()
+    canvas = RenderCanvas()
     renderer = gfx.renderers.WgpuRenderer(canvas)
 
     ...

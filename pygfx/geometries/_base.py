@@ -61,6 +61,8 @@ class Geometry(Trackable):
                     # For meshes will be Nx3 or Nx4, but other dtypes may support
                     # multidimensional stuff for fancy graphics.
                     pass
+                elif format is None:
+                    pass  # buffer with no local data, trust the user
                 elif name == "positions":
                     if not format.startswith("3x"):
                         raise ValueError("Expected Nx3 data for positions")
@@ -83,13 +85,13 @@ class Geometry(Trackable):
             setattr(self, name, resource)
 
     def __setattr__(self, key, new_value):
-        if not key.startswith("_"):
+        if not key.startswith(("_", "morph_")):
             if isinstance(new_value, Trackable) or key in self._store:
                 return setattr(self._store, key, new_value)
         object.__setattr__(self, key, new_value)
 
     def __getattribute__(self, key):
-        if not key.startswith("_"):
+        if not key.startswith(("_", "morph_")):
             if key in self._store:
                 return getattr(self._store, key)
         return object.__getattribute__(self, key)
@@ -140,7 +142,7 @@ class Geometry(Trackable):
             if self._aabb_rev == self.grid.rev:
                 return self._aabb
             # account for multi-channel image data
-            grid_shape = self.grid.data.shape[: self.grid.dim]
+            grid_shape = tuple(reversed(self.grid.size[: self.grid.dim]))
             # create aabb in index/data space
             aabb = np.array([np.zeros_like(grid_shape), grid_shape[::-1]], dtype="f8")
             # convert to local image space by aligning

@@ -1,3 +1,4 @@
+import os
 import sys
 import subprocess
 
@@ -40,3 +41,8 @@ def test_shared_object():
 
     # Check that multiple invocations produce the same object - its a singleton
     assert get_shared() is get_shared()
+
+
+def test_pytest_env():
+    # Sanity check
+    assert os.getenv("PYGFX_DISABLE_SYSTEM_FONTS", "") == "1"

@@ -11,7 +11,6 @@ First run `view.py`, and then separately run `compute.py`
 # sphinx_gallery_pygfx_docs = 'hidden'
 # sphinx_gallery_pygfx_test = 'off'
 
-
 import numpy as np
 import zmq
 

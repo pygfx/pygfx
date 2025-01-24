@@ -52,7 +52,7 @@ class Light(WorldObject):
 
     """
 
-    # Note that for lights and shadows, the uniform data is stored on the environment.
+    # Note that for lights and shadows, the uniform data is stored on the renderstate.
     # We can use the uniform_buffer as usual though. We'll just copy it over.
 
     _FORWARD_IS_MINUS_Z = True
@@ -566,9 +566,8 @@ class LightShadow:
         )
         self._gfx_matrix_buffer.update_full()
 
-        light.uniform_buffer.data["light_view_proj_matrix"] = (
-            shadow_camera.camera_matrix.T
-        )
+        m = shadow_camera.camera_matrix.T
+        light.uniform_buffer.data["light_view_proj_matrix"] = m
 
 
 class DirectionalLightShadow(LightShadow):
@@ -579,8 +578,6 @@ class DirectionalLightShadow(LightShadow):
         super().__init__(OrthographicCamera(1000, 1000, depth_range=(-500, 500)))
 
     def _update_matrix(self, light):
-        camera = self.camera
-        camera.update_projection_matrix()
         super()._update_matrix(light)
 
 
@@ -603,7 +600,6 @@ class SpotLightShadow(LightShadow):
             camera.fov = fov
             camera.aspect = aspect
             camera.depth_range = far / 1000000, far
-            camera.update_projection_matrix()
 
         super()._update_matrix(light)
 
@@ -643,18 +639,14 @@ class PointLightShadow(LightShadow):
 
         if far != camera.far:
             camera.depth_range = far / 1000000, far
-            camera.update_projection_matrix()
 
         for i in range(6):
             # Note: the direction may align with `up`, but we have logic in
             # `look_at` to catch and handle this special case.
             camera.look_at(directions[i])
 
-            light.uniform_buffer.data["light_view_proj_matrix"][
-                i
-            ] = camera.camera_matrix.T
-            self._gfx_matrix_buffer[i].data[
-                "light_view_proj_matrix"
-            ] = camera.camera_matrix.T
+            m = camera.camera_matrix.T
+            light.uniform_buffer.data["light_view_proj_matrix"][i] = m
+            self._gfx_matrix_buffer[i].data["light_view_proj_matrix"] = m
             self._gfx_matrix_buffer[i].update_full()
         light.uniform_buffer.update_full()

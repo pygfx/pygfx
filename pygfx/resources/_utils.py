@@ -163,7 +163,7 @@ def calculate_texture_chunk_size(
 class ChunkBlock:
     """Little helper object."""
 
-    __slots__ = ["x", "y", "z", "nx", "ny", "nz"]
+    __slots__ = ["nx", "ny", "nz", "x", "y", "z"]
 
     def __init__(self, x, y, z):
         self.x = x

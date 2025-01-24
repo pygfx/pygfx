@@ -2,8 +2,9 @@ import pylinalg as la
 import numpy as np
 
 from ._base import WorldObject
-from ..utils import unpack_bitfield
-from ..utils.transform import AffineBase, callback
+from ..resources import Buffer
+from ..utils import unpack_bitfield, array_from_shadertype
+from ..utils.transform import AffineBase
 from ..materials import BackgroundMaterial
 
 
@@ -197,6 +198,74 @@ class Mesh(WorldObject):
 
     """
 
+    def __init__(self, geometry=None, material=None, *args, **kwargs):
+        super().__init__(geometry, material, *args, **kwargs)
+        self._morph_target_influences = None
+        self._morph_target_names = []
+
+    @property
+    def morph_target_influences(self):
+        """
+        An ndarray of weights typically from 0-1 that specify how much of the morph is applied.
+
+        Note:
+        When using this attribute, its geometry needs to have the relevant attributes of morph targets.
+        """
+        return self._morph_target_influences.data["influence"][:-1]
+
+    @morph_target_influences.setter
+    def morph_target_influences(self, value):
+        morph_attrs = (
+            getattr(self.geometry, "morph_positions", None)
+            or getattr(self.geometry, "morph_normals", None)
+            or getattr(self.geometry, "morph_colors", None)
+            or []
+        )
+
+        if not morph_attrs:
+            return
+
+        morph_target_count = len(morph_attrs)
+
+        assert len(value) == morph_target_count, (
+            f"Length of morph target influences must match the number of morph targets. "
+            f"Expected {morph_target_count}, got {len(value)}."
+        )
+
+        if (
+            self._morph_target_influences is None
+            or self._morph_target_influences.nitems != morph_target_count + 1
+        ):
+            self._morph_target_influences = Buffer(
+                array_from_shadertype(
+                    {
+                        "influence": "f4",
+                    },
+                    morph_target_count + 1,
+                )
+            )
+
+        if not isinstance(value, np.ndarray):
+            value = np.array(value, dtype=np.float32)
+
+        if getattr(self.geometry, "morph_targets_relative", False):
+            base_influence = 1.0
+        else:
+            base_influence = 1 - value.sum()
+
+        # Add the base influence to the end of the array
+        value = np.concatenate([value, [base_influence]], axis=0)
+
+        self._morph_target_influences.data["influence"] = value
+        self._morph_target_influences.update_range()
+
+    @property
+    def morph_target_names(self):
+        """
+        A list of names for the morph targets.
+        """
+        return self._morph_target_names
+
     def _wgpu_get_pick_info(self, pick_value):
         values = unpack_bitfield(
             pick_value, wobject_id=20, index=26, coord1=6, coord2=6, coord3=6
@@ -365,12 +434,8 @@ class Text(WorldObject):
             name=name,
         )
 
-        # calling super from callback is possible, but slow so we register it as a second callback instead
-        self.world.on_update(super()._update_uniform_buffers)
-
-    @callback
     def _update_uniform_buffers(self, transform: AffineBase):
-        # super()._update_uniform_buffers(transform)
+        super()._update_uniform_buffers(transform)
         # When rendering in screen space, the world transform is used
         # to establish the point in the scene where the text is placed.
         # The only part of the local transform that is used is the

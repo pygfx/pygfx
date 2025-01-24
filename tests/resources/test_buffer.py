@@ -83,7 +83,6 @@ def test_special_data():
 
 
 def test_custom_nbytes():
-
     # It's only really used as a check, no other implications
     a = np.zeros((10, 4), np.float32)
     buf = gfx.Buffer(a, nbytes=160)
@@ -96,7 +95,6 @@ def test_custom_nbytes():
 
 
 def test_custom_nitems():
-
     # Can be just a check
     a = np.zeros((10, 4), np.float32)
     buf = gfx.Buffer(a, nitems=10)
@@ -137,7 +135,6 @@ def test_custom_nitems():
 
 
 def test_set_data():
-
     a = np.zeros((10, 3, 2), np.float16)
     b = np.ones((10, 3, 2), np.float16)
     c = np.ones((20, 3, 2), np.float16)[::2]  # not contiguous
@@ -169,7 +166,6 @@ def test_set_data():
 
 
 def test_chunk_size_small():
-
     # 1 x uint8
 
     # Small buffers have just one chunk
@@ -236,7 +232,6 @@ def test_chunk_size_small():
 
 
 def test_chunk_size_large():
-
     # Caps to 1MB
 
     a = np.zeros((50 * 2**20, 1), np.uint8)
@@ -336,9 +331,7 @@ def test_endianness():
 
 
 def upload_validity_checker(func):
-
     def wrapper():
-
         for contiguous, nchannels, dtype in [
             (True, 1, np.uint8),
             (True, 1, np.float32),
@@ -347,7 +340,6 @@ def upload_validity_checker(func):
             (False, 1, np.uint8),
             (False, 3, np.float32),
         ]:
-
             if contiguous:
                 data = np.zeros((1000, nchannels), dtype)
             else:

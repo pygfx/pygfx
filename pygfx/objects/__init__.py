@@ -1,4 +1,4 @@
-""" World Objects and Events.
+"""World Objects and Events.
 
 .. currentmodule:: pygfx.objects
 
@@ -49,7 +49,7 @@
 
 """
 
-# flake8: noqa
+# ruff: noqa: F401
 
 from ._base import WorldObject
 from ._events import (

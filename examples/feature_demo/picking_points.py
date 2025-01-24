@@ -42,4 +42,3 @@ def offset_point(event):
 if __name__ == "__main__":
     canvas.request_draw(lambda: renderer.render(scene, camera))
     run()
-1

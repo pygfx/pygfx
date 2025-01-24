@@ -8,7 +8,7 @@ import numpy as np
 
 from ..resources import Buffer
 from ..utils import array_from_shadertype, logger
-from ..utils.trackable import RootTrackable
+from ..utils.trackable import Trackable
 from ._events import EventTarget
 from ..utils.transform import (
     AffineBase,
@@ -75,7 +75,7 @@ class IdProvider:
 id_provider = IdProvider()
 
 
-class WorldObject(EventTarget, RootTrackable):
+class WorldObject(EventTarget, Trackable):
     """Base class for objects.
 
     This class represents objects in the world, i.e., the scene graph.Each
@@ -132,6 +132,8 @@ class WorldObject(EventTarget, RootTrackable):
         id="i4",
     )
 
+    transform_updates = weakref.WeakKeyDictionary()
+
     def __init__(
         self,
         geometry=None,
@@ -164,7 +166,7 @@ class WorldObject(EventTarget, RootTrackable):
         self.world = RecursiveTransform(
             self.local, is_camera_space=self._FORWARD_IS_MINUS_Z, reference_up=(0, 1, 0)
         )
-        self.world.on_update(self._update_uniform_buffers)
+        self.world.on_update(self.flag_transform_update)
 
         # Set id
         self._id = id_provider.claim_id(self)
@@ -183,10 +185,15 @@ class WorldObject(EventTarget, RootTrackable):
         self.name = name
 
     @callback
+    def flag_transform_update(self, transform: AffineBase):
+        self.transform_updates[self] = transform
+
     def _update_uniform_buffers(self, transform: AffineBase):
+        orig_err_setting = np.seterr(under="ignore")
         self.uniform_buffer.data["world_transform"] = transform.matrix.T
         self.uniform_buffer.data["world_transform_inv"] = transform.inverse_matrix.T
         self.uniform_buffer.update_full()
+        np.seterr(**orig_err_setting)
 
     def __repr__(self):
         return f"<pygfx.{self.__class__.__name__} {self.name} at {hex(id(self))}>"
@@ -220,10 +227,6 @@ class WorldObject(EventTarget, RootTrackable):
     def id(self):
         """An integer id smaller than 2**31 (read-only)."""
         return self._id
-
-    @property
-    def tracker(self):
-        return self._root_tracker
 
     @property
     def visible(self):
@@ -300,11 +303,14 @@ class WorldObject(EventTarget, RootTrackable):
     @property
     def material(self):
         """Whether is object is rendered or not. Default True."""
-        return self._store.material
+        # In contrast to the geometry, the material is not stored on self._store,
+        # because it should not be tracked, because pipeline-containers are unique
+        # for each combi of (wobject, material, renderstate).
+        return self._material
 
     @material.setter
     def material(self, material):
-        self._store.material = material
+        self._material = material
 
     @property
     def cast_shadow(self):

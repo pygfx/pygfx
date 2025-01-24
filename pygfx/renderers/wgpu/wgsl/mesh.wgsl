@@ -13,6 +13,8 @@ $$ if lighting == 'phong'
     {$ include 'pygfx.light_phong.wgsl' $}
 $$ elif lighting == 'pbr'
     {$ include 'pygfx.light_pbr.wgsl' $}
+$$ elif lighting == 'toon'
+    {$ include 'pygfx.light_toon.wgsl' $}
 $$ endif
 
 
@@ -44,6 +46,22 @@ fn dist_pt_line(x1: f32, y1: f32, x2: f32, y2: f32, x3: f32, y3: f32) -> f32 {
     // Distance of pt (x3,y3) to line with coords(x1,y1) (x2,y2)
     return abs((x2 - x1) * (y1 - y3) - (x1 - x3) * (y2 - y1)) / sqrt((x2-x1)*(x2-x1) + (y2-y1)*(y2-y1));
 }
+
+$$ if use_morph_targets
+fn get_morph( tex: texture_2d_array<f32>, vertex_index: u32, stride: u32, width: u32, morph_index: u32 , offset: u32) -> vec4<f32> {
+    let texel_index = vertex_index * stride + offset;
+    let y = texel_index / width;
+    let x = texel_index - y * width;
+    let morph_uv = vec2<u32>( x, y );
+    return textureLoad( tex, morph_uv, morph_index, 0 );
+}
+struct MorphTargetInfluence {
+    @size(16) influence: f32,
+};
+@group(1) @binding(1)
+var<uniform> u_morph_target_influences: array<MorphTargetInfluence, {{morph_targets_count+1}}>;
+
+$$ endif
 
 @vertex
 fn vs_main(in: VertexInput) -> Varyings {
@@ -93,6 +111,28 @@ fn vs_main(in: VertexInput) -> Varyings {
     // Get raw vertex position and normal
     var raw_pos = load_s_positions(i0);
     var raw_normal = load_s_normals(i0);
+
+    // morph targets
+    $$ if use_morph_targets
+        let base_influence = u_morph_target_influences[{{morph_targets_count}}];
+        let stride = u32({{morph_targets_stride}});
+        let width = u32({{morph_targets_texture_width}});
+
+        raw_pos = raw_pos * base_influence.influence;
+        if stride == 2 { // has normals
+            raw_normal = raw_normal * base_influence.influence;
+        }
+        for (var i = 0; i < {{morph_targets_count}}; i = i + 1) {
+            let position_morph = get_morph(t_morph_targets, u32(i0), stride, width, u32(i), u32(0));
+            raw_pos += position_morph.xyz * u_morph_target_influences[i].influence;
+            if stride == 2 { // has normals
+                let normal_morph = get_morph(t_morph_targets, u32(i0), stride, width, u32(i), u32(1));
+                raw_normal += normal_morph.xyz * u_morph_target_influences[i].influence;
+            }
+
+        }
+
+    $$ endif
 
     // skinning
     $$ if use_skinning
@@ -171,18 +211,17 @@ fn vs_main(in: VertexInput) -> Varyings {
     let tex_coord_index = i0;
     $$ endif
 
-    // Set texture coords
-    $$ if colormap_dim == '1d'
-    varyings.texcoord = f32(load_s_texcoords(tex_coord_index));
-    $$ elif colormap_dim == '2d'
-    varyings.texcoord = vec2<f32>(load_s_texcoords(tex_coord_index));
-    $$ elif colormap_dim == '3d'
-    varyings.texcoord = vec3<f32>(load_s_texcoords(tex_coord_index));
+ 
+    // used_uv
+    $$ for uv, ndim in used_uv.items()
+    $$ if ndim == 1
+    varyings.texcoord{{uv or ""}} = f32(load_s_texcoords{{uv or ""}}(tex_coord_index));
+    $$ elif ndim == 2
+    varyings.texcoord{{uv or ""}} = vec2<f32>(load_s_texcoords{{uv or ""}}(tex_coord_index));
+    $$ elif ndim == 3
+    varyings.texcoord{{uv or ""}} = vec3<f32>(load_s_texcoords{{uv or ""}}(tex_coord_index));
     $$ endif
-
-    $$ if use_texcoords1 is defined
-    varyings.texcoord1 = vec2<f32>(load_s_texcoords1(tex_coord_index));
-    $$ endif
+    $$ endfor
 
     // Set the normal
     // Transform the normal to world space
@@ -297,7 +336,7 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
         let color_value = varyings.color;
         let albeido = color_value.rgb;
     $$ elif color_mode == 'vertex_map' or color_mode == 'face_map'
-        let color_value = sample_colormap(varyings.texcoord);
+        let color_value = sample_colormap(varyings.texcoord) * u_material.color;
         let albeido = color_value.rgb;  // no more colormap
     $$ elif color_mode == 'normal'
         let albeido = normalize(surface_normal) * 0.5 + 0.5;
@@ -324,12 +363,30 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
             is_orthographic()
         );
         // Get normal used to calculate lighting
-        var normal = select(-surface_normal, surface_normal, is_front);
+        surface_normal = select(-surface_normal, surface_normal, is_front);
+
+        var normal = surface_normal;
         $$ if use_normal_map is defined
-            let normal_map = textureSample( t_normal_map, s_normal_map, varyings.texcoord ) * 2.0 - 1.0;
+            let normal_map = textureSample( t_normal_map, s_normal_map, varyings.texcoord{{normal_map_uv or ''}} ) * 2.0 - 1.0;
             let normal_map_scale = vec3<f32>( normal_map.xy * u_material.normal_scale, normal_map.z );
             normal = perturbNormal2Arb(view, normal, normal_map_scale, varyings.texcoord, is_front);
         $$ endif
+
+        $$ if USE_CLEARCOAT is defined
+            var clearcoat_normal = surface_normal;
+            $$ if use_clearcoat_normal_map is defined
+                let clearcoat_normal_map = textureSample( t_clearcoat_normal_map, s_clearcoat_normal_map, varyings.texcoord{{clearcoat_normal_map_uv or ''}} ) * 2.0 - 1.0;
+                let clearcoat_normal_map_scale = vec3<f32>( clearcoat_normal_map.xy * u_material.clearcoat_normal_scale, clearcoat_normal_map.z );
+                clearcoat_normal = perturbNormal2Arb(view, clearcoat_normal, clearcoat_normal_map_scale, varyings.texcoord, is_front);
+            $$ endif
+        $$ endif
+    $$ endif
+
+    $$ if use_specular_map is defined
+        let specular_map = textureSample( t_specular_map, s_specular_map, varyings.texcoord{{specular_map_uv or ''}} );
+        let specular_strength = specular_map.r;
+    $$ else
+        let specular_strength = 1.0;
     $$ endif
 
     // Init the reflected light. Defines diffuse and specular, both direct and indirect
@@ -342,10 +399,16 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
         geometry.normal = normal;
         geometry.view_dir = view;
 
+        $$ if USE_CLEARCOAT is defined
+            geometry.clearcoat_normal = clearcoat_normal;
+        $$ endif
+
         $$ if lighting == 'phong'
             {$ include 'pygfx.light_phong_fragment.wgsl' $}
         $$ elif lighting == 'pbr'
             {$ include 'pygfx.light_pbr_fragment.wgsl' $}
+        $$ elif lighting == 'toon'
+            {$ include 'pygfx.light_toon_fragment.wgsl' $}
         $$ endif
 
         // Do the math
@@ -358,7 +421,7 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
         var irradiance = getAmbientLightIrradiance( ambient_color );
         // Light map (pre-baked lighting)
         $$ if use_light_map is defined
-            let light_map_color = srgb2physical( textureSample( t_light_map, s_light_map, varyings.texcoord1 ).rgb );
+            let light_map_color = srgb2physical( textureSample( t_light_map, s_light_map, varyings.texcoord{{light_map_uv or ''}} ).rgb );
             irradiance += light_map_color * u_material.light_map_intensity;
         $$ endif
         // Process irradiance
@@ -367,6 +430,8 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
             RE_IndirectDiffuse_BlinnPhong( irradiance, geometry, material, &reflected_light );
         $$ elif lighting == 'pbr'
             RE_IndirectDiffuse_Physical( irradiance, geometry, material, &reflected_light );
+        $$ elif lighting == 'toon'
+            RE_IndirectDiffuse_Toon( irradiance, geometry, material, &reflected_light );
         $$ endif
 
         // Indirect Specular Light
@@ -381,16 +446,30 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
             $$ endif
             reflectVec = normalize(mix(reflectVec, normal, material.roughness*material.roughness));
             let ibl_radiance = getIBLRadiance( reflectVec, t_env_map, s_env_map, mip_level_r );
+
+            var clearcoat_ibl_radiance = vec3<f32>(0.0);
+            $$ if USE_CLEARCOAT is defined
+                $$ if env_mapping_mode == "CUBE-REFLECTION"
+                    var reflectVec_cc = reflect( -view, clearcoat_normal );
+                    let mip_level_r_cc = getMipLevel(u_material.env_map_max_mip_level, material.clearcoat_roughness);
+                $$ elif env_mapping_mode == "CUBE-REFRACTION"
+                    var reflectVec_cc = refract( -view, clearcoat_normal, u_material.refraction_ratio );
+                    let mip_level_r_cc = 1.0;
+                $$ endif
+                reflectVec_cc = normalize(mix(reflectVec_cc, clearcoat_normal, material.clearcoat_roughness*material.clearcoat_roughness));
+                clearcoat_ibl_radiance += getIBLRadiance( reflectVec_cc, t_env_map, s_env_map, mip_level_r_cc );
+            $$ endif
+
             let mip_level_i = getMipLevel(u_material.env_map_max_mip_level, 1.0);
             let ibl_irradiance = getIBLIrradiance( geometry.normal, t_env_map, s_env_map, mip_level_i );
-            RE_IndirectSpecular_Physical(ibl_radiance, ibl_irradiance, geometry, material, &reflected_light);
+            RE_IndirectSpecular_Physical(ibl_radiance, ibl_irradiance, clearcoat_ibl_radiance, geometry, material, &reflected_light);
         $$ endif
 
-    $$ else 
+    $$ else
         // for basic material
         // Light map (pre-baked lighting)
         $$ if use_light_map is defined
-            let light_map_color = srgb2physical( textureSample( t_light_map, s_light_map, varyings.texcoord1 ).rgb );
+            let light_map_color = srgb2physical( textureSample( t_light_map, s_light_map, varyings.texcoord{{light_map_uv or ''}} ).rgb );
             reflected_light.indirect_diffuse += light_map_color * u_material.light_map_intensity * RECIPROCAL_PI;
         $$ else
             reflected_light.indirect_diffuse += vec3<f32>(1.0);
@@ -402,7 +481,11 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
     // Ambient occlusion
     $$ if use_ao_map is defined
         let ao_map_intensity = u_material.ao_map_intensity;
-        let ambient_occlusion = ( textureSample( t_ao_map, s_ao_map, varyings.texcoord1 ).r - 1.0 ) * ao_map_intensity + 1.0;
+        let ambient_occlusion = ( textureSample( t_ao_map, s_ao_map, varyings.texcoord{{ao_map_uv or ''}} ).r - 1.0 ) * ao_map_intensity + 1.0;
+        
+        $$ if USE_CLEARCOAT is defined
+            clearcoat_specular_indirect *= ambient_occlusion;
+        $$ endif
 
         // todo: Rename to RE_AmbientOcclusion or use a macro
         $$ if lighting == 'pbr'
@@ -415,19 +498,25 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
     // Combine direct and indirect light
     var physical_color = reflected_light.direct_diffuse + reflected_light.direct_specular + reflected_light.indirect_diffuse + reflected_light.indirect_specular;
 
-    // Add emissive color for Phong and PBR
-    $$ if lighting == 'phong' or lighting == 'pbr'
-        var emissive_color = srgb2physical(u_material.emissive_color.rgb);
+    // Add emissive color
+    // Now for phong、pbr and toon lighting
+    $$ if lighting
+        var emissive_color = srgb2physical(u_material.emissive_color.rgb) * u_material.emissive_intensity;
         $$ if use_emissive_map is defined
-        emissive_color *= srgb2physical(textureSample(t_emissive_map, s_emissive_map, varyings.texcoord).rgb);
+        emissive_color *= srgb2physical(textureSample(t_emissive_map, s_emissive_map, varyings.texcoord{{emissive_map_uv or ''}}).rgb);
         $$ endif
         physical_color += emissive_color;
+    $$ endif
+
+    $$ if USE_CLEARCOAT is defined
+        let dot_nv_cc = saturate(dot(clearcoat_normal, view));
+        let fcc = F_Schlick( material.clearcoat_f0, material.clearcoat_f90, dot_nv_cc );
+        physical_color = physical_color * (1.0 - material.clearcoat * fcc) + (clearcoat_specular_direct + clearcoat_specular_indirect) * material.clearcoat;
     $$ endif
 
     // Environment mapping
     $$ if use_env_map is defined
         let reflectivity = u_material.reflectivity;
-        let specular_strength = 1.0; // TODO: support specular_map
         $$ if env_mapping_mode == "CUBE-REFLECTION"
             var reflectVec = reflect( -view, normal );
         $$ elif env_mapping_mode == "CUBE-REFRACTION"
@@ -460,7 +549,7 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
     // Wrap up
 
     apply_clipping_planes(varyings.world_pos);
-    var out = get_fragment_output(varyings.position.z, out_color);
+    var out = get_fragment_output(varyings.position, out_color);
 
     $$ if write_pick
     // The wobject-id must be 20 bits. In total it must not exceed 64 bits.

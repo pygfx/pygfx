@@ -31,30 +31,28 @@ except NameError:
 # sphinx_gallery_pygfx_docs = 'animate 4s'
 # sphinx_gallery_pygfx_test = 'run'
 
-import time
-import numpy as np
 import pygfx as gfx
-from scipy import interpolate
 from wgpu.gui.auto import WgpuCanvas, run
 
-gltf_path = model_dir / "Michelle.glb"
+from wgpu.utils.imgui import ImguiRenderer
+from imgui_bundle import imgui, hello_imgui, icons_fontawesome_6  # type: ignore
 
-scene = gfx.Scene()
+gltf_path = model_dir / "Michelle.glb"
 
 canvas = WgpuCanvas(size=(640, 480), max_fps=-1, title="Skinnedmesh", vsync=False)
 
 renderer = gfx.WgpuRenderer(canvas)
 camera = gfx.PerspectiveCamera(75, 640 / 480, depth_range=(0.1, 1000))
 camera.local.position = (0, 100, 200)
-camera.look_at((0, 100, 0))
+camera.look_at((0, 80, 0))
 scene = gfx.Scene()
 
 scene.add(gfx.AmbientLight(), gfx.DirectionalLight())
 
 
-gltf = gfx.load_gltf(gltf_path)
+gltf = gfx.load_gltf(gltf_path, quiet=True)
 
-# gfx.print_tree(gltf.scene) # Uncomment to see the tree structure
+# gfx.print_scene_graph(gltf.scene) # Uncomment to see the tree structure
 
 # Group[Scene]
 # - WorldObject[Character]
@@ -69,70 +67,78 @@ action_clip = gltf.animations[0]
 
 skeleton_helper = gfx.SkeletonHelper(model_obj)
 scene.add(skeleton_helper)
-
 scene.add(model_obj)
 
 gfx.OrbitController(camera, register_events=renderer)
 
-
-def update_track(track, time):
-    target = track["target"]
-    property = track["property"]
-    values = track["values"]
-    times = track["times"]
-    interpolation = track["interpolation"]
-
-    if time < times[0]:
-        time = times[0]
-
-    # TODO: Use scipy to interpolate now, will use our own implementation later
-    if interpolation == "LINEAR":
-        if property == "rotation":
-            # TODO: should use spherical linear interpolation instead
-            cs = interpolate.interp1d(times, values, kind="linear", axis=0)
-            value = cs(time)
-            value = value / np.linalg.norm(value)  # normalize quaternion
-        else:
-            cs = interpolate.interp1d(times, values, kind="linear", axis=0)
-            value = cs(time)
-
-    elif interpolation == "CUBICSPLINE":
-        cs = interpolate.interp1d(times, values, kind="cubic", axis=0)
-        value = cs(time)
-    elif interpolation == "STEP":
-        cs = interpolate.interp1d(times, values, kind="previous", axis=0)
-        value = cs(time)
-    else:
-        print("unknown interpolation", interpolation)
-
-    if property == "scale":
-        target.local.scale = value
-    elif property == "translation":
-        target.local.position = value
-    elif property == "rotation":
-        target.local.rotation = value
-    else:
-        print("unknown property", property)
-
-
-tracks = action_clip["tracks"]
-gloabl_time = 0
-last_time = time.perf_counter()
-
 stats = gfx.Stats(viewport=renderer)
+
+clock = gfx.Clock()
+
+animation_mixer = gfx.AnimationMixer()
+action = animation_mixer.clip_action(action_clip)
+
+action.play()
+
+gui_renderer = ImguiRenderer(renderer.device, canvas)
+
+state = {"pause": False}
+
+fa_loading_params = hello_imgui.FontLoadingParams()
+fa_loading_params.use_full_glyph_range = True
+fa = hello_imgui.load_font("fonts/fontawesome-webfont.ttf", 14, fa_loading_params)
+gui_renderer.backend.create_fonts_texture()
+
+
+def draw_imgui():
+    imgui.new_frame()
+
+    imgui.set_next_window_size(
+        (gui_renderer.backend.io.display_size.x, 0), imgui.Cond_.always
+    )
+    imgui.set_next_window_pos(
+        (0, gui_renderer.backend.io.display_size.y - 40), imgui.Cond_.always
+    )
+    imgui.begin(
+        "player",
+        True,
+        flags=imgui.WindowFlags_.no_move
+        | imgui.WindowFlags_.no_resize
+        | imgui.WindowFlags_.no_collapse
+        | imgui.WindowFlags_.no_title_bar,
+    )
+
+    duration = action_clip.duration
+
+    imgui.push_font(fa)
+    if action.paused:
+        if imgui.button(icons_fontawesome_6.ICON_FA_PLAY, size=(24, 20)):
+            action.paused = False
+    else:
+        if imgui.button(icons_fontawesome_6.ICON_FA_PAUSE, size=(24, 20)):
+            action.paused = True
+
+    imgui.pop_font()
+    imgui.same_line()
+    avail_size = imgui.get_content_region_avail()
+    imgui.set_next_item_width(avail_size.x)
+    changed, v = imgui.slider_float(" ", action.time, 0, duration, "%.2f")
+    if changed:
+        action.time = v
+    imgui.end()
+
+    imgui.end_frame()
+    imgui.render()
+    return imgui.get_draw_data()
+
+
+gui_renderer.set_gui(draw_imgui)
 
 
 def animate():
-    global gloabl_time, last_time
-    now = time.perf_counter()
-    dt = now - last_time
-    last_time = now
-    gloabl_time += dt
-    if gloabl_time > action_clip["duration"]:
-        gloabl_time = 0
+    dt = clock.get_delta()
 
-    for track in tracks:
-        update_track(track, gloabl_time)
+    animation_mixer.update(dt)
 
     model_obj.children[0].skeleton.update()
     skeleton_helper.update()
@@ -140,6 +146,7 @@ def animate():
     with stats:
         renderer.render(scene, camera, flush=False)
     stats.render()
+    gui_renderer.render()
     canvas.request_draw()
 
 

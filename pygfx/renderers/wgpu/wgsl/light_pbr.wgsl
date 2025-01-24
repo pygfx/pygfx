@@ -40,12 +40,28 @@ fn DFGApprox( normal: vec3<f32>, view_dir: vec3<f32>, roughness: f32 ) -> vec2<f
     return fab;
 }
 
+fn EnvironmentBRDF(normal: vec3f, view_dir: vec3f, specular_color: vec3f, specular_f90: f32, roughness: f32) -> vec3f{
+    let fab = DFGApprox( normal, view_dir, roughness );
+    return specular_color * fab.x + specular_f90 * fab.y;
+}
+
 
 struct PhysicalMaterial {
     diffuse_color: vec3<f32>,
     roughness: f32,
     specular_color: vec3<f32>,
     specular_f90: f32,
+
+    $$ if USE_IOR is defined
+        ior: f32,
+    $$ endif
+
+    $$ if USE_CLEARCOAT is defined
+        clearcoat: f32,
+        clearcoat_roughness: f32,
+        clearcoat_f0: vec3<f32>,
+        clearcoat_f90: f32,
+    $$ endif
 };
 
 struct LightScatter {
@@ -53,21 +69,10 @@ struct LightScatter {
     multi_scatter: vec3<f32>,
 };
 
-fn perturbNormal2Arb( eye_pos: vec3<f32>, surf_norm: vec3<f32>, mapN: vec3<f32>, uv: vec2<f32>, is_front: bool) -> vec3<f32> {
-    let q0 = dpdx( eye_pos.xyz );
-    let q1 = dpdy( eye_pos.xyz );
-    let st0 = dpdx( uv.xy );
-    let st1 = dpdy( uv.xy );
-    let N = surf_norm; //  normalized
-    let q1perp = cross( q1, N );
-    let q0perp = cross( N, q0 );
-    let T = q1perp * st0.x + q0perp * st1.x;
-    let B = q1perp * st0.y + q0perp * st1.y;
-    let det = max( dot( T, T ), dot( B, B ) );
-    let faceDirection = f32(is_front) * 2.0 - 1.0;
-    let scale = faceDirection * inverseSqrt(det);
-    return normalize(T * mapN.x * scale + B * mapN.y * scale + N * mapN.z);
-}
+var<private> clearcoat_specular_direct: vec3f = vec3f(0.0);
+var<private> clearcoat_specular_indirect: vec3f = vec3f(0.0);
+var<private> sheen_specular_direct: vec3f = vec3f(0.0);
+var<private> sheen_specular_indirect: vec3f = vec3f(0.0);
 
 fn getMipLevel(maxMIPLevelScalar: f32, level: f32) -> f32 {
     let sigma = (3.141592653589793 * level * level) / (1.0 + level);
@@ -99,13 +104,17 @@ fn computeMultiscattering(normal: vec3<f32>, view_dir: vec3<f32>, specular_color
     return scatter;
 }
 
-fn RE_IndirectSpecular_Physical(radiance: vec3<f32>, irradiance: vec3<f32>,
+fn RE_IndirectSpecular_Physical(radiance: vec3<f32>, irradiance: vec3<f32>, clearcoat_radiance: vec3<f32>,
         geometry: GeometricContext, material: PhysicalMaterial, reflected_light: ptr<function, ReflectedLight>){
+        
+    $$ if USE_CLEARCOAT is defined
+        clearcoat_specular_indirect += clearcoat_radiance * EnvironmentBRDF( geometry.clearcoat_normal, geometry.view_dir, material.clearcoat_f0, material.clearcoat_f90, material.clearcoat_roughness );
+    $$ endif
     let cosineWeightedIrradiance: vec3<f32> = irradiance * RECIPROCAL_PI;
     let scatter = computeMultiscattering( geometry.normal, geometry.view_dir, material.specular_color, material.specular_f90, material.roughness);
-    //let total_scattering = scatter.single_scatter + scatter.multi_scatter;
-    //let diffuse = material.diffuse_color * ( 1.0 - max( max( total_scattering.r, total_scattering.g ), total_scattering.b ) );
-    let diffuse = material.diffuse_color * ( 1.0 - scatter.single_scatter - scatter.multi_scatter);
+    let total_scattering = scatter.single_scatter + scatter.multi_scatter;
+    let diffuse = material.diffuse_color * ( 1.0 - max( max( total_scattering.r, total_scattering.g ), total_scattering.b ) );
+    // let diffuse = material.diffuse_color * ( 1.0 - scatter.single_scatter - scatter.multi_scatter);
     (*reflected_light).indirect_specular += (radiance * scatter.single_scatter + scatter.multi_scatter * cosineWeightedIrradiance);
     (*reflected_light).indirect_diffuse += diffuse * cosineWeightedIrradiance;
 }
@@ -117,6 +126,14 @@ fn RE_IndirectDiffuse_Physical(irradiance: vec3<f32>, geometry: GeometricContext
 fn RE_Direct_Physical(direct_light: IncidentLight, geometry: GeometricContext, material: PhysicalMaterial, reflected_light: ptr<function, ReflectedLight>) {
     let dot_nl = saturate( dot( geometry.normal, direct_light.direction ));
     let irradiance = dot_nl * direct_light.color;
+
+    $$ if USE_CLEARCOAT is defined
+        let dot_nl_cc = saturate( dot( geometry.clearcoat_normal, direct_light.direction ));
+        let clearcoat_irradiance = dot_nl_cc * direct_light.color;
+
+        clearcoat_specular_direct += clearcoat_irradiance * BRDF_GGX( direct_light.direction, geometry.view_dir, geometry.clearcoat_normal, material.specular_color, material.clearcoat_f90, material.clearcoat_roughness );
+    $$ endif
+
     (*reflected_light).direct_specular += irradiance * BRDF_GGX( direct_light.direction, geometry.view_dir, geometry.normal, material.specular_color, material.specular_f90, material.roughness );
     (*reflected_light).indirect_diffuse += irradiance * BRDF_Lambert( material.diffuse_color );
 }

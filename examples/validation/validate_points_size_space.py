@@ -60,7 +60,7 @@ for i in range(ndiv):
     f = i / (ndiv - 1)
     positions[i::ndiv] = (1.0 - f) * positions1 + f * positions2
 
-Material = gfx.PointsMaterial  # noqa
+Material = gfx.PointsMaterial
 
 
 def add_three_cubes(parent, material):

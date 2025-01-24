@@ -161,11 +161,13 @@ class Buffer(Resource):
             self._chunks_dirt_flag = 0
             self._chunk_size = 0
             self._chunk_mask = None
+            self._chunk_list = []
         else:
             self._chunks_dirt_flag = 2
             self._chunk_size = chunk_size
             n_chunks = ceil(the_nitems / self._chunk_size)
             self._chunk_mask = np.ones((n_chunks,), bool)
+            self._chunk_list = None
 
     @property
     def data(self):
@@ -260,11 +262,60 @@ class Buffer(Resource):
         Resource._rev += 1
         self._rev = Resource._rev
 
+    def send_data(self, offset, data):
+        """Send a chunk of data to the GPU.
+
+        This provides a way to upload data to buffers that don't have local
+        data (i.e. ``buffer.data is None``). It is intended for use-cases where
+        data-copies must be avoid for performance. Can only be used when the
+        buffer has no local data, and requires ``usage=wgpu.BufferUsage.COPY_DST``.
+
+        The offset is expressed as an integer number of items.
+        Note that in contrast to the ``update_x`` methods, multiple calls are not
+        combined; each call to ``send_data()`` results in one upload operation.
+
+        Example:
+
+        .. code-block:: py
+
+            buf = gfx.Buffer(
+                nitems=64,
+                nbytes=64*4*3,
+                format="3xf4",
+                usage=wgpu.BufferUsage.COPY_DST,
+                force_contiguous=True,
+            )
+        """
+        if self._data is not None:
+            raise RuntimeError(
+                "Can only use buffer.send_data() if the buffer has no local data."
+            )
+        # Check input
+        offset = int(offset)
+        if offset < 0:
+            raise ValueError("offset must be a positive int")
+        # Get data size
+        size = data.shape[0]
+        if (offset + size) > self.nitems:
+            raise ValueError("The data with this offset does not fit.")
+        # Create chunk
+        if not data.flags.c_contiguous:
+            if self._force_contiguous:
+                raise ValueError(
+                    "When force_contiguous is set, data passed to send_data() must be contiguous."
+                )
+            data = np.ascontiguousarray(data)
+        self._chunk_list.append((offset, size, data))
+        # Request sync
+        Resource._rev += 1
+        self._rev = Resource._rev
+        self._gfx_mark_for_sync()
+
     def set_data(self, data):
         """Reset the data to a new array.
 
         This avoids a data-copy compared to doing ``buffer.data[:] = new_data``.
-        The new data must fit the texture's shape and format.
+        The new data must fit the buffer's shape and format.
         """
         # Get view
         view = np.asarray(memoryview(data))
@@ -337,6 +388,13 @@ class Buffer(Resource):
         used in _gfx_get_chunk_data(). This method also clears
         the chunk dirty statuses.
         """
+
+        # In no-local-data mode, we (only) have a chunk list
+        if self._chunk_list:
+            chunks = self._chunk_list
+            self._chunk_list = []
+            return chunks
+
         if not self._chunks_dirt_flag:
             return []
         elif self._chunks_dirt_flag == 2:
