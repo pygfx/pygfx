@@ -3,7 +3,6 @@ import math
 import numpy as np
 
 from ..objects import Light
-from ..utils.transform import AffineBase, callback
 
 from .. import (
     sphere_geometry,
@@ -42,10 +41,9 @@ class PointLightHelper(Mesh):
         material = MeshBasicMaterial(color="#fff")
         super().__init__(geometry, material)
 
-        self.world.on_update(self._update)
+    def _update_uniform_buffers(self):
+        super()._update_uniform_buffers()
 
-    @callback
-    def _update(self, transform: AffineBase) -> None:
         if self._color is None and isinstance(self.parent, Light):
             color = self.parent.color
             if color != self.material.color:
@@ -87,8 +85,6 @@ class DirectionalLightHelper(Line):
         self.ray_length = ray_length
         self.show_shadow_extent = show_shadow_extent
 
-        self.world.on_update(self._update)
-
     @property
     def ray_length(self):
         """The length of the arrows indicating light rays."""
@@ -127,8 +123,9 @@ class DirectionalLightHelper(Line):
         self._show_shadow_extent = bool(value)
         self._shadow_helper.visible = self._show_shadow_extent
 
-    @callback
-    def _update(self, transform: AffineBase):
+    def _update_uniform_buffers(self):
+        super()._update_uniform_buffers()
+
         if not isinstance(self.parent, Light):
             return
 
@@ -212,10 +209,10 @@ class SpotLightHelper(Line):
             Geometry(positions=positions),
             LineSegmentMaterial(thickness=1.0),
         )
-        self.update_id = self.world.on_update(self._update)
 
-    @callback
-    def _update(self, transform: AffineBase):
+    def _update_uniform_buffers(self):
+        super()._update_uniform_buffers()
+
         if not isinstance(self.parent, Light):
             return
         light = self.parent
@@ -227,8 +224,4 @@ class SpotLightHelper(Line):
 
         cone_length = light.distance or 1000
         cone_width = cone_length * math.tan(light.angle)
-
-        # Temporarily remove callback to avoid infinite recursion when setting `self.local.scale`.
-        self.world.remove_callback(self.update_id)
         self.local.scale = (cone_width, cone_width, cone_length)
-        self.update_id = self.world.on_update(self._update)
