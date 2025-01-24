@@ -34,10 +34,10 @@ class SkeletonHelper(Line):
 
         self.local.matrix = wobject.world.matrix
 
-    def _update_uniform_buffers(self):
-        # the helper matrix always follows the root object
+    def _update_object(self):
+        # Update on every draw: the helper matrix always follows the root object
         self.local.matrix = self.root.world.matrix
-        super()._update_uniform_buffers()
+        super()._update_object()
 
     def update(self):
         # TODO: we should update it automatically by some mechanism.

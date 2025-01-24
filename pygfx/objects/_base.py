@@ -182,13 +182,15 @@ class WorldObject(EventTarget, Trackable):
 
         self.name = name
 
-    def update_uniform_buffers(self):
+    def _update_object(self):
+        """This gets called (by the renderer) right before being drawn. Good time for lazy updates."""
         world_last_modified = self.world.last_modified
         if world_last_modified > self._world_last_modified:
             self._world_last_modified = world_last_modified
-            self._update_uniform_buffers()
+            self._update_world_transform()
 
-    def _update_uniform_buffers(self):
+    def _update_world_transform(self):
+        """This gets called right before being drawn, when the world transform has changed."""
         orig_err_setting = np.seterr(under="ignore")
         self.uniform_buffer.data["world_transform"] = self.world.matrix.T
         self.uniform_buffer.data["world_transform_inv"] = self.world.inverse_matrix.T
