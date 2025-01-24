@@ -189,22 +189,42 @@ class TextGeometry(Geometry):
         # self.positions = None
         # self.sizes = None
 
-        self.glyph_atlas_indices = Buffer(np.zeros((16, ), np.int32))
-        self.glyph_item_indices = Buffer(np.zeros((16, ), np.int32))
-        self.glyph_positions = Buffer(np.zeros((16, 2), np.float32))
+        # TODO: check below explanation at the end. I wrote this when picking this pr up again
+        # Text is divided into multiple items, and we maintain per-item arrays/buffers
+        # for things like size and position. We also have arrays for all the items
+        # to store their per-glyph data. This class manages these arrays (removing and inserting items)
+        # on behalf of the TextItem objects.
 
-        # todo: rename by dropping prefix
-        self.positions = Buffer(np.zeros((8, 3), np.float32))
-        self.sizes = Buffer(np.zeros((8, ), np.float32))  # TODO: maybe rename to font_sizes?
-        # self.colors = None
-
-        self._glyph_count = 0
-        self._glyph_indices_gaps = set()
-        self._glyph_indices_per_item = []
-
+        # List of text item objects
         self._text_items = []
         self._dirty_items = set()
+
+        # Per-item arrays/buffers
+
+        # The position of each text item
+        self.positions = Buffer(np.zeros((8, 3), np.float32))
+        # The size of each text item
+        self.sizes = Buffer(np.zeros((8,), np.float32))  # TODO: rename to font_sizes?
+        # self.colors = None
+
+        # Per-glyph arrays/buffers
+
+        # Index into the atlas that contains all glyphs
+        self.glyph_atlas_indices = Buffer(np.zeros((16,), np.int32))
+        # Index into the items list above (i.e. the item-index)
+        # TODO: I don't think we need this???
+        self.glyph_item_indices = Buffer(np.zeros((16,), np.int32))
+        # Sub-position for glyph size, shaping, kerning, etc.
+        self.glyph_positions = Buffer(np.zeros((16, 2), np.float32))
+
+        # Variables to help manage the glyph arrays
+
+        # The number of allocated glyph slots. Slots between _glyph_count and the end of the array are free.
+        self._glyph_count = 0
+        # TODO: seems not used
         self._used_glyph_count = 0
+        # Free slots that are not in the contiguous space at the end of the arrays
+        self._glyph_indices_gaps = set()
 
         # ---
 
@@ -254,12 +274,14 @@ class TextGeometry(Geometry):
 
     def allocate_text_items(self, n):
         """Allocate new buffers for text items with the given size."""
-        # Create new buffers, copy old data
+        smallest_n = min(n, self.positions.nitems)
+        # Create new buffers
         new_positions = np.zeros((n, 3), np.float32)
         new_sizes = np.zeros((n,), np.float32)
-        smallest_n = min(n, self.positions.nitems)
+        # Copy data
         new_positions[:smallest_n] = self.positions.data[:smallest_n]
         new_sizes[:smallest_n] = self.sizes.data[:smallest_n]
+        # Assign
         self.positions = Buffer(new_positions)
         self.sizes = Buffer(new_sizes)
 
@@ -277,7 +299,7 @@ class TextGeometry(Geometry):
     ):
         """Update data for the given text item.
 
-        Values set to None or not updated but retain their current value.
+        Values set to None or not updated, i.e. retain their current value.
         """
         if index < 0 or index >= len(self._text_items):
             raise ValueError("Text item index out of range")
@@ -300,11 +322,16 @@ class TextGeometry(Geometry):
             self.sizes.data[index] = size
             self.sizes.update_indices(index)
 
+    # TODO: call this via the wobject on each draw. Also rename to private
     def update(self):
         """Update glyph data.
 
         This method must be called when any items have changed.
         """
+        # Exit early
+        if not self._dirty_items:
+            return
+
         # Update items
         for index in self._dirty_items:
             item = self._text_items[index]
@@ -320,7 +347,7 @@ class TextGeometry(Geometry):
         self._dirty_items.clear()
 
     def _update_item(self, item):
-        """Update the atlas_indices and positions for the text item."""
+        """Update the atlas_indices and positions for the given text item."""
 
         # Prepare containers for array
         atlas_indices_list = []
@@ -372,6 +399,7 @@ class TextGeometry(Geometry):
 
         # If the glyph count changes, de-allocate now, we'll re-allocate later.
         # That way, in update(), all glyph slots are de-allocated before allocating new ones
+        # TODO: is this a good idea? Maybe allow becomeing smaller than the original (not previous but last allocated size)
         if item.glyph_count != previous_glyph_count:
             self._deallocate_glyphs_for_item(item)
 
@@ -384,7 +412,7 @@ class TextGeometry(Geometry):
         }
 
     def _write_item_glyphs(self, item):
-        """Write the glyph_indices and positions into the geometries buffer."""
+        """Write the glyph_indices and positions into the geometry's buffer."""
 
         # Ensure we have indices into the geometries arrays
         self._allocate_glyphs_for_item(item)
@@ -402,8 +430,8 @@ class TextGeometry(Geometry):
         # Return early if the number of indices is what's needed
         if item.glyph_count == len(item.glyph_indices):
             return
-        # De-allocate, just in case
-        self._deallocate_glyphs_for_item(item)
+        if len(item.glyph_indices):
+            self._deallocate_glyphs_for_item(item)
         if item.glyph_count:
             indices = self._glyphs_allocate(item.glyph_count)
             self._used_glyph_count += len(indices)
@@ -437,7 +465,7 @@ class TextGeometry(Geometry):
             indices = np.empty((n,), np.int32)
             n_from_gap = min(n, len(self._glyph_indices_gaps))
             for i in range(0, n_from_gap):
-                indices[i] = self._free_glyph_indices.pop()
+                indices[i] = self._glyph_indices_gaps.pop()
             self._glyph_count += n_from_gap
             for i in range(n_from_gap, n):
                 indices[i] = self._glyph_count
@@ -458,7 +486,7 @@ class TextGeometry(Geometry):
 
     def _glyphs_deallocate(self, indices):
         max_glyph_count = self.glyph_positions.nitems
-        # Update data
+        # Nullify data
         self.glyph_item_indices[indices] = -1
         self.glyph_atlas_indices[indices] = 0
         # self.glyph_positions[indices] = 0
@@ -466,11 +494,11 @@ class TextGeometry(Geometry):
         self._glyph_indices_gaps.update(indices)
         self._glyph_count -= len(indices)
         # Maybe reduce buffer size
+        # TODO: note how this does not work well with deallocating and then allocating all items when they change
         if self._glyph_count < 0.25 * max_glyph_count:
             self._glyphs_create_new_buffers()
 
     def _glyphs_create_new_buffers(self, extra_needed=0):
-
         # Get new size
         need_size = self._glyph_count + extra_needed
         new_size = 2 ** int(np.ceil(np.log2(need_size)))
@@ -494,6 +522,8 @@ class TextGeometry(Geometry):
         self.glyph_atlas_indices = Buffer(glyph_atlas_indices)
         self.glyph_item_indices = Buffer(glyph_item_indices)
         self.glyph_positions = Buffer(glyph_positions)
+
+    # --- Properties
 
     @property
     def screen_space(self):
