@@ -26,11 +26,16 @@ from .shared import get_shared
 _renderstate_instance_cache = weakref.WeakValueDictionary()
 
 
-def get_renderstate(scene, blender):
+def get_renderstate(light_dict, blender):
     """Get the renderstate object for the given scene and blender."""
 
     # Convert args to states
-    light_state = _scene_to_light_state(scene)
+    light_state = (
+        light_dict["point_lights"],
+        light_dict["directional_lights"],
+        light_dict["spot_lights"],
+        light_dict["ambient_color"],
+    )
     blend_state = (blender,)
     combined_state = light_state, blend_state
 
@@ -40,41 +45,6 @@ def get_renderstate(scene, blender):
     ob.prepare_for_draw(*combined_state)
 
     return ob
-
-
-def _scene_to_light_state(scene):
-    """Convert scene object to light state.
-    If we introduce more renderstates based on the scene, we should probably update this function,
-    so we need to traverse it just once.
-    """
-    point_lights = []
-    directional_lights = []
-    spot_lights = []
-    ambient_color = [0, 0, 0]
-
-    # todo: would be nice to have a flag to indicate on each wobject when was the last time that its downstream graph changed, so we can usually skip this step!
-    def visit(ob):
-        if isinstance(ob, PointLight):
-            point_lights.append(ob)
-        elif isinstance(ob, DirectionalLight):
-            directional_lights.append(ob)
-        elif isinstance(ob, SpotLight):
-            spot_lights.append(ob)
-        elif isinstance(ob, AmbientLight):
-            r, g, b = ob.color.to_physical()
-            ambient_color[0] += r * ob.intensity
-            ambient_color[1] += g * ob.intensity
-            ambient_color[2] += b * ob.intensity
-
-    scene.traverse(visit, True)
-
-    light_state = (
-        point_lights,
-        directional_lights,
-        spot_lights,
-        ambient_color,
-    )
-    return light_state
 
 
 # ----------
