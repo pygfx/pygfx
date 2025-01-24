@@ -34,7 +34,7 @@ examples = [
     "pytest",
     "imageio[pyav]",
     "scikit-image",
-    "trimesh",
+    "trimesh <4.6",
     "gltflib",
     "imgui-bundle>=1.6.0",
 ]
@@ -46,11 +46,11 @@ docs = [
     # Duplicate from 'examples'
     "imageio[pyav]",
     "scikit-image",
-    "trimesh",
+    "trimesh <4.6",
     "gltflib",
     "imgui-bundle>=1.6.0",
 ]
-tests = ["pytest", "psutil", "trimesh", "httpx", "gltflib", "imageio"]
+tests = ["pytest", "psutil", "trimesh <4.6", "httpx", "gltflib", "imageio"]
 dev = ["pygfx[lint,tests,examples,docs]"]
 
 [project.entry-points."pyinstaller40"]
