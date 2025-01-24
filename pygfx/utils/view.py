@@ -1,5 +1,5 @@
 import pygfx as gfx
-
+from rendercanvas import BaseRenderCanvas
 
 event_types = [
     "resize",
@@ -15,10 +15,24 @@ event_types = [
 
 
 class View:
-    """The view is a convenience object that combines a renderer, scene, camera.
+    """The view is a convenience object that contains all objects needed to render things to a subregion of a canvas.
 
-    The view is a relatively simple object, but significantly reduces boilerplate code.
-    You are encouraged to look at the source code to see how it works.
+    The responsibility of the different object being wrapped is as follows:
+
+    * canvas: provides the canvas/window to render to.
+    * rect: defines the rectangular area on the canvas that this view renders to.
+    * renderer: performs the rendering.
+    * scene: the tree of objects to render (i.e. the scenegraph).
+    * camera: defines the viewpoint and projection to render from.
+    * controller: control the camera using user input.
+
+    Except for the canvas, all objects are created automatically if not
+    provided. Each object can be configured and even replaced at runtime.
+
+    Strictly speaking, you don't need the view object to render anything; you
+    can tie the above objects together yourself. The view merely wraps these
+    objects and ties them together. Though it significantly reduces
+    boilerplate code for the majority of use-cases.
     """
 
     _canvas = None
@@ -31,7 +45,7 @@ class View:
 
     def __init__(
         self,
-        canvas=None,
+        canvas,
         *,
         renderer=None,
         rect=None,
@@ -40,10 +54,6 @@ class View:
         controller=None,
         background_color=None,
     ):
-        if canvas is None:
-            from rendercanvas.auto import RenderCanvas
-
-            canvas = RenderCanvas()
         self.canvas = canvas
 
         self.renderer = renderer if renderer is not None else gfx.WgpuRenderer(canvas)
@@ -84,14 +94,13 @@ class View:
 
     @property
     def canvas(self):
-        """The canvas that this view renders to.
-
-        Can be a ``rendercanvas.RenderCanvas``, or ``wgpu.gui.WgpuGuiCanvas``.
-        """
+        """The ``rendercanvas.RenderCanvas`` that this view renders to."""
         return self._canvas
 
     @canvas.setter
     def canvas(self, canvas):
+        if not isinstance(canvas, BaseRenderCanvas):
+            raise TypeError("View canvas must be a rendercanvas.RenderCanvas.")
         # todo: drawing should really be done via an event!
         # Disconnect from the previous canvas
         if self._canvas is not None:
@@ -126,7 +135,7 @@ class View:
 
     @property
     def camera(self):
-        """The camera used to render this scene."""
+        """The camera used to render the scene."""
         return self._camera
 
     @camera.setter
@@ -179,7 +188,7 @@ class View:
 
     @property
     def rect(self):
-        """The rect (x, y, w, h) for this view.
+        """The rectangular area (x, y, w, h) that this view occupies on the canvas.
 
         Each element is a string e.g. '50% + 4px'. Supported units are 'px' and '%'.
         Supported operarors are '+' and '-'.
