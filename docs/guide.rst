@@ -545,6 +545,21 @@ argument to "physical".
 Similarly you can use ``Color.from_physical()`` to convert a physical color to sRGB.
 
 
+Antialiasing
+------------
+
+Pygfx supports two forms of anti-aliasing. Firstly, the whole scene is rendered to a larger texture,
+and the rendered result is smoothed as it is copied to the final texture (i.e. the screen). This
+is known as super-sampling anti-aliasing (SSAA), or full-scene anti-aliasing (FSAA).
+To turn it off, set the renderer's ``pixel_ratio`` to one and its ``pixel_filter`` to zero.
+
+Secondly, some objects produce semi-transparent fragments to soften their edges (i.e. remove jagggies).
+Objects that do this include lines and points. Note that the introduction of the semi-transparent fragments
+can have side-effects, depending on the renderer's ``blend_mode``. To turn it off, set the material's ``aa`` to False.
+
+Multisample anti-aliasing (MSAA), a common method intended mostly for mesh objects, is currently not implemented.
+
+
 Using Pygfx in Jupyter
 ----------------------
 

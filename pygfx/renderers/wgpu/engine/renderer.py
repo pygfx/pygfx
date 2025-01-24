@@ -83,15 +83,9 @@ class WgpuRenderer(RootEventHandler, Renderer):
         The target to render to. It is also used to determine the size of the
         render buffer.
     pixel_ratio : float, optional
-        The ratio between the number of pixels in the render buffer versus the
-        number of pixels in the display buffer. If None, this will be 1 for
-        high-res canvases and 2 otherwise. If greater than 1, SSAA
-        (supersampling anti-aliasing) is applied while converting a render
-        buffer to a display buffer. If smaller than 1, pixels from the render
-        buffer are replicated while converting to a display buffer. This has
-        positive performance implications.
+        The ratio between the number of internal pixels versus the logical pixels on the canvas.
     pixel_filter : float, optional
-        The strength of the filter when copying the result to the target/canvas.
+        The relative strength of the filter when copying the result to the target/canvas.
     show_fps : bool
         Whether to display the frames per second. Beware that
         depending on the GUI toolkit, the canvas may impose a frame rate limit.
@@ -251,17 +245,18 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
     @property
     def pixel_filter(self):
-        """The strength of the filter applied to the final pixels.
+        """The relative strength of the filter applied to the final pixels.
 
         The renderer renders everything to an internal texture, which,
-        depending on the `pixel_ratio`, may have a differens size than
+        depending on the ``pixel_ratio``, may have a different physical size than
         the target (i.e. canvas). In the process of rendering the result
         to the target, a filter is applied, resulting in SSAA if the
-        size was larger, and a smoothing effect otherwise.
+        target size is smaller. The filter is a Gaussian kernel with sigma equal to
+        half the pixel ratio.
 
-        When the `pixel_filter` is 1.0, the default optimal filter is
-        used. Higher values result in more blur. Can be set to 0 to
-        disable the filter.
+        The value of ``pixel_filter`` multiplies the filter sigma (i.e. filter strength).
+        So using 1.0 uses the default, higher values result in more blur, and 0
+        disables the filter.
         """
         return self._pixel_filter
 
