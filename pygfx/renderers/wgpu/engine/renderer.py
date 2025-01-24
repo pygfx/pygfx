@@ -380,6 +380,13 @@ class WgpuRenderer(RootEventHandler, Renderer):
             self._target.request_draw()
 
     def _get_flat_scene(self, scene, camera):
+        """Traverse the scene graph to get a flat representation of the scene,
+        and during this traversal, do syncs and updates and collect various information.
+
+        The idea is to do this as much as possible in a single traversal to reduce the overhead
+        of iterating over a large number of objects.
+        """
+
         class Flat:
             def __init__(self):
                 self.wobjects = []
