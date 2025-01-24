@@ -433,8 +433,9 @@ class Text(WorldObject):
             name=name,
         )
 
-    def _update_uniform_buffers(self):
-        super()._update_uniform_buffers()
+    def _update_world_transform(self):
+        # Update when the world transform has changed
+        super()._update_world_transform()
         # When rendering in screen space, the world transform is used
         # to establish the point in the scene where the text is placed.
         # The only part of the local transform that is used is the

@@ -172,8 +172,9 @@ class SkinnedMesh(Mesh):
         assert value in BindMode, f"bind_mode must be one of {BindMode}, not {value}"
         self._bind_mode = value
 
-    def _update_uniform_buffers(self):
-        super()._update_uniform_buffers()
+    def _update_world_transform(self):
+        # Update when the world transform has changed
+        super()._update_world_transform()
 
         if self.bind_mode == BindMode.attached:
             self.bind_matrix_inv = self.world.inverse_matrix
