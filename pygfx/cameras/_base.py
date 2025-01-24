@@ -4,7 +4,7 @@ import numpy as np
 import pylinalg as la
 
 from ..objects._base import WorldObject
-from ..utils.transform import cached, callback
+from ..utils.transform import cached
 
 
 class Camera(WorldObject):
@@ -27,16 +27,17 @@ class Camera(WorldObject):
 
     def __init__(self):
         super().__init__()
-        self.last_modified = perf_counter_ns()
+        self._last_modified = perf_counter_ns()
 
         self._view_size = 1.0, 1.0
         self._view_offset = None
 
-        self.world.on_update(self.flag_update)
+    def flag_update(self):
+        self._last_modified = perf_counter_ns()
 
-    @callback
-    def flag_update(self, *args, **kwargs):
-        self.last_modified = perf_counter_ns()
+    @property
+    def last_modified(self) -> int:
+        return max(self._last_modified, self.world.last_modified)
 
     def set_view_size(self, width, height):
         """Sets the logical size of the target. Set by the renderer; you should typically not use this."""

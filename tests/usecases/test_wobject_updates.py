@@ -28,7 +28,8 @@ class PipelineSnapshotter:
     def __init__(self, renderer, scene, world_object):
         self.world_object = world_object
         self.renderer = renderer
-        self.env = get_renderstate(scene, renderer._blender)
+        flat = renderer._get_flat_scene(scene, None)
+        self.env = get_renderstate(flat.lights, renderer._blender)
         self._snapshot()
 
     def get_shaders_pipelines_bindings(self):

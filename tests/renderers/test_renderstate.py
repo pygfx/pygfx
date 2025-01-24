@@ -17,6 +17,14 @@ if not can_use_wgpu_lib:
 
 render_tex = gfx.Texture(dim=2, size=(10, 10, 1), format=wgpu.TextureFormat.rgba8unorm)
 
+stub_renderer = gfx.renderers.WgpuRenderer(render_tex)
+
+
+def s2l(scene):
+    """Convert scene object to light dict."""
+    flat = stub_renderer._get_flat_scene(scene, None)
+    return flat.lights
+
 
 def test_renderstate_reuse1():
     renderer1 = gfx.renderers.WgpuRenderer(render_tex)
@@ -24,8 +32,8 @@ def test_renderstate_reuse1():
     scene1 = gfx.Scene()
     scene2 = gfx.Scene()
 
-    env1 = get_renderstate(scene1, renderer1._blender)
-    env2 = get_renderstate(scene2, renderer2._blender)
+    env1 = get_renderstate(s2l(scene1), renderer1._blender)
+    env2 = get_renderstate(s2l(scene2), renderer2._blender)
     assert env1 is env2
 
 
@@ -53,11 +61,11 @@ def test_renderstate_reuse2():
     scene5.add(gfx.DirectionalLight())
     scene5.add(gfx.DirectionalLight())
 
-    env1 = get_renderstate(scene1, renderer1._blender)
-    env2 = get_renderstate(scene2, renderer1._blender)
-    env3 = get_renderstate(scene3, renderer1._blender)
-    env4 = get_renderstate(scene4, renderer1._blender)
-    env5 = get_renderstate(scene5, renderer1._blender)
+    env1 = get_renderstate(s2l(scene1), renderer1._blender)
+    env2 = get_renderstate(s2l(scene2), renderer1._blender)
+    env3 = get_renderstate(s2l(scene3), renderer1._blender)
+    env4 = get_renderstate(s2l(scene4), renderer1._blender)
+    env5 = get_renderstate(s2l(scene5), renderer1._blender)
 
     assert env1 is not env2, "env1 and env2 have different number of lights"
     assert env2 is env3, "env2 and env3 have same number of lights"
@@ -75,10 +83,10 @@ def prepare_for_cleanup():
     scene1 = gfx.Scene()
     scene2 = gfx.Scene()
 
-    env1 = get_renderstate(scene1, renderer1._blender)
+    env1 = get_renderstate(s2l(scene1), renderer1._blender)
     assert env1.hash in renderstate_cache
 
-    env2 = get_renderstate(scene2, renderer2._blender)
+    env2 = get_renderstate(s2l(scene2), renderer2._blender)
     assert env1 is not env2
     assert env1.hash in renderstate_cache
     assert env2.hash in renderstate_cache
@@ -89,7 +97,7 @@ def prepare_for_cleanup():
 def test_renderstate_cleanup_noop():
     renderer1, renderer2, scene1, scene2, env1, env2 = prepare_for_cleanup()
 
-    env2 = get_renderstate(scene2, renderer2._blender)
+    env2 = get_renderstate(s2l(scene2), renderer2._blender)
     assert env1.hash in renderstate_cache
     assert env2.hash in renderstate_cache
 
@@ -100,7 +108,7 @@ def test_renderstate_cleanup_by_renderer_not_using_it():
     camera = gfx.OrthographicCamera()
 
     renderer1.blend_mode = "weighted"
-    env1 = get_renderstate(scene1, renderer1._blender)
+    env1 = get_renderstate(s2l(scene1), renderer1._blender)
     hash1 = env1.hash
     del env1
 
@@ -129,7 +137,7 @@ def test_renderstate_cleanup_by_renderer_del():
     renderer1, renderer2, scene1, scene2, env1, env2 = prepare_for_cleanup()
 
     renderer1.blend_mode = "weighted"
-    env1 = get_renderstate(scene1, renderer1._blender)
+    env1 = get_renderstate(s2l(scene1), renderer1._blender)
     hash1 = env1.hash
     del env1
 
