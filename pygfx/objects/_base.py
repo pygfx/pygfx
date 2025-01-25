@@ -543,13 +543,3 @@ class WorldObject(EventTarget, Trackable):
         """
 
         self.world.forward = target - self.world.position
-
-    def on_before_render(self, renderer):
-        """Called before the object is rendered.
-
-        This method is called by the renderer before the object is rendered.
-        The renderer is passed as an argument.
-
-        Notice that this callback is only executed for **renderable** 3D objects.
-        """
-        pass

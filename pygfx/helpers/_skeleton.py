@@ -72,6 +72,3 @@ class SkeletonHelper(Line):
             bones.extend(self._get_bones(child))
 
         return bones
-
-    def on_before_render(self, renderer):
-        self.update()
