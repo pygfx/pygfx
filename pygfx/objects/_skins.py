@@ -195,7 +195,8 @@ class SkinnedMesh(Mesh):
         """Reset the skinned mesh to the binding-time pose."""
         self.skeleton.pose()
 
-    def on_before_render(self, renderer):
+    def _update_object(self):
+        super()._update_object()
         # todo: theoretically, it's not appropriate to update the skeleton here.
         # because skeleton can be shared by multiple skinned meshes, which could result in redundant updates and caculations.
         if self.skeleton:
