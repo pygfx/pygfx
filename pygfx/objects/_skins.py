@@ -77,18 +77,16 @@ class Skeleton:
         """Generate the bone_inverses array if not provided in the constructor."""
         self.bone_inverses.clear()
         for bone in self.bones:
-            self.bone_inverses.append(np.linalg.inv(bone.world.matrix))
+            self.bone_inverses.append(bone.world.inverse_matrix)
 
     def pose(self):
         """Reset the skeleton to the binding-time pose."""
         for i, bone in enumerate(self.bones):
-            bone.world.matrix = np.linalg.inv(self.bone_inverses[i])
+            bone.world.matrix = la.mat_inverse(self.bone_inverses[i])
 
         for bone in self.bones:
             if bone.parent and isinstance(bone.parent, Bone):
-                bone.local.matrix = (
-                    np.linalg.inv(bone.parent.world.matrix) @ bone.world.matrix
-                )
+                bone.local.matrix = bone.parent.world.inverse_matrix @ bone.world.matrix
             else:
                 bone.local.matrix = bone.world.matrix
 
@@ -131,8 +129,8 @@ class SkinnedMesh(Mesh):
     def __init__(self, geometry, material):
         super().__init__(geometry, material)
 
-        self.bind_matrix = np.eye(4)
-        self.bind_matrix_inv = np.eye(4)
+        self._bind_matrix = np.eye(4, dtype=np.float32)
+        self._bind_matrix_inv = np.eye(4, dtype=np.float32)
 
         self._bind_mode = BindMode.attached
 
@@ -141,22 +139,10 @@ class SkinnedMesh(Mesh):
         """The base matrix that is used for the bound bone transforms."""
         return self._bind_matrix
 
-    @bind_matrix.setter
-    def bind_matrix(self, value):
-        self._bind_matrix = value
-        self.uniform_buffer.data["bind_matrix"] = self._bind_matrix.T
-        self.uniform_buffer.update_full()
-
     @property
     def bind_matrix_inv(self):
         """The base matrix that is used for resetting the bound bone transforms."""
         return self._bind_matrix_inv
-
-    @bind_matrix_inv.setter
-    def bind_matrix_inv(self, value):
-        self._bind_matrix_inv = value
-        self.uniform_buffer.data["bind_matrix_inv"] = self._bind_matrix_inv.T
-        self.uniform_buffer.update_full()
 
     @property
     def bind_mode(self):
@@ -177,9 +163,12 @@ class SkinnedMesh(Mesh):
         super()._update_world_transform()
 
         if self.bind_mode == BindMode.attached:
-            self.bind_matrix_inv = self.world.inverse_matrix
+            self._bind_matrix_inv = self.world.inverse_matrix
         elif self.bind_mode == BindMode.detached:
-            self.bind_matrix_inv = np.linalg.inv(self.bind_matrix)
+            self._bind_matrix_inv = la.mat_inverse(self.bind_matrix)
+
+        self.uniform_buffer.data["bind_matrix_inv"] = self._bind_matrix_inv.T
+        self.uniform_buffer.update_full()
 
     def bind(self, skeleton: Skeleton, bind_matrix=None):
         """Bind a skeleton to the skinned mesh.
@@ -195,8 +184,12 @@ class SkinnedMesh(Mesh):
             self.skeleton.calculate_inverses()
             bind_matrix = self.world.matrix
 
-        self.bind_matrix = bind_matrix
-        self.bind_matrix_inv = np.linalg.inv(bind_matrix)
+        self._bind_matrix = bind_matrix
+        self._bind_matrix_inv = la.mat_inverse(bind_matrix)
+
+        self.uniform_buffer.data["bind_matrix"] = self._bind_matrix.T
+        self.uniform_buffer.data["bind_matrix_inv"] = self._bind_matrix_inv.T
+        self.uniform_buffer.update_full()
 
     def pose(self):
         """Reset the skinned mesh to the binding-time pose."""
