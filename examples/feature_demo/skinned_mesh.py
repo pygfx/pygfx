@@ -113,9 +113,6 @@ def animate():
         rotation_y = math.sin(t) * 2 / len(mesh.skeleton.bones)
         bone.local.rotation = la.quat_from_euler((0, rotation_y, 0))
 
-    mesh.skeleton.update()
-    skeleton_helper.update()
-
     renderer.render(scene, camera)
     canvas.request_draw()
 

@@ -245,22 +245,9 @@ gui_renderer.set_gui(draw_imgui)
 load_remote_model(0)
 
 
-def update_skeleton(obj):
-    if isinstance(obj, gfx.SkinnedMesh):
-        obj.skeleton.update()
-
-
 def animate():
     dt = clock.get_delta()
     mixer.update(dt)
-
-    # Update the skeleton
-    # todo: this is a temporary workaround, we should update the skeleton automatically
-    # see: https://github.com/pygfx/pygfx/pull/894
-    if skeleton_helper and skeleton_helper.visible:
-        skeleton_helper.update()
-    if model_obj:
-        model_obj.traverse(update_skeleton)
 
     with stats:
         renderer.render(scene, camera, flush=False)

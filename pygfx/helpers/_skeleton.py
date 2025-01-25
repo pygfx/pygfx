@@ -38,6 +38,7 @@ class SkeletonHelper(Line):
         # Update on every draw: the helper matrix always follows the root object
         self.local.matrix = self.root.world.matrix
         super()._update_object()
+        self.update()
 
     def update(self):
         # TODO: we should update it automatically by some mechanism.
