@@ -336,9 +336,6 @@ def animate():
 
     animation_mixer.update(dt)
 
-    model_obj.children[0].skeleton.update()
-    skeleton_helper.update()
-
     with stats:
         renderer.render(scene, camera, flush=False)
 
