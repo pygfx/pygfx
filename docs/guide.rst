@@ -12,7 +12,7 @@ To install use your favourite package manager, e.g.:
 
     pip install -U pygfx
 
-For Pygfx to work, the approproate GPU drivers should be installed.
+For Pygfx to work, the appropriate GPU drivers should be installed.
 
 * Windows: On Windows 10 and up, you should be ok. If your machine has a dedicated GPU, consider updating your (Nvidia or AMD) drivers.
 * MacOS: Need at least 10.13 (High Sierra) to use Metal (Apple's GPU driver).
