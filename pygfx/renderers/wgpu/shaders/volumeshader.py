@@ -46,6 +46,9 @@ class BaseVolumeShader(BaseShader):
         else:
             self["img_format"] = "i32"
 
+        # Set gamma
+        self["gamma"] = material.gamma
+
         # Channels
         self["img_nchannels"] = len(fmt) - len(fmt.lstrip("rgba"))
 
