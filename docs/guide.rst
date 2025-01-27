@@ -6,17 +6,18 @@ The Pygfx guide
 Installation
 ------------
 
-To install use pip:
+To install use your favourite package manager, e.g.:
 
 .. code-block::
 
     pip install -U pygfx
 
-or install the bleeding edge from Github:
+For Pygfx to work, the approproate GPU drivers should be installed.
 
-.. code-block::
-
-    pip install -U https://github.com/pygfx/pygfx/archive/main.zip
+* Windows: On Windows 10 and up, you should be ok. If your machine has a dedicated GPU, consider updating your (Nvidia or AMD) drivers.
+* MacOS: Need at least 10.13 (High Sierra) to use Metal (Apple's GPU driver).
+* Linux: On a modern Linux desktop you should be fine. Maybe ``apt install mesa-vulkan-drivers``.
+  For details see https://wgpu-py.readthedocs.io/en/stable/start.html#linux.
 
 
 What is Pygfx?
