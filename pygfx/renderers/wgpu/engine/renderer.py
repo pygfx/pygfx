@@ -403,8 +403,8 @@ class WgpuRenderer(RootEventHandler, Renderer):
             # Add to semi-flat data structure
             wobject_dict.setdefault(ob.render_order, []).append(ob)
 
-            # Update transform and uniform buffer
-            ob.update_uniform_buffers()
+            # Update things like transform and uniform buffers
+            ob._update_object()
 
             if isinstance(ob, Light):
                 if isinstance(ob, PointLight):

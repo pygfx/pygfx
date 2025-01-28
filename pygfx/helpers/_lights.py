@@ -41,8 +41,9 @@ class PointLightHelper(Mesh):
         material = MeshBasicMaterial(color="#fff")
         super().__init__(geometry, material)
 
-    def _update_uniform_buffers(self):
-        super()._update_uniform_buffers()
+    def _update_object(self):
+        # Update on every draw
+        super()._update_object()
 
         if self._color is None and isinstance(self.parent, Light):
             color = self.parent.color
@@ -123,8 +124,9 @@ class DirectionalLightHelper(Line):
         self._show_shadow_extent = bool(value)
         self._shadow_helper.visible = self._show_shadow_extent
 
-    def _update_uniform_buffers(self):
-        super()._update_uniform_buffers()
+    def _update_object(self):
+        # Update on every draw.
+        super()._update_object()
 
         if not isinstance(self.parent, Light):
             return
@@ -210,8 +212,9 @@ class SpotLightHelper(Line):
             LineSegmentMaterial(thickness=1.0),
         )
 
-    def _update_uniform_buffers(self):
-        super()._update_uniform_buffers()
+    def _update_object(self):
+        # Update on every draw
+        super()._update_object()
 
         if not isinstance(self.parent, Light):
             return

@@ -12,6 +12,8 @@ class VolumeBasicMaterial(Material):
         The contrast limits to scale the data values with. Default (0, 1).
     map : TextureMap | Texture
         The colormap to turn the voxel values into their final color.
+    gamma : float
+        The gamma correction to apply to the image data. Default 1.
     interpolation : str
         The method to interpolate the image data. Either 'nearest' or 'linear'. Default 'linear'.
     kwargs : Any
@@ -23,18 +25,21 @@ class VolumeBasicMaterial(Material):
     uniform_type = dict(
         Material.uniform_type,
         clim="2xf4",
+        gamma="f4",
     )
 
     def __init__(
         self,
         clim=None,
         map=None,
+        gamma=1.0,
         interpolation="linear",
         **kwargs,
     ):
         super().__init__(**kwargs)
         self.map = map
         self.clim = clim
+        self.gamma = gamma
         # Note: the default volume interpolation is 'linear' while it's nearest
         # for images. The ability to spot the individual voxels simply results in
         # poor visual quality.
@@ -70,6 +75,19 @@ class VolumeBasicMaterial(Material):
         clim = float(clim[0]), float(clim[1])
         # Update uniform data
         self.uniform_buffer.data["clim"] = clim
+        self.uniform_buffer.update_full()
+
+    @property
+    def gamma(self):
+        """The gamma correction to apply to the image data. Default 1."""
+        return self.uniform_buffer.data["gamma"]
+
+    @gamma.setter
+    def gamma(self, value):
+        value = float(value)
+        if value <= 0:
+            raise ValueError("gamma must be greater than 0")
+        self.uniform_buffer.data["gamma"] = float(value)
         self.uniform_buffer.update_full()
 
     @property
