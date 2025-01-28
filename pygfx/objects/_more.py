@@ -451,4 +451,15 @@ class Text(WorldObject):
     def set_markdown(self, markdown, family=None):
         raise NotImplementedError()
 
-    # TODO all other layout props
+        # TODO all other layout props
+
+
+class MultiText(Text):
+    def create_text_item(self):
+        pass
+
+    def create_text_items(self, n):
+        pass
+
+    def get_text_item(self, index):
+        pass

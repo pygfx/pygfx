@@ -75,8 +75,29 @@ WHITESPACE_EXTENTS = {}
 #         self.offset = 0
 
 
+class BaseTextEngine:
+    def select_font(self, text, font_props):
+        raise NotImplementedError()
+
+    def shape_text(self, text, font_filename, direction):
+        raise NotImplementedError()
+
+
+class DefaultTextEngine(BaseTextEngine):
+    def select_font(self, text, font_props):
+        return textmodule.select_font(text, font_props)
+
+    def shape_text(self, text, font_filename, direction):
+        return textmodule.shape_text(text, font_filename, direction)
+
+
 class InternalTextItem:
     """A uniformly formatted piece of text. Used internally in TextGeometry."""
+
+    # TODO: Maybe get from textgeometry, so that users can subclass the geometry to change the text engine?
+    _text_engine = DefaultTextEngine()
+
+    # TODO: __slots__ = []
 
     def __init__(self, index, text, font_props, size=12):
         self.index = index
@@ -89,6 +110,91 @@ class InternalTextItem:
 
         self.glyph_count = 0
         self.glyph_indices = range(0)
+
+    def set_family(self, familt):
+        pass
+
+    def set_text(self, text, family=None, bold=False, italic=None):
+        if text == self.text:
+            return
+        self._dirty_map.add(self.index)
+        # ...
+
+    def set_markdown(self, text, family=None):
+        pass
+        # -> sizes
+
+    def _set_processed_markdown(self, xx):
+        pass  # -> so the TextGeometry can process markdown and pass it to the pieces easier
+
+    def _update_data(self):
+        """Update the atlas_indices and positions for the given text item."""
+
+        textengine = self._text_engine
+
+        # Prepare containers for array
+        atlas_indices_list = []
+        positions_list = []
+
+        # Init meta data
+        extent = ascender = descender = 0
+        direction = "ltr"
+
+        # Text rendering steps: font selection, shaping, glyph generation
+        last_reverse_index = 0
+        text_pieces = textengine.select_font(self.text, self.font_props)
+        for text, font in text_pieces:
+            glyph_indices, positions, meta = textengine.shape_text(
+                text, font.filename, direction
+            )
+            atlas_indices = textengine._generate_glyph(glyph_indices, font.filename)
+            self._encode_font_props_in_atlas_indices(
+                atlas_indices, self.font_props, font
+            )
+            extent = max(extent, meta["extent"])
+            ascender = max(ascender, meta["ascender"])
+            descender = max(descender, meta["descender"])
+            # TODO: is descender negative or positive? I.e. use min or max?
+            direction = meta["direction"]
+
+            # Put in list, take direction into account
+            if direction in ("rtl", "btt"):
+                atlas_indices_list.insert(last_reverse_index, atlas_indices)
+                positions_list.insert(last_reverse_index, positions)
+            else:
+                atlas_indices_list.append(atlas_indices)
+                positions_list.append(positions)
+                last_reverse_index = len(atlas_indices_list)
+
+        previous_glyph_count = self.glyph_count
+
+        # Store as a single array
+        if len(atlas_indices_list) == 0:
+            self.atlas_indices = None
+            self.positions = None
+            self.glyph_count = 0
+        elif len(atlas_indices_list) == 1:
+            self.atlas_indices = atlas_indices_list[0]
+            self.positions = positions_list[0]
+            self.glyph_count = len(self.positions)
+        else:
+            self.atlas_indices = np.concatenate(atlas_indices_list, axis=0)
+            self.positions = np.concatenate(positions_list, axis=0)
+            self.glyph_count = len(self.positions)
+
+        # # If the glyph count changes, de-allocate now, we'll re-allocate later.
+        # # That way, in update(), all glyph slots are de-allocated before allocating new ones
+        # # TODO: is this a good idea? Maybe allow becomeing smaller than the original (not previous but last allocated size)
+        # if self.glyph_count != previous_glyph_count:
+        #     self._deallocate_glyphs_for_item(item)
+
+        # Store meta data on the item
+        self.meta = {
+            "extent": extent,
+            "ascender": ascender,
+            "descender": descender,
+            "direction": direction,
+        }
 
 
 class LayoutTextItem:
@@ -346,71 +452,6 @@ class TextGeometry(Geometry):
 
         self._dirty_items.clear()
 
-    def _update_item(self, item):
-        """Update the atlas_indices and positions for the given text item."""
-
-        # Prepare containers for array
-        atlas_indices_list = []
-        positions_list = []
-
-        # Init meta data
-        extent = ascender = descender = 0
-        direction = "ltr"
-
-        # Text rendering steps: font selection, shaping, glyph generation
-        last_reverse_index = 0
-        text_pieces = self._select_font(item.text, item.font_props)
-        for text, font in text_pieces:
-            glyph_indices, positions, meta = self._shape_text(text, font.filename)
-            atlas_indices = self._generate_glyph(glyph_indices, font.filename)
-            self._encode_font_props_in_atlas_indices(
-                atlas_indices, item.font_props, font
-            )
-            extent = max(extent, meta["extent"])
-            ascender = max(ascender, meta["ascender"])
-            descender = max(descender, meta["descender"])
-            # TODO: is descender negative or positive? I.e. use min or max?
-            direction = meta["direction"]
-
-            # Put in list, take direction into account
-            if direction in ("rtl", "btt"):
-                atlas_indices_list.insert(last_reverse_index, atlas_indices)
-                positions_list.insert(last_reverse_index, positions)
-            else:
-                atlas_indices_list.append(atlas_indices)
-                positions_list.append(positions)
-                last_reverse_index = len(atlas_indices_list)
-
-        previous_glyph_count = item.glyph_count
-
-        # Store as a single array
-        if len(atlas_indices_list) == 0:
-            item.atlas_indices = None
-            item.positions = None
-            item.glyph_count = 0
-        elif len(atlas_indices_list) == 1:
-            item.atlas_indices = atlas_indices_list[0]
-            item.positions = positions_list[0]
-            item.glyph_count = len(item.positions)
-        else:
-            item.atlas_indices = np.concatenate(atlas_indices_list, axis=0)
-            item.positions = np.concatenate(positions_list, axis=0)
-            item.glyph_count = len(item.positions)
-
-        # If the glyph count changes, de-allocate now, we'll re-allocate later.
-        # That way, in update(), all glyph slots are de-allocated before allocating new ones
-        # TODO: is this a good idea? Maybe allow becomeing smaller than the original (not previous but last allocated size)
-        if item.glyph_count != previous_glyph_count:
-            self._deallocate_glyphs_for_item(item)
-
-        # Store meta data on the item
-        item.meta = {
-            "extent": extent,
-            "ascender": ascender,
-            "descender": descender,
-            "direction": direction,
-        }
-
     def _write_item_glyphs(self, item):
         """Write the glyph_indices and positions into the geometry's buffer."""
 
@@ -485,18 +526,20 @@ class TextGeometry(Geometry):
         return indices
 
     def _glyphs_deallocate(self, indices):
-        max_glyph_count = self.glyph_positions.nitems
         # Nullify data
         self.glyph_item_indices[indices] = -1
         self.glyph_atlas_indices[indices] = 0
         # self.glyph_positions[indices] = 0
         # Deallocate
+        # TODO: note how de-allocation only results in gaps, causing slow allocations
         self._glyph_indices_gaps.update(indices)
         self._glyph_count -= len(indices)
         # Maybe reduce buffer size
         # TODO: note how this does not work well with deallocating and then allocating all items when they change
-        if self._glyph_count < 0.25 * max_glyph_count:
-            self._glyphs_create_new_buffers()
+        # TODO: reduce buffer size, somewhere, but only if we now the total of current text objects needs less space.
+        # max_glyph_count = self.glyph_positions.nitems
+        # if self._glyph_count < 0.25 * max_glyph_count:
+        #     self._glyphs_create_new_buffers()
 
     def _glyphs_create_new_buffers(self, extra_needed=0):
         # Get new size
@@ -812,22 +855,6 @@ class TextGeometry(Geometry):
 
         self._set_layout_items(items)
         return self
-
-    # %%%%% Font selection
-
-    def _select_font(self, text, font_props):
-        """The font selection step. Returns (text, font_filename) tuples.
-        Can be overloaded for custom behavior.
-        """
-        return textmodule.select_font(text, font_props)
-
-    # %%%%% Shaping
-
-    def _shape_text(self, text, font_filename):
-        """The shaping step. Returns (glyph_indices, positions, meta).
-        Can be overloaded for custom behavior.
-        """
-        return textmodule.shape_text(text, font_filename, self._direction)
 
     def _get_ws_extent(self, s, font):
         """Get the extent of a piece of whitespace text. Results of small strings are cached."""
