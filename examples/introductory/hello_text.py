@@ -25,17 +25,13 @@ plane = gfx.Mesh(
 scene.add(plane)
 
 # Create two texts, one on each side of the plane
-text1 = gfx.Text(
-    gfx.TextGeometry("Hello world", font_size=2.8),
-    gfx.TextMaterial(color="#ddd"),
-)
+text1 = gfx.Text(text="Hello world", font_size=2.8)
+text1.material.color = "#ddd"
 text1.local.position = (0, 0, 0.5)
 plane.add(text1)
 
-text2 = gfx.Text(
-    gfx.TextGeometry("Здравей свят", font_size=2.8),
-    gfx.TextMaterial(color="#ddd"),
-)
+text2 = gfx.Text(text="Здравей свят", font_size=2.8)
+text2.material.color = "#ddd"
 text2.local.position = (0, 0, -0.5)
 text2.local.scale = (-1, 1, 1)
 plane.add(text2)
