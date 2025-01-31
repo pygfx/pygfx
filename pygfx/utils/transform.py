@@ -686,9 +686,9 @@ class RecursiveTransform(AffineBase):
 
     Parameters
     ----------
-    base : AffineBase
+    base : AffineTransform
         The base transform that will be wrapped by this transform.
-    parent : AffineBase, optional
+    parent : RecursiveTransform, optional
         The parent transform that precedes the base transform.
     reference_up : ndarray, [3]
         The direction of the reference_up vector expressed in the target
@@ -714,7 +714,7 @@ class RecursiveTransform(AffineBase):
 
     def __init__(
         self,
-        base: AffineBase,
+        base: AffineTransform,
         /,
         *,
         parent=None,
@@ -722,30 +722,70 @@ class RecursiveTransform(AffineBase):
         is_camera_space=False,
     ) -> None:
         super().__init__(reference_up=reference_up, is_camera_space=is_camera_space)
-        self._last_modified = perf_counter_ns()
-
-        self._parent = None
-        self.own = None
-
+        self.last_modified = perf_counter_ns()
+        self._parent = parent
         self.own = base
         self.own._set_reference_up_provider(self)
 
-        if parent is None:
-            self._parent = AffineTransform()
-        else:
-            self._parent = parent
+        self._matrix = np.ndarray((4, 4), dtype=float)
+        self._matrix_view = self._matrix.view()
+        self._matrix_view.flags.writeable = False
+        self._matrix_last_update = self.last_modified
+
+        self._own_reference_up = np.ndarray((3,), dtype=float)
+        self._own_reference_up_view = self._own_reference_up.view()
+        self._own_reference_up_view.flags.writeable = False
 
     def flag_update(self):
-        """Signal that this transform has updated."""
-        self._last_modified = perf_counter_ns()
+        """Signal that the parent reference has been has updated."""
+        self.last_modified = perf_counter_ns()
 
     @property
-    def last_modified(self) -> int:
-        return max(
-            self._last_modified, self.own.last_modified, self._parent.last_modified
-        )
+    def parent(self) -> "RecursiveTransform":
+        """The transform that preceeds the own/local transform."""
+        return self._parent
 
-    @cached
+    @parent.setter
+    def parent(self, value: AffineTransform):
+        self._parent = value
+        self.flag_update()
+
+    def _refresh_matrix(self):
+        # recurse up the tree to the root _first_
+        # that way we start at the top
+        if self._parent is None:
+            return self.own.matrix, self.own.last_modified
+        parent_matrix, parent_matrix_last_update = self._parent.update_matrix()
+        # our cache is still valid unless...
+        # - our local transform has changed
+        # - our parent's last update was after our last update
+        # - our parent has been replaced
+        max_last_modified = max(self.own.last_modified, parent_matrix_last_update, self.last_modified)
+        if max_last_modified > self._matrix_last_update:
+            self._matrix[:] = parent_matrix @ self.own.matrix
+            self._matrix_last_update = perf_counter_ns()
+        return self._matrix_view, self._matrix_last_update
+
+    @property
+    def matrix(self):
+        """Affine matrix describing this transform.
+
+        ``vec_target = matrix @ vec_source``.
+        """
+        self._refresh_matrix()
+        return self._matrix_view
+
+    @matrix.setter
+    def matrix(self, value):
+        self.own.matrix = self._parent.inverse_matrix @ value
+
+    def __matmul__(self, other) -> Union["RecursiveTransform", np.ndarray]:
+        if isinstance(other, AffineBase):
+            return RecursiveTransform(other, parent=self)
+        else:
+            return np.asarray(self) @ other
+
+    # @cached
     def __own_reference_up(self) -> np.ndarray:
         new_ref = la.vec_transform(self._reference_up, self._parent.inverse_matrix)
         origin = la.vec_transform((0, 0, 0), self._parent.inverse_matrix)
@@ -767,45 +807,7 @@ class RecursiveTransform(AffineBase):
         # we do not need to call flag_update() on self.own; all its state and cache
         # remains intact
 
-    @property
-    def parent(self) -> AffineBase:
-        """The transform that preceeds the own/local transform."""
-        return self._parent
-
-    @parent.setter
-    def parent(self, value):
-        if value is None:
-            self._parent = AffineTransform()
-        else:
-            self._parent = value
-        self.flag_update()
-
-    @cached
-    def _matrix(self):
-        mat = self._parent.matrix @ self.own.matrix
-        mat.flags.writeable = False
-        return mat
-
-    @property
-    def matrix(self):
-        """Affine matrix describing this transform.
-
-        ``vec_target = matrix @ vec_source``.
-
-        """
-        return self._matrix
-
-    @matrix.setter
-    def matrix(self, value):
-        self.own.matrix = self._parent.inverse_matrix @ value
-
-    def __matmul__(self, other) -> Union["RecursiveTransform", np.ndarray]:
-        if isinstance(other, AffineBase):
-            return RecursiveTransform(other, parent=self)
-        else:
-            return np.asarray(self) @ other
-
-    @cached
+    # @cached
     def __scaling_signs(self):
         signs = self._parent.scaling_signs * self.own.scaling_signs
         signs.flags.writeable = False
