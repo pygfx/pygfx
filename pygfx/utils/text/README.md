@@ -28,8 +28,7 @@ input is markdown `"hello *world*"`  this is separated into two parts:
 one with regular text and one with the bold text. Each part can be
 provided with a different font-family. In practice, each word becomes
 a separate text item, which allows moving words around during the
-layout. An API to provide raw `TextItem` objects is also available,
-in case more control is needed.
+layout.
 
 The result of this step is a list of text items: each a Unicode string
 and associated font properties.
