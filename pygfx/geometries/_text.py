@@ -6,11 +6,20 @@ though most of the alignment is implemented here.
 For details about the text rendering process, see pygfx/utils/text/README.md
 """
 
+# TODO: check below explanation at the end. I wrote this when picking this pr up again
+# Text is divided into multiple blocks, which represents lines/paragraphs, and which can
+# be individually positioned, e.g. to be used as labels.
+# Each TextBlock contains multiple TextItem's, which represent groups of characters that stick
+# together,during laytout i.e. words in most cases.
+# The geomety maintains per-block arrays/buffers for position (and size?). It also has arrays
+# to store the per-glyph data in the text items.
+
 import numpy as np
 
 from ..resources import Buffer
 from ..utils import text as textmodule
 from ._base import Geometry
+
 
 _TEXT_ALIGNMENTS = [
     "start",
@@ -49,51 +58,6 @@ ANCHOR_Y_ALTS = {
 WHITESPACE_EXTENTS = {}
 
 
-# class GlyphItem:
-#     """A series of glyphs that represents a unit piece of text.
-#     Intended for internal use only. In most cases one TextItem results
-#     in one GlyphItem, but it can be more if multiple fonts are required
-#     to render the TextItem.
-#     """
-
-#     def __init__(self, positions, indices, meta):
-#         # Arrays with glyph data
-#         self.positions = positions
-#         self.indices = indices
-#         # Layout data
-#         self.meta = meta
-#         self.extent = meta["extent"]
-#         self.direction = meta["direction"]
-#         self.ascender = meta["ascender"]
-#         self.descender = meta["descender"]
-#         self.allow_break = False
-#         self.margin_before = 0
-#         self.margin_after = 0
-#         self.newline_before = 0
-#         self.newline_after = 0
-#         # Int offset. Note that this means that a glyph item is bound to a TextGeometry
-#         self.offset = 0
-
-
-def encode_font_props_in_atlas_indices(atlas_indices, font_props, font):
-    # We could put font properties in their own buffer(s), but to
-    # safe memory, we encode them in the top bits of the atlas
-    # indices. This seems like a good place, because these top bits
-    # won't be used (2**24 is more than enough glyphs), and the
-    # glyph index is a rather "opaque" value to the user anyway.
-    # You can think of the new glyph index as the index to the glyph
-    # in the atlas, plus props to tweak its appearance.
-
-    # We compare the font_props (i.e. the requested font variant)
-    # with the actual font to see what correcion we need to apply.
-    slanted_like = "italic", "oblique", "slanted"
-    if font_props.style in slanted_like and font.style not in slanted_like:
-        atlas_indices += 0x08000000
-    weight_offset = font_props.weight - font.weight
-    weight_0_15 = int((max(-250, weight_offset) + 250) / 50 + 0.4999)
-    atlas_indices += max(0, min(15, weight_0_15)) << 28
-
-
 class TextEngine:
     def select_font(self, text, font_props):
         """The font selection step. Returns (text, font_filename) tuples.
@@ -113,288 +77,22 @@ class TextEngine:
         """
         return textmodule.generate_glyph(glyph_indices, font_filename)
 
-
-class TextItem:
-    """The TextItem represents one block or paragraph of text.
-
-    Text items are positioned using an entry in geometry.positions. This allows using it for e.g. a collection of text labels.
-
-    """
-
-    # TODO: __slots__ = []
-
-    def __init__(self, geometry, index):
-        self.geometry = geometry
-        self.index = index  # e.g. the index in geometry.positions
-
-        # Input
-        self._text = ""
-        self._dirty_level = 0
-
-        self.words = []
-        self.old_words = []
-
-    @property
-    def position(self):
-        return tuple(self.geometry.position.data[self.index])
-
-    @position.setter
-    def position(self, position):
-        buffer = self.geometry.position
-        buffer.data[self.index] = position
-        buffer.update_indices(self.index)
-
-    def _mark_dirty(self, level=2):
-        # Trigger ._update() being called right before the next draw
-        # 1: only update words that need an update.
-        # 2: update all
-        self.geometry._dirty_items.add(self.index)
-        self._dirty_level = max(self._dirty_level, level)
-
-    def _update(self):
-        """Do the work to bring this item up-to-date. Be fast!"""
-
-        geometry = self.geometry
-
-        dirty_level = self._dirty_level
-        self._dirty_level = 0
-
-        # De-allocate old word objects
-        for word in self.old_words:
-            geometry._glyphs_deallocate(word.glyph_indices)
-        self.old_words = []
-
-        # Update in-use word objects
-        for word in self.words:
-            if dirty_level >= 1:
-                word._update_arrays(geometry._font_props, geometry._font_size)
-
-            if word.glyph_count and word.has_new_data:
-                word.has_new_data = False
-
-                # Ensure we have indices into the geometries arrays
-                self._allocate_glyphs_for_word(word)
-
-                indices = word.glyph_indices
-                # Write glyph data
-                geometry.glyph_atlas_indices.data[indices] = word.atlas_indices
-                geometry.glyph_positions.data[indices] = word.positions
-                geometry.glyph_sizes.data[indices] = word.sizes
-                geometry.glyph_item_indices.data[indices] = self.index
-
-                # Trigger sync
-                if isinstance(indices, range):
-                    count = indices.stop - indices.start
-                    geometry.glyph_item_indices.update_range(indices.start, count)
-                    geometry.glyph_atlas_indices.update_range(indices.start, count)
-                    geometry.glyph_positions.update_range(indices.start, count)
-                    geometry.glyph_sizes.update_range(indices.start, count)
-                else:
-                    geometry.glyph_item_indices.update_indices(indices)
-                    geometry.glyph_atlas_indices.update_indices(indices)
-                    geometry.glyph_positions.update_indices(indices)
-                    geometry.glyph_sizes.update_indices(indices)
-
-    def _allocate_glyphs_for_word(self, word):
-        """Ensure that the word has the right number of glyph slots assigned to it."""
-        geometry = self.geometry
-
-        glyph_count = word.glyph_count
-        glyph_indices = word.glyph_indices
-
-        current_glyph_indices_count = len(glyph_indices)
-        if glyph_count < current_glyph_indices_count:
-            new_indices = glyph_indices[:glyph_count].copy()
-            indices_to_free = glyph_indices[glyph_count:]
-            geometry._glyphs_deallocate(indices_to_free)
-            word.glyph_indices = new_indices
-        elif glyph_count > current_glyph_indices_count:
-            extra_indices = geometry._glyphs_allocate(
-                glyph_count - current_glyph_indices_count
-            )
-            new_indices = np.empty((glyph_count,), np.uint32)
-            new_indices[:current_glyph_indices_count] = glyph_indices
-            new_indices[current_glyph_indices_count:] = extra_indices
-            word.glyph_indices = new_indices
-
-    def set_text(self, text):
-        """Set the text for this TextItem."""
-        if text == self._text or text is None:
-            return
-        if not isinstance(text, str):
-            raise TypeError("TextItem text should be str.")
-        self._text = text
-
-        self._text2words()
-
-    def set_markdown(self, text, family=None):
-        raise NotImplementedError()
-
-    def _text2words(self):
-        self._mark_dirty(2)
-
-        def new_word(text, ws_before):
-            if self.words:
-                word = self.words.pop(0)
-                word.text = text
-                word.ws_before = ws_before
-            else:
-                word = TextWord(text, ws_before)
-            return word
-
-        # Split text in words
-        words = []
-        pending_whitespace = ""
-        for kind, piece in textmodule.tokenize_text(self._text):
-            if kind == "ws":
-                pending_whitespace += piece
-            elif kind == "nl":
-                if pending_whitespace:
-                    words.append(new_word("", pending_whitespace))
-                elif not words:
-                    words.append(new_word("", ""))
-                words[-1].nl_after += piece
-                pending_whitespace = ""
-            else:
-                words.append(new_word(piece, pending_whitespace))
-                pending_whitespace = ""
-
-        # Store old words that need to be de-allocated
-        for word in self.words:
-            if len(word.glyph_indices):
-                self.old_words.append(word)
-
-        # Store new worlds
-        self.words = words
-
-    def _layout(self):
-        pass
-
-
-class TextWord:
-    """Represents one unit of text that moves as a whole to a new line when wrapped.
-    This is an internal implementation detail.
-    """
-
-    # TODO: Maybe get from textgeometry, so that users can subclass the geometry to change the text engine?
-    _text_engine = TextEngine()
-
-    def __init__(self, text, ws_before):
-        self.text = text
-        self.ws_before = ws_before
-        self.nl_after = ""
-
-        # Per-glyph arrays
-        self.atlas_indices = None
-        self.positions = None
-        self.sizes = None
-        self.glyph_count = 0
-
-        self.has_new_data = False
-
-        # Indices for slots in the arrays at the geometry
-        self.glyph_indices = range(0)
-
-    def _update_arrays(self, font_props, font_size):
-        """Update the atlas_indices, sizes and positions for the given text item."""
-
-        # We need to set the dirty flag when we produce new array data
-        self.has_new_data = True
-
-        if not self.text:
-            self.atlas_indices = None
-            self.positions = None
-            self.sizes = None
-            self.glyph_count = 0
-            return
-
-        textengine = self._text_engine
-
-        # Prepare containers for array
-        atlas_indices_list = []
-        positions_list = []
-        sizes_list = []
-
-        # Init meta data
-        extent = ascender = descender = 0
-        direction = "ltr"
-
-        # Text rendering steps: font selection, shaping, glyph generation
-        last_reverse_index = 0
-        text_pieces = textengine.select_font(self.text, font_props)
-        for text, font in text_pieces:
-            unicode_indices, positions, meta = textengine.shape_text(
-                text, font.filename, direction
-            )
-            atlas_indices = textengine.generate_glyph(unicode_indices, font.filename)
-            encode_font_props_in_atlas_indices(atlas_indices, font_props, font)
-            sizes = np.full((positions.shape[0],), font_size, np.float32)
-            extent = max(extent, meta["extent"])
-            ascender = max(ascender, meta["ascender"])
-            descender = max(descender, meta["descender"])
-            # TODO: is descender negative or positive? I.e. use min or max?
-            direction = meta["direction"]
-
-            # Put in list, take direction into account
-            if direction in ("rtl", "btt"):
-                atlas_indices_list.insert(last_reverse_index, atlas_indices)
-                positions_list.insert(last_reverse_index, positions)
-                sizes_list.insert(last_reverse_index, sizes)
-            else:
-                atlas_indices_list.append(atlas_indices)
-                positions_list.append(positions)
-                sizes_list.append(sizes)
-                last_reverse_index = len(atlas_indices_list)
-
-        # Store meta data on the item
-        # TODO: flatten?
-        self.meta = {
-            "extent": extent,
-            "ascender": ascender,
-            "descender": descender,
-            "direction": direction,
-        }
-
-        # Store as a single array
-        if len(atlas_indices_list) == 0:
-            self.atlas_indices = None
-            self.positions = None
-            self.sizes = None
-            self.glyph_count = 0
-        elif len(atlas_indices_list) == 1:
-            self.atlas_indices = atlas_indices_list[0]
-            self.positions = positions_list[0]
-            self.sizes = sizes_list[0]
-            self.glyph_count = len(self.positions)
+    def get_ws_extent(self, s, font):
+        """Get the extent of a piece of whitespace text. Results of small strings are cached."""
+        if not s:
+            return 0
+        elif len(s) <= 8:
+            key = (s, self._direction, font.filename)
+            try:
+                return WHITESPACE_EXTENTS[key]
+            except KeyError:
+                meta = self.shape_text(s, font.filename)[2]
+                extent = meta["extent"]
+                WHITESPACE_EXTENTS[key] = extent
+                return extent
         else:
-            self.atlas_indices = np.concatenate(atlas_indices_list, axis=0)
-            self.positions = np.concatenate(positions_list, axis=0)
-            self.sizes = np.concatenate(sizes_list, axis=0)
-            self.glyph_count = len(self.positions)
-
-
-class LayoutTextItem:
-    """A representation of a text item, used (eventually) by the Text world object."""
-
-    # TODO: edit this docstring
-    def __init__(self, text, font_props):
-        self.text = text
-        self.font_props = font_props
-
-        self.extent = 0
-        self.direction = "ltr"
-        self.ascender = 0
-        self.descender = 0
-
-        self.ws_before = ""
-        self.ws_after = ""
-        self.nl_before = ""
-        self.nl_after = ""
-
-        self.margin_before = 0
-        self.margin_after = 0
-        self.newline_before = 0
-        self.newline_after = 0
+            meta = self.shape_text(s, font.filename)[2]
+            return meta["extent"]
 
 
 class TextGeometry(Geometry):
@@ -410,12 +108,24 @@ class TextGeometry(Geometry):
     markdown : str
         The text to render, formatted as markdown (optional). See
         ``set_markdown()`` for details on the supported formatting.
-    screen_space : bool
-        Whether the text is rendered in screen space, in contrast to world
-        space.
     font_size : float
         The size of the font, in object coordinates or pixel screen coordinates,
         depending on the value of the ``screen_space`` property. Default 12.
+    family : str, tuple
+        The name(s) of the font to prefer. If multiple names are given, they are
+        preferred in the given order. Characters that are not supported by any
+        of the given fonts are rendered with the default font (from the Noto
+        Sans collection).
+    direction : str
+        The text direction. By default the text direction is determined
+        automatically, but is always horizontal. Can be set to 'lrt', 'rtl',
+        'ttb' or 'btt'.
+    space_mode : enums.CoordSpace
+        The coordinate space in which the text is rendered. Can be "screen" or "model", default "screen".
+    position_mode : str
+        TODO: maybe one enum space-mode: screen, model, label
+        How ``TextBlock`` objects are positioned. With "auto" the layout is performed automatically (in the same space as ``space``).
+        If "model" the positioning is done in model-space, a bit as if its a point set with labels (i.e. TextBlock's) as markers.
     anchor : str
         The position of the origin of the text. Default "middle-center".
     anchor_offset : float
@@ -436,67 +146,56 @@ class TextGeometry(Geometry):
         element. Can be "start", "end", "left", "right", "center", "justify" or
         "auto". Default "auto". Text alignment is ignored for top to
         bottom ('ttb') and bottom to top ('btt') directions.
-    family : str, tuple
-        The name(s) of the font to prefer. If multiple names are given, they are
-        preferred in the given order. Characters that are not supported by any
-        of the given fonts are rendered with the default font (from the Noto
-        Sans collection).
-    direction : str
-        The text direction. By default the text direction is determined
-        automatically, but is always horizontal. Can be set to 'lrt', 'rtl',
-        'ttb' or 'btt'.
-
     """
+
+    _text_engine = TextEngine()
 
     def __init__(
         self,
         text=None,
         *,
         markdown=None,
-        screen_space=False,
         font_size=12,
+        family=None,
+        direction=None,
+        screen_space=None,
+        space_mode="model",
         anchor="middle-center",
         anchor_offset=0,
         max_width=0,
         line_height=1.2,
         text_align="left",
         text_align_last="auto",
-        family=None,
-        direction=None,
     ):
         super().__init__()
 
-        # Init stub buffers
-        # self.indices = None
-        # self.positions = None
-        # self.sizes = None
+        # --- check text input
 
-        # TODO: check below explanation at the end. I wrote this when picking this pr up again
-        # Text is divided into multiple items, and we maintain per-item arrays/buffers
-        # for things like size and position. We also have arrays for all the items
-        # to store their per-glyph data. This class manages these arrays (removing and inserting items)
-        # on behalf of the TextItem objects.
+        text_and_markdown = [i for i in (text, markdown) if i is not None]
+        if len(text_and_markdown) > 1:
+            raise TypeError("Either text or markdown must be given, not both.")
 
-        # Per-item arrays/buffers
+        # --- create per-item arrays/buffers
 
-        # The position of each text item
+        # The position of each text block
         self.positions = Buffer(np.zeros((8, 3), np.float32))
-        # The size of each text item
-        self.sizes = Buffer(np.zeros((8,), np.float32))  # TODO: rename to font_sizes?
+        # The size of each text block
+        # TODO: remove or rename to font_sizes
+        self.sizes = Buffer(np.zeros((8,), np.float32))
         # self.colors = None
 
-        # Per-glyph arrays/buffers
+        # --- create per-glyph arrays/buffers
 
         # Index into the atlas that contains all glyphs
         self.glyph_atlas_indices = Buffer(np.zeros((16,), np.uint32))
-        # Index into the items list above (i.e. the item-index)
+        # Index into the block list above (i.e. the block.index)
         # TODO: I don't think we need this???
-        self.glyph_item_indices = Buffer(np.zeros((16,), np.uint32))
+        self.glyph_block_indices = Buffer(np.zeros((16,), np.uint32))
         # Sub-position for glyph size, shaping, kerning, etc.
         self.glyph_positions = Buffer(np.zeros((16, 2), np.float32))
         self.glyph_sizes = Buffer(np.zeros((16,), np.float32))
 
-        # Variables to help manage the glyph arrays
+        # --- init variables to help manage the glyph arrays
 
         # The number of allocated glyph slots.
         # This must be equal to _glyph_indices_top - _glyph_indices_gaps
@@ -506,27 +205,30 @@ class TextGeometry(Geometry):
         # Free slots that are not in the contiguous space at the end of the arrays.
         self._glyph_indices_gaps = set()
 
-        self._dirty_items = set()
+        # Track what blocks need an update. This set is shared with the TextBlock instances.
+        self._text_blocks = []  # List of TextBlock instances
+        self._dirty_blocks = set()  # Set of ints (text_block.index)
 
-        # ---
-
-        # Init props unrelated to layout
-        self.screen_space = screen_space
-        self._direction = direction
+        # --- other geomery-specific things
 
         self._aabb = np.array([(0, 0, 0), (0, 0, 0)], np.float32)
 
-        # Disable layout, so we can initialize first
-        self._do_layout = False
+        # --- set propss
 
-        # Check inputs
-        inputs = text, markdown
-        inputs = [i for i in inputs if i is not None]
-        if len(inputs) > 1:
-            raise TypeError("Either text or markdown must be given, not both.")
-
-        # Set layout props
+        # Font props
         self.font_size = font_size
+        self.family = family
+        self.direction = direction
+
+        # Space props
+        # TODO: fix reference to screen_space, and usage in examples
+        if screen_space is not None:
+            raise DeprecationWarning(
+                "TextGeometry.screen_space is deprecated, use space_mode instead."
+            )
+        self.space_mode = space_mode
+
+        # Layout props
         self.anchor = anchor
         self.anchor_offset = anchor_offset
         self.max_width = max_width
@@ -534,103 +236,84 @@ class TextGeometry(Geometry):
         self.text_align = text_align
         self.text_align_last = text_align_last
 
-        # # Process input
-        # if text is not None:
-        #     self.set_text(text, family=family)
-        # elif markdown is not None:
-        #     self.set_markdown(markdown, family=family)
-        # else:
-        #     self.set_text_items([])
+        # --- set initial content
 
-        # # Finish layout
-        # self._do_layout = True
-        # self.apply_layout()
-
-    # -- glyph api
-
-    def _glyphs_allocate(self, n):
-        max_glyph_slots = self.glyph_positions.nitems
-
-        # Need larger buffer?
-        n_free = max_glyph_slots - self._glyph_count
-        if n > n_free:
-            self._glyphs_create_new_buffers(n)
-
-        # Allocate indices
-        if not self._glyph_indices_gaps:
-            # Contiguous: indices is a range
-            assert self._glyph_indices_top == self._glyph_count
-            indices = range(self._glyph_indices_top, self._glyph_indices_top + n)
-            self._glyph_count += n
-            self._glyph_indices_top += n
+        if text is not None:
+            self.set_text(text)
+        elif markdown is not None:
+            self.set_markdown(markdown)
         else:
-            # First use gaps ...
-            indices = np.empty((n,), np.uint32)
-            n_from_gap = min(n, len(self._glyph_indices_gaps))
-            for i in range(n_from_gap):
-                indices[i] = self._glyph_indices_gaps.pop()
-            self._glyph_count += n_from_gap
-            # Then use indices at the end
-            n -= n_from_gap
-            if n > 0:
-                indices[n_from_gap:] = range(
-                    self._glyph_indices_top, self._glyph_indices_top + n
-                )
-                self._glyph_count += n
-                self._glyph_indices_top += n
+            pass  # TODO: ??
 
-        return indices
-
-    def _glyphs_deallocate(self, indices):
-        # Nullify data
-        self.glyph_item_indices[indices] = -1
-        self.glyph_atlas_indices[indices] = 0
-        # self.glyph_positions[indices] = 0
-        # Deallocate
-        self._glyph_indices_gaps.update(indices)
-        self._glyph_count -= len(indices)
-        # TODO: Reduce buffer sizes from the Text object, re-packing all items
-        # # Maybe reduce buffer size
-        # max_glyph_slots = self.glyph_positions.nitems
-        # if self._glyph_count < 0.25 * max_glyph_slots:
-        #     self._glyphs_create_new_buffers()
-
-    def _glyphs_create_new_buffers(self, extra_needed=0):
-        assert extra_needed >= 0
-
-        # Get new size
-        need_size = self._glyph_indices_top + extra_needed
-        new_size = 2 ** int(np.ceil(np.log2(need_size)))
-        new_size = max(16, new_size)
-
-        # Prepare new arrays
-        glyph_atlas_indices = np.zeros((new_size,), np.uint32)
-        glyph_item_indices = np.zeros((new_size,), np.uint32)
-        glyph_positions = np.empty((new_size, 2), np.float32)
-
-        # Copy data over
-        n = self._glyph_indices_top
-        glyph_atlas_indices[:n] = self.glyph_atlas_indices.data[:n]
-        glyph_item_indices[:n] = self.glyph_item_indices.data[:n]
-        glyph_positions[:n] = self.glyph_positions.data[:n]
-
-        # Store
-        self.glyph_atlas_indices = Buffer(glyph_atlas_indices)
-        self.glyph_item_indices = Buffer(glyph_item_indices)
-        self.glyph_positions = Buffer(glyph_positions)
-
-    # --- Properties
+    # --- font properties
 
     @property
-    def screen_space(self):
-        """Text size unit (screen vs local).
+    def font_size(self):
+        """The text size.
 
-        Returns
-        -------
-        screen_space : bool
-            If False, text size uses the unit of the local frame (e.g. cm).
-            Otherwise it is uses the logical screen's units (e.g. px). The
-            latter mode is typically used for annotations.
+        For text rendered in screen space (``screen_space`` property is set),
+        the size is in logical pixels, and the object's local transform affects
+        the final text size.
+
+        For text rendered in world space (``screen_space`` property is *not*
+        set), the size is in object coordinates, and the the object's
+        world-transform affects the final text size.
+
+        Notes
+        -----
+        Font size is indicative only. Final glyph size further depends on the
+        font family, as glyphs may be smaller (or larger) than the indicative
+        size. Final glyph size may further vary based on additional formatting
+        applied a particular subsection.
+
+        """
+        return self._font_size
+
+    @font_size.setter
+    def font_size(self, value):
+        self._font_size = float(value)
+        # TODO: render_glyphs or only layout?
+        self._trigger_blocks_update(render_glyphs=True)
+
+    @property
+    def family(self):
+        """The font family to use.
+
+        The name(s) of the font to prefer. If multiple names are given, they are
+        preferred in the given order. Characters that are not supported by any
+        of the given fonts are rendered with the default font (from the Noto
+        Sans collection).
+        """
+        return self._font_props.family
+
+    @family.setter
+    def family(self, family):
+        if family is None:
+            self._font_props = textmodule.FontProps()
+        else:
+            self._font_props = textmodule.FontProps(family)
+        self._trigger_blocks_update(render_glyphs=True)
+
+    @property
+    def direction(self):
+        """The font direction overload."""
+        return self._direction
+
+    @direction.setter
+    def direction(self, direction):
+        if direction is None:
+            self._direction = None
+        elif direction in ("ltr", "rtl", "ttb", "btt"):
+            self._direction = str(direction)
+        else:
+            raise ValueError(
+                "TextGeometry direction must be None, 'ltr', 'rtl', 'ttb', or 'btt'."
+            )
+        self._trigger_blocks_update(render_glyphs=True)
+
+    @property
+    def space_mode(self):
+        """The mode to render in ("screen" vs "model").
 
         Notes
         -----
@@ -638,11 +321,179 @@ class TextGeometry(Geometry):
         transform the text.
 
         """
-        return self._store.screen_space
+        return self._store.space_mode
 
-    @screen_space.setter
-    def screen_space(self, value):
-        self._store.screen_space = bool(value)
+    @space_mode.setter
+    def space_mode(self, value):
+        self._store.space_mode = str(value)
+
+    # --- layout properties
+
+    @property
+    def anchor(self):
+        """The position of the origin of the text. This is a string
+        representing the vertical and horizontal anchors, separated by
+        a dash, e.g. "top-left" or "bottom-center".
+
+        * Vertical values: "top", "middle", "baseline", "bottom".
+        * Horizontal values: "left", "center", "right".
+        """
+        return self._anchor
+
+    @anchor.setter
+    def anchor(self, anchor):
+        # Init
+        if anchor is None:
+            anchor = "middle-center"
+        elif not isinstance(anchor, str):
+            raise TypeError("Text anchor must be str.")
+        anchor = anchor.lower().strip()
+        # Split
+        if anchor.count("-") == 1:
+            anchory, _, anchorx = anchor.partition("-")
+        else:
+            anchory = anchorx = ""
+            for key, val in ANCHOR_Y_ALTS.items():
+                if anchor.startswith(key):
+                    anchory = val
+                    break
+            for key, val in ANCHOR_X_ALTS.items():
+                if anchor.endswith(key):
+                    anchorx = val
+                    break
+        # Resolve
+        try:
+            anchory = ANCHOR_Y_ALTS[anchory]
+            anchorx = ANCHOR_X_ALTS[anchorx]
+        except KeyError:
+            raise ValueError(f"Invalid anchor value '{anchor}'") from None
+        # Apply
+        self._anchor = f"{anchory}-{anchorx}"
+        self._trigger_blocks_update(layout=True)
+
+    @property
+    def anchor_offset(self):
+        """The offset (extra margin) for the 'top', 'bottom', 'left', and 'right' anchors."""
+        return self._anchor_offset
+
+    @anchor_offset.setter
+    def anchor_offset(self, value):
+        self._anchor_offset = float(value)
+        self._trigger_blocks_update(layout=True)
+
+    @property
+    def max_width(self):
+        """The maximum width of the text. Text will wrap if beyond this
+        limit. The coordinate system that this applies to is the same
+        as for ``font_size``. Set to 0 for no wrap. Default 0.
+
+        TEXT WRAPPING IS NOT YET IMPLEMENTED
+        TODO: wel toch?
+        """
+        return self._max_width
+
+    @max_width.setter
+    def max_width(self, width):
+        self._max_width = float(width or 0)
+        self._trigger_blocks_update(layout=True)
+
+    @property
+    def line_height(self):
+        """The relative height of a line of text, used to set the
+        distance between lines. Default 1.2.
+        """
+        return self._line_height
+
+    @line_height.setter
+    def line_height(self, height):
+        self._line_height = float(height or 1.2)
+        self._trigger_blocks_update(layout=True)
+
+    @property
+    def text_align(self):
+        """Set the alignment of wrapped text. Can be start, end, or center.
+        Default "start".
+
+        Text alignment is ignored for top to bottom ('ttb') and
+        bottom to top ('btt') directions.
+        """
+        return self._text_align
+
+    @text_align.setter
+    def text_align(self, align):
+        if align is None:
+            align = "start"
+        if not isinstance(align, str):
+            raise TypeError("text-align must be a None or str.")
+        align = align.lower()
+        if align not in _TEXT_ALIGNMENTS:
+            raise ValueError(f"Align must be one of {_TEXT_ALIGNMENTS}. Got {align}.")
+        self._text_align = align
+        self._trigger_blocks_update(layout=True)
+
+    @property
+    def text_align_last(self):
+        """Set the alignment of the last line of text.
+        Default "auto".
+
+        Text alignment is ignored for top to bottom ('ttb') and
+        bottom to top ('btt') directions.
+        """
+        return self._text_align_last
+
+    @text_align_last.setter
+    def text_align_last(self, align):
+        if align is None:
+            align = "start"
+        if not isinstance(align, str):
+            raise TypeError("text-align must be a None or str.")
+        align = align.lower()
+        if align not in _TEXT_ALIGNMENTS_LAST:
+            raise ValueError(
+                f"Align must be one of {_TEXT_ALIGNMENTS_LAST}. Got {align}"
+            )
+        self._text_align_last = align
+        self._trigger_blocks_update(layout=True)
+
+    # --- public methods
+
+    # TODO: refine this API, maybe ensure_block_count() or something is sufficient
+
+    def create_text_block(self):
+        self._allocate_text_blocks(1)
+        return self._text_blocks[-1]
+
+    def create_text_blocks(self, n):
+        self._allocate_text_blocks(n)
+        return self._text_blocks[-n:]
+
+    def get_text_block(self, index):
+        """Get the TextBlock instance at the given index."""
+        return self._text_blocks[index]
+
+    def set_text(self, text):
+        """Set the full text fir this TextGeometry.
+
+        Each line (i.e. paragraph) results in one TextBlock.
+        """
+        if not isinstance(text, str):
+            raise TypeError("The text should be str.")
+        lines = text.splitlines()
+        self._ensure_text_block_count(len(lines))
+        for i, line in enumerate(lines):
+            block = self._text_blocks[i]
+            # Note that setting the blocks text is fast if it did not change
+            block.set_text(line)
+
+        # Disable unused text blocks
+        for i in range(len(lines), len(self._text_blocks)):
+            block = self._text_blocks[i]
+            block.set_text("")
+
+        # TODO: trigger a layout
+
+    def set_markdown(self, text):
+        self.set_text(text)
 
     def xxx_set_text_items(self, text_items):
         """Update the text using one or more TextItems.
@@ -753,19 +604,7 @@ class TextGeometry(Geometry):
         # Finalize the buffers by applying the layout algorithm.
         self.apply_layout()
 
-    # %%%%% Entrypoint and itemization
-
-    def _set_layout_items(self, items):
-        geometry = self
-
-        geometry.allocate_text_items(len(items))
-        for index, item in enumerate(items):
-            geometry.set_text_item(index, item.text, item.font_props)
-        geometry.update()
-
-        self._layout_items = items
-
-    def set_text(self, text, family=None, style=None, weight=None):
+    def xxxset_text(self, text, family=None, style=None, weight=None):
         """Update the text.
 
         Parameters
@@ -824,7 +663,7 @@ class TextGeometry(Geometry):
         self._set_layout_items(items)
         return self
 
-    def set_markdown(self, markdown, family=None):
+    def xxxset_markdown(self, markdown, family=None):
         """Update the text using markdown formatting.
 
         The supported subset of markdown is limited to surrounding pieces of
@@ -909,6 +748,7 @@ class TextGeometry(Geometry):
         self._set_layout_items(items)
         return self
 
+    # TODO: can be removed, I think
     def _get_ws_extent(self, s, font):
         """Get the extent of a piece of whitespace text. Results of small strings are cached."""
         if not s:
@@ -926,12 +766,8 @@ class TextGeometry(Geometry):
             meta = self._shape_text(s, font.filename)[2]
             return meta["extent"]
 
-    # %%%%% Glyph generation
-
-    # %%%%% Layout
-
     def get_bounding_box(self):
-        if self.screen_space:
+        if self.space_mode == "screen":
             # There is no sensible bounding box for text in screen
             # space, except for the anchor point. Although the point
             # has no volume, it does contribute to e.g. the scene's
@@ -949,20 +785,267 @@ class TextGeometry(Geometry):
             self._aabb_rev = self.glyph_positions.rev
             return self._aabb
 
-    def _apply_layout(self):
-        """The layout step. Updates positions and sizes to finalize the geometry.
-        Can be overloaded for custom behavior.
+    # --- private methods
+
+    def _on_update_object(self):
+        # Is called right before the object is drawn;
+        # gets called by Text._update_object()
+
+        dirty_blocks = self._dirty_blocks
+        # Exit early
+        if not dirty_blocks:
+            return
+        # Update blocks
+        for index in dirty_blocks:
+            block = self._text_blocks[index]
+            block._update(self)
+        # Reset
+        dirty_blocks.clear()
+
+    # --- block management
+
+    def _ensure_text_block_count(self, n):
+        """Allocate new buffer if necessary."""
+        current_size = len(self._text_blocks)
+        if current_size < n or current_size > 4 * n:
+            new_size = 2 ** int(np.ceil(np.log2(n)))
+            new_size = max(8, new_size)
+            self._allocate_text_blocks(new_size)
+
+    def _allocate_text_blocks(self, n):
+        """Allocate new buffers for text blocks with the given size."""
+        smallest_n = min(n, len(self._text_blocks))
+        # Create new buffers
+        new_positions = np.zeros((n, 3), np.float32)
+        new_sizes = np.zeros((n,), np.float32)
+        # Copy data
+        new_positions[:smallest_n] = self.positions.data[:smallest_n]
+        new_sizes[:smallest_n] = self.sizes.data[:smallest_n]
+        # Assign
+        # TODO: I feel like resetting these buffers should be done on the geometry
+        self.positions = Buffer(new_positions)
+        self.sizes = Buffer(new_sizes)
+
+        # Allocate / de-allocate text blocks and their glyphs
+        while len(self._text_blocks) > n:
+            block = self._text_blocks.pop()
+            self._deallocate_glyphs(block.indices)
+        while len(self._text_blocks) < n:
+            block = TextBlock(len(self._text_blocks), self._dirty_blocks)
+            self._text_blocks.append(block)
+
+    def _trigger_blocks_update(self, layout=False, render_glyphs=False):
+        for block in self._text_blocks:
+            block._mark_dirty(layout=layout, render_glyphs=render_glyphs)
+
+    # --- glyph array management
+
+    def _glyphs_allocate(self, n):
+        max_glyph_slots = self.glyph_positions.nitems
+
+        # Need larger buffer?
+        n_free = max_glyph_slots - self._glyph_count
+        if n > n_free:
+            self._glyphs_create_new_buffers(n)
+
+        # Allocate indices
+        if not self._glyph_indices_gaps:
+            # Contiguous: indices is a range
+            assert self._glyph_indices_top == self._glyph_count
+            indices = range(self._glyph_indices_top, self._glyph_indices_top + n)
+            self._glyph_count += n
+            self._glyph_indices_top += n
+        else:
+            # First use gaps ...
+            indices = np.empty((n,), np.uint32)
+            n_from_gap = min(n, len(self._glyph_indices_gaps))
+            for i in range(n_from_gap):
+                indices[i] = self._glyph_indices_gaps.pop()
+            self._glyph_count += n_from_gap
+            # Then use indices at the end
+            n -= n_from_gap
+            if n > 0:
+                indices[n_from_gap:] = range(
+                    self._glyph_indices_top, self._glyph_indices_top + n
+                )
+                self._glyph_count += n
+                self._glyph_indices_top += n
+
+        return indices
+
+    def _glyphs_deallocate(self, indices):
+        # Nullify data
+        self.glyph_block_indices[indices] = -1
+        self.glyph_atlas_indices[indices] = 0
+        # self.glyph_positions[indices] = 0
+        # Deallocate
+        self._glyph_indices_gaps.update(indices)
+        self._glyph_count -= len(indices)
+        # TODO: Reduce buffer sizes from the Text object, re-packing all items
+        # # Maybe reduce buffer size
+        # max_glyph_slots = self.glyph_positions.nitems
+        # if self._glyph_count < 0.25 * max_glyph_slots:
+        #     self._glyphs_create_new_buffers()
+
+    def _glyphs_create_new_buffers(self, extra_needed=0):
+        assert extra_needed >= 0
+
+        # Get new size
+        need_size = self._glyph_indices_top + extra_needed
+        new_size = 2 ** int(np.ceil(np.log2(need_size)))
+        new_size = max(16, new_size)
+
+        # Prepare new arrays
+        glyph_atlas_indices = np.zeros((new_size,), np.uint32)
+        glyph_block_indices = np.zeros((new_size,), np.uint32)
+        glyph_positions = np.empty((new_size, 2), np.float32)
+
+        # Copy data over
+        n = self._glyph_indices_top
+        glyph_atlas_indices[:n] = self.glyph_atlas_indices.data[:n]
+        glyph_block_indices[:n] = self.glyph_block_indices.data[:n]
+        glyph_positions[:n] = self.glyph_positions.data[:n]
+
+        # Store
+        self.glyph_atlas_indices = Buffer(glyph_atlas_indices)
+        self.glyph_block_indices = Buffer(glyph_block_indices)
+        self.glyph_positions = Buffer(glyph_positions)
+
+
+class TextBlock:
+    """The TextBlock represents one block or paragraph of text.
+
+    Text blocks are positioned using an entry in geometry.positions. This allows using it for e.g. a collection of text labels.
+
+    """
+
+    # TODO: __slots__ = []
+
+    def __init__(self, index, dirty_blocks):
+        self._index = index  # e.g. the index in geometry.positions
+        self._dirty_blocks = dirty_blocks  # a set from the geometry
+
+        self._text = ""
+        self._need_layout = False
+        self._need_render_glyphs = False
+
+        self._text_items = []
+        self._old_text_items = []
+
+    @property
+    def index(self):
+        """The index in the geometry.positions buffer."""
+        return self._index
+
+    def _mark_dirty(self, *, layout=False, render_glyphs=False):
+        # Trigger ._update() being called right before the next draw
+        self._dirty_blocks.add(self._index)
+        self._need_layout |= bool(layout)
+        self._need_render_glyphs |= bool(render_glyphs)
+
+    def _update(self, geometry):
+        """Do the work to bring this block up-to-date. Be fast!"""
+
+        # Reset flags
+        # self._dirty_blocks.discard(self._index)  # no, geometry calls clear
+        need_render_glyphs = self._need_render_glyphs
+        need_layout = self._need_layout
+        self._need_render_glyphs = False
+        self._need_layout = False
+
+        # De-allocate old item objects
+        for item in self._old_text_items:
+            item.sync_with_geometry(geometry, self._index)
+        self._old_text_items = []
+
+        # Update in-use item objects
+        for item in self._text_items:
+            if need_render_glyphs or item.need_render_glyphs:
+                item.render_glyphs(geometry)
+
+        # Layout
+        if need_layout:
+            self._apply_layout(geometry)
+
+        # Item updates, and layout, may require syncing glyph data
+        for item in self._text_items:
+            if item.need_sync_with_geometry:
+                item.sync_with_geometry(geometry, self._index)
+
+    def set_text(self, text):
+        """Set the text for this TextBlock.
+
+        This is called from ``TextGeometry.set_text()``, but can also be called directly.
         """
+        if not isinstance(text, str):
+            raise TypeError("TextBlock text should be str.")
+        if text == self._text:
+            return
+        self._text = text
+        self._mark_dirty(layout=True)
+        self._text2words()
 
-        # Prepare
+    def set_markdown(self, text):
+        raise NotImplementedError()
 
-        font_size = self._font_size
-        # We try to follow CSS  which multiplies the line_height by the font_size as well
-        line_height = self.line_height * font_size
+    def _text2words(self):
+        def new_item(text, ws_before):
+            if self._text_items:
+                item = self._text_items.pop(0)
+            else:
+                item = TextItem()
+            item.set_text(text)
+            item.ws_before = ws_before
+            return item
 
-        anchor = self._anchor
-        text_align = self._text_align
-        text_align_last = self._text_align_last
+        # Split text in words
+        items = []
+        pending_whitespace = ""
+        for kind, piece in textmodule.tokenize_text(self._text):
+            if kind == "ws":
+                pending_whitespace += piece
+            elif kind == "nl":
+                if pending_whitespace:
+                    items.append(new_item("", pending_whitespace))
+                elif not items:
+                    items.append(new_item("", ""))
+                items[-1].nl_after += piece
+                pending_whitespace = ""
+            else:
+                items.append(new_item(piece, pending_whitespace))
+                pending_whitespace = ""
+
+        # Store old items that need to be de-allocated
+        for item in self._text_items:
+            if len(item.glyph_indices):
+                item.set_text("")
+                self._old_text_items.append(item)
+
+        # Store new worlds
+        self._text_items = items
+
+    def _apply_layout(self, geometry):
+        """The layout step. Updates positions and sizes to finalize the geometry."""
+        return
+        # TODO: move to geometry, so it can be overloaded, see text_snake example.
+        # TODO: maybe move inplementation to utils.text.layout because its so long ...
+
+        items = self._text_items
+
+        # Get arrays
+        positions_array = geometry.glyph_positions.data
+        sizes_array = geometry.sizes.data
+
+        # Obtain layout attributes
+        font_size = geometry._font_size
+        line_height = geometry._line_height * font_size  # like CSS
+        anchor = geometry._anchor
+        text_align = geometry._text_align
+        text_align_last = geometry._text_align_last
+        direction = geometry._direction
+        anchor_offset = geometry._anchor_offset
+
+        # Resolve some attributes
         if text_align_last == "auto":
             if text_align == "justify":
                 text_align_last = "start"
@@ -970,40 +1053,33 @@ class TextGeometry(Geometry):
                 text_align_last = "justify"
             else:
                 text_align_last = text_align
-
         if text_align == "justify-all":
             text_align = "justify"
-
-        # TODO: handle Right to Left (RTL) text
-        if self._direction == "ltr":
+        if direction == "ltr":
             if text_align == "start":
                 text_align = "left"
             elif text_align == "end":
                 text_align = "right"
-
             if text_align_last == "start":
                 text_align_last = "left"
             elif text_align_last == "end":
                 text_align_last = "right"
-        elif self._direction == "rtl":
+        elif direction == "rtl":
             if text_align == "end":
                 text_align = "left"
             elif text_align == "start":
                 text_align = "right"
-
             if text_align_last == "end":
                 text_align_last = "left"
             elif text_align_last == "start":
                 text_align_last = "right"
-
-        positions_array = self.glyph_positions.data
-        sizes_array = self.sizes.data
-        is_horizontal = self._direction is None or self._direction in ("ltr", "rtl")
-
+        is_horizontal = direction is None or direction in ("ltr", "rtl")
         # The algorightm doesn't support text alignment for ttb and btt yet
         if not is_horizontal:
             text_align = "left"
             text_align_last = "left"
+
+        # Prepare
 
         left = right = 0
         top = bottom = 0
@@ -1021,23 +1097,13 @@ class TextGeometry(Geometry):
         lines = []
         current_line = []
         lines_aabb = []
-        for item in self._layout_items:
-            if item.newline_before:
-                if current_line:
-                    lines.append(current_line)
-                    lines_aabb.append(
-                        np.array(
-                            [(line_left, line_bottom, 0), (line_right, line_top, 0)],
-                            np.float32,
-                        )
-                    )
-                current_line = []
-                line_left = float("inf")
-                line_right = -float("inf")
-                line_top = -float("inf")
-                line_bottom = float("inf")
-                vertical_offset -= len(item.newline_before) * line_height
-                extent_offset = 0
+        for item in items:
+            if item.ws_before:
+                pass
+
+            # EERGH, do this here or earlier?
+            margin_before = textengine.get_ws_extent(item.ws_before, text_pieces[0][1])
+            margin_before = self._get_ws_extent(item.ws_before, text_pieces[0][1])
 
             extent_offset += item.margin_before * font_size
             if is_horizontal:
@@ -1117,11 +1183,10 @@ class TextGeometry(Geometry):
         # take care of new lines at the end of the text
         bottom = min(bottom, vertical_offset)
 
-        self._aabb = np.array([(left, bottom, 0), (right, top, 0)], np.float32)
+        aabb = np.array([(left, bottom, 0), (right, top, 0)], np.float32)
 
         # Anchoring
 
-        anchor_offset = self.anchor_offset
         if anchor.endswith("left"):
             pos_offset_x = -left + anchor_offset
         elif anchor.endswith("right"):
@@ -1141,7 +1206,7 @@ class TextGeometry(Geometry):
             pos_offset_y = 0
 
         positions_array += pos_offset_x, pos_offset_y
-        self._aabb += pos_offset_x, pos_offset_y, 0
+        aabb += pos_offset_x, pos_offset_y, 0
 
         # Align the text accordingly
         total_length = right - left
@@ -1179,167 +1244,245 @@ class TextGeometry(Geometry):
             for j, positions in enumerate(line):
                 positions += (line_pos_offset_x + j * extra_space_per_word), 0
 
-        # Trigger uploads to GPU
-        self.sizes.update_range(0, i2)
-        self.glyph_positions.update_range(0, i2)
+        # Update geometry
+        geometry._aabb = aabb
+        geometry.glyph_sizes.update_range(0, i2)
+        geometry.glyph_positions.update_range(0, i2)
 
-    def apply_layout(self):
-        """Update the internal contained glyphs.
 
-        To overload this with a custom layout, overload ``_apply_layout()``.
-        """
+class TextItem:
+    """Represents one unit of text that moves as a whole to a new line when wrapped.
+    This is an internal object (not public).
+    """
 
-        if self._do_layout:
-            self._apply_layout()
+    def __init__(self):
+        # The text defines the arrays
+        self.text = ""
 
-    # @property
-    # def font_size(self):
-    #     """The text size.
+        # Whitespace attributes affect layout
+        self.ws_before = ""
+        self.nl_after = ""
 
-    #     For text rendered in screen space (``screen_space`` property is set),
-    #     the size is in logical pixels, and the object's local transform affects
-    #     the final text size.
+        # The offset is used to set the layout
+        self.offset = (0, 0)
 
-    #     For text rendered in world space (``screen_space`` property is *not*
-    #     set), the size is in object coordinates, and the the object's
-    #     world-transform affects the final text size.
+        # Flags to control precise updates
+        self.need_render_glyphs = False
+        self.need_sync_with_geometry = False
 
-    #     Notes
-    #     -----
-    #     Font size is indicative only. Final glyph size further depends on the
-    #     font family, as glyphs may be smaller (or larger) than the indicative
-    #     size. Final glyph size may further vary based on additional formatting
-    #     applied a particular subsection.
+        # The text item has its own per-glyph arrays. These are copied into the geometries buffer arrays.
+        self.atlas_indices = None
+        self.positions = None
+        self.sizes = None
+        self.glyph_count = 0
 
-    #     """
-    #     return self._font_size
+        # The indices for slots in the arrays at the geometry. This value is managed by the geometry.
+        self.glyph_indices = range(0)
 
-    # @font_size.setter
-    # def font_size(self, value):
-    #     self._font_size = float(value)
-    #     self.apply_layout()
+    def set_text(self, text):
+        if text != self.text:
+            self.text = text
+            self.need_render_glyphs = True
 
-    # @property
-    # def max_width(self):
-    #     """The maximum width of the text. Text will wrap if beyond this
-    #     limit. The coordinate system that this applies to is the same
-    #     as for ``font_size``. Set to 0 for no wrap. Default 0.
+    def set_offset(self, offset):
+        if offset != self.offset:
+            self.offset = offset
+            self.need_sync_with_geometry = True
 
-    #     TEXT WRAPPING IS NOT YET IMPLEMENTED
-    #     """
-    #     return self._max_width
+    def render_glyphs(self, geometry):
+        """Update the item's arrays."""
 
-    # @max_width.setter
-    # def max_width(self, width):
-    #     self._max_width = float(width or 0)
-    #     self.apply_layout()
+        self.need_render_glyphs = False
+        self.need_sync_with_geometry = True
 
-    # @property
-    # def line_height(self):
-    #     """The relative height of a line of text, used to set the
-    #     distance between lines. Default 1.2.
-    #     """
-    #     return self._line_height
+        if not self.text:
+            self.atlas_indices = None
+            self.positions = None
+            self.sizes = None
+            self.glyph_count = 0
+            return
 
-    # @line_height.setter
-    # def line_height(self, height):
-    #     self._line_height = float(height or 1.2)
-    #     self.apply_layout()
+        font_props = geometry._font_props
+        font_size = geometry._font_size
+        textengine = geometry._text_engine
 
-    # @property
-    # def text_align(self):
-    #     """Set the alignment of wrapped text. Can be start, end, or center.
-    #     Default "start".
+        # Prepare containers for array
+        atlas_indices_list = []
+        positions_list = []
+        sizes_list = []
 
-    #     Text alignment is ignored for top to bottom ('ttb') and
-    #     bottom to top ('btt') directions.
-    #     """
-    #     return self._text_align
+        # Init meta data
+        extent = ascender = descender = 0
+        direction = "ltr"
 
-    # @text_align.setter
-    # def text_align(self, align):
-    #     if align is None:
-    #         align = "start"
-    #     if not isinstance(align, str):
-    #         raise TypeError("text-align must be a None or str.")
-    #     align = align.lower()
-    #     if align not in _TEXT_ALIGNMENTS:
-    #         raise ValueError(f"Align must be one of {_TEXT_ALIGNMENTS}. Got {align}.")
-    #     self._text_align = align
-    #     self.apply_layout()
+        # Text rendering steps: font selection, shaping, glyph generation
+        last_reverse_index = 0
+        text_pieces = textengine.select_font(self.text, font_props)
+        for text, font in text_pieces:
+            unicode_indices, positions, meta = textengine.shape_text(
+                text, font.filename, direction
+            )
+            atlas_indices = textengine.generate_glyph(unicode_indices, font.filename)
+            encode_font_props_in_atlas_indices(atlas_indices, font_props, font)
+            sizes = np.full((positions.shape[0],), font_size, np.float32)
+            extent = max(extent, meta["extent"])
+            ascender = max(ascender, meta["ascender"])
+            descender = max(descender, meta["descender"])
+            # TODO: is descender negative or positive? I.e. use min or max?
+            direction = meta["direction"]
 
-    # @property
-    # def text_align_last(self):
-    #     """Set the alignment of the last line of text.
-    #     Default "auto".
+            # Put in list, take direction into account
+            if direction in ("rtl", "btt"):
+                atlas_indices_list.insert(last_reverse_index, atlas_indices)
+                positions_list.insert(last_reverse_index, positions)
+                sizes_list.insert(last_reverse_index, sizes)
+            else:
+                atlas_indices_list.append(atlas_indices)
+                positions_list.append(positions)
+                sizes_list.append(sizes)
+                last_reverse_index = len(atlas_indices_list)
 
-    #     Text alignment is ignored for top to bottom ('ttb') and
-    #     bottom to top ('btt') directions.
-    #     """
-    #     return self._text_align_last
+        # Store meta data on the item
+        # TODO: flatten?
+        self.meta = {
+            "extent": extent,
+            "ascender": ascender,
+            "descender": descender,
+            "direction": direction,
+        }
 
-    # @text_align_last.setter
-    # def text_align_last(self, align):
-    #     if align is None:
-    #         align = "start"
-    #     if not isinstance(align, str):
-    #         raise TypeError("text-align must be a None or str.")
-    #     align = align.lower()
-    #     if align not in _TEXT_ALIGNMENTS_LAST:
-    #         raise ValueError(
-    #             f"Align must be one of {_TEXT_ALIGNMENTS_LAST}. Got {align}"
-    #         )
-    #     self._text_align_last = align
-    #     self.apply_layout()
+        # Store as a single array
+        if len(atlas_indices_list) == 0:
+            self.atlas_indices = None
+            self.positions = None
+            self.sizes = None
+            self.glyph_count = 0
+        elif len(atlas_indices_list) == 1:
+            self.atlas_indices = atlas_indices_list[0]
+            self.positions = positions_list[0]
+            self.sizes = sizes_list[0]
+            self.glyph_count = len(self.positions)
+        else:
+            self.atlas_indices = np.concatenate(atlas_indices_list, axis=0)
+            self.positions = np.concatenate(positions_list, axis=0)
+            self.sizes = np.concatenate(sizes_list, axis=0)
+            self.glyph_count = len(self.positions)
 
-    # @property
-    # def anchor(self):
-    #     """The position of the origin of the text. This is a string
-    #     representing the vertical and horizontal anchors, separated by
-    #     a dash, e.g. "top-left" or "bottom-center".
+    def sync_with_geometry(self, geometry, block_index):
+        """Sync the item's arrays into the geometries buffers."""
 
-    #     * Vertical values: "top", "middle", "baseline", "bottom".
-    #     * Horizontal values: "left", "center", "right".
-    #     """
-    #     return self._anchor
+        self.need_sync_with_geometry = False
 
-    # @anchor.setter
-    # def anchor(self, anchor):
-    #     # Init
-    #     if anchor is None:
-    #         anchor = "middle-center"
-    #     elif not isinstance(anchor, str):
-    #         raise TypeError("Text anchor must be str.")
-    #     anchor = anchor.lower().strip()
-    #     # Split
-    #     if anchor.count("-") == 1:
-    #         anchory, _, anchorx = anchor.partition("-")
-    #     else:
-    #         anchory = anchorx = ""
-    #         for key, val in ANCHOR_Y_ALTS.items():
-    #             if anchor.startswith(key):
-    #                 anchory = val
-    #                 break
-    #         for key, val in ANCHOR_X_ALTS.items():
-    #             if anchor.endswith(key):
-    #                 anchorx = val
-    #                 break
-    #     # Resolve
-    #     try:
-    #         anchory = ANCHOR_Y_ALTS[anchory]
-    #         anchorx = ANCHOR_X_ALTS[anchorx]
-    #     except KeyError:
-    #         raise ValueError(f"Invalid anchor value '{anchor}'") from None
-    #     # Apply
-    #     self._anchor = f"{anchory}-{anchorx}"
-    #     self.apply_layout()
+        if self.glyph_count != len(self.glyph_indices):
+            self._allocate_indices(geometry)
+        if self.glyph_count > 0:
+            self._sync_data(geometry, block_index)
 
-    # @property
-    # def anchor_offset(self):
-    #     """The offset (extra margin) for the 'top', 'bottom', 'left', and 'right' anchors."""
-    #     return self._anchor_offset
+    def _allocate_indices(self, geometry):
+        glyph_count = self.glyph_count
+        glyph_indices = self.glyph_indices
 
-    # @anchor_offset.setter
-    # def anchor_offset(self, value):
-    #     self._anchor_offset = float(value)
-    #     self.apply_layout()
+        current_glyph_indices_count = len(glyph_indices)
+        if glyph_count < current_glyph_indices_count:
+            new_indices = glyph_indices[:glyph_count].copy()
+            indices_to_free = glyph_indices[glyph_count:]
+            geometry._glyphs_deallocate(indices_to_free)
+            self.glyph_indices = new_indices
+        elif glyph_count > current_glyph_indices_count:
+            extra_indices = geometry._glyphs_allocate(
+                glyph_count - current_glyph_indices_count
+            )
+            new_indices = np.empty((glyph_count,), np.uint32)
+            new_indices[:current_glyph_indices_count] = glyph_indices
+            new_indices[current_glyph_indices_count:] = extra_indices
+            self.glyph_indices = new_indices
+
+    def _sync_data(self, geometry, block_index):
+        indices = self.glyph_indices
+        # Write glyph data
+        geometry.glyph_atlas_indices.data[indices] = self.atlas_indices
+        geometry.glyph_positions.data[indices] = self.positions
+        geometry.glyph_sizes.data[indices] = self.sizes
+        geometry.glyph_block_indices.data[indices] = block_index
+
+        # Trigger sync
+        if isinstance(indices, range):
+            count = indices.stop - indices.start
+            geometry.glyph_block_indices.update_range(indices.start, count)
+            geometry.glyph_atlas_indices.update_range(indices.start, count)
+            geometry.glyph_positions.update_range(indices.start, count)
+            geometry.glyph_sizes.update_range(indices.start, count)
+        else:
+            geometry.glyph_block_indices.update_indices(indices)
+            geometry.glyph_atlas_indices.update_indices(indices)
+            geometry.glyph_positions.update_indices(indices)
+            geometry.glyph_sizes.update_indices(indices)
+
+
+# class LayoutTextItem:
+#     """A representation of a text item, used (eventually) by the Text world object."""
+
+#     # TODO: edit this docstring
+#     def __init__(self, text, font_props):
+#         self.text = text
+#         self.font_props = font_props
+
+#         self.extent = 0
+#         self.direction = "ltr"
+#         self.ascender = 0
+#         self.descender = 0
+
+#         self.ws_before = ""
+#         self.ws_after = ""
+#         self.nl_before = ""
+#         self.nl_after = ""
+
+#         self.margin_before = 0
+#         self.margin_after = 0
+#         self.newline_before = 0
+#         self.newline_after = 0
+
+
+# class GlyphItem:
+#     """A series of glyphs that represents a unit piece of text.
+#     Intended for internal use only. In most cases one TextItem results
+#     in one GlyphItem, but it can be more if multiple fonts are required
+#     to render the TextItem.
+#     """
+
+#     def __init__(self, positions, indices, meta):
+#         # Arrays with glyph data
+#         self.positions = positions
+#         self.indices = indices
+#         # Layout data
+#         self.meta = meta
+#         self.extent = meta["extent"]
+#         self.direction = meta["direction"]
+#         self.ascender = meta["ascender"]
+#         self.descender = meta["descender"]
+#         self.allow_break = False
+#         self.margin_before = 0
+#         self.margin_after = 0
+#         self.newline_before = 0
+#         self.newline_after = 0
+#         # Int offset. Note that this means that a glyph item is bound to a TextGeometry
+#         self.offset = 0
+
+
+def encode_font_props_in_atlas_indices(atlas_indices, font_props, font):
+    # We could put font properties in their own buffer(s), but to
+    # safe memory, we encode them in the top bits of the atlas
+    # indices. This seems like a good place, because these top bits
+    # won't be used (2**24 is more than enough glyphs), and the
+    # glyph index is a rather "opaque" value to the user anyway.
+    # You can think of the new glyph index as the index to the glyph
+    # in the atlas, plus props to tweak its appearance.
+
+    # We compare the font_props (i.e. the requested font variant)
+    # with the actual font to see what correcion we need to apply.
+    slanted_like = "italic", "oblique", "slanted"
+    if font_props.style in slanted_like and font.style not in slanted_like:
+        atlas_indices += 0x08000000
+    weight_offset = font_props.weight - font.weight
+    weight_0_15 = int((max(-250, weight_offset) + 250) / 50 + 0.4999)
+    atlas_indices += max(0, min(15, weight_0_15)) << 28

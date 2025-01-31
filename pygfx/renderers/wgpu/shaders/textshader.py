@@ -23,7 +23,7 @@ class TextShader(BaseShader):
         super().__init__(wobject)
         geometry = wobject.geometry
         material = wobject.material
-        self["screen_space"] = geometry.screen_space
+        self["screen_space"] = geometry.space_mode == "screen"
         self["aa"] = material.aa
         self["REF_GLYPH_SIZE"] = REF_GLYPH_SIZE
 
@@ -69,7 +69,7 @@ class TextShader(BaseShader):
 
     def get_render_info(self, wobject, shared):
         material = wobject.material
-        n = wobject.geometry.positions.nitems * 6
+        n = wobject.geometry.glyph_positions.nitems * 6
 
         render_mask = 0
         if wobject.render_mask:
