@@ -24,7 +24,7 @@ scene = gfx.Scene()
 
 scene.add(gfx.Background.from_color("#fff", "#000"))
 
-geo = gfx.TextGeometry(text="Lorem ipsum", font_size=40, screen_space=True)
+geo = gfx.TextGeometry(text="Lorem ipsum", font_size=40, space_mode="screen")
 
 t1 = gfx.Text(
     geo,
