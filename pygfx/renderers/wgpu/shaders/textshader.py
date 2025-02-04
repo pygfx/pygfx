@@ -36,9 +36,15 @@ class TextShader(BaseShader):
             Binding("u_stdinfo", "buffer/uniform", shared.uniform_buffer),
             Binding("u_wobject", "buffer/uniform", wobject.uniform_buffer),
             Binding("u_material", "buffer/uniform", material.uniform_buffer),
-            Binding("s_indices", sbuffer, geometry.glyph_atlas_indices, "VERTEX"),
-            Binding("s_positions", sbuffer, geometry.glyph_positions, "VERTEX"),
-            Binding("s_sizes", sbuffer, geometry.glyph_sizes, "VERTEX"),
+            Binding("s_positions", sbuffer, geometry.positions, "VERTEX"),
+            Binding(
+                "s_glyph_block_indices", sbuffer, geometry.glyph_block_indices, "VERTEX"
+            ),
+            Binding(
+                "s_glyph_atlas_indices", sbuffer, geometry.glyph_atlas_indices, "VERTEX"
+            ),
+            Binding("s_glyph_positions", sbuffer, geometry.glyph_positions, "VERTEX"),
+            Binding("s_glyph_sizes", sbuffer, geometry.glyph_sizes, "VERTEX"),
         ]
 
         tex = shared.glyph_atlas_texture
