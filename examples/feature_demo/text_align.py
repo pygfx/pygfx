@@ -24,7 +24,7 @@ scene = gfx.Scene()
 scene.add(gfx.Background.from_color("#fff", "#000"))
 
 text = """
-Lorem ipsum
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, etc.
 Bonjour World Olá
 pygfx
 last lyne
@@ -67,6 +67,7 @@ text = gfx.Text(
         text_align="center",
         anchor="middle-center",
         direction=direction,
+        max_width=540,
     ),
     gfx.TextMaterial(color="#B4F8C8", outline_color="#000", outline_thickness=0.15),
 )
