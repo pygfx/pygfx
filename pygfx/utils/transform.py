@@ -722,28 +722,22 @@ class RecursiveTransform(AffineBase):
         is_camera_space=False,
     ) -> None:
         super().__init__(reference_up=reference_up, is_camera_space=is_camera_space)
-        self._last_modified = perf_counter_ns()
-
-        self._parent = None
-        self.own = None
-
+        self.last_modified = perf_counter_ns()
+        self._parent = parent
+        self._children = []
         self.own = base
         self.own._set_reference_up_provider(self)
 
-        if parent is None:
-            self._parent = AffineTransform()
-        else:
-            self._parent = parent
-
     def flag_update(self):
         """Signal that this transform has updated."""
-        self._last_modified = perf_counter_ns()
-
-    @property
-    def last_modified(self) -> int:
-        return max(
-            self._last_modified, self.own.last_modified, self._parent.last_modified
-        )
+        # TODO: micro-optimize
+        # use deque maybe?
+        stack = [self]
+        while stack:
+            current = stack.pop()
+            # TODO: use perf_counter_ns()?
+            current.last_modified = self.last_modified
+            stack.extend(current._children)
 
     @cached
     def __own_reference_up(self) -> np.ndarray:
@@ -774,10 +768,7 @@ class RecursiveTransform(AffineBase):
 
     @parent.setter
     def parent(self, value):
-        if value is None:
-            self._parent = AffineTransform()
-        else:
-            self._parent = value
+        self._parent = value
         self.flag_update()
 
     @cached
@@ -798,6 +789,7 @@ class RecursiveTransform(AffineBase):
     @matrix.setter
     def matrix(self, value):
         self.own.matrix = self._parent.inverse_matrix @ value
+        self.flag_update()
 
     def __matmul__(self, other) -> Union["RecursiveTransform", np.ndarray]:
         if isinstance(other, AffineBase):
