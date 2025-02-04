@@ -14,7 +14,7 @@ import pygfx as gfx
 import numpy as np
 
 canvas = WgpuCanvas()
-renderer = gfx.renderers.WgpuRenderer(canvas)
+renderer = gfx.renderers.WgpuRenderer(canvas, blend_mode="ordered2")
 scene = gfx.Scene()
 
 # add image
@@ -24,7 +24,11 @@ im = iio.imread("imageio:astronaut.png")
 
 image = gfx.Image(
     gfx.Geometry(grid=gfx.Texture(im, dim=2)),
-    gfx.ImageBasicMaterial(clim=(0, 255), pick_write=True),
+    gfx.ImageBasicMaterial(
+        clim=(0, 255),
+        pick_write=True,
+        opacity=0.99
+    ),
 )
 scene.add(image)
 
