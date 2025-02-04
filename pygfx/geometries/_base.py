@@ -1,8 +1,16 @@
+from __future__ import annotations
+
+import collections
+from typing import TYPE_CHECKING, Iterable
 import numpy as np
 import pylinalg as la
 
 from ..utils.trackable import Trackable
 from ..resources import Resource, Buffer, Texture
+
+if TYPE_CHECKING:
+    import collections.abc
+    import numpy.typing as npt
 
 
 class Geometry(Trackable):
@@ -27,7 +35,7 @@ class Geometry(Trackable):
 
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Resource | npt.ArrayLike | collections.abc.Buffer):
         super().__init__()
 
         self._aabb = None
@@ -46,6 +54,7 @@ class Geometry(Trackable):
                     val = np.array(val, dtype=dtype)
                 # Create texture or buffer
                 if name == "grid":
+                    val = np.asanyarray(val)
                     dim = val.ndim
                     if dim > 2 and val.shape[-1] <= 4:
                         dim -= 1  # last array dim is probably (a subset of) rgba
@@ -84,24 +93,24 @@ class Geometry(Trackable):
             # Store
             setattr(self, name, resource)
 
-    def __setattr__(self, key, new_value):
+    def __setattr__(self, key: str, new_value: Resource) -> None:
         if not key.startswith(("_", "morph_")):
             if isinstance(new_value, Trackable) or key in self._store:
                 return setattr(self._store, key, new_value)
         object.__setattr__(self, key, new_value)
 
-    def __getattribute__(self, key):
+    def __getattribute__(self, key: str) -> Resource:
         if not key.startswith(("_", "morph_")):
             if key in self._store:
                 return getattr(self._store, key)
         return object.__getattribute__(self, key)
 
-    def __dir__(self):
+    def __dir__(self) -> Iterable[str]:
         x = object.__dir__(self)
         x.extend(dict.keys(self._store))
         return x
 
-    def get_bounding_box(self):
+    def get_bounding_box(self) -> npt.NDArray[np.float32] | None:
         """Compute the axis-aligned bounding box.
 
         Computes the aabb based on either positions or the shape of the grid
@@ -159,7 +168,7 @@ class Geometry(Trackable):
         else:
             return None
 
-    def get_bounding_sphere(self):
+    def get_bounding_sphere(self) -> npt.NDArray[np.float32] | None:
         """Compute a bounding sphere.
 
         Uses the geometry's axis-aligned bounding box, to estimate a sphere
