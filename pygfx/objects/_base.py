@@ -394,6 +394,7 @@ class WorldObject(EventTarget, Trackable):
             obj._parent = weakref.ref(self)
             obj.world.parent = self.world
             self._children.insert(idx, obj)
+            self.world.children.insert(idx, obj.world)
 
             if keep_world_matrix:
                 obj.world.matrix = transform_matrix
@@ -405,6 +406,7 @@ class WorldObject(EventTarget, Trackable):
         for obj in objects:
             try:
                 self._children.remove(obj)
+                self.world.children.remove(obj.world)
             except ValueError:
                 logger.warning("Attempting to remove object that was not a child.")
                 continue
@@ -418,6 +420,7 @@ class WorldObject(EventTarget, Trackable):
             child._reset_parent(keep_world_matrix=keep_world_matrix)
 
         self._children.clear()
+        self.world.children.clear()
 
     def _reset_parent(self, *, keep_world_matrix=False):
         """Sets the parent to None.

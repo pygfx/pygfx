@@ -1,8 +1,10 @@
+from __future__ import annotations
+
 import numpy as np
 import pylinalg as la
 from time import perf_counter_ns
 
-from typing import Tuple, Union
+from typing import Optional, Tuple, Union
 
 
 PRECISION_EPSILON = 1e-7
@@ -88,7 +90,8 @@ class AffineBase:
     def __init__(self, /, *, reference_up=(0, 1, 0), is_camera_space=False):
         self.is_camera_space = int(is_camera_space)
 
-        self._reference_up_provider = None
+        self._wrapper: RecursiveTransform = None
+
         self._reference_up = la.vec_normalize(reference_up, dtype=float)
         self._reference_up_view = self._reference_up.view()
         self._reference_up_view.flags.writeable = False
@@ -101,20 +104,21 @@ class AffineBase:
         """Signal that this transform has updated."""
         raise NotImplementedError()
 
-    def _set_reference_up_provider(self, provider: "RecursiveTransform"):
-        self._reference_up_provider = provider
+    def _set_wrapper(self, wrapper: RecursiveTransform):
+        # TODO: factor out to subclasses
+        self._wrapper = wrapper
 
     @property
     def reference_up(self) -> np.ndarray:
         """The zero-tilt reference vector used for the direction setters."""
-        if self._reference_up_provider:
-            return self._reference_up_provider._own_reference_up
+        if self._wrapper:
+            return self._wrapper._own_reference_up
         return self._reference_up_view
 
     @reference_up.setter
     def reference_up(self, value):
-        if self._reference_up_provider:
-            self._reference_up_provider._own_reference_up = value
+        if self._wrapper:
+            self._wrapper._own_reference_up = value
         else:
             self._reference_up[:] = la.vec_normalize(value)
 
@@ -494,6 +498,8 @@ class AffineTransform(AffineBase):
     def flag_update(self):
         """Signal that this transform has updated."""
         self.last_modified = perf_counter_ns()
+        if self._wrapper:
+            self._wrapper.flag_update()
 
     @property
     def state_basis(self) -> str:
@@ -714,38 +720,41 @@ class RecursiveTransform(AffineBase):
 
     def __init__(
         self,
-        base: AffineBase,
+        base: AffineTransform,
         /,
         *,
-        parent=None,
+        parent: RecursiveTransform = None,
         reference_up=(0, 1, 0),
         is_camera_space=False,
     ) -> None:
         super().__init__(reference_up=reference_up, is_camera_space=is_camera_space)
         self.last_modified = perf_counter_ns()
         self._parent = parent
-        self._children = []
+        self.children = []
         self.own = base
-        self.own._set_reference_up_provider(self)
+        self.own._set_wrapper(self)
 
     def flag_update(self):
         """Signal that this transform has updated."""
         # TODO: micro-optimize
-        # use deque maybe?
+        # TODO: use deque maybe?
         stack = [self]
         while stack:
+            # TODO: are pop and extend the most performant methods?
             current = stack.pop()
             # TODO: use perf_counter_ns()?
-            current.last_modified = self.last_modified
-            stack.extend(current._children)
+            current.last_modified = perf_counter_ns()
+            stack.extend(current.children)
 
     @cached
     def __own_reference_up(self) -> np.ndarray:
-        new_ref = la.vec_transform(self._reference_up, self._parent.inverse_matrix)
-        origin = la.vec_transform((0, 0, 0), self._parent.inverse_matrix)
-        vec = la.vec_normalize(new_ref - origin)
-        vec.flags.writeable = False
-        return vec
+        if self._parent:
+            new_ref = la.vec_transform(self._reference_up, self._parent.inverse_matrix)
+            origin = la.vec_transform((0, 0, 0), self._parent.inverse_matrix)
+            vec = la.vec_normalize(new_ref - origin)
+            vec.flags.writeable = False
+            return vec
+        return self._reference_up_view
 
     @property
     def _own_reference_up(self) -> np.ndarray:
@@ -753,29 +762,34 @@ class RecursiveTransform(AffineBase):
 
     @_own_reference_up.setter
     def _own_reference_up(self, value):
-        new_ref = la.vec_transform(value, self.parent.matrix)
-        origin = self.parent.position
-        self._reference_up[:] = la.vec_normalize(new_ref - origin)
+        if self._parent:
+            new_ref = la.vec_transform(value, self._parent.matrix)
+            origin = self._parent.position
+            self._reference_up[:] = la.vec_normalize(new_ref - origin)
+        else:
+            self._reference_up[:] = la.vec_normalize(value)
         self.flag_update()
         # Note: since __own_reference_up is only used in a setter in AffineBase
         # we do not need to call flag_update() on self.own; all its state and cache
         # remains intact
 
     @property
-    def parent(self) -> AffineBase:
+    def parent(self) -> RecursiveTransform:
         """The transform that preceeds the own/local transform."""
         return self._parent
 
     @parent.setter
-    def parent(self, value):
+    def parent(self, value: Optional[RecursiveTransform]):
         self._parent = value
         self.flag_update()
 
     @cached
     def _matrix(self):
-        mat = self._parent.matrix @ self.own.matrix
-        mat.flags.writeable = False
-        return mat
+        if self._parent:
+            mat = self._parent.matrix @ self.own.matrix
+            mat.flags.writeable = False
+            return mat
+        return self.own.matrix
 
     @property
     def matrix(self):
@@ -788,7 +802,10 @@ class RecursiveTransform(AffineBase):
 
     @matrix.setter
     def matrix(self, value):
-        self.own.matrix = self._parent.inverse_matrix @ value
+        if self._parent:
+            self.own.matrix = self._parent.inverse_matrix @ value
+        else:
+            self.own.matrix = value
         self.flag_update()
 
     def __matmul__(self, other) -> Union["RecursiveTransform", np.ndarray]:
@@ -799,9 +816,11 @@ class RecursiveTransform(AffineBase):
 
     @cached
     def __scaling_signs(self):
-        signs = self._parent.scaling_signs * self.own.scaling_signs
-        signs.flags.writeable = False
-        return signs
+        if self._parent:
+            signs = self._parent.scaling_signs * self.own.scaling_signs
+            signs.flags.writeable = False
+            return signs
+        return self.own.scaling_signs
 
     @property
     def scaling_signs(self) -> np.ndarray:
