@@ -4,7 +4,7 @@ import numpy as np
 import pylinalg as la
 from time import perf_counter_ns
 
-from typing import Any, Optional, Tuple, Union
+from typing import Any, Tuple, Union
 
 
 PRECISION_EPSILON = 1e-7
@@ -458,7 +458,7 @@ class AffineTransform(AffineBase):
         reference_up=(0, 1, 0),
         is_camera_space=False,
         state_basis="components",
-        matrix=None,
+        matrix: np.ndarray = None,
     ) -> None:
         super().__init__(reference_up=reference_up, is_camera_space=is_camera_space)
         self._state_basis = state_basis
@@ -515,7 +515,7 @@ class AffineTransform(AffineBase):
         return self._state_basis
 
     @state_basis.setter
-    def state_basis(self, value):
+    def state_basis(self, value: str):
         if value not in ("components", "matrix"):
             raise ValueError("state_basis must be either 'components' or 'matrix'")
         if value == "matrix":
@@ -573,7 +573,7 @@ class AffineTransform(AffineBase):
         AffineBase.scale.fset(self, value)
 
     @cached
-    def __scaling_signs(self):
+    def __scaling_signs(self) -> np.ndarray:
         signs = np.sign(self._scale)
         signs.flags.writeable = False
         return signs
@@ -587,7 +587,7 @@ class AffineTransform(AffineBase):
         return super().scaling_signs
 
     @cached
-    def _rotation_matrix(self):
+    def _rotation_matrix(self) -> np.ndarray:
         if self.state_basis == "components":
             rotation = la.mat_from_quat(self._rotation)
             rotation.flags.writeable = False
@@ -595,7 +595,7 @@ class AffineTransform(AffineBase):
         return super()._rotation_matrix
 
     @cached
-    def _euler(self):
+    def _euler(self) -> np.ndarray:
         if self.state_basis == "components":
             euler = la.quat_to_euler(self._rotation)
             euler.flags.writeable = False
@@ -603,7 +603,7 @@ class AffineTransform(AffineBase):
         return super()._euler
 
     @cached
-    def _composed_matrix(self):
+    def _composed_matrix(self) -> np.ndarray:
         mat = la.mat_compose(self._position, self._rotation, self._scale)
         mat.flags.writeable = False
         return mat
@@ -620,7 +620,7 @@ class AffineTransform(AffineBase):
         return self._matrix_view
 
     @matrix.setter
-    def matrix(self, value):
+    def matrix(self, value: np.ndarray):
         if self.state_basis == "components":
             try:
                 # when the matrix is set manually
@@ -637,7 +637,7 @@ class AffineTransform(AffineBase):
             self._matrix[:] = value
         self.flag_update()
 
-    def __matmul__(self, other) -> Union["AffineTransform", np.ndarray]:
+    def __matmul__(self, other) -> Union[AffineTransform, np.ndarray]:
         if isinstance(other, AffineTransform):
             matrix = self.matrix @ other.matrix
 
@@ -690,19 +690,17 @@ class RecursiveTransform(AffineBase):
     a WorldObjects world transform, i.e., it implements ``WorldObject.world``.
 
     Under the hood, this transform wraps another transform (passed in as
-    ``matrix``), similar to how ``AffineTransform`` wraps a numpy array. It can
-    also be initialized from a numpy array, in which case provided matrix is
-    first wrapped into a ``AffineTransform`` which is then wrapped by this
-    class. Setting properties of ``RecursiveTransform`` will then internally
+    ``base``), similar to how ``AffineTransform`` wraps a numpy array.
+    Setting properties of ``RecursiveTransform`` will internally
     transform the new values into ``matrix`` target frame and then set the
     obtained value on the wrapped transform. This means that the ``parent``
     transform is not affected by changes made to this transform.
 
     Parameters
     ----------
-    base : AffineBase
+    base : AffineTransform
         The base transform that will be wrapped by this transform.
-    parent : AffineBase, optional
+    parent : RecursiveTransform, optional
         The parent transform that precedes the base transform.
     reference_up : ndarray, [3]
         The direction of the reference_up vector expressed in the target
@@ -713,11 +711,6 @@ class RecursiveTransform(AffineBase):
     is_camera_space : bool
         If True, the transform represents a camera space which means that it's
         ``forward`` and ``right`` directions are inverted.
-
-    Notes
-    -----
-    Since ``parent`` is optional, this transform can also be used to create a
-    synced copy of an existing transform similar to how a view works in numpy.
 
     See Also
     --------
@@ -788,12 +781,12 @@ class RecursiveTransform(AffineBase):
         return self._parent
 
     @parent.setter
-    def parent(self, value: Optional[RecursiveTransform]):
+    def parent(self, value: RecursiveTransform):
         self._parent = value
         self.flag_update()
 
     @cached
-    def _matrix(self):
+    def _matrix(self) -> np.ndarray:
         if self._parent:
             mat = self._parent.matrix @ self.own.matrix
             mat.flags.writeable = False
@@ -801,7 +794,7 @@ class RecursiveTransform(AffineBase):
         return self.own.matrix
 
     @property
-    def matrix(self):
+    def matrix(self) -> np.ndarray:
         """Affine matrix describing this transform.
 
         ``vec_target = matrix @ vec_source``.
@@ -810,21 +803,21 @@ class RecursiveTransform(AffineBase):
         return self._matrix
 
     @matrix.setter
-    def matrix(self, value):
+    def matrix(self, value: np.ndarray):
         if self._parent:
             self.own.matrix = self._parent.inverse_matrix @ value
         else:
             self.own.matrix = value
         self.flag_update()
 
-    def __matmul__(self, other) -> Union["RecursiveTransform", np.ndarray]:
+    def __matmul__(self, other) -> Union[RecursiveTransform, np.ndarray]:
         if isinstance(other, AffineBase):
             return RecursiveTransform(other, parent=self)
         else:
             return np.asarray(self) @ other
 
     @cached
-    def __scaling_signs(self):
+    def __scaling_signs(self) -> np.ndarray:
         if self._parent:
             signs = self._parent.scaling_signs * self.own.scaling_signs
             signs.flags.writeable = False
