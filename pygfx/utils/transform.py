@@ -737,15 +737,12 @@ class RecursiveTransform(AffineBase):
 
     def flag_update(self):
         """Signal that this transform has updated."""
-        # TODO: micro-optimize
-        # TODO: use deque maybe?
-        stack = [self]
-        while stack:
-            # TODO: are pop and extend the most performant methods?
-            current = stack.pop()
-            # TODO: use perf_counter_ns()?
-            current.last_modified = perf_counter_ns()
-            stack.extend(current.children)
+        self.last_modified = perf_counter_ns()
+        if (
+            self.children
+        ):  # this if-statement makes a massive difference for performance
+            for child in self.children:
+                child.flag_update()
 
     @cached
     def __parent_reference_up(self) -> np.ndarray:
