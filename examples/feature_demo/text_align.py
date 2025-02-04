@@ -23,6 +23,13 @@ scene = gfx.Scene()
 
 scene.add(gfx.Background.from_color("#fff", "#000"))
 
+text = """
+Lorem ipsum
+Bonjour World Olá
+pygfx
+last lyne
+""".strip()
+
 if "PYTEST_CURRENT_TEST" not in os.environ:
     import argparse
 
@@ -34,12 +41,7 @@ if "PYTEST_CURRENT_TEST" not in os.environ:
         "text",
         type=str,
         nargs="?",
-        default=(
-            "Lorem ipsum\n"
-            "Bonjour World Olá\n"  # some text that isn't equal in line
-            "pygfx\n"  # a line with exactly 1 word
-            "last lyne"
-        ),
+        default=text,
         help="Text to display",
     )
     args = parser.parse_args()
