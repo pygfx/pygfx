@@ -824,15 +824,13 @@ class TextGeometry(Geometry):
 
         # Calculate offsets to put the blocks beneath each-other.
         # Note that the distance between anchor points is independent on the anchor-mode.
-        y_offsets = np.empty((len(text_blocks),), np.float32)
+        # TODO: errr, for blocks that have wrapped text, the per-block anchoring means the above the above statement is false!
+        y_offsets = np.zeros((len(text_blocks),), np.float32)
         offset = 0
-        total_rect = Rect()
         max_width = 0.0
         for i, block in enumerate(text_blocks):
             y_offsets[i] = offset
             offset -= block._nlines * line_height
-            total_rect.left = min(total_rect.left, block._rect.left)
-            total_rect.right = min(total_rect.right, block._rect.right)
             max_width = max(max_width, block._rect.right - block._rect.left)
 
         # Offset the offsets to apply the anchoring. Note that each block is already anchored by itself.
@@ -841,14 +839,16 @@ class TextGeometry(Geometry):
         elif anchor.startswith("top"):
             pass  # Already done
         elif anchor.startswith("bottom"):
-            y_offsets -= y_offsets[-1] + text_blocks[-1]._rect.bottom
+            x = y_offsets[-1] + text_blocks[-1]._rect.bottom
+            print(x)
+            y_offsets -= float(x)
         else:  # center
             top = text_blocks[0]._rect.top
             bottom = y_offsets[-1] + text_blocks[-1]._rect.bottom
             y_offsets -= 0.5 * (top + bottom)
             # TODO: check with one big text and one small
 
-        # Also adjust horizontally. In some combinations of align and anchor, we don't have to do this.
+        # Adjust each block horizontally. In some combinations of align and anchor, we don't have to do this.
         x_offsets = np.zeros_like(y_offsets)
         if text_align == "left":
             if not anchor.endswith(text_align):
@@ -970,8 +970,8 @@ class TextGeometry(Geometry):
         # Prepare new arrays
         glyph_block_indices = np.zeros((new_size,), np.uint32)
         glyph_atlas_indices = np.zeros((new_size,), np.uint32)
-        glyph_positions = np.empty((new_size, 2), np.float32)
-        glyph_sizes = np.empty((new_size,), np.float32)
+        glyph_positions = np.zeros((new_size, 2), np.float32)
+        glyph_sizes = np.zeros((new_size,), np.float32)
 
         # Copy data over
         n = self._glyph_indices_top
