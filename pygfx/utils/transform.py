@@ -738,9 +738,8 @@ class RecursiveTransform(AffineBase):
     def flag_update(self):
         """Signal that this transform has updated."""
         self.last_modified = perf_counter_ns()
-        if (
-            self.children
-        ):  # this if-statement makes a massive difference for performance
+        # this if-statement makes a massive difference for performance, don't remove it
+        if self.children:
             for child in self.children:
                 child.flag_update()
 
