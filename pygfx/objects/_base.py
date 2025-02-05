@@ -208,6 +208,9 @@ class WorldObject(EventTarget, Trackable):
 
     def __del__(self):
         id_provider.release_id(self, self.id)
+        self.local._set_wrapper(
+            None
+        )  # break the circular reference so GC has it a little easier
 
     @property
     def up(self) -> np.ndarray:
