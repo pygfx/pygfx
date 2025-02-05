@@ -3,11 +3,16 @@ from __future__ import annotations
 import numpy as np
 import pylinalg as la
 from time import perf_counter_ns
+from operator import methodcaller, attrgetter
 
 from typing import Any, Tuple, Union
 
 
 PRECISION_EPSILON = 1e-7
+
+
+MC = methodcaller("flag_update")
+AC = attrgetter("children")
 
 
 class cached:  # noqa: N801
@@ -738,9 +743,8 @@ class RecursiveTransform(AffineBase):
     def flag_update(self):
         """Signal that this transform has updated."""
         self.last_modified = perf_counter_ns()
-        # this if-statement makes a massive difference for performance, don't remove it
-        if self.children:
-            for child in self.children:
+        if children := self.children:
+            for child in children:
                 child.flag_update()
 
     @cached
