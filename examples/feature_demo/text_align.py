@@ -97,25 +97,25 @@ def change_justify(event):
     if event.key == "q":
         text.geometry.anchor = "top-left"
     elif event.key == "w":
-        text.geometry.anchor = "top-middle"
+        text.geometry.anchor = "top-center"
     elif event.key == "e":
         text.geometry.anchor = "top-right"
     elif event.key == "a":
         text.geometry.anchor = "middle-left"
     elif event.key == "s":
-        text.geometry.anchor = "middle-middle"
+        text.geometry.anchor = "middle-center"
     elif event.key == "d":
         text.geometry.anchor = "middle-right"
     elif event.key == "z":
         text.geometry.anchor = "bottom-left"
     elif event.key == "x":
-        text.geometry.anchor = "bottom-middle"
+        text.geometry.anchor = "bottom-center"
     elif event.key == "c":
         text.geometry.anchor = "bottom-right"
     elif event.key == "Z":
         text.geometry.anchor = "baseline-left"
     elif event.key == "X":
-        text.geometry.anchor = "baseline-middle"
+        text.geometry.anchor = "baseline-center"
     elif event.key == "C":
         text.geometry.anchor = "baseline-right"
     elif event.key == "u":
@@ -167,7 +167,7 @@ Use the keys
 
  u  i  o
 
-to set the alignment of the text to left, middle, right respectively.
+to set the alignment of the text to left, center, right respectively.
 
 Use j to set the alignment to justify.
 Use h to set the alignment to justify-all.
@@ -176,7 +176,7 @@ Use the keys
 
   n  m  ,
 
-to set the alignment of the last line to left, middle, right respectively.
+to set the alignment of the last line to left, center, right respectively.
 
 Use
 

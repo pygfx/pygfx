@@ -7,15 +7,17 @@ The enums used in pygfx. The enums are all available from the root ``pygfx`` nam
     :toctree: utils/enums
     :template: ../_templates/custom_layout.rst
 
+    BindMode
     ColorMode
     CoordSpace
     EdgeMode
+    ElementFormat
     MarkerShape
     RenderMask
     SizeMode
-    ElementFormat
+    TextAlign
+    TextAnchor
     VisibleSide
-    BindMode
 
 """
 
@@ -31,6 +33,8 @@ __all__ = [
     "MarkerShape",
     "RenderMask",
     "SizeMode",
+    "TextAlign",
+    "TextAnchor",
     "VisibleSide",
 ]
 
@@ -155,6 +159,26 @@ class TextAlign(Enum):
     left = "start"  #: alias for start
     right = "end"  #: alias for end
     auto = None  #: unspecified alignment
+
+
+class TextAnchor(Enum):
+    """How text is aligned."""
+
+    top_left = "top-left"
+    top_center = "top-center"
+    top_right = "top-right"
+
+    baseline_left = "baseline-left"
+    baseline_center = "baseline-center"
+    baseline_right = "baseline-right"
+
+    middle_left = "middle-left"
+    middle_center = "middle-center"
+    middle_right = "middle-right"
+
+    bottom_left = "bottom-left"
+    bottom_center = "bottom-center"
+    bottom_right = "bottom-right"
 
 
 # NOTE: Don't forget to add new enums to the toctree and __all__
