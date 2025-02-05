@@ -1186,6 +1186,10 @@ class TextBlock:
         if current_line:
             make_new_line()
 
+        # # If there's just one line ... its the last
+        # if len(lines) == 1:
+        #     text_align = text_align_last
+
         # Calculate block rect
 
         block_rect = Rect()
@@ -1195,17 +1199,19 @@ class TextBlock:
         block_rect.top = rects[0].top
         block_rect.bottom = (len(rects) - 1) * line_height + rects[-1].bottom
 
+        if text_align == "justify" or text_align_last == "justify":
+            block_rect.right = max_width
+
         # Resolve newlines at the end of the text
         # block_rect.bottom = min(block_rect.bottom, offset[1])
 
         # Determine horizontal anchor
 
         if geometrty_does_layout:
-            anchorx = "left" if text_align == "justify" else text_align
             # If the geometry does its layout, it's far easier to *not* to the anchoring here,
             # except to anchor according to text alignment.
             anchor_offset_x, anchor_offset_y = block_rect.get_offset_for_anchor(
-                f"baseline-{anchorx}", 0
+                f"baseline-{text_align}", 0
             )
         else:
             # Full layout done here, including anchoring.
@@ -1538,18 +1544,16 @@ class Rect:
             dx = -self.left + anchor_offset
         elif h_anchor == "right":
             dx = -self.right - anchor_offset
-        else:  # center
+        else:  # center or justify
             dx = -0.5 * (self.left + self.right)
 
         if v_anchor == "top":
             dy = -self.top - anchor_offset
         elif v_anchor == "baseline":
             dy = -anchor_offset
-        elif v_anchor == "middle":
-            dy = -0.5 * (self.top + self.bottom)
         elif v_anchor == "bottom":
             dy = -self.bottom + anchor_offset
-        else:
-            dy = 0
+        else:  # middle
+            dy = -0.5 * (self.top + self.bottom)
 
         return dx, dy
