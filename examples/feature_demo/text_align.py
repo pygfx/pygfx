@@ -68,6 +68,8 @@ text = gfx.Text(
         anchor="middle-center",
         direction=direction,
         max_width=540,
+        line_height=1.1,
+        paragraph_spacing=0.2,
     ),
     gfx.TextMaterial(color="#B4F8C8", outline_color="#000", outline_thickness=0.15),
 )

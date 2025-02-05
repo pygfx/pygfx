@@ -134,6 +134,8 @@ class TextGeometry(Geometry):
     line_height : float
         A factor to scale the distance between lines. A value of 1 means the
         "native" font's line distance. Default 1.2.
+    paragraph_spacing : float
+        An extra space between paragraphs.
     text_align : str
         The horizontal alignment of the inline-level content. Can be "start",
         "end", "left", "right", "center", "justify" or "justify-all". Default
@@ -162,6 +164,7 @@ class TextGeometry(Geometry):
         anchor_offset=0,
         max_width=0,
         line_height=1.2,
+        paragraph_spacing=0,
         text_align="left",
         text_align_last="auto",
     ):
@@ -231,6 +234,7 @@ class TextGeometry(Geometry):
         self.anchor_offset = anchor_offset
         self.max_width = max_width
         self.line_height = line_height
+        self.paragraph_spacing = paragraph_spacing
         self.text_align = text_align
         self.text_align_last = text_align_last
 
@@ -405,6 +409,19 @@ class TextGeometry(Geometry):
     @line_height.setter
     def line_height(self, height):
         self._line_height = float(height or 1.2)
+        self._trigger_blocks_update(layout=True)
+
+    @property
+    def paragraph_spacing(self):
+        """The extra space between two paragraphs.
+
+        Measured in text units (like line height and font size).
+        """
+        return self._paragraph_spacing
+
+    @paragraph_spacing.setter
+    def paragraph_spacing(self, paragraph_spacing):
+        self._paragraph_spacing = float(paragraph_spacing or 0)
         self._trigger_blocks_update(layout=True)
 
     @property
@@ -820,6 +837,7 @@ class TextGeometry(Geometry):
         anchor = geometry._anchor
         anchor_offset = geometry._anchor_offset
         line_height = geometry._line_height * geometry._font_size  # like CSS
+        paragraph_spacing = geometry._paragraph_spacing * geometry._font_size
         direction = geometry._direction  # noqa - TODO: should probably use this
 
         # Calculate offsets to put the blocks beneath each-other, as well as the full rect.
@@ -829,7 +847,7 @@ class TextGeometry(Geometry):
         total_rect = Rect()
         for i, block in enumerate(text_blocks):
             y_offsets[i] = offset
-            offset -= block._nlines * line_height
+            offset -= block._nlines * line_height + paragraph_spacing
             total_rect.left = min(total_rect.left, block._rect.left)
             total_rect.right = max(total_rect.right, block._rect.right)
         total_rect.top = text_blocks[0]._rect.top
@@ -1096,6 +1114,7 @@ class TextBlock:
         # Obtain layout attributes
         font_size = geometry._font_size
         line_height = geometry._line_height * font_size  # like CSS
+        paragraph_spacing = geometry._paragraph_spacing * font_size
         max_width = geometry._max_width
         anchor = geometry._anchor
         text_align = geometry._text_align
@@ -1153,14 +1172,15 @@ class TextBlock:
         lines = []  # list of lists of TextItems
         rects = []  # List of Rects
 
-        def make_new_line(n_new_lines=1):
+        def make_new_line(n_new_lines=1, n_new_paragraphs=0):
             nonlocal current_line, current_rect
+            skip = n_new_lines * line_height + n_new_paragraphs * paragraph_spacing
             if is_horizontal:
-                offset[1] -= n_new_lines * line_height
+                offset[1] -= skip
                 offset[0] = 0
             else:
                 offset[1] = 0
-                offset[0] += n_new_lines * line_height
+                offset[0] += skip
             if current_line:
                 lines.append(current_line)
                 rects.append(current_rect)
@@ -1175,7 +1195,7 @@ class TextBlock:
             if max_width > 0 and current_line:
                 item_width = (item.margin_before + item.extent) * font_size
                 if offset[0] + item_width > max_width:
-                    make_new_line(1)
+                    make_new_line()
                     apply_margin = False
 
             # Apply whitespace offset
@@ -1209,10 +1229,10 @@ class TextBlock:
             # The item can have newlines too. Does not happen when using geometry.set_text(),
             # but can happen when using TextBlock.set_text().
             if item.nl_after:
-                make_new_line(len(item.nl_after))
+                make_new_line(len(item.nl_after), 1)
 
         if current_line:
-            make_new_line(len(item.nl_after))
+            make_new_line()
 
         # Calculate block rect
 
