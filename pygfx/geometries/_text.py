@@ -19,23 +19,7 @@ import numpy as np
 from ..resources import Buffer
 from ..utils import text as textmodule
 from ._base import Geometry
-from ..utils.enums import TextAlign
-
-# todo: turn into enums. But first,
-
-ANCHOR_X_ALTS = {
-    "left": "left",
-    "center": "center",
-    "middle": "center",
-    "right": "right",
-}
-ANCHOR_Y_ALTS = {
-    "top": "top",
-    "middle": "middle",
-    "center": "middle",
-    "baseline": "baseline",
-    "bottom": "bottom",
-}
+from ..utils.enums import TextAlign, TextAnchor
 
 
 # We cache the extents of small whitespace strings to improve performance
@@ -107,7 +91,7 @@ class TextGeometry(Geometry):
         TODO: maybe one enum space-mode: screen, model, label
         How ``TextBlock`` objects are positioned. With "auto" the layout is performed automatically (in the same space as ``space``).
         If "model" the positioning is done in model-space, a bit as if its a point set with labels (i.e. TextBlock's) as markers.
-    anchor : str
+    anchor : str | TextAnchor
         The position of the origin of the text. Default "middle-center".
     anchor_offset : float
         The offset (extra margin) for the 'top', 'bottom', 'left', and 'right' anchors.
@@ -317,12 +301,15 @@ class TextGeometry(Geometry):
 
     @property
     def anchor(self):
-        """The position of the origin of the text. This is a string
-        representing the vertical and horizontal anchors, separated by
-        a dash, e.g. "top-left" or "bottom-center".
+        """The position of the origin of the text.
+
+        Represented as a string representing the vertical and horizontal anchors,
+        separated by a dash, e.g. "top-left" or "bottom-center".
 
         * Vertical values: "top", "middle", "baseline", "bottom".
         * Horizontal values: "left", "center", "right".
+
+        See :obj:`pygfx.utils.enums.TextAlign`:
         """
         return self._anchor
 
@@ -333,28 +320,10 @@ class TextGeometry(Geometry):
             anchor = "middle-center"
         elif not isinstance(anchor, str):
             raise TypeError("Text anchor must be str.")
-        anchor = anchor.lower().strip()
-        # Split
-        if anchor.count("-") == 1:
-            anchory, _, anchorx = anchor.partition("-")
-        else:
-            anchory = anchorx = ""
-            for key, val in ANCHOR_Y_ALTS.items():
-                if anchor.startswith(key):
-                    anchory = val
-                    break
-            for key, val in ANCHOR_X_ALTS.items():
-                if anchor.endswith(key):
-                    anchorx = val
-                    break
-        # Resolve
-        try:
-            anchory = ANCHOR_Y_ALTS[anchory]
-            anchorx = ANCHOR_X_ALTS[anchorx]
-        except KeyError:
-            raise ValueError(f"Invalid anchor value '{anchor}'") from None
-        # Apply
-        self._anchor = f"{anchory}-{anchorx}"
+        anchor = anchor.lower().strip().replace("-", "_")
+        if anchor not in TextAnchor.__fields__:
+            raise ValueError(f"Text anchor must be one of {TextAnchor}. Got {anchor!r}")
+        self._anchor = TextAnchor[anchor]
         self._trigger_blocks_update(layout=True)
 
     @property
@@ -424,10 +393,10 @@ class TextGeometry(Geometry):
         if align is None:
             align = "start"
         if not isinstance(align, str):
-            raise TypeError("text_align must be a None or str.")
+            raise TypeError("Text align must be a None or str.")
         align = align.lower().replace("-", "_")
         if align not in TextAlign.__fields__:
-            raise ValueError(f"text_align must be one of {TextAlign}. Got {align}.")
+            raise ValueError(f"Text align must be one of {TextAlign}. Got {align!r}.")
         if align == "auto":
             align = "left"
         self._text_align = TextAlign[align]
@@ -449,10 +418,12 @@ class TextGeometry(Geometry):
         if align is None:
             align = "auto"
         if not isinstance(align, str):
-            raise TypeError("text_align_last must be a None or str.")
+            raise TypeError("Text align_last must be a None or str.")
         align = align.lower().replace("-", "_")
         if align not in TextAlign.__fields__:
-            raise ValueError(f"text_align_last must be one of {TextAlign}. Got {align}")
+            raise ValueError(
+                f"Text align_last must be one of {TextAlign}. Got {align!r}"
+            )
         self._text_align_last = TextAlign[align]
         self._trigger_blocks_update(layout=True)
 
