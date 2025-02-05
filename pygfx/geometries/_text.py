@@ -258,7 +258,7 @@ class TextGeometry(Geometry):
     def font_size(self, value):
         self._font_size = float(value)
         # TODO: render_glyphs or only layout?
-        self._trigger_blocks_update(render_glyphs=True)
+        self._trigger_blocks_update(layout=True)
 
     @property
     def family(self):
@@ -311,6 +311,7 @@ class TextGeometry(Geometry):
     @space_mode.setter
     def space_mode(self, value):
         self._store.space_mode = str(value)
+        self._trigger_blocks_update(layout=True)
 
     # --- layout properties
 
@@ -995,7 +996,7 @@ class TextBlock:
     def _mark_dirty(self, *, layout=False, render_glyphs=False):
         # Trigger ._update() being called right before the next draw
         self._dirty_blocks.add(self._index)
-        self._need_layout |= bool(layout)
+        self._need_layout |= bool(layout) | bool(render_glyphs)
         self._need_render_glyphs |= bool(render_glyphs)
 
     def _update(self, geometry):
