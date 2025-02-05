@@ -1,7 +1,6 @@
 <h1 align="center"><img src="docs/_static/pygfx.svg" height="80"><br>Pygfx</h1>
 
-[![CI ](https://github.com/pygfx/pygfx/workflows/CI/badge.svg)
-](https://github.com/pygfx/pygfx/actions)
+[![CI](https://github.com/pygfx/pygfx/actions/workflows/ci.yml/badge.svg)](https://github.com/pygfx/pygfx/actions/workflows/ci.yml)
 [![Documentation Status
 ](https://readthedocs.org/projects/pygfx/badge/?version=stable)
 ](https://docs.pygfx.org)
