@@ -818,59 +818,32 @@ class TextGeometry(Geometry):
 
         # TODO: apply alias via enums
         anchor = geometry._anchor
-        text_align = geometry._text_align
+        anchor_offset = geometry._anchor_offset
         line_height = geometry._line_height * geometry._font_size  # like CSS
         direction = geometry._direction  # noqa - TODO: should probably use this
 
-        # Calculate offsets to put the blocks beneath each-other.
+        # Calculate offsets to put the blocks beneath each-other, as well as the full rect.
         # Note that the distance between anchor points is independent on the anchor-mode.
-        # TODO: errr, for blocks that have wrapped text, the per-block anchoring means the above the above statement is false!
         y_offsets = np.zeros((len(text_blocks),), np.float32)
         offset = 0
-        max_width = 0.0
+        total_rect = Rect()
         for i, block in enumerate(text_blocks):
             y_offsets[i] = offset
             offset -= block._nlines * line_height
-            max_width = max(max_width, block._rect.right - block._rect.left)
+            total_rect.left = min(total_rect.left, block._rect.left)
+            total_rect.right = max(total_rect.right, block._rect.right)
+        total_rect.top = text_blocks[0]._rect.top
+        total_rect.bottom = y_offsets[-1] + text_blocks[-1]._rect.bottom
 
-        # Offset the offsets to apply the anchoring. Note that each block is already anchored by itself.
-        if anchor.startswith("baseline"):
-            pass  # The anchor is the baseline of the topmost block
-        elif anchor.startswith("top"):
-            pass  # Already done
-        elif anchor.startswith("bottom"):
-            x = y_offsets[-1] + text_blocks[-1]._rect.bottom
-            print(x)
-            y_offsets -= float(x)
-        else:  # center
-            top = text_blocks[0]._rect.top
-            bottom = y_offsets[-1] + text_blocks[-1]._rect.bottom
-            y_offsets -= 0.5 * (top + bottom)
-            # TODO: check with one big text and one small
-
-        # Adjust each block horizontally. In some combinations of align and anchor, we don't have to do this.
-        x_offsets = np.zeros_like(y_offsets)
-        if text_align == "left":
-            if not anchor.endswith(text_align):
-                x_offsets = [block._rect.width - max_width for block in text_blocks]
-            if anchor.endswith("center"):
-                x_offsets = [0.5 * x for x in x_offsets]
-        elif text_align == "right":
-            if not anchor.endswith(text_align):
-                x_offsets = [max_width - block._rect.width for block in text_blocks]
-            if anchor.endswith("center"):
-                x_offsets = [0.5 * x for x in x_offsets]
-        else:
-            if not anchor.endswith(text_align):
-                if anchor.endswith("left"):
-                    x_offsets = [max_width - block._rect.width for block in text_blocks]
-                elif anchor.endswith("right"):
-                    x_offsets = [block._rect.width - max_width for block in text_blocks]
-                x_offsets = [0.5 * x for x in x_offsets]
+        # Get anchor offset
+        # Note that the anchoring is dead-simple because the blocks are anchoring based on text_align.
+        anchor_offset_x, anchor_offset_y = total_rect.get_offset_for_anchor(
+            anchor, anchor_offset
+        )
 
         # Update positionss
-        self.positions.data[: len(x_offsets), 0] = x_offsets
-        self.positions.data[: len(y_offsets), 1] = y_offsets
+        self.positions.data[: len(y_offsets), 0] = anchor_offset_x
+        self.positions.data[: len(y_offsets), 1] = y_offsets + anchor_offset_y
         self.positions.update_range(0, len(y_offsets))
 
     # --- block management
@@ -1129,6 +1102,7 @@ class TextBlock:
         text_align_last = geometry._text_align_last
         direction = geometry._direction
         anchor_offset = geometry._anchor_offset
+        geometrty_does_layout = geometry.space_mode in ("screen", "model", "world")
 
         # Resolve some attributes
         if text_align_last == "auto":
@@ -1251,28 +1225,20 @@ class TextBlock:
 
         # Determine horizontal anchor
 
-        if anchor.endswith("left"):
-            pos_offset_x = -block_rect.left + anchor_offset
-        elif anchor.endswith("right"):
-            pos_offset_x = -block_rect.right - anchor_offset
-        else:  # center
-            pos_offset_x = -0.5 * (block_rect.left + block_rect.right)
-
-        # Determine vertical anchor
-
-        if anchor.startswith("top"):
-            pos_offset_y = -block_rect.top - anchor_offset
-        elif anchor.startswith("middle"):
-            pos_offset_y = -0.5 * (block_rect.top + block_rect.bottom)
-        elif anchor.startswith("baseline"):
-            pos_offset_y = -anchor_offset
-        elif anchor.startswith("bottom"):
-            pos_offset_y = -block_rect.bottom + anchor_offset
+        if geometrty_does_layout:
+            # If the geometry does its layout, it's far easier to *not* to the anchoring here,
+            # except to anchor according to text alignment.
+            anchor_offset_x, anchor_offset_y = block_rect.get_offset_for_anchor(
+                f"baseline-{text_align}", 0
+            )
         else:
-            pos_offset_y = 0
+            # Full layout done here, including anchoring.
+            anchor_offset_x, anchor_offset_y = block_rect.get_offset_for_anchor(
+                anchor, anchor_offset
+            )
 
         # Shift block rect for anchoring
-        block_rect.shift(pos_offset_x, pos_offset_y)
+        block_rect.shift(anchor_offset_x, anchor_offset_y)
 
         # Align the text, i.e. shift individual lines so they fit inside the block rect according to the current alignment
 
@@ -1294,24 +1260,24 @@ class TextBlock:
                 else:
                     length_to_add = 0
             if align == "center":
-                line_pos_offset_x = 0.5 * (block_rect.right - block_rect.left) - 0.5 * (
+                line_offset_x = 0.5 * (block_rect.right - block_rect.left) - 0.5 * (
                     rect.right - rect.left + length_to_add
                 )
             elif align == "right":
-                line_pos_offset_x = (block_rect.right - block_rect.left) - (
+                line_offset_x = (block_rect.right - block_rect.left) - (
                     rect.right - rect.left + length_to_add
                 )
             else:  # elif align == "left":
-                line_pos_offset_x = 0
+                line_offset_x = 0
 
             for j, item in enumerate(line):
                 dx = (
                     item.layout_offset[0]
-                    + pos_offset_x
-                    + line_pos_offset_x
+                    + anchor_offset_x
+                    + line_offset_x
                     + j * extra_space_per_word
                 )
-                dy = item.layout_offset[1] + pos_offset_y
+                dy = item.layout_offset[1] + anchor_offset_y
                 item.set_offset(font_size, dx, dy)
 
         # Update block's rect
@@ -1588,3 +1554,26 @@ class Rect:
         self.right = self.right + dx
         self.top = self.top + dy
         self.bottom = self.bottom + dy
+
+    def get_offset_for_anchor(self, anchor, anchor_offset):
+        v_anchor, h_anchor = anchor.split("-")
+
+        if h_anchor == "left":
+            dx = -self.left + anchor_offset
+        elif h_anchor == "right":
+            dx = -self.right - anchor_offset
+        else:  # center
+            dx = -0.5 * (self.left + self.right)
+
+        if v_anchor == "top":
+            dy = -self.top - anchor_offset
+        elif v_anchor == "baseline":
+            dy = -anchor_offset
+        elif v_anchor == "middle":
+            dy = -0.5 * (self.top + self.bottom)
+        elif v_anchor == "bottom":
+            dy = -self.bottom + anchor_offset
+        else:
+            dy = 0
+
+        return dx, dy
