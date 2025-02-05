@@ -1,10 +1,13 @@
 <h1 align="center"><img src="docs/_static/pygfx.svg" height="80"><br>Pygfx</h1>
 
-[![CI](https://github.com/pygfx/pygfx/actions/workflows/ci.yml/badge.svg)](https://github.com/pygfx/pygfx/actions/workflows/ci.yml)
+[![CI
+](https://github.com/pygfx/pygfx/actions/workflows/ci.yml/badge.svg)
+](https://github.com/pygfx/pygfx/actions/workflows/ci.yml)
 [![Documentation Status
 ](https://readthedocs.org/projects/pygfx/badge/?version=stable)
 ](https://docs.pygfx.org)
-[![PyPI version ](https://badge.fury.io/py/pygfx.svg)
+[![PyPI version
+](https://badge.fury.io/py/pygfx.svg)
 ](https://badge.fury.io/py/pygfx)
 
 The purpose of Pygfx is to bring powerful and reliable visualization to the Python world. 🚀
