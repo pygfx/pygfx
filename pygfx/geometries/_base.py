@@ -1,8 +1,15 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Iterable
 import numpy as np
 import pylinalg as la
 
 from ..utils.trackable import Trackable
 from ..resources import Resource, Buffer, Texture
+
+if TYPE_CHECKING:
+    import collections.abc
+    from numpy.typing import NDArray, ArrayLike
 
 
 class Geometry(Trackable):
@@ -27,13 +34,13 @@ class Geometry(Trackable):
 
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Resource | ArrayLike | collections.abc.Buffer):
         super().__init__()
 
-        self._aabb = None
-        self._aabb_rev = None
-        self._bsphere = None
-        self._bsphere_rev = None
+        self._aabb: NDArray | None = None
+        self._aabb_rev: int | None = None
+        self._bsphere: NDArray | None = None
+        self._bsphere_rev: int | None = None
 
         for name, val in kwargs.items():
             # Get resource object
@@ -46,6 +53,7 @@ class Geometry(Trackable):
                     val = np.array(val, dtype=dtype)
                 # Create texture or buffer
                 if name == "grid":
+                    val = np.asanyarray(val)
                     dim = val.ndim
                     if dim > 2 and val.shape[-1] <= 4:
                         dim -= 1  # last array dim is probably (a subset of) rgba
@@ -84,24 +92,22 @@ class Geometry(Trackable):
             # Store
             setattr(self, name, resource)
 
-    def __setattr__(self, key, new_value):
+    def __setattr__(self, key: str, new_value: Resource) -> None:
         if not key.startswith(("_", "morph_")):
             if isinstance(new_value, Trackable) or key in self._store:
                 return setattr(self._store, key, new_value)
         object.__setattr__(self, key, new_value)
 
-    def __getattribute__(self, key):
+    def __getattribute__(self, key: str) -> Resource:
         if not key.startswith(("_", "morph_")):
             if key in self._store:
                 return getattr(self._store, key)
         return object.__getattribute__(self, key)
 
-    def __dir__(self):
-        x = object.__dir__(self)
-        x.extend(dict.keys(self._store))
-        return x
+    def __dir__(self) -> Iterable[str]:
+        return [*object.__dir__(self), *self._store]
 
-    def get_bounding_box(self):
+    def get_bounding_box(self) -> NDArray[np.float32] | None:
         """Compute the axis-aligned bounding box.
 
         Computes the aabb based on either positions or the shape of the grid
@@ -116,12 +122,12 @@ class Geometry(Trackable):
             no finite positions.
 
         """
-        if hasattr(self, "positions"):
-            if self._aabb_rev == self.positions.rev:
+        if isinstance(positions := getattr(self, "positions", None), Buffer):
+            if self._aabb_rev == positions.rev:
                 return self._aabb
-            aabb = None
+            aabb: NDArray | None = None
             # Get positions and check expected shape
-            pos = self.positions.data
+            pos = positions.data
             if pos.ndim == 2 and pos.shape[1] in (2, 3):
                 # Select finite positions
                 finite_mask = np.isfinite(pos).all(axis=1)
@@ -138,11 +144,11 @@ class Geometry(Trackable):
             self._aabb_rev = self.positions.rev
             return self._aabb
 
-        elif hasattr(self, "grid"):
-            if self._aabb_rev == self.grid.rev:
+        elif isinstance(grid := getattr(self, "grid", None), Texture):
+            if self._aabb_rev == grid.rev:
                 return self._aabb
             # account for multi-channel image data
-            grid_shape = tuple(reversed(self.grid.size[: self.grid.dim]))
+            grid_shape = tuple(reversed(grid.size[: grid.dim]))
             # create aabb in index/data space
             aabb = np.array([np.zeros_like(grid_shape), grid_shape[::-1]], dtype="f8")
             # convert to local image space by aligning
@@ -154,12 +160,12 @@ class Geometry(Trackable):
             if aabb.shape[1] == 2:
                 aabb = np.hstack([aabb, [[0], [0]]])
             self._aabb = aabb
-            self._aabb_rev = self.grid.rev
+            self._aabb_rev = grid.rev
             return self._aabb
         else:
             return None
 
-    def get_bounding_sphere(self):
+    def get_bounding_sphere(self) -> NDArray[np.float32] | None:
         """Compute a bounding sphere.
 
         Uses the geometry's axis-aligned bounding box, to estimate a sphere
@@ -178,12 +184,12 @@ class Geometry(Trackable):
 
         """
 
-        if hasattr(self, "positions"):
-            if self._bsphere_rev == self.positions.rev:
+        if isinstance(positions := getattr(self, "positions", None), Buffer):
+            if self._bsphere_rev == positions.rev:
                 return self._bsphere
             bsphere = None
             # Get positions and check expected shape
-            pos = self.positions.data
+            pos = positions.data
             if pos.ndim == 2 and pos.shape[1] in (2, 3):
                 # Select finite positions
                 finite_mask = np.isfinite(pos).all(axis=1)
@@ -202,7 +208,7 @@ class Geometry(Trackable):
                             [center[0], center[1], center[1], radius], np.float32
                         )
             self._bsphere = bsphere
-            self._bsphere_rev = self.positions.rev
+            self._bsphere_rev = positions.rev
             return self._bsphere
 
         else:
