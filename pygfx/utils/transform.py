@@ -746,17 +746,17 @@ class RecursiveTransform(AffineBase):
     @cached
     def __parent_reference_up(self) -> np.ndarray:
         """The direction of the reference_up vector expressed in the parent frame."""
-        if self._parent:
-            new_ref = la.vec_transform(self._reference_up, self._parent.inverse_matrix)
-            origin = la.vec_transform((0, 0, 0), self._parent.inverse_matrix)
-            vec = la.vec_normalize(new_ref - origin)
-            vec.flags.writeable = False
-            return vec
-        return self._reference_up_view
+        new_ref = la.vec_transform(self._reference_up, self._parent.inverse_matrix)
+        origin = la.vec_transform((0, 0, 0), self._parent.inverse_matrix)
+        vec = la.vec_normalize(new_ref - origin)
+        vec.flags.writeable = False
+        return vec
 
     @property
     def _parent_reference_up(self) -> np.ndarray:
-        return self.__parent_reference_up
+        if self._parent:
+            return self.__parent_reference_up
+        return self._reference_up_view
 
     @_parent_reference_up.setter
     def _parent_reference_up(self, value):
@@ -783,11 +783,9 @@ class RecursiveTransform(AffineBase):
 
     @cached
     def _matrix(self) -> np.ndarray:
-        if self._parent:
-            mat = self._parent.matrix @ self.own.matrix
-            mat.flags.writeable = False
-            return mat
-        return self.own.matrix
+        mat = self._parent.matrix @ self.own.matrix
+        mat.flags.writeable = False
+        return mat
 
     @property
     def matrix(self) -> np.ndarray:
@@ -796,7 +794,9 @@ class RecursiveTransform(AffineBase):
         ``vec_target = matrix @ vec_source``.
 
         """
-        return self._matrix
+        if self._parent:
+            return self._matrix
+        return self.own.matrix
 
     @matrix.setter
     def matrix(self, value: np.ndarray):
@@ -814,14 +814,14 @@ class RecursiveTransform(AffineBase):
 
     @cached
     def __scaling_signs(self) -> np.ndarray:
-        if self._parent:
-            signs = self._parent.scaling_signs * self.own.scaling_signs
-            signs.flags.writeable = False
-            return signs
-        return self.own.scaling_signs
+        signs = self._parent.scaling_signs * self.own.scaling_signs
+        signs.flags.writeable = False
+        return signs
 
     @property
     def scaling_signs(self) -> np.ndarray:
         """Property used to track and preserve the scale factor signs
         over matrix decomposition operations."""
-        return self.__scaling_signs
+        if self._parent:
+            return self.__scaling_signs
+        return self.own.scaling_signs
