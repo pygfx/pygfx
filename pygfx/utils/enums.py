@@ -144,4 +144,17 @@ class BindMode(Enum):
     detached = "detached"  #: The skinned mesh has its own world space.
 
 
+class TextAlign(Enum):
+    """How text is aligned."""
+
+    start = None  #: align to the start (left) of the block.
+    end = None  #: align to the end (right) of the block.
+    center = None  #: align to the center of the block.
+    justify = None  #: spread words to fill the full space determined by max_width.
+    justify_all = None  #: justify also the last line.
+    left = "start"  #: alias for start
+    right = "end"  #: alias for end
+    auto = None  #: unspecified alignment
+
+
 # NOTE: Don't forget to add new enums to the toctree and __all__
