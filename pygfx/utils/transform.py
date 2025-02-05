@@ -500,14 +500,14 @@ class AffineTransform(AffineBase):
         """The zero-tilt reference vector used for the direction setters."""
         if self._wrapper:
             return self._wrapper._parent_reference_up
-        return self._reference_up_view
+        return super().reference_up
 
     @reference_up.setter
     def reference_up(self, value):
         if self._wrapper:
             self._wrapper._parent_reference_up = value
-        else:
-            self._reference_up[:] = la.vec_normalize(value)
+            return
+        AffineBase.reference_up.fset(self, value)
 
     @property
     def state_basis(self) -> str:
