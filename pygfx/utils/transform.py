@@ -1,8 +1,10 @@
+from __future__ import annotations
+
 import numpy as np
 import pylinalg as la
 from time import perf_counter_ns
 
-from typing import Tuple, Union
+from typing import Any, Tuple, Union
 
 
 PRECISION_EPSILON = 1e-7
@@ -25,7 +27,7 @@ class cached:  # noqa: N801
     def __set_name__(self, clazz, name) -> None:
         self.name = f"_{name}_cache"
 
-    def __get__(self, instance: "AffineBase", clazz=None) -> np.ndarray:
+    def __get__(self, instance: AffineBase, clazz=None) -> Any:
         if instance is None:
             return self
 
@@ -88,7 +90,6 @@ class AffineBase:
     def __init__(self, /, *, reference_up=(0, 1, 0), is_camera_space=False):
         self.is_camera_space = int(is_camera_space)
 
-        self._reference_up_provider = None
         self._reference_up = la.vec_normalize(reference_up, dtype=float)
         self._reference_up_view = self._reference_up.view()
         self._reference_up_view.flags.writeable = False
@@ -101,22 +102,14 @@ class AffineBase:
         """Signal that this transform has updated."""
         raise NotImplementedError()
 
-    def _set_reference_up_provider(self, provider: "RecursiveTransform"):
-        self._reference_up_provider = provider
-
     @property
     def reference_up(self) -> np.ndarray:
         """The zero-tilt reference vector used for the direction setters."""
-        if self._reference_up_provider:
-            return self._reference_up_provider._own_reference_up
         return self._reference_up_view
 
     @reference_up.setter
     def reference_up(self, value):
-        if self._reference_up_provider:
-            self._reference_up_provider._own_reference_up = value
-        else:
-            self._reference_up[:] = la.vec_normalize(value)
+        self._reference_up[:] = la.vec_normalize(value)
 
     @property
     def matrix(self) -> np.ndarray:
@@ -465,7 +458,7 @@ class AffineTransform(AffineBase):
         reference_up=(0, 1, 0),
         is_camera_space=False,
         state_basis="components",
-        matrix=None,
+        matrix: np.ndarray = None,
     ) -> None:
         super().__init__(reference_up=reference_up, is_camera_space=is_camera_space)
         self._state_basis = state_basis
@@ -491,9 +484,30 @@ class AffineTransform(AffineBase):
         self._matrix_view = self._matrix.view()
         self._matrix_view.flags.writeable = False
 
+        self._wrapper: RecursiveTransform = None
+
     def flag_update(self):
         """Signal that this transform has updated."""
         self.last_modified = perf_counter_ns()
+        if self._wrapper:
+            self._wrapper.flag_update()
+
+    def _set_wrapper(self, wrapper: RecursiveTransform):
+        self._wrapper = wrapper
+
+    @property
+    def reference_up(self) -> np.ndarray:
+        """The zero-tilt reference vector used for the direction setters."""
+        if self._wrapper:
+            return self._wrapper._parent_reference_up
+        return super().reference_up
+
+    @reference_up.setter
+    def reference_up(self, value):
+        if self._wrapper:
+            self._wrapper._parent_reference_up = value
+            return
+        AffineBase.reference_up.fset(self, value)
 
     @property
     def state_basis(self) -> str:
@@ -501,7 +515,7 @@ class AffineTransform(AffineBase):
         return self._state_basis
 
     @state_basis.setter
-    def state_basis(self, value):
+    def state_basis(self, value: str):
         if value not in ("components", "matrix"):
             raise ValueError("state_basis must be either 'components' or 'matrix'")
         if value == "matrix":
@@ -559,7 +573,7 @@ class AffineTransform(AffineBase):
         AffineBase.scale.fset(self, value)
 
     @cached
-    def __scaling_signs(self):
+    def __scaling_signs(self) -> np.ndarray:
         signs = np.sign(self._scale)
         signs.flags.writeable = False
         return signs
@@ -573,7 +587,7 @@ class AffineTransform(AffineBase):
         return super().scaling_signs
 
     @cached
-    def _rotation_matrix(self):
+    def _rotation_matrix(self) -> np.ndarray:
         if self.state_basis == "components":
             rotation = la.mat_from_quat(self._rotation)
             rotation.flags.writeable = False
@@ -581,7 +595,7 @@ class AffineTransform(AffineBase):
         return super()._rotation_matrix
 
     @cached
-    def _euler(self):
+    def _euler(self) -> np.ndarray:
         if self.state_basis == "components":
             euler = la.quat_to_euler(self._rotation)
             euler.flags.writeable = False
@@ -589,7 +603,7 @@ class AffineTransform(AffineBase):
         return super()._euler
 
     @cached
-    def _composed_matrix(self):
+    def _composed_matrix(self) -> np.ndarray:
         mat = la.mat_compose(self._position, self._rotation, self._scale)
         mat.flags.writeable = False
         return mat
@@ -606,7 +620,7 @@ class AffineTransform(AffineBase):
         return self._matrix_view
 
     @matrix.setter
-    def matrix(self, value):
+    def matrix(self, value: np.ndarray):
         if self.state_basis == "components":
             try:
                 # when the matrix is set manually
@@ -623,7 +637,7 @@ class AffineTransform(AffineBase):
             self._matrix[:] = value
         self.flag_update()
 
-    def __matmul__(self, other) -> Union["AffineTransform", np.ndarray]:
+    def __matmul__(self, other) -> Union[AffineTransform, np.ndarray]:
         if isinstance(other, AffineTransform):
             matrix = self.matrix @ other.matrix
 
@@ -676,19 +690,17 @@ class RecursiveTransform(AffineBase):
     a WorldObjects world transform, i.e., it implements ``WorldObject.world``.
 
     Under the hood, this transform wraps another transform (passed in as
-    ``matrix``), similar to how ``AffineTransform`` wraps a numpy array. It can
-    also be initialized from a numpy array, in which case provided matrix is
-    first wrapped into a ``AffineTransform`` which is then wrapped by this
-    class. Setting properties of ``RecursiveTransform`` will then internally
+    ``base``), similar to how ``AffineTransform`` wraps a numpy array.
+    Setting properties of ``RecursiveTransform`` will internally
     transform the new values into ``matrix`` target frame and then set the
     obtained value on the wrapped transform. This means that the ``parent``
     transform is not affected by changes made to this transform.
 
     Parameters
     ----------
-    base : AffineBase
+    base : AffineTransform
         The base transform that will be wrapped by this transform.
-    parent : AffineBase, optional
+    parent : RecursiveTransform, optional
         The parent transform that precedes the base transform.
     reference_up : ndarray, [3]
         The direction of the reference_up vector expressed in the target
@@ -700,11 +712,6 @@ class RecursiveTransform(AffineBase):
         If True, the transform represents a camera space which means that it's
         ``forward`` and ``right`` directions are inverted.
 
-    Notes
-    -----
-    Since ``parent`` is optional, this transform can also be used to create a
-    synced copy of an existing transform similar to how a view works in numpy.
-
     See Also
     --------
     AffineBase
@@ -714,39 +721,31 @@ class RecursiveTransform(AffineBase):
 
     def __init__(
         self,
-        base: AffineBase,
+        base: AffineTransform,
         /,
         *,
-        parent=None,
+        parent: RecursiveTransform = None,
         reference_up=(0, 1, 0),
         is_camera_space=False,
     ) -> None:
         super().__init__(reference_up=reference_up, is_camera_space=is_camera_space)
-        self._last_modified = perf_counter_ns()
-
-        self._parent = None
-        self.own = None
-
+        self.last_modified = perf_counter_ns()
+        self._parent = parent
+        self.children = []
         self.own = base
-        self.own._set_reference_up_provider(self)
-
-        if parent is None:
-            self._parent = AffineTransform()
-        else:
-            self._parent = parent
+        self.own._set_wrapper(self)
 
     def flag_update(self):
         """Signal that this transform has updated."""
-        self._last_modified = perf_counter_ns()
-
-    @property
-    def last_modified(self) -> int:
-        return max(
-            self._last_modified, self.own.last_modified, self._parent.last_modified
-        )
+        self.last_modified = perf_counter_ns()
+        # this if-statement makes a massive difference for performance, don't remove it
+        if self.children:
+            for child in self.children:
+                child.flag_update()
 
     @cached
-    def __own_reference_up(self) -> np.ndarray:
+    def __parent_reference_up(self) -> np.ndarray:
+        """The direction of the reference_up vector expressed in the parent frame."""
         new_ref = la.vec_transform(self._reference_up, self._parent.inverse_matrix)
         origin = la.vec_transform((0, 0, 0), self._parent.inverse_matrix)
         vec = la.vec_normalize(new_ref - origin)
@@ -754,59 +753,67 @@ class RecursiveTransform(AffineBase):
         return vec
 
     @property
-    def _own_reference_up(self) -> np.ndarray:
-        return self.__own_reference_up
+    def _parent_reference_up(self) -> np.ndarray:
+        if self._parent:
+            return self.__parent_reference_up
+        return self._reference_up_view
 
-    @_own_reference_up.setter
-    def _own_reference_up(self, value):
-        new_ref = la.vec_transform(value, self.parent.matrix)
-        origin = self.parent.position
-        self._reference_up[:] = la.vec_normalize(new_ref - origin)
+    @_parent_reference_up.setter
+    def _parent_reference_up(self, value):
+        if self._parent:
+            new_ref = la.vec_transform(value, self._parent.matrix)
+            origin = self._parent.position
+            self._reference_up[:] = la.vec_normalize(new_ref - origin)
+        else:
+            self._reference_up[:] = la.vec_normalize(value)
         self.flag_update()
-        # Note: since __own_reference_up is only used in a setter in AffineBase
+        # Note: since _parent_reference_up is only used in a setter in AffineBase
         # we do not need to call flag_update() on self.own; all its state and cache
         # remains intact
 
     @property
-    def parent(self) -> AffineBase:
+    def parent(self) -> RecursiveTransform:
         """The transform that preceeds the own/local transform."""
         return self._parent
 
     @parent.setter
-    def parent(self, value):
-        if value is None:
-            self._parent = AffineTransform()
-        else:
-            self._parent = value
+    def parent(self, value: RecursiveTransform):
+        self._parent = value
         self.flag_update()
 
     @cached
-    def _matrix(self):
+    def _matrix(self) -> np.ndarray:
         mat = self._parent.matrix @ self.own.matrix
         mat.flags.writeable = False
         return mat
 
     @property
-    def matrix(self):
+    def matrix(self) -> np.ndarray:
         """Affine matrix describing this transform.
 
         ``vec_target = matrix @ vec_source``.
 
         """
-        return self._matrix
+        if self._parent:
+            return self._matrix
+        return self.own.matrix
 
     @matrix.setter
-    def matrix(self, value):
-        self.own.matrix = self._parent.inverse_matrix @ value
+    def matrix(self, value: np.ndarray):
+        if self._parent:
+            self.own.matrix = self._parent.inverse_matrix @ value
+        else:
+            self.own.matrix = value
+        self.flag_update()
 
-    def __matmul__(self, other) -> Union["RecursiveTransform", np.ndarray]:
+    def __matmul__(self, other) -> Union[RecursiveTransform, np.ndarray]:
         if isinstance(other, AffineBase):
             return RecursiveTransform(other, parent=self)
         else:
             return np.asarray(self) @ other
 
     @cached
-    def __scaling_signs(self):
+    def __scaling_signs(self) -> np.ndarray:
         signs = self._parent.scaling_signs * self.own.scaling_signs
         signs.flags.writeable = False
         return signs
@@ -815,4 +822,6 @@ class RecursiveTransform(AffineBase):
     def scaling_signs(self) -> np.ndarray:
         """Property used to track and preserve the scale factor signs
         over matrix decomposition operations."""
-        return self.__scaling_signs
+        if self._parent:
+            return self.__scaling_signs
+        return self.own.scaling_signs
