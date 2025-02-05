@@ -19,27 +19,10 @@ import numpy as np
 from ..resources import Buffer
 from ..utils import text as textmodule
 from ._base import Geometry
+from ..utils.enums import TextAlign
 
+# todo: turn into enums. But first,
 
-# todo: turn into enums
-_TEXT_ALIGNMENTS = [
-    "start",
-    "end",
-    "left",
-    "right",
-    "center",
-    "justify",
-    "justify-all",
-]
-_TEXT_ALIGNMENTS_LAST = [
-    "start",
-    "end",
-    "left",
-    "right",
-    "center",
-    "justify",
-    "auto",
-]
 ANCHOR_X_ALTS = {
     "left": "left",
     "center": "center",
@@ -136,12 +119,12 @@ class TextGeometry(Geometry):
         "native" font's line distance. Default 1.2.
     paragraph_spacing : float
         An extra space between paragraphs.
-    text_align : str
+    text_align : str | TextAlign
         The horizontal alignment of the inline-level content. Can be "start",
-        "end", "left", "right", "center", "justify" or "justify-all". Default
+        "end", "left", "right", "center", "justify" or "justify_all". Default
         "left". Text alignment is ignored for top to bottom ('ttb') and
         bottom to top ('btt') directions.
-    text_align_last: str
+    text_align_last: str | TextAlign
         The horizontal alignment of the last line of the content
         element. Can be "start", "end", "left", "right", "center", "justify" or
         "auto". Default "auto". Text alignment is ignored for top to
@@ -165,7 +148,7 @@ class TextGeometry(Geometry):
         max_width=0,
         line_height=1.2,
         paragraph_spacing=0,
-        text_align="left",
+        text_align="start",
         text_align_last="auto",
     ):
         super().__init__()
@@ -426,8 +409,9 @@ class TextGeometry(Geometry):
 
     @property
     def text_align(self):
-        """Set the alignment of wrapped text. Can be 'start',' end', or 'center'.
-        Default "start".
+        """Set the alignment of wrapped text. Default 'start'.
+
+        See :obj:`pygfx.utils.enums.TextAlign`:
 
         Text alignment is ignored for top to bottom ('ttb') and
         bottom to top ('btt') directions.
@@ -439,17 +423,20 @@ class TextGeometry(Geometry):
         if align is None:
             align = "start"
         if not isinstance(align, str):
-            raise TypeError("text-align must be a None or str.")
-        align = align.lower()
-        if align not in _TEXT_ALIGNMENTS:
-            raise ValueError(f"Align must be one of {_TEXT_ALIGNMENTS}. Got {align}.")
-        self._text_align = align
+            raise TypeError("text_align must be a None or str.")
+        align = align.lower().replace("-", "_")
+        if align not in TextAlign.__fields__:
+            raise ValueError(f"text_align must be one of {TextAlign}. Got {align}.")
+        if align == "auto":
+            align = "left"
+        self._text_align = TextAlign[align]
         self._trigger_blocks_update(layout=True)
 
     @property
     def text_align_last(self):
-        """Set the alignment of the last line of text.
-        Default "auto".
+        """Set the alignment of the last line of text. Default "auto".
+
+        See :obj:`pygfx.utils.enums.TextAlign`:
 
         Text alignment is ignored for top to bottom ('ttb') and
         bottom to top ('btt') directions.
@@ -459,15 +446,13 @@ class TextGeometry(Geometry):
     @text_align_last.setter
     def text_align_last(self, align):
         if align is None:
-            align = "start"
+            align = "auto"
         if not isinstance(align, str):
-            raise TypeError("text-align must be a None or str.")
-        align = align.lower()
-        if align not in _TEXT_ALIGNMENTS_LAST:
-            raise ValueError(
-                f"Align must be one of {_TEXT_ALIGNMENTS_LAST}. Got {align}"
-            )
-        self._text_align_last = align
+            raise TypeError("text_align_last must be a None or str.")
+        align = align.lower().replace("-", "_")
+        if align not in TextAlign.__fields__:
+            raise ValueError(f"text_align_last must be one of {TextAlign}. Got {align}")
+        self._text_align_last = TextAlign[align]
         self._trigger_blocks_update(layout=True)
 
     # --- public methods
@@ -1121,41 +1106,36 @@ class TextBlock:
         text_align_last = geometry._text_align_last
         direction = geometry._direction
         anchor_offset = geometry._anchor_offset
+
         geometrty_does_layout = geometry.space_mode in ("screen", "model", "world")
 
-        # Resolve some attributes
+        # Resolve text_align_last
         if text_align_last == "auto":
             if text_align == "justify":
                 text_align_last = "start"
-            elif text_align == "justify-all":
+            elif text_align == "justify_all":
                 text_align_last = "justify"
             else:
                 text_align_last = text_align
-        if text_align == "justify-all":
+        if text_align == "justify_all":
             text_align = "justify"
-        if direction == "ltr":
-            if text_align == "start":
-                text_align = "left"
-            elif text_align == "end":
-                text_align = "right"
-            if text_align_last == "start":
-                text_align_last = "left"
-            elif text_align_last == "end":
-                text_align_last = "right"
-        elif direction == "rtl":
-            if text_align == "end":
-                text_align = "left"
-            elif text_align == "start":
-                text_align = "right"
-            if text_align_last == "end":
-                text_align_last = "left"
-            elif text_align_last == "start":
-                text_align_last = "right"
+
+        # Resolve text align to real directions
         is_horizontal = direction is None or direction in ("ltr", "rtl")
-        # The algorightm doesn't support text alignment for ttb and btt yet
-        if not is_horizontal:
+        if is_horizontal:
+            if direction == "ltr":
+                map = {"start": "left", "end": "right"}
+            elif direction == "rtl":
+                map = {"start": "right", "end": "left"}
+            text_align = map.get(text_align, text_align)
+            text_align_last = map.get(text_align_last, text_align_last)
+        else:
+            # The algorightm doesn't support text alignment for ttb and btt yet
             text_align = "left"
             text_align_last = "left"
+
+        assert text_align in ("left", "right", "center", "justify")
+        assert text_align_last in ("left", "right", "center", "justify")
 
         # Prepare
 
@@ -1249,10 +1229,11 @@ class TextBlock:
         # Determine horizontal anchor
 
         if geometrty_does_layout:
+            anchorx = "left" if text_align == "justify" else text_align
             # If the geometry does its layout, it's far easier to *not* to the anchoring here,
             # except to anchor according to text alignment.
             anchor_offset_x, anchor_offset_y = block_rect.get_offset_for_anchor(
-                f"baseline-{text_align}", 0
+                f"baseline-{anchorx}", 0
             )
         else:
             # Full layout done here, including anchoring.

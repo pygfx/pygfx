@@ -62,12 +62,12 @@ print(f"========= Text =========\n{text}\n========================")
 text = gfx.Text(
     gfx.TextGeometry(
         text=text,
-        font_size=40,
+        font_size=28,
         space_mode="screen",
         text_align="center",
         anchor="middle-center",
         direction=direction,
-        max_width=540,
+        max_width=380,
         line_height=1.1,
         paragraph_spacing=0.2,
     ),
