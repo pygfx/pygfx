@@ -75,7 +75,7 @@ build-backend = "flit_core.buildapi"
 line-length = 88
 
 [tool.ruff.lint]
-select = ["F", "E", "W", "N", "B", "RUF"]
+select = ["F", "E", "W", "N", "B", "RUF", "TC"]
 ignore = [
     "E501",   # Line too long
     "E731",   # Do not assign a `lambda` expression, use a `def`

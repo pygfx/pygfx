@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import collections
 from typing import TYPE_CHECKING, Iterable
 import numpy as np
 import pylinalg as la
