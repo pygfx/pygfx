@@ -3,16 +3,11 @@ from __future__ import annotations
 import numpy as np
 import pylinalg as la
 from time import perf_counter_ns
-from operator import methodcaller, attrgetter
 
 from typing import Any, Tuple, Union
 
 
 PRECISION_EPSILON = 1e-7
-
-
-MC = methodcaller("flag_update")
-AC = attrgetter("children")
 
 
 class cached:  # noqa: N801
