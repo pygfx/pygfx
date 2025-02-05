@@ -1171,13 +1171,16 @@ class TextBlock:
 
         for item in items:
             # Get item width and determine if we need a new line
-            if max_width > 0:
+            apply_margin = True
+            if max_width > 0 and current_line:
                 item_width = (item.margin_before + item.extent) * font_size
                 if offset[0] + item_width > max_width:
                     make_new_line(1)
+                    apply_margin = False
 
             # Apply whitespace offset
-            offset[0] += item.margin_before * font_size
+            if apply_margin:
+                offset[0] += item.margin_before * font_size
 
             # Add item and store its initial offset, which we use later on
             current_line.append(item)
