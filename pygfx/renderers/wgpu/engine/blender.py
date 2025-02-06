@@ -690,6 +690,7 @@ class BaseFragmentBlender:
         """Overload this to setup the specific combiner-pass."""
         return None
 
+
 @WgpuRenderer.register_blend_mode("opaque")
 class OpaqueFragmentBlender(BaseFragmentBlender):
     """A fragment blender that pretends that all surfaces are opaque,
@@ -706,6 +707,7 @@ class DitherFragmentBlender(BaseFragmentBlender):
     """
 
     passes = [DitherPass()]
+
 
 @WgpuRenderer.register_blend_mode("ordered1")
 class Ordered1FragmentBlender(BaseFragmentBlender):
@@ -727,6 +729,7 @@ class Ordered2FragmentBlender(BaseFragmentBlender):
     """
 
     passes = [OpaquePass(), SimpleTransparencyPass()]
+
 
 @WgpuRenderer.register_blend_mode("weighted")
 class WeightedFragmentBlender(BaseFragmentBlender):
@@ -826,6 +829,7 @@ class WeightedFragmentBlender(BaseFragmentBlender):
             layout=bind_group_layout, entries=bind_group_entries
         )
 
+
 @WgpuRenderer.register_blend_mode("weighted_depth")
 class WeightedDepthFragmentBlender(WeightedFragmentBlender):
     """Weighted blended order independent transparency (McGuire 2013),
@@ -833,6 +837,7 @@ class WeightedDepthFragmentBlender(WeightedFragmentBlender):
     """
 
     passes = [OpaquePass(), WeightedTransparencyPass("depth")]
+
 
 @WgpuRenderer.register_blend_mode("weighted_plus")
 class WeightedPlusFragmentBlender(WeightedFragmentBlender):

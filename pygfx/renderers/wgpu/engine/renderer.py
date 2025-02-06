@@ -325,9 +325,11 @@ class WgpuRenderer(RootEventHandler, Renderer):
     def register_blend_mode(name, blender=None):
         """Register a new blender for usage with rendering pipelines."""
         if blender is None:
+
             def _register_blend_mode(blender):
                 WgpuRenderer._blenders_available[name] = blender
                 return blender
+
             return _register_blend_mode
         else:
             WgpuRenderer._blenders_available[name] = blender
@@ -344,9 +346,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         blender = self._blenders_available.get(value)
         if blender is None:
             available = list(self._blenders_available.keys())
-            raise ValueError(
-                f"Unknown blend_mode '{value}', use any of {available}."
-            )
+            raise ValueError(f"Unknown blend_mode '{value}', use any of {available}.")
         # Set blender object
         self._blend_mode = value
         self._blender = blender()
