@@ -20,12 +20,14 @@ class cached:  # noqa: N801
 
     """
 
+    __slots__ = ("compute_fn", "name")
+
     def __init__(self, compute_fn=None) -> None:
         self.compute_fn = compute_fn
         self.name = None
 
     def __set_name__(self, clazz, name) -> None:
-        self.name = f"_{name}_cache"
+        self.name = f"cache_{name}_cache"
 
     def __get__(self, instance: AffineBase, clazz=None) -> Any:
         if instance is None:
@@ -488,9 +490,12 @@ class AffineTransform(AffineBase):
 
     def flag_update(self):
         """Signal that this transform has updated."""
-        self.last_modified = perf_counter_ns()
+        # note: this function has been heavily micro-optimized
+        # please don't modify it carelessly
+        last_modified = perf_counter_ns()
+        self.last_modified = last_modified
         if wrapper := self._wrapper:
-            wrapper.flag_update()
+            wrapper.flag_update(last_modified)
 
     def _set_wrapper(self, wrapper: RecursiveTransform):
         self._wrapper = wrapper
@@ -573,7 +578,7 @@ class AffineTransform(AffineBase):
         AffineBase.scale.fset(self, value)
 
     @cached
-    def __scaling_signs(self) -> np.ndarray:
+    def _computed_scaling_signs(self) -> np.ndarray:
         signs = np.sign(self._scale)
         signs.flags.writeable = False
         return signs
@@ -583,7 +588,7 @@ class AffineTransform(AffineBase):
         """Property used to track and preserve the scale factor signs
         over matrix decomposition operations."""
         if self.state_basis == "components":
-            return self.__scaling_signs
+            return self._computed_scaling_signs
         return super().scaling_signs
 
     @cached
@@ -735,16 +740,22 @@ class RecursiveTransform(AffineBase):
         self.own = base
         self.own._set_wrapper(self)
 
-    def flag_update(self):
+    def flag_update(self, last_modified=None):
         """Signal that this transform has updated."""
-        self.last_modified = perf_counter_ns()
-        # this if-statement makes a massive difference for performance, don't remove it
+        # note: this function has been heavily micro-optimized
+        # please don't modify it carelessly
+        if last_modified is None:
+            last_modified = perf_counter_ns()
+        self.last_modified = last_modified
         if children := self.children:
             for child in children:
-                child.flag_update()
+                if child.children:
+                    child.flag_update(last_modified)
+                else:
+                    child.last_modified = last_modified
 
     @cached
-    def __parent_reference_up(self) -> np.ndarray:
+    def _computed_parent_reference_up(self) -> np.ndarray:
         """The direction of the reference_up vector expressed in the parent frame."""
         new_ref = la.vec_transform(self._reference_up, self._parent.inverse_matrix)
         origin = la.vec_transform((0, 0, 0), self._parent.inverse_matrix)
@@ -755,7 +766,7 @@ class RecursiveTransform(AffineBase):
     @property
     def _parent_reference_up(self) -> np.ndarray:
         if self._parent:
-            return self.__parent_reference_up
+            return self._computed_parent_reference_up
         return self._reference_up_view
 
     @_parent_reference_up.setter
@@ -813,7 +824,7 @@ class RecursiveTransform(AffineBase):
             return np.asarray(self) @ other
 
     @cached
-    def __scaling_signs(self) -> np.ndarray:
+    def _computed_scaling_signs(self) -> np.ndarray:
         signs = self._parent.scaling_signs * self.own.scaling_signs
         signs.flags.writeable = False
         return signs
@@ -823,5 +834,5 @@ class RecursiveTransform(AffineBase):
         """Property used to track and preserve the scale factor signs
         over matrix decomposition operations."""
         if self._parent:
-            return self.__scaling_signs
+            return self._computed_scaling_signs
         return self.own.scaling_signs
