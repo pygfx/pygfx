@@ -9,6 +9,7 @@ import wgpu  # only for flags/enums
 from ....utils.enums import RenderMask
 from .flusher import create_full_quad_pipeline
 from .shared import get_shared
+from .renderer import WgpuRenderer
 
 # Notes:
 # - The user code provides color as-is in rgba.
@@ -689,7 +690,7 @@ class BaseFragmentBlender:
         """Overload this to setup the specific combiner-pass."""
         return None
 
-
+@WgpuRenderer.register_blend_mode("opaque")
 class OpaqueFragmentBlender(BaseFragmentBlender):
     """A fragment blender that pretends that all surfaces are opaque,
     even if they're not.
@@ -698,6 +699,7 @@ class OpaqueFragmentBlender(BaseFragmentBlender):
     passes = [FullOpaquePass()]
 
 
+@WgpuRenderer.register_blend_mode("dither")
 class DitherFragmentBlender(BaseFragmentBlender):
     """A fragment blender that pretends that all surfaces are opaque,
     even if they're not.
@@ -705,7 +707,7 @@ class DitherFragmentBlender(BaseFragmentBlender):
 
     passes = [DitherPass()]
 
-
+@WgpuRenderer.register_blend_mode("ordered1")
 class Ordered1FragmentBlender(BaseFragmentBlender):
     """A minimal fragment blender that uses the classic alpha blending
     equation, without differentiating between opaque and transparent
@@ -716,6 +718,7 @@ class Ordered1FragmentBlender(BaseFragmentBlender):
     passes = [SimpleSinglePass()]
 
 
+@WgpuRenderer.register_blend_mode("ordered2")
 class Ordered2FragmentBlender(BaseFragmentBlender):
     """A first step towards better blending: separating the opaque from
     the transparent fragments, and blending the latter using the alpha
@@ -725,7 +728,7 @@ class Ordered2FragmentBlender(BaseFragmentBlender):
 
     passes = [OpaquePass(), SimpleTransparencyPass()]
 
-
+@WgpuRenderer.register_blend_mode("weighted")
 class WeightedFragmentBlender(BaseFragmentBlender):
     """Weighted blended order independent transparency (McGuire 2013),
     using a weight function based only on alpha.
@@ -823,7 +826,7 @@ class WeightedFragmentBlender(BaseFragmentBlender):
             layout=bind_group_layout, entries=bind_group_entries
         )
 
-
+@WgpuRenderer.register_blend_mode("weighted_depth")
 class WeightedDepthFragmentBlender(WeightedFragmentBlender):
     """Weighted blended order independent transparency (McGuire 2013),
     using a general purpose depth weight function.
@@ -831,7 +834,7 @@ class WeightedDepthFragmentBlender(WeightedFragmentBlender):
 
     passes = [OpaquePass(), WeightedTransparencyPass("depth")]
 
-
+@WgpuRenderer.register_blend_mode("weighted_plus")
 class WeightedPlusFragmentBlender(WeightedFragmentBlender):
     """Three-pass weighted blended order independent transparency (McGuire 2013),
     using a weight function based on alpha, and in which the top-most
@@ -1028,6 +1031,7 @@ class AdditivePass(BasePass):
         """
 
 
+@WgpuRenderer.register_blend_mode("additive")
 class AdditiveFragmentBlender(BaseFragmentBlender):
     """A fragment blender that uses additive blending for all fragments."""
 

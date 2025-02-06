@@ -34,7 +34,6 @@ from ....resources._base import resource_update_registry
 from ....utils import Color
 
 from ... import Renderer
-from . import blender as blender_module
 from .flusher import RenderFlusher
 from .pipeline import get_pipeline_container_group
 from .update import update_resource, ensure_wgpu_object
@@ -117,6 +116,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
     """
 
+    _blenders_available = {}
     _wobject_pipelines_collection = weakref.WeakValueDictionary()
 
     def __init__(
@@ -321,6 +321,17 @@ class WgpuRenderer(RootEventHandler, Renderer):
         """
         return self._blend_mode
 
+    @staticmethod
+    def register_blend_mode(name, blender=None):
+        """Register a new blender for usage with rendering pipelines."""
+        if blender is None:
+            def _register_blend_mode(blender):
+                WgpuRenderer._blenders_available[name] = blender
+                return blender
+            return _register_blend_mode
+        else:
+            WgpuRenderer._blenders_available[name] = blender
+
     @blend_mode.setter
     def blend_mode(self, value):
         # Massage and check the input
@@ -329,24 +340,16 @@ class WgpuRenderer(RootEventHandler, Renderer):
         value = value.lower()
         if value == "default":
             value = "ordered2"
-        # Map string input to a class
-        m = {
-            "additive": blender_module.AdditiveFragmentBlender,
-            "opaque": blender_module.OpaqueFragmentBlender,
-            "dither": blender_module.DitherFragmentBlender,
-            "ordered1": blender_module.Ordered1FragmentBlender,
-            "ordered2": blender_module.Ordered2FragmentBlender,
-            "weighted": blender_module.WeightedFragmentBlender,
-            "weighted_depth": blender_module.WeightedDepthFragmentBlender,
-            "weighted_plus": blender_module.WeightedPlusFragmentBlender,
-        }
-        if value not in m:
+
+        blender = self._blenders_available.get(value)
+        if blender is None:
+            available = list(self._blenders_available.keys())
             raise ValueError(
-                f"Unknown blend_mode '{value}', use any of {set(m.keys())}"
+                f"Unknown blend_mode '{value}', use any of {available}."
             )
         # Set blender object
         self._blend_mode = value
-        self._blender = m[value]()
+        self._blender = blender()
         self._blender.name = value
         # If our target is a canvas, request a new draw
         if isinstance(self._target, AnyBaseCanvas):
