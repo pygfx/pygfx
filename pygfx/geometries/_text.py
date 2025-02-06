@@ -180,7 +180,7 @@ class TextGeometry(Geometry):
 
         # --- other geomery-specific things
 
-        self._aabb = np.array([(0, 0, 0), (0, 0, 0)], np.float32)
+        self._aabb = np.zeros((2, 3), np.float32)
 
         # --- set propss
 
@@ -579,7 +579,7 @@ class TextGeometry(Geometry):
             # There is no sensible bounding box for text in screen space, except
             # for the anchor point. Although the point has no volume, it does
             # contribute to e.g. the scene's bounding box.
-            return np.array([[0, 0, 0], [0, 0, 0]], np.float32)
+            return np.zeros((2, 3), np.float32)
         elif space_mode == "model":
             # A bounding box makes sense, and we calculated it during layout,
             # because we're already shifting rects there.
@@ -608,7 +608,7 @@ class TextGeometry(Geometry):
             # There is no sensible bounding box for text in screen space, except
             # for the anchor point. Although the point has no volume, it does
             # contribute to e.g. the scene's bounding box.
-            return np.array([[0, 0, 0, 0]], np.float32)
+            return np.zeros((4,), np.float32)
         elif space_mode == "model":
             # A bounding box makes sense, we can calculate it from the rect.
             mean = 0.5 * (self._aabb[1] + self._aabb[0])
@@ -883,13 +883,34 @@ class TextItem:
     This is an internal object (not public).
     """
 
+    __slots__ = [
+        "ascender",
+        "atlas_indices",
+        "descender",
+        "direction",
+        "extent",
+        "glyph_count",
+        "glyph_indices",
+        "layout_offset",
+        "margin_before",
+        "need_render_glyphs",
+        "need_sync_with_geometry",
+        "nl_after",
+        "offset",
+        "positions",
+        "sizes",
+        "text",
+        "ws_before",
+    ]
+
     def __init__(self):
         # The text defines the arrays
-        self.text = ""
+        self.text = None
 
         # Whitespace attributes affect layout
         self.ws_before = ""
         self.nl_after = ""
+        self.margin_before = 0  # is ws_before expressed as a float (in font units)
 
         # Flags to control precise updates
         self.need_render_glyphs = False
@@ -901,11 +922,18 @@ class TextItem:
         self.sizes = None
         self.glyph_count = 0
 
-        # Transform info when copying to he geometry buffers. Set during layout.
-        self.offset = (1.0, 0.0, 0.0)
-
         # The indices for slots in the arrays at the geometry. This value is managed by the geometry.
         self.glyph_indices = range(0)
+
+        # Transform info when copying to he geometry buffers. Set during layout.
+        self.offset = (1.0, 0.0, 0.0)
+        self.layout_offset = None  # used by layout as a temp var
+
+        # Metadata
+        self.extent = 0
+        self.ascender = 0
+        self.descender = 0
+        self.direction = None
 
     def set_text(self, text):
         if text != self.text:
@@ -1077,7 +1105,7 @@ def encode_font_props_in_atlas_indices(atlas_indices, font_props, font):
 
 
 class Rect:
-    __slots__ = ["left", "right", "top", "bottom"]
+    __slots__ = ["bottom", "left", "right", "top"]
 
     def __init__(self, left=0.0, right=0.0, top=0.0, bottom=0.0):
         self.left = left
@@ -1333,6 +1361,10 @@ def apply_block_layout(geometry, text_block):
 def apply_final_layout(geometry):
     text_blocks = [block for block in geometry._text_blocks if block._text]
     # TODO: code below assumes that unused text blocks are at the end
+
+    if not text_blocks:
+        geometry._aabb = np.zeros((2, 3), np.float32)
+        return
 
     # TODO: apply alias via enums
     anchor = geometry._anchor

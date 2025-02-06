@@ -51,9 +51,9 @@ def handle_event(event):
 
 
 def animate():
-    yy = text1.geometry.glyph_positions.data[:,1]
+    yy = text1.geometry.glyph_positions.data[:, 1]
     tt = np.linspace(0, 10, len(yy))
-    yy += np.sin(tt + 2* perf_counter())
+    yy += np.sin(tt + 2 * perf_counter())
     text1.geometry.glyph_positions.update_full()
 
     renderer.render(scene, camera)
