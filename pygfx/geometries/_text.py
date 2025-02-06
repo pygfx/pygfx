@@ -477,7 +477,7 @@ class TextGeometry(Geometry):
         have near-zero overhead (only lines/blocks that changed need updating).
         """
         if not isinstance(text, str):
-            raise TypeError("The text should be str.")
+            raise TypeError("TextGeometry text should be str.")
         lines = text.splitlines()
         self._ensure_text_block_count(len(lines))
         for i, line in enumerate(lines):
@@ -490,96 +490,24 @@ class TextGeometry(Geometry):
     def set_markdown(self, text):
         """Set the full text, formatted as markdown.
 
+        The supported subset of markdown is limited to surrounding pieces of
+        text with single and double stars for slanted and bold text
+        respectively. Bold/slanted text should be limited to a single line (i.e.
+        not go beyond a newline).
+
         Each line (i.e. paragraph) results in one TextBlock.
         On subsequent calls, blocks are re-used, and lines that did not change
         have near-zero overhead (only lines/blocks that changed need updating).
         """
-        self.set_text(text)
+        if not isinstance(text, str):
+            raise TypeError("TextGeometry markdown should be str.")
+        lines = text.splitlines()
+        self._ensure_text_block_count(len(lines))
+        for i, line in enumerate(lines):
+            self._text_blocks[i].set_markdown(line)
 
-    def xxxset_markdown(self, markdown, family=None):
-        """Update the text using markdown formatting.
-
-        The supported subset of markdown is limited to surrounding pieces of
-        text with single and double stars for slanted and bold text
-        respectively.
-
-        Parameters
-        ----------
-        markdown : str
-            The new text (including markdown).
-        family : str, tuple
-            The name(s) of the font(s) to prefer. If multiple names are given,
-            they are preferred in the given order. Characters that are not
-            supported by any of the given fonts are rendered with the default
-            font.
-
-        See Also
-        --------
-        TextGeometry.set_text_items
-
-        """
-
-        if not isinstance(markdown, str):
-            raise TypeError("Markdown text must be a Unicode string.")
-
-        # Split text in pieces using a tokenizer
-        pieces = list(textmodule.tokenize_markdown(markdown))
-
-        # Put a virtual zero-char space in front and at the end, to make the alg simpler
-        pieces.insert(0, ("ws", ""))
-        pieces.append(("ws", ""))
-
-        # Prepare font props
-        font_props = textmodule.FontProps(family=family)
-        pieces_props = [font_props for x in pieces]
-
-        # Now resolve starts to detect bold and italic pieces
-        bold_start = slant_start = None
-        for i in range(len(pieces)):
-            kind, piece = pieces[i]
-            if kind == "stars":
-                prev_is_wordlike = pieces[i - 1][0] not in ("ws", "punctuation")
-                next_is_wordlike = pieces[i + 1][0] not in ("ws", "punctuation")
-                if not prev_is_wordlike and next_is_wordlike:
-                    # Might be a beginning
-                    if piece == "**" and not bold_start:
-                        bold_start = i
-                    elif piece == "*" and not slant_start:
-                        slant_start = i
-                elif prev_is_wordlike and not next_is_wordlike:
-                    # Might be an end
-                    if piece == "**" and bold_start:
-                        pieces[bold_start] = "", ""
-                        pieces[i] = "", ""
-                        for j in range(bold_start + 1, i):
-                            pieces_props[j] = pieces_props[j].copy(weight="bold")
-                        bold_start = None
-                    elif piece == "*" and slant_start:
-                        pieces[slant_start] = "", ""
-                        pieces[i] = "", ""
-                        for j in range(slant_start + 1, i):
-                            pieces_props[j] = pieces_props[j].copy(style="slanted")
-                        slant_start = None
-
-        # Convert to TextItem objects
-        items = []
-        pending_whitespace = None
-        for i in range(len(pieces)):
-            kind, piece = pieces[i]
-            if not kind:
-                pass
-            elif kind == "ws":
-                if not items:
-                    pending_whitespace = piece
-                else:
-                    items[-1].ws_after += piece
-            else:
-                items.append(LayoutTextItem(piece, pieces_props[i]))
-        if items and pending_whitespace:
-            items[0].ws_before += pending_whitespace
-
-        self._set_layout_items(items)
-        return self
+        # TODO: trigger a layout
+        self._on_update_object()
 
     # TODO: can be removed, I think
     def _get_ws_extent(self, s, font):
@@ -810,7 +738,7 @@ class TextBlock:
         self._index = index  # e.g. the index in geometry.positions
         self._dirty_blocks = dirty_blocks  # a set from the geometry
 
-        self._text = ""
+        self._input = None
         self._need_layout = False
         self._need_render_glyphs = False
 
@@ -870,47 +798,117 @@ class TextBlock:
         for item in self._text_items:
             item.clear(geometry)
         self._text_items = []
-        self._text = ""
+        self._input = None
 
     def set_text(self, text):
         """Set the text for this TextBlock.
 
         This is called from ``TextGeometry.set_text()``, but can also be called directly.
         """
+
         if not isinstance(text, str):
             raise TypeError("TextBlock text should be str.")
-        if text == self._text:
+
+        input = "text", text
+        if input == self._input:
             return
-        self._text = text
+        self._input = input
         self._mark_dirty(layout=True)
 
-        def new_item(text, ws_before):
+        # Split text in words
+        pieces = textmodule.tokenize_text(text)
+        formats = ["" for _ in pieces]
+        self._pieces_to_text_items(pieces, formats)
+
+    def set_markdown(self, text):
+        """Set the markdown for this TextBlock.
+
+        This is called from ``TextGeometry.set_markdown()``, but can also be called directly.
+        """
+
+        if not isinstance(text, str):
+            raise TypeError("TextBlock markdown should be str.")
+
+        input = "md", text
+        if input == self._input:
+            return
+        self._input = input
+        self._mark_dirty(layout=True)
+
+        # Split text in pieces using a tokenizer
+        pieces = list(textmodule.tokenize_markdown(text))
+
+        # TODO: detect headers ###
+        # TODO: detect bullet lists
+        # TODO: with this, words can be split in two parts, make sure they stick together, or merge into one textitem?
+        # TODO: support newlines in text block with markdown too.
+
+        # Put a virtual zero-char space in front and at the end, to make the alg simpler
+        pieces.insert(0, ("ws", ""))
+        pieces.append(("ws", ""))
+
+        formats = ["" for _ in pieces]
+
+        # Now resolve starts to detect bold and italic pieces
+        bold_start = slant_start = None
+        for i in range(1, len(pieces)):
+            kind, piece = pieces[i]
+            if kind == "stars":
+                prev_is_wordlike = pieces[i - 1][0] not in ("ws", "punctuation")
+                next_is_wordlike = pieces[i + 1][0] not in ("ws", "punctuation")
+                if not prev_is_wordlike and next_is_wordlike:
+                    # Might be a beginning
+                    if piece == "**" and not bold_start:
+                        bold_start = i
+                    elif piece == "*" and not slant_start:
+                        slant_start = i
+                elif prev_is_wordlike and not next_is_wordlike:
+                    # Might be an end
+                    if piece == "**" and bold_start:
+                        pieces[bold_start] = "", ""
+                        pieces[i] = "", ""
+                        for j in range(bold_start + 1, i):
+                            formats[j] += "b"
+                        bold_start = None
+                    elif piece == "*" and slant_start:
+                        pieces[slant_start] = "", ""
+                        pieces[i] = "", ""
+                        for j in range(slant_start + 1, i):
+                            formats[j] += "i"
+                        slant_start = None
+
+        # Produce text items
+        self._pieces_to_text_items(pieces, formats)
+
+    def _pieces_to_text_items(self, pieces, formats):
+        def new_item(text, format, ws_before):
             if self._text_items:
                 item = self._text_items.pop(0)
             else:
                 item = TextItem()
-            item.set_text(text)
+            item.set_text_and_format(text, format)
             item.ws_before = ws_before
             return item
 
-        # Split text in words
+        # Process the pieces to create TextItem objects
         items = []
         pending_whitespace = ""
-        for kind, piece in textmodule.tokenize_text(text):
+        for i in range(len(pieces)):
+            kind, piece = pieces[i]
             if kind == "ws":
                 pending_whitespace += piece
             elif kind == "nl":
                 if pending_whitespace:
-                    items.append(new_item("", pending_whitespace))
+                    items.append(new_item("", "", pending_whitespace))
                     pending_whitespace = ""
                 elif not items:
-                    items.append(new_item("", ""))
+                    items.append(new_item("", "", ""))
                 items[-1].nl_after += piece
             else:
-                items.append(new_item(piece, pending_whitespace))
+                items.append(new_item(piece, formats[i], pending_whitespace))
                 pending_whitespace = ""
         if pending_whitespace:
-            items.append(new_item("", pending_whitespace))
+            items.append(new_item("", "", pending_whitespace))
 
         # Store old items that need to be de-allocated
         for item in self._text_items:
@@ -919,9 +917,6 @@ class TextBlock:
 
         # Store new worlds
         self._text_items = items
-
-    def set_markdown(self, text):
-        raise NotImplementedError()
 
 
 class TextItem:
@@ -935,6 +930,7 @@ class TextItem:
         "descender",
         "direction",
         "extent",
+        "format",
         "glyph_count",
         "glyph_indices",
         "layout_offset",
@@ -952,6 +948,7 @@ class TextItem:
     def __init__(self):
         # The text defines the arrays
         self.text = None
+        self.format = ""
 
         # Whitespace attributes affect layout
         self.ws_before = ""
@@ -981,9 +978,10 @@ class TextItem:
         self.descender = 0
         self.direction = None
 
-    def set_text(self, text):
-        if text != self.text:
+    def set_text_and_format(self, text, format):
+        if text != self.text or format != self.format:
             self.text = text
+            self.format = format
             self.need_render_glyphs = True
             self.margin_before = 0
 
@@ -1031,7 +1029,8 @@ class TextItem:
                 text, font.filename, direction
             )
             atlas_indices = textengine.generate_glyph(unicode_indices, font.filename)
-            encode_font_props_in_atlas_indices(atlas_indices, font_props, font)
+            if self.format:
+                encode_font_props_in_atlas_indices(atlas_indices, self.format)
             sizes = np.full((positions.shape[0],), 1.0, np.float32)
             extent = extent + meta["extent"]
             ascender = max(ascender, meta["ascender"])
@@ -1136,7 +1135,7 @@ class TextItem:
             self.glyph_indices = range(0)
 
 
-def encode_font_props_in_atlas_indices(atlas_indices, font_props, font):
+def encode_font_props_in_atlas_indices(atlas_indices, format):
     # We could put font properties in their own buffer(s), but to
     # safe memory, we encode them in the top bits of the atlas
     # indices. This seems like a good place, because these top bits
@@ -1147,10 +1146,12 @@ def encode_font_props_in_atlas_indices(atlas_indices, font_props, font):
 
     # We compare the font_props (i.e. the requested font variant)
     # with the actual font to see what correcion we need to apply.
-    slanted_like = "italic", "oblique", "slanted"
-    if font_props.style in slanted_like and font.style not in slanted_like:
+    # slanted_like = "italic", "oblique", "slanted"
+    # if font_props.style in slanted_like and font.style not in slanted_like:
+    if "i" in format:
         atlas_indices += 0x08000000
-    weight_offset = font_props.weight - font.weight
+    # weight_offset = font_props.weight - font.weight
+    weight_offset = 300 if "b" in format else 0
     weight_0_15 = int((max(-250, weight_offset) + 250) / 50 + 0.4999)
     atlas_indices += max(0, min(15, weight_0_15)) << 28
 
