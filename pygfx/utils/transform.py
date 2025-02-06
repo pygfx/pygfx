@@ -489,8 +489,8 @@ class AffineTransform(AffineBase):
     def flag_update(self):
         """Signal that this transform has updated."""
         self.last_modified = perf_counter_ns()
-        if self._wrapper:
-            self._wrapper.flag_update()
+        if wrapper := self._wrapper:
+            wrapper.flag_update()
 
     def _set_wrapper(self, wrapper: RecursiveTransform):
         self._wrapper = wrapper
@@ -739,8 +739,8 @@ class RecursiveTransform(AffineBase):
         """Signal that this transform has updated."""
         self.last_modified = perf_counter_ns()
         # this if-statement makes a massive difference for performance, don't remove it
-        if self.children:
-            for child in self.children:
+        if children := self.children:
+            for child in children:
                 child.flag_update()
 
     @cached
