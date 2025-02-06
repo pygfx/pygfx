@@ -96,6 +96,6 @@ objects in a scene, its likely that many of these have the same material.
 def _register_blenders():
     # triggers an import which will allow the blenders to register
     # themselves
-    from .blender import WgpuRenderer
+    from .blender import WgpuRenderer  # noqa F401
 
 _register_blenders()
