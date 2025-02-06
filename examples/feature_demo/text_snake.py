@@ -18,20 +18,10 @@ renderer = gfx.renderers.WgpuRenderer(WgpuCanvas())
 scene = gfx.Scene()
 
 
-class SnakeTextGeometry(gfx.TextGeometry):
-    def _apply_layout(self):
-        super()._apply_layout()
-
-        for i in range(self.positions.nitems):
-            x, y = self.positions.data[i]
-            y += 8 * np.sin(x * 0.1 + perf_counter() * 3)
-            self.positions.data[i] = x, y
-
-
 # Create the text
 s = "**Lorem ipsum** dolor sit amet, *consectetur adipiscing elit*, sed do eiusmod tempor ..."
 text1 = gfx.Text(
-    SnakeTextGeometry(markdown=s, font_size=10),
+    gfx.TextGeometry(markdown=s, font_size=10),
     gfx.TextMaterial(color="#fff"),
 )
 scene.add(text1)
@@ -61,7 +51,11 @@ def handle_event(event):
 
 
 def animate():
-    text1.geometry.apply_layout()
+    yy = text1.geometry.glyph_positions.data[:,1]
+    tt = np.linspace(0, 10, len(yy))
+    yy += np.sin(tt + 2* perf_counter())
+    text1.geometry.glyph_positions.update_full()
+
     renderer.render(scene, camera)
     renderer.request_draw()
 
