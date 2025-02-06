@@ -175,7 +175,7 @@ class TextGeometry(Geometry):
         self._glyph_indices_gaps = set()
 
         # Track what blocks need an update. This set is shared with the TextBlock instances.
-        self._text_blocks = []  # List of TextBlock instances
+        self._text_blocks = []  # List of TextBlock instances. May not match length of positions.
         self._dirty_blocks = set()  # Set of ints (text_block.index)
 
         # --- other geomery-specific things
@@ -433,41 +433,67 @@ class TextGeometry(Geometry):
 
     # TODO: refine this API, maybe ensure_block_count() or something is sufficient
 
+    def set_text_block_count(self, n):
+        """Set the number of text blocks to n.
+
+        Use this if you want to use text blocks directly and you know how many
+        blocks you need beforehand. After this, get access to the blocks
+        using ``get_text_block()``.
+        """
+        self._ensure_text_block_count(n)
+
+    def get_text_block_count(self):
+        """Get how many text blocks this geometry has."""
+        return len(self._text_blocks)
+
     def create_text_block(self):
-        self._allocate_text_blocks(1)
+        """Create a text block and return it.
+
+        The text block count is increased by one.
+        """
+        self._ensure_text_block_count(len(self._text_blocks) + 1)
         return self._text_blocks[-1]
 
     def create_text_blocks(self, n):
-        self._allocate_text_blocks(n)
+        """Create n text blocks and return as a list.
+
+        The text block count is increased by one.
+        """
+        self._ensure_text_block_count(len(self._text_blocks) + n)
         return self._text_blocks[-n:]
 
     def get_text_block(self, index):
-        """Get the TextBlock instance at the given index."""
+        """Get the TextBlock instance at the given index.
+
+        The block's position is stored in ``geometry.positions.data[index]``.
+        """
         return self._text_blocks[index]
 
     def set_text(self, text):
-        """Set the full text fir this TextGeometry.
+        """Set the full text for this TextGeometry.
 
         Each line (i.e. paragraph) results in one TextBlock.
+        On subsequent calls, blocks are re-used, and lines that did not change
+        have near-zero overhead (only lines/blocks that changed need updating).
         """
         if not isinstance(text, str):
             raise TypeError("The text should be str.")
         lines = text.splitlines()
         self._ensure_text_block_count(len(lines))
         for i, line in enumerate(lines):
-            block = self._text_blocks[i]
             # Note that setting the blocks text is fast if it did not change
-            block.set_text(line)
-
-        # Disable unused text blocks
-        for i in range(len(lines), len(self._text_blocks)):
-            block = self._text_blocks[i]
-            block.set_text("")
+            self._text_blocks[i].set_text(line)
 
         # TODO: trigger a layout
         self._on_update_object()
 
     def set_markdown(self, text):
+        """Set the full text, formatted as markdown.
+
+        Each line (i.e. paragraph) results in one TextBlock.
+        On subsequent calls, blocks are re-used, and lines that did not change
+        have near-zero overhead (only lines/blocks that changed need updating).
+        """
         self.set_text(text)
 
     def xxxset_markdown(self, markdown, family=None):
@@ -585,12 +611,13 @@ class TextGeometry(Geometry):
             # because we're already shifting rects there.
             return self._aabb
         elif space_mode == "labels":
+            if not self._text_blocks:
+                return None
             if self._aabb_rev == self.positions.rev:
                 return self._aabb
             aabb = None
             # Get positions and check expected shape
-            # TODO: only use positions that are in use!
-            positions = self.positions.data
+            positions = self.positions.data[: len(self._text_blocks)]
             aabb = np.array([positions.min(axis=0), positions.max(axis=0)], np.float32)
             # If positions contains xy, but not z, assume z=0
             if aabb.shape[1] == 2:
@@ -615,7 +642,14 @@ class TextGeometry(Geometry):
             diag = np.norm(self._aabb[1] - self._aabb[0])
             return np.array([[mean[0], mean[1], mean[2], diag]], np.float32)
         elif space_mode == "labels":
-            return super().get_bounding_sphere()
+            positions = self.positions.data[: len(self._text_blocks)]
+            center = positions.mean(axis=0)
+            distances = np.linalg.norm(positions - center, axis=0)
+            radius = float(distances.max())
+            if len(center) == 2:
+                return np.array([center[0], center[1], 0.0, radius], np.float32)
+            else:
+                return np.array([center[0], center[1], center[2], radius], np.float32)
         else:
             logger.warning(f"Unexpected space_mode {space_mode!r}")
             return None
@@ -633,7 +667,10 @@ class TextGeometry(Geometry):
         # Update blocks
         need_high_level_layout = False
         for index in dirty_blocks:
-            block = self._text_blocks[index]
+            try:
+                block = self._text_blocks[index]
+            except IndexError:
+                continue  # block was removed after being marked dirty
             did_block_layout = block._update(self)
             need_high_level_layout |= did_block_layout
 
@@ -647,15 +684,29 @@ class TextGeometry(Geometry):
 
     # --- block management
 
+    def _trigger_blocks_update(self, layout=False, render_glyphs=False):
+        for block in self._text_blocks:
+            block._mark_dirty(layout=layout, render_glyphs=render_glyphs)
+
     def _ensure_text_block_count(self, n):
         """Allocate new buffer if necessary."""
-        current_size = len(self._text_blocks)
-        if current_size < n or current_size > 4 * n:
+
+        # Make sure the underlying buffers are large enough
+        current_buffer_size = self.positions.nitems
+        if current_buffer_size < n or current_buffer_size > 4 * n:
             new_size = 2 ** int(np.ceil(np.log2(n)))
             new_size = max(8, new_size)
-            self._allocate_text_blocks(new_size)
+            self._allocate_block_buffers(new_size)
 
-    def _allocate_text_blocks(self, n):
+        # Add or remove blocks
+        while len(self._text_blocks) > n:
+            block = self._text_blocks.pop(-1)
+            block.clear(self)
+        while len(self._text_blocks) < n:
+            block = TextBlock(len(self._text_blocks), self._dirty_blocks)
+            self._text_blocks.append(block)
+
+    def _allocate_block_buffers(self, n):
         """Allocate new buffers for text blocks with the given size."""
         smallest_n = min(n, len(self._text_blocks))
         # Create new buffers
@@ -665,21 +716,8 @@ class TextGeometry(Geometry):
         new_positions[:smallest_n] = self.positions.data[:smallest_n]
         new_sizes[:smallest_n] = self.sizes.data[:smallest_n]
         # Assign
-        # TODO: I feel like resetting these buffers should be done on the geometry
         self.positions = Buffer(new_positions)
         self.sizes = Buffer(new_sizes)
-
-        # Allocate / de-allocate text blocks and their glyphs
-        while len(self._text_blocks) > n:
-            block = self._text_blocks.pop()
-            self._deallocate_glyphs(block.indices)
-        while len(self._text_blocks) < n:
-            block = TextBlock(len(self._text_blocks), self._dirty_blocks)
-            self._text_blocks.append(block)
-
-    def _trigger_blocks_update(self, layout=False, render_glyphs=False):
-        for block in self._text_blocks:
-            block._mark_dirty(layout=layout, render_glyphs=render_glyphs)
 
     # --- glyph array management
 
@@ -806,7 +844,7 @@ class TextBlock:
 
         # De-allocate old item objects
         for item in self._old_text_items:
-            item.sync_with_geometry(geometry, self._index)
+            item.clear(geometry)
         self._old_text_items = []
 
         # Update in-use item objects
@@ -824,6 +862,15 @@ class TextBlock:
                 item.sync_with_geometry(geometry, self._index)
 
         return need_layout  # i.e. did_layout
+
+    def clear(self, geometry):
+        for item in self._old_text_items:
+            item.clear(geometry)
+        self._old_text_items = []
+        for item in self._text_items:
+            item.clear(geometry)
+        self._text_items = []
+        self._text = ""
 
     def set_text(self, text):
         """Set the text for this TextBlock.
@@ -868,7 +915,6 @@ class TextBlock:
         # Store old items that need to be de-allocated
         for item in self._text_items:
             if len(item.glyph_indices):
-                item.set_text("")
                 self._old_text_items.append(item)
 
         # Store new worlds
@@ -1083,6 +1129,11 @@ class TextItem:
             geometry.glyph_atlas_indices.update_indices(indices)
             geometry.glyph_positions.update_indices(indices)
             geometry.glyph_sizes.update_indices(indices)
+
+    def clear(self, geometry):
+        if len(self.glyph_indices):
+            geometry._glyphs_deallocate(self.glyph_indices)
+            self.glyph_indices = range(0)
 
 
 def encode_font_props_in_atlas_indices(atlas_indices, font_props, font):
@@ -1359,8 +1410,7 @@ def apply_block_layout(geometry, text_block):
 
 
 def apply_final_layout(geometry):
-    text_blocks = [block for block in geometry._text_blocks if block._text]
-    # TODO: code below assumes that unused text blocks are at the end
+    text_blocks = geometry._text_blocks
 
     if not text_blocks:
         geometry._aabb = np.zeros((2, 3), np.float32)
