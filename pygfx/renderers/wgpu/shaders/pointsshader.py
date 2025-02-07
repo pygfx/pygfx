@@ -195,7 +195,6 @@ class PointsShader(BaseShader):
                 render_mask |= RenderMask.all
             else:
                 raise RuntimeError(f"Unexpected color mode {self['color_mode']}")
-
             # Need transparency for aa
             if material.aa:
                 render_mask |= RenderMask.transparent
