@@ -334,6 +334,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         test and validate PyGFX's more advanced features.
         """
         if blender_class is None:
+
             def _register_blend_mode(blender_class):
                 WgpuRenderer._blenders_available[name] = blender_class
                 return blender_class
