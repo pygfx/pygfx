@@ -188,6 +188,8 @@ for marker in gfx.MarkerShape:
             size=1,
             size_space="world",
             color_mode="vertex",
+            # Have one of the lines of points
+            # use edge_color_mode='vertex' to show the difference.
             edge_color_mode="vertex",
             marker=marker,
             edge_color="#000",
