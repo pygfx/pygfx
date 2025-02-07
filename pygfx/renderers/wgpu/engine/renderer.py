@@ -353,7 +353,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # we cannot have this import at the top level otherwise it
         # creates a circular import
         # https://github.com/pygfx/pygfx/pull/966
-        from . import blender as _blender_module
+        from . import blender as _blender_module  # noqa F401
 
         # Massage and check the input
         if value is None:
