@@ -323,17 +323,26 @@ class WgpuRenderer(RootEventHandler, Renderer):
         return self._blend_mode
 
     @staticmethod
-    def register_blend_mode(name, blender=None):
-        """Register a new blender for usage with rendering pipelines."""
+    def register_blend_mode(name, blender_class=None):
+        """Register a new blender for usage with rendering pipelines.
+
+        Note that Blender classes are highly experimental and their inteface
+        is expected to change rapidly from pygfx version 0.7.0 to 
+        version 1.0.0.
+        The permenant existance of this function is not guaranteed.
+
+        Use carefully (i.e. at your own risk) as you help us
+        test and validate PyGFX's more advanced features.
+        """
         if blender is None:
 
-            def _register_blend_mode(blender):
-                WgpuRenderer._blenders_available[name] = blender
-                return blender
+            def _register_blend_mode(blender_class):
+                WgpuRenderer._blenders_available[name] = blender_class
+                return blender_class
 
             return _register_blend_mode
         else:
-            WgpuRenderer._blenders_available[name] = blender
+            WgpuRenderer._blenders_available[name] = blender_class
 
     @blend_mode.setter
     def blend_mode(self, value):
