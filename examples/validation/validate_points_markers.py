@@ -33,12 +33,22 @@ colors = np.array(
     ],
     np.float32,
 )
+edge_colors = np.array(
+    [
+        [1.0, 1.0, 1.0, 1.0],
+        [0.7, 0.7, 0.7, 1.0],
+        [0.5, 0.5, 0.5, 1.0],
+        [0.3, 0.3, 0.3, 1.0],
+        [0.0, 0.0, 0.0, 1.0],
+    ],
+    np.float32,
+)
 
 npoints = len(colors)
 
 positions = np.zeros((npoints, 3), np.float32)
 positions[:, 0] = np.arange(npoints) * 2
-geometry = gfx.Geometry(positions=positions, colors=colors)
+geometry = gfx.Geometry(positions=positions, colors=colors, edge_colors=edge_colors)
 
 
 scene = gfx.Scene()
@@ -178,6 +188,7 @@ for marker in gfx.MarkerShape:
             size=1,
             size_space="world",
             color_mode="vertex",
+            edge_color_mode="vertex",
             marker=marker,
             edge_color="#000",
             edge_width=0.1 if not marker == "custom" else 0.033333,
