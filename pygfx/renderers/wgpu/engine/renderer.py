@@ -322,7 +322,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         return self._blend_mode
 
     @staticmethod
-    def register_blend_mode(name, blender_class=None):
+    def _register_blend_mode(name, blender_class=None):
         """Register a new blender for usage with rendering pipelines.
 
         Note that Blender classes are highly experimental and their inteface
