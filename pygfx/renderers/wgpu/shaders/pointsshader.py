@@ -117,7 +117,9 @@ class PointsShader(BaseShader):
             bindings.extend(self.define_colormap(material.map, geometry.texcoords))
 
         if self["edge_color_mode"] == "vertex":
-            bindings.append(Binding("s_edge_colors", rbuffer, geometry.edge_colors, "VERTEX"))
+            bindings.append(
+                Binding("s_edge_colors", rbuffer, geometry.edge_colors, "VERTEX")
+            )
 
         # Process sprite texture. Note that we can *also* have a colormap for the base color.
         if self["is_sprite"] == 2:

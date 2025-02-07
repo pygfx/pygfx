@@ -381,7 +381,9 @@ class PointsMarkerMaterial(PointsMaterial):
                 f"PointsMaterial.edge_color_mode must be a string in {ColorMode}, not {value!r}"
             )
         if value in ["face", "face_map", "vertex_map"]:
-            raise ValueError(f"PointsMaterial.edge_color_mode does not support {value!r}")
+            raise ValueError(
+                f"PointsMaterial.edge_color_mode does not support {value!r}"
+            )
         self._store.edge_color_mode = value
 
     @property
