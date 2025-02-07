@@ -6,6 +6,7 @@ manages the rendering process.
 import time
 import weakref
 
+from warnings import warn
 import numpy as np
 import wgpu
 import pylinalg as la
@@ -322,7 +323,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         return self._blend_mode
 
     @staticmethod
-    def _register_blend_mode(name, blender_class=None):
+    def _register_blend_mode(blender_class=None):
         """Register a new blender for usage with rendering pipelines.
 
         Note that Blender classes are highly experimental and their inteface
@@ -333,15 +334,24 @@ class WgpuRenderer(RootEventHandler, Renderer):
         Use carefully (i.e. at your own risk) as you help us
         test and validate PyGFX's more advanced features.
         """
+
+        def _register_blend_mode(blender_class):
+            name = blender_class.name
+            if name in WgpuRenderer._blenders_available:
+                warn(
+                    f"Blend mode '{name}' is already registered. "
+                    f"Overwritting {name} with {blender_class}.",
+                    stacklevel=2,
+                )
+            WgpuRenderer._blenders_available[name] = blender_class
+            return blender_class
+
         if blender_class is None:
-
-            def _register_blend_mode(blender_class):
-                WgpuRenderer._blenders_available[name] = blender_class
-                return blender_class
-
+            # Support decorator syntax
             return _register_blend_mode
         else:
-            WgpuRenderer._blenders_available[name] = blender_class
+            # As well as calling syntax
+            _register_blend_mode(blender_class)
 
     @blend_mode.setter
     def blend_mode(self, value):
@@ -367,7 +377,6 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # Set blender object
         self._blend_mode = value
         self._blender = b()
-        self._blender.name = value
         # If our target is a canvas, request a new draw
         if isinstance(self._target, AnyBaseCanvas):
             self._target.request_draw()

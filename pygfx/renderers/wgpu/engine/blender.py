@@ -536,6 +536,9 @@ class BaseFragmentBlender:
     Each renderer has one blender object.
     """
 
+    # Each blender should define a unique name so that it may be
+    # correctly registered in the renderer.
+    name = None
     passes = []
 
     def __init__(self):
@@ -691,25 +694,29 @@ class BaseFragmentBlender:
         return None
 
 
-@WgpuRenderer._register_blend_mode("opaque")
+@WgpuRenderer._register_blend_mode()
 class OpaqueFragmentBlender(BaseFragmentBlender):
     """A fragment blender that pretends that all surfaces are opaque,
     even if they're not.
     """
 
+    name = "opaque"
+
     passes = [FullOpaquePass()]
 
 
-@WgpuRenderer._register_blend_mode("dither")
+@WgpuRenderer._register_blend_mode()
 class DitherFragmentBlender(BaseFragmentBlender):
     """A fragment blender that pretends that all surfaces are opaque,
     even if they're not.
     """
 
+    name = "dither"
+
     passes = [DitherPass()]
 
 
-@WgpuRenderer._register_blend_mode("ordered1")
+@WgpuRenderer._register_blend_mode()
 class Ordered1FragmentBlender(BaseFragmentBlender):
     """A minimal fragment blender that uses the classic alpha blending
     equation, without differentiating between opaque and transparent
@@ -717,10 +724,12 @@ class Ordered1FragmentBlender(BaseFragmentBlender):
     pass. Order dependent.
     """
 
+    name = "ordered1"
+
     passes = [SimpleSinglePass()]
 
 
-@WgpuRenderer._register_blend_mode("ordered2")
+@WgpuRenderer._register_blend_mode()
 class Ordered2FragmentBlender(BaseFragmentBlender):
     """A first step towards better blending: separating the opaque from
     the transparent fragments, and blending the latter using the alpha
@@ -728,10 +737,12 @@ class Ordered2FragmentBlender(BaseFragmentBlender):
     depth-writing. Order dependent.
     """
 
+    name = "ordered2"
+
     passes = [OpaquePass(), SimpleTransparencyPass()]
 
 
-@WgpuRenderer._register_blend_mode("weighted")
+@WgpuRenderer._register_blend_mode()
 class WeightedFragmentBlender(BaseFragmentBlender):
     """Weighted blended order independent transparency (McGuire 2013),
     using a weight function based only on alpha.
@@ -741,6 +752,8 @@ class WeightedFragmentBlender(BaseFragmentBlender):
     weights the fragments. These are combined in the combine-pass,
     realizing order independent blending.
     """
+
+    name = "weighted"
 
     passes = [OpaquePass(), WeightedTransparencyPass("alpha")]
 
@@ -830,16 +843,18 @@ class WeightedFragmentBlender(BaseFragmentBlender):
         )
 
 
-@WgpuRenderer._register_blend_mode("weighted_depth")
+@WgpuRenderer._register_blend_mode()
 class WeightedDepthFragmentBlender(WeightedFragmentBlender):
     """Weighted blended order independent transparency (McGuire 2013),
     using a general purpose depth weight function.
     """
 
+    name = "weighted_depth"
+
     passes = [OpaquePass(), WeightedTransparencyPass("depth")]
 
 
-@WgpuRenderer._register_blend_mode("weighted_plus")
+@WgpuRenderer._register_blend_mode()
 class WeightedPlusFragmentBlender(WeightedFragmentBlender):
     """Three-pass weighted blended order independent transparency (McGuire 2013),
     using a weight function based on alpha, and in which the top-most
@@ -853,6 +868,8 @@ class WeightedPlusFragmentBlender(WeightedFragmentBlender):
     behind it follow McGuire's approach. This looks a bit like a
     single-layer depth peeling.
     """
+
+    name = "weighted_plus"
 
     # Since the front-most transparency pass also writes to the depth
     # buffer, we want to do the opaque pass first. And the weighed pass
@@ -1036,8 +1053,10 @@ class AdditivePass(BasePass):
         """
 
 
-@WgpuRenderer._register_blend_mode("additive")
+@WgpuRenderer._register_blend_mode()
 class AdditiveFragmentBlender(BaseFragmentBlender):
     """A fragment blender that uses additive blending for all fragments."""
+
+    name = "additive"
 
     passes = [AdditivePass()]
