@@ -181,6 +181,21 @@ fn vs_main(in: VertexInput) -> Varyings {
         $$ endif
     $$ endif
 
+    $$ if edge_color_mode == 'vertex'
+        let edge_color_index = node_index;
+        $$ if edge_color_buffer_channels == 1
+            let edge_cvalue = load_s_edge_colors(edge_color_index);
+            varyings.edge_color = vec4<f32>(edge_cvalue, edge_cvalue, edge_cvalue, 1.0);
+        $$ elif edge_color_buffer_channels == 2
+            let edge_cvalue = load_s_edge_colors(edge_color_index);
+            varyings.edge_color = vec4<f32>(edge_cvalue.r, edge_cvalue.r, edge_cvalue.r, edge_cvalue.g);
+        $$ elif edge_color_buffer_channels == 3
+            varyings.edge_color = vec4<f32>(load_s_edge_colors(edge_color_index), 1.0);
+        $$ elif edge_color_buffer_channels == 4
+            varyings.edge_color = vec4<f32>(load_s_edge_colors(edge_color_index));
+        $$ endif
+    $$ endif
+
     // How to index into tex-coords
     let tex_coord_index = node_index;
 
@@ -309,8 +324,13 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
         $$ else
             edge_alpha = f32(dist_to_line_edge_p <= 0.0);  // boolean alpha
         $$ endif
-        // Sample the edge color. Always a uniform, currently.
+
+        // Sample the edge color. Currently a uniform or vertex mapped
+        $$ if edge_color_mode == 'vertex'
+        let sampled_edge_color = varyings.edge_color;
+        $$ else
         let sampled_edge_color = u_material.edge_color;
+        $$ endif
         // Combine
         let edge_color = vec4<f32>(sampled_edge_color.rgb, sampled_edge_color.a * edge_alpha);
         // Mix edge over face!
