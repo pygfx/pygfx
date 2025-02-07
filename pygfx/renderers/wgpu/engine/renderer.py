@@ -335,23 +335,15 @@ class WgpuRenderer(RootEventHandler, Renderer):
         test and validate PyGFX's more advanced features.
         """
 
-        def _register_blend_mode(blender_class):
-            name = blender_class.name
-            if name in WgpuRenderer._blenders_available:
-                warn(
-                    f"Blend mode '{name}' is already registered. "
-                    f"Overwritting {name} with {blender_class}.",
-                    stacklevel=2,
-                )
-            WgpuRenderer._blenders_available[name] = blender_class
-            return blender_class
-
-        if blender_class is None:
-            # Support decorator syntax
-            return _register_blend_mode
-        else:
-            # As well as calling syntax
-            _register_blend_mode(blender_class)
+        name = blender_class.name
+        if name in WgpuRenderer._blenders_available:
+            warn(
+                f"Blend mode '{name}' is already registered. "
+                f"Overwritting {name} with {blender_class}.",
+                stacklevel=2,
+            )
+        WgpuRenderer._blenders_available[name] = blender_class
+        return blender_class
 
     @blend_mode.setter
     def blend_mode(self, value):
@@ -371,7 +363,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
             value = "ordered2"
 
         b = self._blenders_available.get(value)
-        if blender is None:
+        if b is None:
             available = list(self._blenders_available.keys())
             raise ValueError(f"Unknown blend_mode '{value}', use any of {available}.")
         # Set blender object
