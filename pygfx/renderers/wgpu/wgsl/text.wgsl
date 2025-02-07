@@ -238,6 +238,7 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     // See: https://github.com/pygfx/pygfx/pull/776#issuecomment-2149374275
     // And: https://github.com/pygfx/pygfx/pull/774#issuecomment-2147458827
     // float32 precision is about 5-6 digits
+    // The math below is equivalent to (1 - 1e-5 * (2 - outline))
     out.depth = varyings.position.z * (0.99998 + 1e-5 * outline);
 
     $$ if write_pick
