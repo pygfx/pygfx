@@ -192,7 +192,6 @@ for marker in gfx.MarkerShape:
             # use edge_color_mode='vertex' to show the difference.
             edge_color_mode="vertex",
             marker=marker,
-            edge_color="#000",
             edge_width=0.1 if not marker == "custom" else 0.033333,
             edge_mode="outer",
             custom_sdf=pygfx_sdf if marker == "custom" else None,
