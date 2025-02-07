@@ -353,7 +353,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # we cannot have this import at the top level otherwise it
         # creates a circular import
         # https://github.com/pygfx/pygfx/pull/966
-        from . import blender
+        from . import blender as _blender_module
 
         # Massage and check the input
         if value is None:
@@ -362,13 +362,13 @@ class WgpuRenderer(RootEventHandler, Renderer):
         if value == "default":
             value = "ordered2"
 
-        b = self._blenders_available.get(value)
-        if b is None:
+        blender = self._blenders_available.get(value)
+        if blender is None:
             available = list(self._blenders_available.keys())
             raise ValueError(f"Unknown blend_mode '{value}', use any of {available}.")
         # Set blender object
         self._blend_mode = value
-        self._blender = b()
+        self._blender = blender()
         # If our target is a canvas, request a new draw
         if isinstance(self._target, AnyBaseCanvas):
             self._target.request_draw()
