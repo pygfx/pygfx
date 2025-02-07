@@ -353,13 +353,13 @@ class WgpuRenderer(RootEventHandler, Renderer):
         if value == "default":
             value = "ordered2"
 
-        blender = self._blenders_available.get(value)
+        b = self._blenders_available.get(value)
         if blender is None:
             available = list(self._blenders_available.keys())
             raise ValueError(f"Unknown blend_mode '{value}', use any of {available}.")
         # Set blender object
         self._blend_mode = value
-        self._blender = blender()
+        self._blender = b()
         self._blender.name = value
         # If our target is a canvas, request a new draw
         if isinstance(self._target, AnyBaseCanvas):
