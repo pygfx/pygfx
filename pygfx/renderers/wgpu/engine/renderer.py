@@ -34,6 +34,7 @@ from ....resources._base import resource_update_registry
 from ....utils import Color
 
 from ... import Renderer
+from . import blender   # noqa - import to register blenders
 from .flusher import RenderFlusher
 from .pipeline import get_pipeline_container_group
 from .update import update_resource, ensure_wgpu_object
