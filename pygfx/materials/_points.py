@@ -113,7 +113,7 @@ class PointsMaterial(Material):
 
     @property
     def color_mode(self):
-        """The way that color is applied to the mesh.
+        """The way that color is applied to the points.
 
         See :obj:`pygfx.utils.enums.ColorMode`:
         """
@@ -258,12 +258,14 @@ class PointsMarkerMaterial(PointsMaterial):
         edge_width=1,
         edge_color="black",
         custom_sdf=None,
+        edge_color_mode="auto",
         **kwargs,
     ):
         super().__init__(**kwargs)
         self.marker = marker
         self.edge_width = edge_width
         self.edge_color = edge_color
+        self.edge_color_mode = edge_color_mode
         self.custom_sdf = custom_sdf
 
     @property
@@ -358,6 +360,31 @@ class PointsMarkerMaterial(PointsMaterial):
                 f"PointsMarkerMaterial.marker must be a string in {SizeMode}, or a supported characted, not {name!r}"
             )
         self._store.marker = resolved_name
+
+    @property
+    def edge_color_mode(self):
+        """The way that color is applied to the points.
+
+        Only "uniform", "auto", and "vertex" are supported.
+
+        For `edge_color_mode`, "auto" is an alias for "uniform".
+
+        See :obj:`pygfx.utils.enums.ColorMode`:
+        """
+        return self._store.edge_color_mode
+
+    @edge_color_mode.setter
+    def edge_color_mode(self, value):
+        value = value or "auto"
+        if value not in ColorMode:
+            raise ValueError(
+                f"PointsMaterial.edge_color_mode must be a string in {ColorMode}, not {value!r}"
+            )
+        if value in ["face", "face_map", "vertex_map"]:
+            raise ValueError(
+                f"PointsMaterial.edge_color_mode does not support {value!r}"
+            )
+        self._store.edge_color_mode = value
 
     @property
     def custom_sdf(self):

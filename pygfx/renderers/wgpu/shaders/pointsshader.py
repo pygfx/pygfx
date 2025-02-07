@@ -59,6 +59,24 @@ class PointsShader(BaseShader):
         else:
             raise RuntimeError(f"Unknown color_mode: '{color_mode}'")
 
+        if isinstance(material, PointsMarkerMaterial):
+            edge_color_mode = str(material.edge_color_mode).split(".")[-1]
+        else:
+            edge_color_mode = "uniform"
+
+        if edge_color_mode == "vertex":
+            nchannels = nchannels_from_format(geometry.edge_colors.format)
+            self["edge_color_mode"] = "vertex"
+            self["edge_color_buffer_channels"] = nchannels
+            if nchannels not in (1, 2, 3, 4):
+                raise ValueError(
+                    f"Geometry.edge_colors needs 1-4 columns, not {self['edge_color_buffer_channels']}"
+                )
+        else:  # auto or uniform
+            self["edge_color_mode"] = "uniform"
+            self["edge_color_buffer_channels"] = 0
+
+        self["edge_color_mode"] = edge_color_mode
         self["edge_mode"] = material.edge_mode
         self["is_sprite"] = 0  # 0, 1, 2
         if isinstance(material, PointsSpriteMaterial):
@@ -97,6 +115,11 @@ class PointsShader(BaseShader):
                 Binding("s_texcoords", rbuffer, geometry.texcoords, "VERTEX")
             )
             bindings.extend(self.define_colormap(material.map, geometry.texcoords))
+
+        if self["edge_color_mode"] == "vertex":
+            bindings.append(
+                Binding("s_edge_colors", rbuffer, geometry.edge_colors, "VERTEX")
+            )
 
         # Process sprite texture. Note that we can *also* have a colormap for the base color.
         if self["is_sprite"] == 2:
@@ -182,10 +205,16 @@ class PointsShader(BaseShader):
                 else:
                     pass  # mixed with color, so no need to OR with opaque
             elif isinstance(material, PointsMarkerMaterial):
-                if material.edge_color_is_transparent:
-                    render_mask |= RenderMask.transparent
-                else:
-                    render_mask |= RenderMask.opaque
+                if self["edge_color_mode"] == "vertex":
+                    if self["edge_color_buffer_channels"] in (2, 4):
+                        render_mask |= RenderMask.all
+                    else:
+                        render_mask |= RenderMask.opaque
+                elif self["edge_color_mode"] == "uniform":
+                    if material.edge_color_is_transparent:
+                        render_mask |= RenderMask.transparent
+                    else:
+                        render_mask |= RenderMask.opaque
 
         return {
             "indices": (size, 1, offset, 0),
