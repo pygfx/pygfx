@@ -34,7 +34,6 @@ from ....resources._base import resource_update_registry
 from ....utils import Color
 
 from ... import Renderer
-from . import blender   # noqa - import to register blenders
 from .flusher import RenderFlusher
 from .pipeline import get_pipeline_container_group
 from .update import update_resource, ensure_wgpu_object
@@ -334,8 +333,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         Use carefully (i.e. at your own risk) as you help us
         test and validate PyGFX's more advanced features.
         """
-        if blender is None:
-
+        if blender_class is None:
             def _register_blend_mode(blender_class):
                 WgpuRenderer._blenders_available[name] = blender_class
                 return blender_class
@@ -346,6 +344,14 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
     @blend_mode.setter
     def blend_mode(self, value):
+        # Without importing our standard blender module, the
+        # blenders will not be registered and available.
+        # since they import the renderer module
+        # we cannot have this import at the top level otherwise it
+        # creates a circular import
+        # https://github.com/pygfx/pygfx/pull/966
+        from . import blender
+
         # Massage and check the input
         if value is None:
             value = "default"
