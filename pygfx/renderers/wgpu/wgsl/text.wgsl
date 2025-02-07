@@ -237,7 +237,9 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     // z-fighting to occur leading to artifacts.
     // See: https://github.com/pygfx/pygfx/pull/776#issuecomment-2149374275
     // And: https://github.com/pygfx/pygfx/pull/774#issuecomment-2147458827
-    out.depth = varyings.position.z - 1e-6 * (2.0 - outline);
+    // float32 precision is about 5-6 digits
+    // The math below is equivalent to (1 - 1e-5 * (2 - outline))
+    out.depth = varyings.position.z * (0.99998 + 1e-5 * outline);
 
     $$ if write_pick
     // The wobject-id must be 20 bits. In total it must not exceed 64 bits.
