@@ -327,7 +327,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         """Register a new blender for usage with rendering pipelines.
 
         Note that Blender classes are highly experimental and their inteface
-        is expected to change rapidly from pygfx version 0.7.0 to 
+        is expected to change rapidly from pygfx version 0.7.0 to
         version 1.0.0.
         The permenant existance of this function is not guaranteed.
 
