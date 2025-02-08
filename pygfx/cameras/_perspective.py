@@ -493,7 +493,7 @@ class PerspectiveCamera(Camera):
         self.world.position = new_position
 
     @cached
-    def frustum(self):
+    def frustum(self, cache):
         """Corner positions of the viewing frustum in world space.
 
         Returns

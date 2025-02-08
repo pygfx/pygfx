@@ -124,7 +124,7 @@ class Camera(WorldObject):
         return self.world.inverse_matrix
 
     @cached
-    def projection_matrix(self) -> np.ndarray:
+    def projection_matrix(self, cache) -> np.ndarray:
         base = self._update_projection_matrix()
         if self._view_offset is None:
             return base
@@ -148,11 +148,11 @@ class Camera(WorldObject):
         return ndc_matrix @ base
 
     @cached
-    def projection_matrix_inverse(self) -> np.ndarray:
+    def projection_matrix_inverse(self, cache) -> np.ndarray:
         return la.mat_inverse(self.projection_matrix)
 
     @cached
-    def camera_matrix(self) -> np.ndarray:
+    def camera_matrix(self, cache) -> np.ndarray:
         return self.projection_matrix @ self.view_matrix
 
 
