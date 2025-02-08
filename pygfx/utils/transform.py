@@ -39,8 +39,7 @@ class cached:  # noqa: N801
         if cache is None or last_modified > cache[0]:
             cache_value = cache[1] if cache else None
             new_value = self.compute_fn(instance, cache_value)
-            if cache_value is not new_value:
-                setattr(instance, self.name, (last_modified, new_value))
+            setattr(instance, self.name, (last_modified, new_value))
             return new_value
 
         return cache[1]
