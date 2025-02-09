@@ -6,6 +6,7 @@ manages the rendering process.
 import time
 import weakref
 
+from warnings import warn
 import numpy as np
 import wgpu
 import pylinalg as la
@@ -34,7 +35,6 @@ from ....resources._base import resource_update_registry
 from ....utils import Color
 
 from ... import Renderer
-from . import blender as blender_module
 from .flusher import RenderFlusher
 from .pipeline import get_pipeline_container_group
 from .update import update_resource, ensure_wgpu_object
@@ -117,6 +117,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
     """
 
+    _blenders_available = {}
     _wobject_pipelines_collection = weakref.WeakValueDictionary()
 
     def __init__(
@@ -321,33 +322,53 @@ class WgpuRenderer(RootEventHandler, Renderer):
         """
         return self._blend_mode
 
+    @staticmethod
+    def _register_blend_mode(blender_class=None):
+        """Register a new blender for usage with rendering pipelines.
+
+        Note that Blender classes are highly experimental and their inteface
+        is expected to change rapidly from pygfx version 0.7.0 to
+        version 1.0.0.
+        The permenant existance of this function is not guaranteed.
+
+        Use carefully (i.e. at your own risk) as you help us
+        test and validate PyGFX's more advanced features.
+        """
+
+        name = blender_class.name
+        if name in WgpuRenderer._blenders_available:
+            warn(
+                f"Blend mode '{name}' is already registered. "
+                f"Overwritting {name} with {blender_class}.",
+                stacklevel=2,
+            )
+        WgpuRenderer._blenders_available[name] = blender_class
+        return blender_class
+
     @blend_mode.setter
     def blend_mode(self, value):
+        # Without importing our standard blender module, the
+        # blenders will not be registered and available.
+        # since they import the renderer module
+        # we cannot have this import at the top level otherwise it
+        # creates a circular import
+        # https://github.com/pygfx/pygfx/pull/966
+        from . import blender as _blender_module  # noqa F401
+
         # Massage and check the input
         if value is None:
             value = "default"
         value = value.lower()
         if value == "default":
             value = "ordered2"
-        # Map string input to a class
-        m = {
-            "additive": blender_module.AdditiveFragmentBlender,
-            "opaque": blender_module.OpaqueFragmentBlender,
-            "dither": blender_module.DitherFragmentBlender,
-            "ordered1": blender_module.Ordered1FragmentBlender,
-            "ordered2": blender_module.Ordered2FragmentBlender,
-            "weighted": blender_module.WeightedFragmentBlender,
-            "weighted_depth": blender_module.WeightedDepthFragmentBlender,
-            "weighted_plus": blender_module.WeightedPlusFragmentBlender,
-        }
-        if value not in m:
-            raise ValueError(
-                f"Unknown blend_mode '{value}', use any of {set(m.keys())}"
-            )
+
+        blender = self._blenders_available.get(value)
+        if blender is None:
+            available = list(self._blenders_available.keys())
+            raise ValueError(f"Unknown blend_mode '{value}', use any of {available}.")
         # Set blender object
         self._blend_mode = value
-        self._blender = m[value]()
-        self._blender.name = value
+        self._blender = blender()
         # If our target is a canvas, request a new draw
         if isinstance(self._target, AnyBaseCanvas):
             self._target.request_draw()
