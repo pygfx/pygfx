@@ -87,6 +87,20 @@ class AffineBase:
 
     """
 
+    __slots__ = (
+        "_reference_up",
+        "_reference_up_view",
+        "_scaling_signs",
+        "_scaling_signs_view",
+        "cache__decomposed_cache",
+        "cache__direction_components_cache",
+        "cache__directions_cache",
+        "cache__euler_cache",
+        "cache__inverse_matrix_cache",
+        "cache__rotation_matrix_cache",
+        "is_camera_space",
+    )
+
     last_modified: int
 
     def __init__(self, /, *, reference_up=(0, 1, 0), is_camera_space=False):
@@ -451,6 +465,22 @@ class AffineTransform(AffineBase):
 
     """
 
+    __slots__ = (
+        "_matrix",
+        "_matrix_view",
+        "_position",
+        "_position_view",
+        "_rotation",
+        "_rotation_view",
+        "_scale",
+        "_scale_view",
+        "_state_basis",
+        "_wrapper",
+        "cache__composed_matrix_cache",
+        "cache__computed_scaling_signs_cache",
+        "last_modified",
+    )
+
     def __init__(
         self,
         position=(0, 0, 0),
@@ -723,6 +753,16 @@ class RecursiveTransform(AffineBase):
         Base class defining various useful properties for this transform.
 
     """
+
+    __slots__ = (
+        "_parent",
+        "cache__computed_parent_reference_up_cache",
+        "cache__computed_scaling_signs_cache",
+        "cache__matrix_cache",
+        "children",
+        "last_modified",
+        "own",
+    )
 
     def __init__(
         self,
