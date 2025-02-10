@@ -122,7 +122,7 @@ fn getIBLVolumeRefraction( n: vec3f, v: vec3f, roughness: f32, diffuse_color: ve
         let half_spread = ( ior - 1.0 ) * 0.025 * dispersion;
         let iors = vec3f( ior - half_spread, ior, ior + half_spread );
 
-        for i in 0..3 {
+        for ( var i = 0; i < 3; i ++ ) {
             let transmission_ray = get_volume_transmission_ray( n, v, thickness, iors[i], model_matrix );
             let refracted_ray_exit = position + transmission_ray;
 
