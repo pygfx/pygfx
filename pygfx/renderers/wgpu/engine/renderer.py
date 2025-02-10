@@ -305,8 +305,6 @@ class WgpuRenderer(RootEventHandler, Renderer):
         now = time.perf_counter()
         self._fps = {"start": now, "count": 0}
 
-        self._transmissive_blender = blender_module.Ordered2FragmentBlender()
-
         if enable_events:
             self.enable_events()
 
