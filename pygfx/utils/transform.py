@@ -37,8 +37,10 @@ class cached:  # noqa: N801
         cache = getattr(instance, self.name, None)
 
         if cache is None or last_modified > cache[0]:
-            cache = (last_modified, self.compute_fn(instance))
-            setattr(instance, self.name, cache)
+            cache_value = cache[1] if cache else None
+            new_value = self.compute_fn(instance, cache_value)
+            setattr(instance, self.name, (last_modified, new_value))
+            return new_value
 
         return cache[1]
 
@@ -137,8 +139,10 @@ class AffineBase:
         raise NotImplementedError()
 
     @cached
-    def _inverse_matrix(self) -> np.ndarray:
-        mat = la.mat_inverse(self.matrix)
+    def _inverse_matrix(self, cache) -> np.ndarray:
+        if cache is not None:
+            cache.flags.writeable = True
+        mat = la.mat_inverse(self.matrix, out=cache)
         mat.flags.writeable = False
         return mat
 
@@ -149,22 +153,30 @@ class AffineBase:
         return self._scaling_signs_view
 
     @cached
-    def _decomposed(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def _decomposed(self, cache) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        if cache is not None:
+            cache[0].flags.writeable = True
+            cache[1].flags.writeable = True
+            cache[2].flags.writeable = True
+
         try:
-            decomposed = la.mat_decompose(self.matrix, scaling_signs=self.scaling_signs)
+            decomposed = la.mat_decompose(
+                self.matrix, scaling_signs=self.scaling_signs, out=cache
+            )
         except ValueError:
             # the matrix has been set manually
             # and so there is no scaling component to preserve
             # any decomposed scaling is acceptable
-            decomposed = la.mat_decompose(self.matrix)
+            decomposed = la.mat_decompose(self.matrix, out=cache)
 
-        for m in decomposed:
-            m.flags.writeable = False
+        decomposed[0].flags.writeable = False
+        decomposed[1].flags.writeable = False
+        decomposed[2].flags.writeable = False
 
         return decomposed
 
     @cached
-    def _directions(self):
+    def _directions(self, cache):
         # Note: forward_is_minus_z indicates the camera frame
         directions = (2 * self.is_camera_space - 1, 1, 1 - 2 * self.is_camera_space)
 
@@ -172,23 +184,30 @@ class AffineBase:
         axes_target = la.vec_transform(axes_source, self.matrix)
         origin_target = la.vec_transform((0, 0, 0), self.matrix)
 
-        directions = axes_target - origin_target
+        if cache is not None:
+            cache.flags.writeable = True
+
+        directions = np.subtract(axes_target, origin_target, out=cache)
         directions.flags.writeable = False
         return directions
 
     @cached
-    def _direction_components(self):
+    def _direction_components(self, cache):
         return (*self._directions,)
 
     @cached
-    def _rotation_matrix(self):
-        rotation = la.mat_from_quat(self._decomposed[1])
+    def _rotation_matrix(self, cache):
+        if cache is not None:
+            cache.flags.writeable = True
+        rotation = la.mat_from_quat(self._decomposed[1], out=cache)
         rotation.flags.writeable = False
         return rotation
 
     @cached
-    def _euler(self):
-        euler = la.quat_to_euler(self._decomposed[1])
+    def _euler(self, cache):
+        if cache is not None:
+            cache.flags.writeable = True
+        euler = la.quat_to_euler(self._decomposed[1], out=cache)
         euler.flags.writeable = False
         return euler
 
@@ -608,8 +627,10 @@ class AffineTransform(AffineBase):
         AffineBase.scale.fset(self, value)
 
     @cached
-    def _computed_scaling_signs(self) -> np.ndarray:
-        signs = np.sign(self._scale)
+    def _computed_scaling_signs(self, cache) -> np.ndarray:
+        if cache is not None:
+            cache.flags.writeable = True
+        signs = np.sign(self._scale, out=cache)
         signs.flags.writeable = False
         return signs
 
@@ -622,24 +643,44 @@ class AffineTransform(AffineBase):
         return super().scaling_signs
 
     @cached
-    def _rotation_matrix(self) -> np.ndarray:
+    def _rotation_matrix(self, cache) -> np.ndarray:
+        if cache is not None:
+            cache.flags.writeable = True
+        rotation = la.mat_from_quat(self._rotation, out=cache)
+        rotation.flags.writeable = False
+        return rotation
+
+    @property
+    def rotation_matrix(self) -> np.ndarray:
+        """The orientation of source as a rotation matrix."""
         if self.state_basis == "components":
-            rotation = la.mat_from_quat(self._rotation)
-            rotation.flags.writeable = False
-            return rotation
-        return super()._rotation_matrix
+            return self._rotation_matrix
+        return super().rotation_matrix
+
+    rotation_matrix = rotation_matrix.setter(AffineBase.rotation_matrix.fset)
 
     @cached
-    def _euler(self) -> np.ndarray:
+    def _euler(self, cache) -> np.ndarray:
+        if cache is not None:
+            cache.flags.writeable = True
+        euler = la.quat_to_euler(self._rotation, out=cache)
+        euler.flags.writeable = False
+        return euler
+
+    @property
+    def euler(self) -> np.ndarray:
+        """The orientation of source as XYZ euler angles."""
         if self.state_basis == "components":
-            euler = la.quat_to_euler(self._rotation)
-            euler.flags.writeable = False
-            return euler
-        return super()._euler
+            return self._euler
+        return super().euler
+
+    euler = euler.setter(AffineBase.euler.fset)
 
     @cached
-    def _composed_matrix(self) -> np.ndarray:
-        mat = la.mat_compose(self._position, self._rotation, self._scale)
+    def _composed_matrix(self, cache) -> np.ndarray:
+        if cache is not None:
+            cache.flags.writeable = True
+        mat = la.mat_compose(self._position, self._rotation, self._scale, out=cache)
         mat.flags.writeable = False
         return mat
 
@@ -795,11 +836,13 @@ class RecursiveTransform(AffineBase):
                     child.last_modified = last_modified
 
     @cached
-    def _computed_parent_reference_up(self) -> np.ndarray:
+    def _computed_parent_reference_up(self, cache) -> np.ndarray:
         """The direction of the reference_up vector expressed in the parent frame."""
         new_ref = la.vec_transform(self._reference_up, self._parent.inverse_matrix)
         origin = la.vec_transform((0, 0, 0), self._parent.inverse_matrix)
-        vec = la.vec_normalize(new_ref - origin)
+        if cache is not None:
+            cache.flags.writeable = True
+        vec = la.vec_normalize(new_ref - origin, out=cache)
         vec.flags.writeable = False
         return vec
 
@@ -833,8 +876,10 @@ class RecursiveTransform(AffineBase):
         self.flag_update()
 
     @cached
-    def _matrix(self) -> np.ndarray:
-        mat = self._parent.matrix @ self.own.matrix
+    def _matrix(self, cache) -> np.ndarray:
+        if cache is not None:
+            cache.flags.writeable = True
+        mat = np.matmul(self._parent.matrix, self.own.matrix, out=cache)
         mat.flags.writeable = False
         return mat
 
@@ -864,8 +909,12 @@ class RecursiveTransform(AffineBase):
             return np.asarray(self) @ other
 
     @cached
-    def _computed_scaling_signs(self) -> np.ndarray:
-        signs = self._parent.scaling_signs * self.own.scaling_signs
+    def _computed_scaling_signs(self, cache) -> np.ndarray:
+        if cache is not None:
+            cache.flags.writeable = True
+        signs = np.multiply(
+            self._parent.scaling_signs, self.own.scaling_signs, out=cache
+        )
         signs.flags.writeable = False
         return signs
 

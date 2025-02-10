@@ -108,7 +108,7 @@ class Camera(WorldObject):
         self._view_offset = None
         self.flag_update()
 
-    def _update_projection_matrix(self) -> np.ndarray:
+    def _update_projection_matrix(self, cache) -> np.ndarray:
         raise NotImplementedError()
 
     def get_state(self):
@@ -124,9 +124,14 @@ class Camera(WorldObject):
         return self.world.inverse_matrix
 
     @cached
-    def projection_matrix(self) -> np.ndarray:
-        base = self._update_projection_matrix()
-        if self._view_offset is None:
+    def projection_matrix(self, cache) -> np.ndarray:
+        if cache is not None:
+            cache.flags.writeable = True
+
+        only_base = self._view_offset is None
+        base = self._update_projection_matrix(cache if only_base else None)
+        if only_base:
+            base.flags.writeable = False
             return base
 
         view_offset = self._view_offset
@@ -143,17 +148,27 @@ class Camera(WorldObject):
                 [0.0, 0.0, 1.0, 0.0],
                 [0.0, 0.0, 0.0, 1.0],
             ],
-            np.float32,
+            dtype=np.float32,
         )
-        return ndc_matrix @ base
+        out = np.matmul(ndc_matrix, base, out=cache)
+        out.flags.writeable = False
+        return out
 
     @cached
-    def projection_matrix_inverse(self) -> np.ndarray:
-        return la.mat_inverse(self.projection_matrix)
+    def projection_matrix_inverse(self, cache) -> np.ndarray:
+        if cache is not None:
+            cache.flags.writeable = True
+        out = la.mat_inverse(self.projection_matrix, out=cache)
+        out.flags.writeable = False
+        return out
 
     @cached
-    def camera_matrix(self) -> np.ndarray:
-        return self.projection_matrix @ self.view_matrix
+    def camera_matrix(self, cache) -> np.ndarray:
+        if cache is not None:
+            cache.flags.writeable = True
+        out = np.matmul(self.projection_matrix, self.view_matrix, out=cache)
+        out.flags.writeable = False
+        return out
 
 
 class NDCCamera(Camera):
@@ -166,7 +181,12 @@ class NDCCamera(Camera):
     the bottom left corner.
     """
 
-    def _update_projection_matrix(self):
+    _cached_eye = np.eye(4, dtype=float)
+
+    def _update_projection_matrix(self, cache):
+        if cache is not None:
+            cache[:] = self._cached_eye
+            return cache
         return np.eye(4, dtype=float)
 
 
@@ -176,9 +196,12 @@ class ScreenCoordsCamera(Camera):
     The depth range is the same as in NDC (0 to 1).
     """
 
-    def _update_projection_matrix(self):
+    def _update_projection_matrix(self, cache):
         width, height = self._view_size
         sx, sy, sz = 2 / width, 2 / height, 1
         dx, dy, dz = -1, -1, 0
-        m = sx, 0, 0, dx, 0, sy, 0, dy, 0, 0, sz, dz, 0, 0, 0, 1
-        return np.array(m, dtype=float).reshape(4, 4)
+        mat = [[sx, 0, 0, dx], [0, sy, 0, dy], [0, 0, sz, dz], [0, 0, 0, 1]]
+        if cache is not None:
+            cache[:] = mat
+            return cache
+        return np.array(mat, dtype=float)

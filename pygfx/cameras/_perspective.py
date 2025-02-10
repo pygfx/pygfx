@@ -275,7 +275,7 @@ class PerspectiveCamera(Camera):
                 setattr(self, key, value)
         self.flag_update()
 
-    def _update_projection_matrix(self):
+    def _update_projection_matrix(self, cache):
         zoom_factor = self._zoom
         near, far = self._get_near_and_far_plane()
 
@@ -307,7 +307,7 @@ class PerspectiveCamera(Camera):
             right = +0.5 * width
             # Set matrices
             projection_matrix = la.mat_perspective(
-                left, right, top, bottom, near, far, depth_range=(0, 1)
+                left, right, top, bottom, near, far, depth_range=(0, 1), out=cache
             )
 
         else:
@@ -329,7 +329,7 @@ class PerspectiveCamera(Camera):
             right = +0.5 * width
             # Set matrices
             projection_matrix = la.mat_orthographic(
-                left, right, top, bottom, near, far, depth_range=(0, 1)
+                left, right, top, bottom, near, far, depth_range=(0, 1), out=cache
             )
 
         return projection_matrix
@@ -493,7 +493,7 @@ class PerspectiveCamera(Camera):
         self.world.position = new_position
 
     @cached
-    def frustum(self):
+    def frustum(self, cache):
         """Corner positions of the viewing frustum in world space.
 
         Returns
@@ -505,12 +505,16 @@ class PerspectiveCamera(Camera):
             and the third to the world position of that corner.
 
         """
+        if cache is not None:
+            cache.flags.writeable = True
+
         projection_matrix = self.projection_matrix
 
         ndc_corners = np.array([(-1, -1), (1, -1), (1, 1), (-1, 1)])
         depths = np.array((0, 1))[:, None]
         local_corners = la.vec_unproject(ndc_corners, projection_matrix, depth=depths)
-        world_corners = la.vec_transform(local_corners, self.world.matrix)
+        world_corners = la.vec_transform(local_corners, self.world.matrix, out=cache)
+        world_corners.flags.writeable = False
         return world_corners
 
 
