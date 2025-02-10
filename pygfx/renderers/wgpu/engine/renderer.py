@@ -305,6 +305,8 @@ class WgpuRenderer(RootEventHandler, Renderer):
         now = time.perf_counter()
         self._fps = {"start": now, "count": 0}
 
+        self._transmissive_blender = blender_module.Ordered2FragmentBlender()
+
         if enable_events:
             self.enable_events()
 
@@ -604,21 +606,53 @@ class WgpuRenderer(RootEventHandler, Renderer):
         for resource in resource_update_registry.get_syncable_resources(flush=True):
             update_resource(resource)
 
+        self._transmissive_blender.ensure_target_size(self.physical_size)
+        self._shared.ensure_transmission_framebuffer_size(self.physical_size)
+
         # Command buffers cannot be reused. If we want some sort of re-use we should
         # look into render bundles. See https://github.com/gfx-rs/wgpu-native/issues/154
         # If we do get this to work, we should trigger a new recording
         # when the wobject's children, visible, render_order, or render_pass changes.
 
         # Record the rendering of all world objects, or re-use previous recording
-        command_buffers = []
-        command_buffers += self._render_recording(
+
+        command_encoder = self._device.create_command_encoder()
+        self._render_recording(
             renderstate,
             flat,
             physical_viewport,
         )
 
         # Collect commands and submit
-        self._device.queue.submit(command_buffers)
+        self._device.queue.submit([command_encoder.finish()])
+
+        ############# debug transmissive pass ###########
+
+        # texture = self._transmissive_blender.color_tex
+        # size = texture.size
+        # bytes_per_pixel = 4
+
+        # data = self._device.queue.read_texture(
+        #     {
+        #         "texture": texture,
+        #         "mip_level": 0,
+        #         "origin": (0, 0, 0),
+        #     },
+        #     {
+        #         "offset": 0,
+        #         "bytes_per_row": bytes_per_pixel * size[0],
+        #         "rows_per_image": size[1],
+        #     },
+        #     size,
+        # )
+
+        # ary = np.frombuffer(data, np.uint8).reshape(size[1], size[0], 4)
+
+        # import cv2
+        # cv2.imshow("image", cv2.cvtColor(ary, cv2.COLOR_RGBA2BGRA))
+        # cv2.waitKey(1)
+
+        ############# debug transmissive pass ###########
 
         if flush:
             self.flush()

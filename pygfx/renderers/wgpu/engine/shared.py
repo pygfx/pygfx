@@ -5,7 +5,7 @@ A global object shared by all renderers.
 import os
 import wgpu
 
-from ....resources import Resource, Buffer
+from ....resources import Resource, Buffer, Texture
 from ....utils.trackable import Trackable
 from ....utils import array_from_shadertype
 from ....utils.text import glyph_atlas
@@ -103,6 +103,8 @@ class Shared(Trackable):
         self._store.glyph_atlas_info_buffer = None
         self.pre_render_hook()
 
+        self._transmission_framebuffer = None
+
     def pre_render_hook(self):
         """Called by the renderer on the beginning of a draw."""
         tex = glyph_atlas.texture
@@ -142,6 +144,25 @@ class Shared(Trackable):
     def glyph_atlas_info_buffer(self):
         """A buffer containing per-glyph metadata (rects and more)."""
         return self._store.glyph_atlas_info_buffer
+
+    def ensure_transmission_framebuffer_size(self, size):
+        if (
+            self._transmission_framebuffer is None
+            or self._transmission_framebuffer.size[:2] != (size[0], size[1])
+        ):
+            self._transmission_framebuffer = Texture(
+                dim=2,
+                size=(size[0], size[1], 1),
+                format="rgba8unorm",
+                generate_mipmaps=True,
+                usage=wgpu.TextureUsage.COPY_DST | wgpu.TextureUsage.TEXTURE_BINDING,
+            )
+
+        return self._transmission_framebuffer
+
+    @property
+    def transmission_framebuffer(self):
+        return self._transmission_framebuffer
 
     def _create_diagnostics(self):
         # Since diagnostics objects, are shown in order of creation,

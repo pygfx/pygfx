@@ -197,10 +197,14 @@ class _GLTF:
         self._register_plugin(GLTFMaterialsUnlitExtension)
         self._register_plugin(GLTFLightsExtension)
         self._register_plugin(GLTFTextureTransformExtension)
+        self._register_plugin(GLTFMaterialsTransmissionExtension)
+        self._register_plugin(GLTFMaterialsVolumeExtension)
+        self._register_plugin(GLTFMaterialsDispersionExtension)
 
     def _register_plugin(self, plugin_class):
         plugin = plugin_class(self)
         self._plugins[plugin.name] = plugin
+
 
     def load(self, path, quiet=False, remote_ok=True):
         """Load the whole gltf file, including meshes, skeletons, cameras, and animations."""
@@ -1452,3 +1456,69 @@ class GLTFTextureTransformExtension(GLTFExtension):
         texcoord = extension.get("texCoord", None)
         if texcoord is not None:
             texture_map.uv_channel = texcoord
+
+
+class GLTFMaterialsTransmissionExtension(GLTFBaseMaterialsExtension):
+    EXTENSION_NAME = "KHR_materials_transmission"
+
+    def extend_material(self, material_def, material):
+        if (
+            not material_def.extensions
+            or self.EXTENSION_NAME not in material_def.extensions
+        ):
+            return
+
+        extension = material_def.extensions[self.EXTENSION_NAME]
+
+        transmission_factor = extension.get("transmissionFactor", None)
+        if transmission_factor is not None:
+            material.transmission = transmission_factor
+
+        transmission_texture = extension.get("transmissionTexture", None)
+        if transmission_texture is not None:
+            material.transmission_map = self.parser._load_gltf_texture_map(transmission_texture)
+
+
+class GLTFMaterialsVolumeExtension(GLTFBaseMaterialsExtension):
+    EXTENSION_NAME = "KHR_materials_volume"
+
+    def extend_material(self, material_def, material):
+        if (
+            not material_def.extensions
+            or self.EXTENSION_NAME not in material_def.extensions
+        ):
+            return
+
+        extension = material_def.extensions[self.EXTENSION_NAME]
+
+        thickness_factor = extension.get("thicknessFactor", None)
+        if thickness_factor is not None:
+            material.thickness = thickness_factor
+
+        thickness_texture = extension.get("thicknessTexture", None)
+        if thickness_texture is not None:
+            material.thickness_map = self.parser._load_gltf_texture_map(thickness_texture)
+
+        attenuation_color = extension.get("attenuationColor", None)
+        if attenuation_color is not None:
+            material.attenuation_color = gfx.Color.from_physical(*attenuation_color)
+
+        attenuation_distance = extension.get("attenuationDistance", None)
+        if attenuation_distance is not None:
+            material.attenuation_distance = attenuation_distance
+
+
+class GLTFMaterialsDispersionExtension(GLTFBaseMaterialsExtension):
+    EXTENSION_NAME = "KHR_materials_dispersion"
+
+    def extend_material(self, material_def, material):
+        if (
+            not material_def.extensions
+            or self.EXTENSION_NAME not in material_def.extensions
+        ):
+            return
+
+        extension = material_def.extensions[self.EXTENSION_NAME]
+        dispersion = extension.get("dispersion", None)
+        if dispersion is not None:
+            material.dispersion = dispersion
