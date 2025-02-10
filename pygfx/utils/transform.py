@@ -844,7 +844,7 @@ class RecursiveTransform(AffineBase):
 
     @cached
     def _matrix(self) -> np.ndarray:
-        mat = np.matmul(self._parent.matrix, self.own.matrix)
+        mat = self._parent.matrix @ self.own.matrix
         mat.flags.writeable = False
         return mat
 
@@ -878,7 +878,7 @@ class RecursiveTransform(AffineBase):
 
     @cached
     def _computed_scaling_signs(self) -> np.ndarray:
-        signs = np.multiply(self._parent.scaling_signs, self.own.scaling_signs)
+        signs = self._parent.scaling_signs * self.own.scaling_signs
         signs.flags.writeable = False
         return signs
 
