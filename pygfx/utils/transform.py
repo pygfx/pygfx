@@ -157,8 +157,9 @@ class AffineBase:
             # any decomposed scaling is acceptable
             decomposed = la.mat_decompose(self.matrix)
 
-        for m in decomposed:
-            m.flags.writeable = False
+        decomposed[0].flags.writeable = False
+        decomposed[1].flags.writeable = False
+        decomposed[2].flags.writeable = False
 
         return decomposed
 

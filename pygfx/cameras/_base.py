@@ -145,15 +145,21 @@ class Camera(WorldObject):
             ],
             np.float32,
         )
-        return ndc_matrix @ base
+        proj_matrix = ndc_matrix @ base
+        proj_matrix.flags.writeable = False
+        return proj_matrix
 
     @cached
     def projection_matrix_inverse(self) -> np.ndarray:
-        return la.mat_inverse(self.projection_matrix)
+        proj_inv_matrix = la.mat_inverse(self.projection_matrix)
+        proj_inv_matrix.flags.writeable = False
+        return proj_inv_matrix
 
     @cached
     def camera_matrix(self) -> np.ndarray:
-        return self.projection_matrix @ self.view_matrix
+        cam_matrix = self.projection_matrix @ self.view_matrix
+        cam_matrix.flags.writeable = False
+        return cam_matrix
 
 
 class NDCCamera(Camera):
@@ -166,8 +172,13 @@ class NDCCamera(Camera):
     the bottom left corner.
     """
 
+    def __init__(self):
+        super().__init__()
+        self._ndc_proj_matrix = np.eye(4, dtype=float)
+        self._ndc_proj_matrix.flags.writeable = False
+
     def _update_projection_matrix(self):
-        return np.eye(4, dtype=float)
+        return self._ndc_proj_matrix
 
 
 class ScreenCoordsCamera(Camera):
@@ -181,4 +192,6 @@ class ScreenCoordsCamera(Camera):
         sx, sy, sz = 2 / width, 2 / height, 1
         dx, dy, dz = -1, -1, 0
         m = sx, 0, 0, dx, 0, sy, 0, dy, 0, 0, sz, dz, 0, 0, 0, 1
-        return np.array(m, dtype=float).reshape(4, 4)
+        proj_matrix = np.array(m, dtype=float).reshape(4, 4)
+        proj_matrix.flags.writeable = False
+        return proj_matrix
