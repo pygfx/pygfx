@@ -93,7 +93,6 @@ class AffineBase:
         "_scaling_signs",
         "_scaling_signs_view",
         "cache__decomposed_cache",
-        "cache__direction_components_cache",
         "cache__directions_cache",
         "cache__euler_cache",
         "cache__inverse_matrix_cache",
@@ -125,7 +124,7 @@ class AffineBase:
 
     @reference_up.setter
     def reference_up(self, value):
-        self._reference_up[:] = la.vec_normalize(value)
+        la.vec_normalize(value, out=self._reference_up)
 
     @property
     def matrix(self) -> np.ndarray:
@@ -175,10 +174,6 @@ class AffineBase:
         directions = axes_target - origin_target
         directions.flags.writeable = False
         return directions
-
-    @cached
-    def _direction_components(self):
-        return (*self._directions,)
 
     @cached
     def _rotation_matrix(self):
@@ -274,17 +269,17 @@ class AffineBase:
     @property
     def right(self) -> np.ndarray:
         """The right direction of source."""
-        return self._direction_components[0]
+        return self._directions[0]
 
     @property
     def up(self) -> np.ndarray:
         """The up direction of source."""
-        return self._direction_components[1]
+        return self._directions[1]
 
     @property
     def forward(self) -> np.ndarray:
         """The forward direction of source."""
-        return self._direction_components[2]
+        return self._directions[2]
 
     @position.setter
     def position(self, value):
@@ -317,7 +312,7 @@ class AffineBase:
     @scale.setter
     def scale(self, value):
         m = la.mat_compose(self.position, self.rotation, value)
-        self._scaling_signs[:] = np.sign(value)
+        np.sign(value, out=self._scaling_signs)
         self.matrix = m
 
     @x.setter
@@ -573,9 +568,9 @@ class AffineTransform(AffineBase):
     def position(self, value):
         if self.state_basis == "components":
             self._position[:] = value
-            self.flag_update()
-            return
-        AffineBase.position.fset(self, value)
+        else:
+            la.mat_compose(value, self.rotation, self.scale, out=self._matrix)
+        self.flag_update()
 
     @property
     def rotation(self) -> np.ndarray:
@@ -588,9 +583,9 @@ class AffineTransform(AffineBase):
     def rotation(self, value):
         if self.state_basis == "components":
             self._rotation[:] = value
-            self.flag_update()
-            return
-        AffineBase.rotation.fset(self, value)
+        else:
+            la.mat_compose(self.position, value, self.scale, out=self._matrix)
+        self.flag_update()
 
     @property
     def scale(self) -> np.ndarray:
@@ -603,9 +598,10 @@ class AffineTransform(AffineBase):
     def scale(self, value):
         if self.state_basis == "components":
             self._scale[:] = value
-            self.flag_update()
-            return
-        AffineBase.scale.fset(self, value)
+        else:
+            la.mat_compose(self.position, self.rotation, value, out=self._matrix)
+            np.sign(value, out=self._scaling_signs)
+        self.flag_update()
 
     @cached
     def _computed_scaling_signs(self) -> np.ndarray:
@@ -623,19 +619,33 @@ class AffineTransform(AffineBase):
 
     @cached
     def _rotation_matrix(self) -> np.ndarray:
+        rotation = la.mat_from_quat(self._rotation)
+        rotation.flags.writeable = False
+        return rotation
+
+    @property
+    def rotation_matrix(self) -> np.ndarray:
+        """The orientation of source as a rotation matrix."""
         if self.state_basis == "components":
-            rotation = la.mat_from_quat(self._rotation)
-            rotation.flags.writeable = False
-            return rotation
-        return super()._rotation_matrix
+            return self._rotation_matrix
+        return super().rotation_matrix
+
+    rotation_matrix = rotation_matrix.setter(AffineBase.rotation_matrix.fset)
 
     @cached
     def _euler(self) -> np.ndarray:
+        euler = la.quat_to_euler(self._rotation)
+        euler.flags.writeable = False
+        return euler
+
+    @property
+    def euler(self) -> np.ndarray:
+        """The orientation of source as XYZ euler angles."""
         if self.state_basis == "components":
-            euler = la.quat_to_euler(self._rotation)
-            euler.flags.writeable = False
-            return euler
-        return super()._euler
+            return self._euler
+        return super().euler
+
+    euler = euler.setter(AffineBase.euler.fset)
 
     @cached
     def _composed_matrix(self) -> np.ndarray:
@@ -814,9 +824,9 @@ class RecursiveTransform(AffineBase):
         if self._parent:
             new_ref = la.vec_transform(value, self._parent.matrix)
             origin = self._parent.position
-            self._reference_up[:] = la.vec_normalize(new_ref - origin)
+            la.vec_normalize(new_ref - origin, out=self._reference_up)
         else:
-            self._reference_up[:] = la.vec_normalize(value)
+            la.vec_normalize(value, out=self._reference_up)
         self.flag_update()
         # Note: since _parent_reference_up is only used in a setter in AffineBase
         # we do not need to call flag_update() on self.own; all its state and cache
@@ -852,10 +862,13 @@ class RecursiveTransform(AffineBase):
     @matrix.setter
     def matrix(self, value: np.ndarray):
         if self._parent:
-            self.own.matrix = self._parent.inverse_matrix @ value
+            if self.own.state_basis == "matrix":
+                np.matmul(self._parent.inverse_matrix, value, out=self.own._matrix)
+                self.own.flag_update()
+            else:
+                self.own.matrix = self._parent.inverse_matrix @ value
         else:
             self.own.matrix = value
-        self.flag_update()
 
     def __matmul__(self, other) -> Union[RecursiveTransform, np.ndarray]:
         if isinstance(other, AffineBase):
