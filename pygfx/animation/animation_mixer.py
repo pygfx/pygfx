@@ -110,6 +110,8 @@ class AnimationMixer(RootEventHandler):
             self._set_path_value(target, path, accu_value)
 
     def _accumulate(self, target, path, value, weight):
+        # TODO: change accumulation strategy so position/scale/rotation are collected
+        # under a single key in the accumulation cache
         key = (target, path)
         if key not in self.__property_accu_cache:
             self.__property_accu_cache[key] = (value, weight)
@@ -148,6 +150,7 @@ class AnimationMixer(RootEventHandler):
         return a if t < 0.5 else b
 
     def _get_path_value(self, target, path):
+        # TODO: use components setter to avoid flagging updates 3x more than necessary
         if path == "scale":
             return target.local.scale
         elif path == "translation":
