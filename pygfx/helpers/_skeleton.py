@@ -31,7 +31,9 @@ class SkeletonHelper(Line):
 
         self.root = wobject
         self.bones = bones
-        self.bone_descendants = [b for b in bones if b.parent and isinstance(b.parent, Bone)]
+        self.bone_descendants = [
+            b for b in bones if b.parent and isinstance(b.parent, Bone)
+        ]
 
         self.local.matrix = wobject.world.matrix
 
