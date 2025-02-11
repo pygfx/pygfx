@@ -594,6 +594,9 @@ class WgpuRenderer(RootEventHandler, Renderer):
         renderstate = get_renderstate(flat.lights, self._blender)
         self._renderstates_per_flush[0].append(renderstate)
 
+        # self._transmissive_blender.ensure_target_size(self.physical_size)
+        self._shared.ensure_transmission_framebuffer_size(self.physical_size)
+
         # Make sure pipeline objects exist for all wobjects. This also collects the bake functons.
         flat.collect_pipelines_container_groups(renderstate)
 
@@ -603,9 +606,6 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # Update *all* buffers and textures that have changed
         for resource in resource_update_registry.get_syncable_resources(flush=True):
             update_resource(resource)
-
-        self._transmissive_blender.ensure_target_size(self.physical_size)
-        self._shared.ensure_transmission_framebuffer_size(self.physical_size)
 
         # Command buffers cannot be reused. If we want some sort of re-use we should
         # look into render bundles. See https://github.com/gfx-rs/wgpu-native/issues/154
@@ -623,34 +623,6 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
         # Collect commands and submit
         self._device.queue.submit([command_encoder.finish()])
-
-        ############# debug transmissive pass ###########
-
-        # texture = self._transmissive_blender.color_tex
-        # size = texture.size
-        # bytes_per_pixel = 4
-
-        # data = self._device.queue.read_texture(
-        #     {
-        #         "texture": texture,
-        #         "mip_level": 0,
-        #         "origin": (0, 0, 0),
-        #     },
-        #     {
-        #         "offset": 0,
-        #         "bytes_per_row": bytes_per_pixel * size[0],
-        #         "rows_per_image": size[1],
-        #     },
-        #     size,
-        # )
-
-        # ary = np.frombuffer(data, np.uint8).reshape(size[1], size[0], 4)
-
-        # import cv2
-        # cv2.imshow("image", cv2.cvtColor(ary, cv2.COLOR_RGBA2BGRA))
-        # cv2.waitKey(1)
-
-        ############# debug transmissive pass ###########
 
         if flush:
             self.flush()

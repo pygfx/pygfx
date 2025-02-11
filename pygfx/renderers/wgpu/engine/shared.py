@@ -155,7 +155,9 @@ class Shared(Trackable):
                 size=(size[0], size[1], 1),
                 format="rgba8unorm",
                 generate_mipmaps=True,
-                usage=wgpu.TextureUsage.COPY_DST | wgpu.TextureUsage.TEXTURE_BINDING,
+                usage=wgpu.TextureUsage.COPY_DST
+                | wgpu.TextureUsage.TEXTURE_BINDING
+                | wgpu.TextureUsage.COPY_SRC,
             )
 
         return self._transmission_framebuffer
