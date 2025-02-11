@@ -316,6 +316,16 @@ class AffineBase:
         np.sign(value, out=self._scaling_signs)
         self.matrix = m
 
+    @property
+    def components(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        return self._decomposed
+
+    @components.setter
+    def components(self, value: Tuple[np.ndarray, np.ndarray, np.ndarray]):
+        m = la.mat_compose(*value)
+        np.sign(value[2], out=self._scaling_signs)
+        self.matrix = m
+
     @x.setter
     def x(self, value):
         _, y, z = self.position
@@ -556,6 +566,23 @@ class AffineTransform(AffineBase):
             self._rotation[:] = self.rotation
             self._scale[:] = self.scale
         self._state_basis = value
+        self.flag_update()
+
+    @property
+    def components(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        if self.state_basis == "components":
+            return (self._position_view, self._rotation_view, self._scale_view)
+        return super().components
+
+    @components.setter
+    def components(self, value: Tuple[np.ndarray, np.ndarray, np.ndarray]):
+        if self.state_basis == "components":
+            self._position[:] = value[0]
+            self._rotation[:] = value[1]
+            self._scale[:] = value[2]
+        else:
+            la.mat_compose(*value, out=self._matrix)
+            np.sign(value[2], out=self._scaling_signs)
         self.flag_update()
 
     @property
