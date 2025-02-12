@@ -31,12 +31,16 @@ fn vs_main(in: VertexInput) -> Varyings {
     let sub_index = raw_index % 6;
 
     // Load glyph info
-    let glyph_index_raw = u32(load_s_indices(index));
-    let font_size = load_s_sizes(index);
-    let glyph_pos = load_s_positions(index);
+    let block_index = i32(load_s_glyph_block_indices(index));
+    let glyph_index_raw = u32(load_s_glyph_atlas_indices(index));
+    let font_size = load_s_glyph_sizes(index);
+    let glyph_pos = load_s_glyph_positions(index);
+
+    let block_pos: vec3<f32> = load_s_positions(block_index);
+
 
     // Extract actual glyph index and the encoded font props
-    let glyph_index = i32(glyph_index_raw & 0x00FFFFFFu);
+    let atlas_index = i32(glyph_index_raw & 0x00FFFFFFu);
     let weight_0_15 = (glyph_index_raw & 0xF0000000u) >> 28u;  // highest 4 bits
     let is_slanted = bool(glyph_index_raw & 0x08000000u);
     //let reserved1 = bool(glyph_index_raw & 0x04000000u);
@@ -44,7 +48,7 @@ fn vs_main(in: VertexInput) -> Varyings {
     //let reserved3 = bool(glyph_index_raw & 0x01000000u);
 
     // Load meta-data of the glyph in the atlas
-    let glyph_info = s_glyph_infos[glyph_index];
+    let glyph_info = s_glyph_infos[atlas_index];
     let bitmap_rect = vec4<i32>(glyph_info.origin, glyph_info.size );
 
     // Prep correction vectors
@@ -64,7 +68,7 @@ fn vs_main(in: VertexInput) -> Varyings {
     let slant = vec2<f32>(0.5 - corner.y, 0.0) * slant_factor;
 
     let pos_corner_factor = corner * vec2<f32>(1.0, -1.0);
-    let vertex_pos = glyph_pos + (pos_offset1 + pos_offset2 * pos_corner_factor + slant) * font_size;
+    let vertex_pos = block_pos.xy + glyph_pos + (pos_offset1 + pos_offset2 * pos_corner_factor + slant) * font_size;
     let texcoord_in_pixels = vec2<f32>(bitmap_rect.xy) + vec2<f32>(bitmap_rect.zw) * corner;
 
     $$ if screen_space

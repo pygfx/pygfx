@@ -1,0 +1,35 @@
+import pylinalg as la
+
+from ._base import WorldObject
+
+
+class Text(WorldObject):
+    """A collection of text to be rendered.
+
+    Can be used to render a piece of multi-paragraph text, or to create a collection of text blocks that
+    can be individually positioned, and have the same font and layout properties.
+
+    See :class:``pygfx.TextGeometry`` for details.
+    """
+
+    uniform_type = dict(
+        WorldObject.uniform_type,
+        rot_scale_transform="4x4xf4",
+    )
+
+    def _update_object(self):
+        # Is called right before the object is drawn
+        super()._update_object()
+        self.geometry._on_update_object()
+
+    def _update_world_transform(self):
+        # Update when the world transform has changed
+        super()._update_world_transform()
+        # When rendering in screen space, the world transform is used
+        # to establish the point in the scene where the text is placed.
+        # The only part of the local transform that is used is the
+        # position. Therefore, we also keep a transform containing the
+        # local rotation and scale, so that these can be applied to the
+        # text in screen coordinates.
+        matrix = la.mat_compose((0, 0, 0), self.local.rotation, self.local.scale)
+        self.uniform_buffer.data["rot_scale_transform"] = matrix.T

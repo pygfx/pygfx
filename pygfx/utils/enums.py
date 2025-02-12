@@ -7,15 +7,17 @@ The enums used in pygfx. The enums are all available from the root ``pygfx`` nam
     :toctree: utils/enums
     :template: ../_templates/custom_layout.rst
 
+    BindMode
     ColorMode
     CoordSpace
     EdgeMode
+    ElementFormat
     MarkerShape
     RenderMask
     SizeMode
-    ElementFormat
+    TextAlign
+    TextAnchor
     VisibleSide
-    BindMode
 
 """
 
@@ -31,6 +33,8 @@ __all__ = [
     "MarkerShape",
     "RenderMask",
     "SizeMode",
+    "TextAlign",
+    "TextAnchor",
     "VisibleSide",
 ]
 
@@ -142,6 +146,39 @@ class BindMode(Enum):
         "attached"  #: The skinned mesh shares the same world space as the skeleton.
     )
     detached = "detached"  #: The skinned mesh has its own world space.
+
+
+class TextAlign(Enum):
+    """How text is aligned."""
+
+    start = None  #: align to the start (left) of the block.
+    end = None  #: align to the end (right) of the block.
+    center = None  #: align to the center of the block.
+    justify = None  #: spread words to fill the full space determined by max_width.
+    justify_all = None  #: justify also the last line.
+    left = "start"  #: alias for start
+    right = "end"  #: alias for end
+    auto = None  #: unspecified alignment
+
+
+class TextAnchor(Enum):
+    """How text is aligned."""
+
+    top_left = "top-left"
+    top_center = "top-center"
+    top_right = "top-right"
+
+    baseline_left = "baseline-left"
+    baseline_center = "baseline-center"
+    baseline_right = "baseline-right"
+
+    middle_left = "middle-left"
+    middle_center = "middle-center"
+    middle_right = "middle-right"
+
+    bottom_left = "bottom-left"
+    bottom_center = "bottom-center"
+    bottom_right = "bottom-right"
 
 
 # NOTE: Don't forget to add new enums to the toctree and __all__
