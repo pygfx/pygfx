@@ -19,7 +19,7 @@ scene = gfx.Scene()
 
 
 # Create the text
-s = "**Lorem ipsum** dolor sit amet, *consectetur adipiscing elit*, sed do eiusmod tempor ..."
+s = "**Lorem ipsum** dolor sit amet, consectetur *adipiscing elit*, sed do eiusmod tempor ..."
 text1 = gfx.Text(
     gfx.TextGeometry(markdown=s, font_size=10),
     gfx.TextMaterial(color="#fff"),

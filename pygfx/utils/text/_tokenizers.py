@@ -34,8 +34,8 @@ def tokenize_text(text):
         pos = match.end()
 
 
-punctuation = r"[\,\.\;\:\?\!\…]"
-markdown_prog = re.compile(r"(\s)+|(\d|\w|-|_)+|(\*)+|(" + punctuation + ")")
+punctuation = r"[\,\.\;\:\?\!\…]+"
+markdown_prog = re.compile(r"(\n)+|(\s)+|(\d|\w|-|_)+|(\*)+|(" + punctuation + ")")
 
 
 def tokenize_markdown(text):
@@ -57,12 +57,14 @@ def tokenize_markdown(text):
         s = match.group()
 
         if match.group(1):
-            yield "ws", s
+            yield "nl", s
         elif match.group(2):
-            yield "word", s
+            yield "ws", s
         elif match.group(3):
-            yield "stars", s
+            yield "word", s
         elif match.group(4):
+            yield "stars", s
+        elif match.group(5):
             yield "punctuation", s
         else:
             yield "other", s  # should not happen, but just in case
