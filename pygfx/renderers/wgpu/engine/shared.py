@@ -103,7 +103,7 @@ class Shared(Trackable):
         self._store.glyph_atlas_info_buffer = None
         self.pre_render_hook()
 
-        self._transmission_framebuffer = None
+        self._store.transmission_framebuffer = None
 
     def pre_render_hook(self):
         """Called by the renderer on the beginning of a draw."""
@@ -146,11 +146,10 @@ class Shared(Trackable):
         return self._store.glyph_atlas_info_buffer
 
     def ensure_transmission_framebuffer_size(self, size):
-        if (
-            self._transmission_framebuffer is None
-            or self._transmission_framebuffer.size[:2] != (size[0], size[1])
-        ):
-            self._transmission_framebuffer = Texture(
+        if self.transmission_framebuffer is None or self.transmission_framebuffer.size[
+            :2
+        ] != (size[0], size[1]):
+            self._store.transmission_framebuffer = Texture(
                 dim=2,
                 size=(size[0], size[1], 1),
                 format="rgba8unorm",
@@ -160,11 +159,11 @@ class Shared(Trackable):
                 | wgpu.TextureUsage.COPY_SRC,
             )
 
-        return self._transmission_framebuffer
+        return self._store.transmission_framebuffer
 
     @property
     def transmission_framebuffer(self):
-        return self._transmission_framebuffer
+        return self._store.transmission_framebuffer
 
     def _create_diagnostics(self):
         # Since diagnostics objects, are shown in order of creation,
