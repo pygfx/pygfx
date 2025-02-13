@@ -470,6 +470,8 @@ class MeshShader(BaseShader):
             render_mask = RenderMask.all
             if material.is_transparent:
                 render_mask = RenderMask.transparent
+            elif getattr(material, "transmission", None):
+                render_mask = RenderMask.all
             elif self["color_mode"] == "uniform":
                 if material.color_is_transparent:
                     render_mask = RenderMask.transparent
@@ -609,7 +611,7 @@ class MeshStandardShader(MeshShader):
         return result
 
 
-@register_wgpu_render_function(Mesh, MeshPhysicalMaterial)
+@register_wgpu_render_function(WorldObject, MeshPhysicalMaterial)
 class MeshPhysicalShader(MeshStandardShader):
     def __init__(self, wobject):
         super().__init__(wobject)
@@ -633,34 +635,79 @@ class MeshPhysicalShader(MeshStandardShader):
             )
             self["use_specular_intensity_map"] = True
 
+        # clearcoat
         if material.clearcoat:
             self["USE_CLEARCOAT"] = True
 
-        if material.clearcoat_map is not None:
-            bindings.extend(
-                self._define_texture_map(
-                    geometry, material.clearcoat_map, "clearcoat_map"
+            if material.clearcoat_map is not None:
+                bindings.extend(
+                    self._define_texture_map(
+                        geometry, material.clearcoat_map, "clearcoat_map"
+                    )
                 )
-            )
-            self["use_clearcoat_map"] = True
+                self["use_clearcoat_map"] = True
 
-        if material.clearcoat_roughness_map is not None:
-            bindings.extend(
-                self._define_texture_map(
-                    geometry,
-                    material.clearcoat_roughness_map,
-                    "clearcoat_roughness_map",
+            if material.clearcoat_roughness_map is not None:
+                bindings.extend(
+                    self._define_texture_map(
+                        geometry,
+                        material.clearcoat_roughness_map,
+                        "clearcoat_roughness_map",
+                    )
                 )
-            )
-            self["use_clearcoat_roughness_map"] = True
+                self["use_clearcoat_roughness_map"] = True
 
-        if material.clearcoat_normal_map is not None:
-            bindings.extend(
-                self._define_texture_map(
-                    geometry, material.clearcoat_normal_map, "clearcoat_normal_map"
+            if material.clearcoat_normal_map is not None:
+                bindings.extend(
+                    self._define_texture_map(
+                        geometry, material.clearcoat_normal_map, "clearcoat_normal_map"
+                    )
                 )
-            )
-            self["use_clearcoat_normal_map"] = True
+                self["use_clearcoat_normal_map"] = True
+
+        # transmission
+        if material.transmission:
+            self["USE_TRANSMISSION"] = True
+
+            if material.transmission_map is not None:
+                bindings.extend(
+                    self._define_texture_map(
+                        geometry, material.transmission_map, "transmission_map"
+                    )
+                )
+                self["use_transmission_map"] = True
+
+            if material.thickness_map is not None:
+                bindings.extend(
+                    self._define_texture_map(
+                        geometry, material.thickness_map, "thickness_map"
+                    )
+                )
+                self["use_thickness_map"] = True
+
+            if material.dispersion:
+                self["USE_DISPERSION"] = True
+
+            transmission_framebuffer = shared.transmission_framebuffer
+            if transmission_framebuffer is not None:
+                bindings.append(
+                    Binding(
+                        "t_transmission_framebuffer",
+                        "texture/auto",
+                        GfxTextureView(transmission_framebuffer, view_dim="2d"),
+                        "FRAGMENT",
+                    )
+                )
+
+                transmission_framebuffer_sampler = GfxSampler("linear", "clamp")
+                bindings.append(
+                    Binding(
+                        "s_transmission_framebuffer",
+                        "sampler/filtering",
+                        transmission_framebuffer_sampler,
+                        "FRAGMENT",
+                    ),
+                )
 
         # Define shader code for binding
         bindings = {i: binding for i, binding in enumerate(bindings)}

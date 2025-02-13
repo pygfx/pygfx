@@ -84,6 +84,8 @@ background = gfx.Background(None, gfx.BackgroundSkyboxMaterial(map=env_tex))
 background.visible = False
 scene.add(background)
 
+scene.add(gfx.Background.from_color((0.01, 0.01, 0.01, 1.0)))
+
 
 def add_env_map(obj):
     if isinstance(obj, gfx.Mesh) and isinstance(obj.material, gfx.MeshStandardMaterial):

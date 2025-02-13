@@ -62,6 +62,15 @@ struct PhysicalMaterial {
         clearcoat_f0: vec3<f32>,
         clearcoat_f90: f32,
     $$ endif
+
+    $$ if USE_TRANSMISSION is defined
+        transmission: f32,
+        transmission_alpha: f32,
+        thickness: f32,
+        attenuation_distance: f32,
+        attenuation_color: vec3<f32>,
+        dispersion: f32,
+    $$ endif
 };
 
 struct LightScatter {
