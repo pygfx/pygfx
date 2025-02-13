@@ -816,9 +816,8 @@ class TextBlock:
         self._mark_dirty(layout=True)
 
         # Split text in words
-        pieces = textmodule.tokenize_text(text)
-        formats = ["" for _ in pieces]
-        self._pieces_to_text_items(pieces, formats)
+        text_parts = textmodule.tokenize_text(text)
+        self._text_parts_to_items(text_parts)
 
     def set_markdown(self, text):
         """Set the markdown for this TextBlock.
@@ -836,79 +835,123 @@ class TextBlock:
         self._mark_dirty(layout=True)
 
         # Split text in pieces using a tokenizer
-        pieces = list(textmodule.tokenize_markdown(text))
+        text_parts = list(textmodule.tokenize_markdown(text))
 
         # TODO: detect headers ###
         # TODO: detect bullet lists
         # TODO: with this, words can be split in two parts, make sure they stick together, or merge into one textitem?
         # TODO: support newlines in text block with markdown too.
 
-        # Put a virtual zero-char space in front and at the end, to make the alg simpler
-        pieces.insert(0, ("ws", ""))
-        pieces.append(("ws", ""))
+        is_bold = is_italic = 0
 
-        formats = ["" for _ in pieces]
-
-        # Now resolve starts to detect bold and italic pieces
-        bold_start = slant_start = None
-        for i in range(1, len(pieces)):
-            kind, piece = pieces[i]
+        for i in range(0, len(text_parts)):
+            kind, text = text_parts[i]
             if kind == "stars":
-                prev_is_wordlike = pieces[i - 1][0] not in ("ws", "punctuation")
-                next_is_wordlike = pieces[i + 1][0] not in ("ws", "punctuation")
+                # Get what surrounding parts look like
+                prev_is_wordlike = next_is_wordlike = False
+                if i > 0:
+                    prev_is_wordlike = text_parts[i - 1][0] != "ws"
+                if i < len(text_parts) - 1:
+                    next_is_wordlike = text_parts[i + 1][0] != "ws"
+                # Decide how to format
                 if not prev_is_wordlike and next_is_wordlike:
                     # Might be a beginning
-                    if piece == "**" and not bold_start:
-                        bold_start = i
-                    elif piece == "*" and not slant_start:
-                        slant_start = i
+                    if text == "**":
+                        text_parts[i] = "fmt:+b", text
+                        is_bold += 1
+                    elif text == "*":
+                        text_parts[i] = "fmt:+i", text
+                        is_italic += 1
                 elif prev_is_wordlike and not next_is_wordlike:
                     # Might be an end
-                    if piece == "**" and bold_start:
-                        pieces[bold_start] = "", ""
-                        pieces[i] = "", ""
-                        for j in range(bold_start + 1, i):
-                            formats[j] += "b"
-                        bold_start = None
-                    elif piece == "*" and slant_start:
-                        pieces[slant_start] = "", ""
-                        pieces[i] = "", ""
-                        for j in range(slant_start + 1, i):
-                            formats[j] += "i"
-                        slant_start = None
+                    if text == "**":
+                        text_parts[i] = "fmt:-b", text
+                        is_bold = max(0, is_bold - 1)
+                    elif text == "*":
+                        text_parts[i] = "fmt:-i", text
+                        is_italic = max(0, is_italic - 1)
+                elif prev_is_wordlike and next_is_wordlike:
+                    if text == "**":
+                        if is_bold:
+                            text_parts[i] = "fmt:-b", text
+                            is_bold = max(0, is_bold - 1)
+                        else:
+                            text_parts[i] = "fmt:+b", text
+                            is_bold += 1
+                    elif text == "*" and is_italic:
+                        if is_italic:
+                            text_parts[i] = "fmt:-i", text
+                            is_italic = max(0, is_italic - 1)
+                        else:
+                            text_parts[i] = "fmt:+i", text
+                            is_italic += 1
 
         # Produce text items
-        self._pieces_to_text_items(pieces, formats)
+        self._text_parts_to_items(text_parts)
 
-    def _pieces_to_text_items(self, pieces, formats):
-        def new_item(text, format, ws_before):
-            if self._text_items:
-                item = self._text_items.pop(0)
-            else:
-                item = TextItem()
-            item.set_text_and_format(text, format)
-            item.ws_before = ws_before
-            return item
+    def _text_parts_to_items(self, iter_of_kind_text):
+        # A TextItem represents one "word"; one thing held together during layout.
+        # Multiple pieces can go into one TextItem, mostly when the word has multiple different formatting in it.
+        pending_whitespace = ""
+        pending_pieces = []
+        new_items = []
+
+        def add_piece(format, text):
+            pending_pieces.append((format, text))
+
+        def flush_pieces(force=False):
+            nonlocal pending_whitespace
+            if pending_pieces or force:
+                if self._text_items:
+                    item = self._text_items.pop(0)
+                else:
+                    item = TextItem()
+                item.set_text_pieces(tuple(pending_pieces))
+                item.ws_before = pending_whitespace
+                pending_pieces.clear()
+                new_items.append(item)
+                pending_whitespace = ""
+
+        # In the code below, we resolve format-modifiers to an 'absolute' format.
+        # These are both implementation details, but let's document them here for clarity:
+        #
+        # Modifiers:
+        # +b: make bold
+        # -b: unbold
+        # +i: make italic
+        # -i: make italic
+        #
+        # Formats:
+        # b: bold
+        # i: italic
+        format = ""
 
         # Process the pieces to create TextItem objects
-        items = []
-        pending_whitespace = ""
-        for i in range(len(pieces)):
-            kind, piece = pieces[i]
-            if kind == "ws":
-                pending_whitespace += piece
+        for kind, text in iter_of_kind_text:
+            if kind.startswith("fmt:"):
+                modifier = kind.partition(":")[-1]
+                if modifier == "+b":
+                    format += "b"
+                elif modifier == "-b":
+                    format = format.replace("b", "", 1)
+                elif modifier == "+i":
+                    format += "i"
+                elif modifier == "-i":
+                    format = format.replace("i", "", 1)
+            elif kind == "ws":
+                flush_pieces()
+                pending_whitespace += text
             elif kind == "nl":
-                if pending_whitespace:
-                    items.append(new_item("", "", pending_whitespace))
-                    pending_whitespace = ""
-                elif not items:
-                    items.append(new_item("", "", ""))
-                items[-1].nl_after += piece
+                flush_pieces()
+                if pending_whitespace or not new_items:
+                    flush_pieces(force=True)
+                new_items[-1].nl_after += text
             else:
-                items.append(new_item(piece, formats[i], pending_whitespace))
-                pending_whitespace = ""
+                add_piece(format, text)
+
+        flush_pieces()
         if pending_whitespace:
-            items.append(new_item("", "", pending_whitespace))
+            flush_pieces(force=True)
 
         # Store old items that need to be de-allocated
         for item in self._text_items:
@@ -916,7 +959,7 @@ class TextBlock:
                 self._old_text_items.append(item)
 
         # Store new worlds
-        self._text_items = items
+        self._text_items = new_items
 
 
 class TextItem:
@@ -930,7 +973,6 @@ class TextItem:
         "descender",
         "direction",
         "extent",
-        "format",
         "glyph_count",
         "glyph_indices",
         "layout_offset",
@@ -939,16 +981,15 @@ class TextItem:
         "need_sync_with_geometry",
         "nl_after",
         "offset",
+        "pieces",
         "positions",
         "sizes",
-        "text",
         "ws_before",
     ]
 
     def __init__(self):
         # The text defines the arrays
-        self.text = None
-        self.format = ""
+        self.pieces = None
 
         # Whitespace attributes affect layout
         self.ws_before = ""
@@ -978,10 +1019,10 @@ class TextItem:
         self.descender = 0
         self.direction = None
 
-    def set_text_and_format(self, text, format):
-        if text != self.text or format != self.format:
-            self.text = text
-            self.format = format
+    def set_text_pieces(self, pieces):
+        # The pieces arg should be [(format, text), (format, text), ...]
+        if pieces != self.pieces:
+            self.pieces = pieces
             self.need_render_glyphs = True
             self.margin_before = 0
 
@@ -1002,10 +1043,11 @@ class TextItem:
 
         self.margin_before = 0
         if self.ws_before:
+            # todo: caching
             for ws, font in textengine.select_font(self.ws_before, font_props):
                 self.margin_before += textengine.get_ws_extent(ws, font)
 
-        if not self.text:
+        if not self.pieces:
             self.atlas_indices = None
             self.positions = None
             self.sizes = None
@@ -1023,32 +1065,33 @@ class TextItem:
 
         # Text rendering steps: font selection, shaping, glyph generation
         last_reverse_index = 0
-        text_pieces = textengine.select_font(self.text, font_props)
-        for text, font in text_pieces:
-            unicode_indices, positions, meta = textengine.shape_text(
-                text, font.filename, direction
-            )
-            atlas_indices = textengine.generate_glyph(unicode_indices, font.filename)
-            if self.format:
-                encode_font_props_in_atlas_indices(atlas_indices, self.format)
-            sizes = np.full((positions.shape[0],), 1.0, np.float32)
-            extent = extent + meta["extent"]
-            ascender = max(ascender, meta["ascender"])
-            descender = min(descender, meta["descender"])  # note: descender is negative
-            direction = meta["direction"]  # use last
-
-            # TODO: if we have multiple pieces they need to be offset with the extent
-
-            # Put in list, take direction into account
-            if direction in ("rtl", "btt"):
-                atlas_indices_list.insert(last_reverse_index, atlas_indices)
-                positions_list.insert(last_reverse_index, positions)
-                sizes_list.insert(last_reverse_index, sizes)
-            else:
-                atlas_indices_list.append(atlas_indices)
-                positions_list.append(positions)
-                sizes_list.append(sizes)
-                last_reverse_index = len(atlas_indices_list)
+        for format, text2 in self.pieces:
+            for text, font in textengine.select_font(text2, font_props):
+                unicode_indices, positions, meta = textengine.shape_text(
+                    text, font.filename, direction
+                )
+                atlas_indices = textengine.generate_glyph(
+                    unicode_indices, font.filename
+                )
+                if format:
+                    encode_font_props_in_atlas_indices(atlas_indices, format)
+                if extent:
+                    positions[:, 0] += extent  # put pieces next to each-other
+                sizes = np.full((positions.shape[0],), 1.0, np.float32)
+                extent = extent + meta["extent"]
+                ascender = max(ascender, meta["ascender"])
+                descender = min(descender, meta["descender"])  # note: descender is neg
+                direction = meta["direction"]  # use last
+                # Put in list, take direction into account
+                if direction in ("rtl", "btt"):
+                    atlas_indices_list.insert(last_reverse_index, atlas_indices)
+                    positions_list.insert(last_reverse_index, positions)
+                    sizes_list.insert(last_reverse_index, sizes)
+                else:
+                    atlas_indices_list.append(atlas_indices)
+                    positions_list.append(positions)
+                    sizes_list.append(sizes)
+                    last_reverse_index = len(atlas_indices_list)
 
         # Store meta data on the item
         self.extent = extent
@@ -1334,13 +1377,12 @@ def apply_block_layout(geometry, text_block):
     #     text_align = text_align_last
 
     # Calculate block rect. The top is positive, the bottom is negative (descender).
-
     block_rect = Rect()
     for rect in rects:
         block_rect.left = min(block_rect.left, rect.left)
         block_rect.right = max(block_rect.right, rect.right)
     block_rect.top = rects[0].top
-    block_rect.bottom = (len(rects) - 1) * line_height + rects[-1].bottom
+    block_rect.bottom = -(len(rects) - 1) * line_height + rects[-1].bottom
 
     if text_align == "justify" or text_align_last == "justify":
         block_rect.right = max_width
