@@ -92,6 +92,13 @@ fn F_Schlick(f0: vec3<f32>, f90: f32, dot_vh: f32,) -> vec3<f32> {
     return f0 * ( 1.0 - fresnel ) + ( f90 * fresnel );
 }
 
+fn F_Schlick_f(f0: f32, f90: f32, dot_vh: f32,) -> f32 {
+    // Optimized variant (presented by Epic at SIGGRAPH '13)
+    // https://cdn2.unrealengine.com/Resources/files/2013SiggraphPresentationsNotes-26915738.pdf
+    let fresnel = exp2( ( - 5.55473 * dot_vh - 6.98316 ) * dot_vh );
+    return f0 * ( 1.0 - fresnel ) + ( f90 * fresnel );
+}
+
 $$ if use_normal_map is defined or use_clearcoat_normal_map is defined
 fn perturbNormal2Arb( eye_pos: vec3<f32>, surf_norm: vec3<f32>, mapN: vec3<f32>, uv: vec2<f32>, is_front: bool) -> vec3<f32> {
     let q0 = dpdx( eye_pos.xyz );

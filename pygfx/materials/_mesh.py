@@ -1065,6 +1065,14 @@ class MeshPhysicalMaterial(MeshStandardMaterial):
     This is an extension of the MeshStandardMaterial,
     providing more advanced physically-based rendering properties.
 
+    - **Clearcoat:** Some materials — like car paints, carbon fiber, and wet surfaces — require a clear,
+    reflective layer on top of another layer that may be irregular or rough. Clearcoat approximates this effect,
+    without the need for a separate transparent surface.
+
+    - **Iridescence:** Allows to render the effect where hue varies depending on the viewing angle and
+    illumination angle. This can be seen on soap bubbles, oil films, or on the wings of many insects.
+
+
     Parameters
     ----------
 
@@ -1081,11 +1089,26 @@ class MeshPhysicalMaterial(MeshStandardMaterial):
         How much the clearcoat normal map affects the material. This 2-tuple
         is multiplied with the clearcoat_normal_map's xy components (z is unaffected).
         Typical ranges are 0-1. Default is (1,1).
+    iridescence : float
+        The intensity of the iridescence layer, simulating RGB color shift based on the angle
+        between the surface and the viewer,from 0.0 to 1.0. Default is 0.0.
+    iridescence_ior : float
+        The strength of the iridescence RGB color shift effect, represented by an index-of-refraction.
+        Default is 1.3.
+    iridescence_thickness_range : tuple
+        The range of thickness for the iridescence effect, in nanometers. Default is (100, 400).
+
     kwargs : Any
         Additional kwargs will be passed to the :class:`base class
         <pygfx.MeshStandardMaterial>`.
 
     """
+
+    # todo:
+    # - Anisotropy
+    # - Physically-based transparency
+    # - Sheen
+    #
 
     uniform_type = dict(
         MeshStandardMaterial.uniform_type,
@@ -1095,6 +1118,9 @@ class MeshPhysicalMaterial(MeshStandardMaterial):
         clearcoat="f4",
         clearcoat_roughness="f4",
         clearcoat_normal_scale="2xf4",
+        iridescence="f4",
+        iridescence_ior="f4",
+        iridescence_thickness_range="2xf4",
     )
 
     def __init__(
@@ -1110,6 +1136,11 @@ class MeshPhysicalMaterial(MeshStandardMaterial):
         clearcoat_normal_scale=(1, 1),
         clearcoat_roughness=0.0,
         clearcoat_roughness_map=None,
+        iridescence=0.0,
+        iridescence_map=None,
+        iridescence_ior=1.3,
+        iridescence_thickness_range=(100, 400),
+        iridescence_thickness_map=None,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -1124,6 +1155,12 @@ class MeshPhysicalMaterial(MeshStandardMaterial):
         self.clearcoat_normal_scale = clearcoat_normal_scale
         self.clearcoat_roughness = clearcoat_roughness
         self.clearcoat_roughness_map = clearcoat_roughness_map
+
+        self.iridescence = iridescence
+        self.iridescence_map = iridescence_map
+        self.iridescence_ior = iridescence_ior
+        self.iridescence_thickness_range = iridescence_thickness_range
+        self.iridescence_thickness_map = iridescence_thickness_map
 
     @property
     def ior(self):
@@ -1243,3 +1280,69 @@ class MeshPhysicalMaterial(MeshStandardMaterial):
         if isinstance(map, Texture):
             map = TextureMap(map)
         self._store.clearcoat_roughness_map = map
+
+    @property
+    def iridescence(self):
+        """The intensity of the iridescence layer, simulating RGB color shift based on the angle between the surface and the viewer, from 0.0 to 1.0.
+        Default is 0.0.
+        """
+        return float(self.uniform_buffer.data["iridescence"])
+
+    @iridescence.setter
+    def iridescence(self, value):
+        self.uniform_buffer.data["iridescence"] = value
+        self.uniform_buffer.update_full()
+
+    @property
+    def iridescence_map(self):
+        """The red channel of this texture is used to alter the iridescence of the material."""
+        return self._store.iridescence_map
+
+    @iridescence_map.setter
+    def iridescence_map(self, map):
+        assert_type("iridescence_map", map, None, Texture, TextureMap)
+        if isinstance(map, Texture):
+            map = TextureMap(map)
+        self._store.iridescence_map = map
+
+    @property
+    def iridescence_ior(self):
+        """
+        The strength of the iridescence RGB color shift effect, represented by an index-of-refraction.
+        Default is 1.3.
+        """
+        return float(self.uniform_buffer.data["iridescence_ior"])
+
+    @iridescence_ior.setter
+    def iridescence_ior(self, value):
+        self.uniform_buffer.data["iridescence_ior"] = value
+        self.uniform_buffer.update_full()
+
+    @property
+    def iridescence_thickness_range(self):
+        """The range of the iridescence layer thickness. Default is (100, 400).
+        If `.iridescence_thickness_map` is not defined, iridescence thickness will use only the second element of the given array.
+        """
+        return tuple(self.uniform_buffer.data["iridescence_thickness_range"])
+
+    @iridescence_thickness_range.setter
+    def iridescence_thickness_range(self, value):
+        self.uniform_buffer.data["iridescence_thickness_range"] = value
+        self.uniform_buffer.update_full()
+
+    @property
+    def iridescence_thickness_map(self):
+        """A texture that defines the thickness of the iridescence layer, stored in the green channel.
+
+        - `0.0` in the green channel will result in thickness equal to first element of the `iridescence_thickness_range`.
+        - `1.0` in the green channel will result in thickness equal to second element of the `iridescence_thickness_range`.
+        - Values in-between will linearly interpolate between the elements of the `iridescence_thickness_range`.
+        """
+        return self._store.iridescence_thickness_map
+
+    @iridescence_thickness_map.setter
+    def iridescence_thickness_map(self, map):
+        assert_type("iridescence_thickness_map", map, None, Texture, TextureMap)
+        if isinstance(map, Texture):
+            map = TextureMap(map)
+        self._store.iridescence_thickness_map = map

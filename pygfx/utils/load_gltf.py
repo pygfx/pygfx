@@ -189,6 +189,7 @@ class _GLTF:
         self._plugins.append(GLTFMaterialsIorExtension(self))
         self._plugins.append(GLTFMaterialsSpecularExtension(self))
         self._plugins.append(GLTFMaterialsClearcoatExtension(self))
+        self._plugins.append(GLTFMaterialsIridescenceExtension(self))
 
     def load(self, path, quiet=False, remote_ok=True):
         """Load the whole gltf file, including meshes, skeletons, cameras, and animations."""
@@ -629,14 +630,16 @@ class _GLTF:
                 )
                 gfx_material.roughness_map = metallic_roughness_map
                 gfx_material.metalness_map = metallic_roughness_map
-                gfx_material.roughness = 1.0
-                gfx_material.metalness = 1.0
 
             if pbr_metallic_roughness.roughnessFactor is not None:
                 gfx_material.roughness = pbr_metallic_roughness.roughnessFactor
+            else:
+                gfx_material.roughness = 1.0
 
             if pbr_metallic_roughness.metallicFactor is not None:
                 gfx_material.metalness = pbr_metallic_roughness.metallicFactor
+            else:
+                gfx_material.metalness = 1.0
 
         if material.normalTexture is not None:
             gfx_material.normal_map = self._load_gltf_texture(material.normalTexture)
@@ -1166,3 +1169,43 @@ class GLTFMaterialsClearcoatExtension(GLTFBaseMaterialsExtension):
                     clearcoat_normal_scale,
                     clearcoat_normal_scale,
                 )
+
+
+class GLTFMaterialsIridescenceExtension(GLTFBaseMaterialsExtension):
+    EXTENSION_NAME = "KHR_materials_iridescence"
+
+    def extend_material(self, material_def, material):
+        if (
+            not material_def.extensions
+            or self.EXTENSION_NAME not in material_def.extensions
+        ):
+            return
+
+        extension = material_def.extensions[self.EXTENSION_NAME]
+
+        iridescence_factor = extension.get("iridescenceFactor", None)
+        if iridescence_factor is not None:
+            material.iridescence = iridescence_factor
+
+        iridescence_texture = extension.get("iridescenceTexture", None)
+        if iridescence_texture is not None:
+            material.iridescence_map = self._load_texture(iridescence_texture)
+
+        iridescence_ior = extension.get("iridescenceIor", None)
+        material.iridescence_ior = iridescence_ior or 1.3
+
+        iridescence_thickness_min = extension.get("iridescenceThicknessMinimum", 100)
+        iridescence_thickness_max = extension.get("iridescenceThicknessMaximum", 400)
+
+        material.iridescence_thickness_range = (
+            iridescence_thickness_min,
+            iridescence_thickness_max,
+        )
+
+        iridescence_thickness_texture = extension.get(
+            "iridescenceThicknessTexture", None
+        )
+        if iridescence_thickness_texture is not None:
+            material.iridescence_thickness_map = self._load_texture(
+                iridescence_thickness_texture
+            )

@@ -17,6 +17,9 @@ $$ elif lighting == 'toon'
     {$ include 'pygfx.light_toon.wgsl' $}
 $$ endif
 
+$$ if USE_IRIDESCENCE is defined
+    {$ include 'pygfx.iridescence.wgsl' $}
+$$ endif
 
 struct VertexInput {
     @builtin(vertex_index) vertex_index : u32,
