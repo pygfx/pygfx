@@ -9,13 +9,12 @@ Example showing different types of geometric cylinders.
 # sphinx_gallery_pygfx_test = 'run'
 
 import numpy as np
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 
 
-canvas = WgpuCanvas()
-renderer = gfx.renderers.WgpuRenderer(canvas)
-scene = gfx.Scene()
+canvas = RenderCanvas()
+view = gfx.View(canvas, background_color="#000")
 
 grid = gfx.Grid(
     None,
@@ -28,7 +27,7 @@ grid = gfx.Grid(
     orientation="xz",
 )
 grid.local.y = -10
-scene.add(grid)
+view.scene.add(grid)
 
 
 spheres = [
@@ -55,17 +54,8 @@ for pos, color, geometry in spheres:
     material = gfx.MeshPhongMaterial(color=color, flat_shading=True)
     wobject = gfx.Mesh(geometry, material)
     wobject.local.position = pos
-    scene.add(wobject)
-
-camera = gfx.PerspectiveCamera(70, 16 / 9)
-camera.show_object(scene, (-1, -1, -1), up=(0, 1, 0))
-
-scene.add(camera.add(gfx.DirectionalLight()))
-scene.add(gfx.AmbientLight())
-
-controller = gfx.OrbitController(camera, register_events=renderer)
+    view.scene.add(wobject)
 
 
 if __name__ == "__main__":
-    canvas.request_draw(lambda: renderer.render(scene, camera))
-    run()
+    loop.run()
