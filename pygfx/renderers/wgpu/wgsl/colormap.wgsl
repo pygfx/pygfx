@@ -1,6 +1,8 @@
 // Colormap support
 
-fn sample_colormap(texcoord: {{ colormap_coord_type }}) -> vec4<f32> {
+fn sample_colormap(texcoord_in: {{ colormap_coord_type }}) -> vec4<f32> {
+
+    let texcoord = clamp(texcoord_in, {{ colormap_coord_type }}(0.0),  {{ colormap_coord_type }}(1.0));
 
     // Determine colormap texture dimensions
     $$ if colormap_dim == '1d'
