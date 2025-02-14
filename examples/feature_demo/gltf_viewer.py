@@ -58,7 +58,7 @@ response.raise_for_status()
 model_list: list = response.json()
 
 # filter out models having "core" in tags
-# model_list = [m for m in model_list if "core" in m.get("tags", [])]
+model_list = [m for m in model_list if "core" in m.get("tags", [])]
 
 mixer = gfx.AnimationMixer()
 
