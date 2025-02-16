@@ -577,9 +577,12 @@ class AffineTransform(AffineBase):
     @components.setter
     def components(self, value: Tuple[np.ndarray, np.ndarray, np.ndarray]):
         if self.state_basis == "components":
-            self._position[:] = value[0]
-            self._rotation[:] = value[1]
-            self._scale[:] = value[2]
+            if (pos := value[0]) is not None:
+                self._position[:] = pos
+            if (rot := value[1]) is not None:
+                self._rotation[:] = rot
+            if (sca := value[2]) is not None:
+                self._scale[:] = sca
         else:
             la.mat_compose(*value, out=self._matrix)
             np.sign(value[2], out=self._scaling_signs)
