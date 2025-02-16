@@ -652,7 +652,7 @@ class BaseFragmentBlender:
         """Get the number of passes for this blender."""
         return len(self.passes)
 
-    def perform_combine_pass(self):
+    def perform_combine_pass(self, command_encoder):
         """Perform a render-pass to combine any multi-pass results, if needed."""
 
         # Get bindgroup and pipeline. The creation should only happens once per blender lifetime.
@@ -666,8 +666,6 @@ class BaseFragmentBlender:
             self._combine_pass_bind_group = self._create_combination_bind_group(
                 self._combine_pass_pipeline.get_bind_group_layout(0)
             )
-
-        command_encoder = self.device.create_command_encoder()
 
         # Render
         render_pass = command_encoder.begin_render_pass(
@@ -686,8 +684,6 @@ class BaseFragmentBlender:
         render_pass.set_bind_group(0, self._combine_pass_bind_group, [], 0, 99)
         render_pass.draw(4, 1)
         render_pass.end()
-
-        return [command_encoder.finish()]
 
     def _create_combination_pipeline(self):
         """Overload this to setup the specific combiner-pass."""

@@ -16,7 +16,7 @@ var material: PhysicalMaterial;
 
 material.diffuse_color = physical_albeido * ( 1.0 - metalness_factor );
 
-let dxy = max( abs( dpdx( surface_normal ) ), abs( dpdy( surface_normal ) ) );
+let dxy = max( abs( dpdx( normal ) ), abs( dpdy( normal ) ) );
 let geometry_roughness = max( max( dxy.x, dxy.y ), dxy.z );
 
 material.roughness = max( roughness_factor, 0.0525 );
@@ -78,4 +78,55 @@ $$ if USE_CLEARCOAT is defined
     material.clearcoat_roughness += geometry_roughness;
     material.clearcoat_roughness = min( material.clearcoat_roughness, 1.0 );
 
+$$ endif
+
+
+$$ if USE_TRANSMISSION is defined
+    material.transmission = u_material.transmission;
+    material.transmission_alpha = 1.0;
+    material.thickness = u_material.thickness;
+    material.attenuation_distance = u_material.attenuation_distance;
+    material.attenuation_color = u_material.attenuation_color.rgb;
+
+    $$ if USE_DISPERSION is defined
+        material.dispersion = u_material.dispersion;
+    $$ endif
+
+    $$ if use_transmission_map is defined
+        material.transmission *= textureSample(t_transmission_map, s_transmission_map, varyings.texcoord{{transmission_map_uv or ''}}).r;
+    $$ endif
+
+    $$ if use_thickness_map is defined
+        material.thickness *= textureSample(t_thickness_map, s_thickness_map, varyings.texcoord{{thickness_map_uv or ''}}).g;
+    $$ endif
+
+$$ endif
+
+$$ if USE_IRIDESCENCE is defined
+    material.iridescence = u_material.iridescence;
+    material.iridescence_ior = u_material.iridescence_ior;
+
+    $$ if use_iridescence_map is defined
+        material.iridescence *= textureSample(t_iridescence_map, s_iridescence_map, varyings.texcoord{{iridescence_map_uv or ''}}).r;
+    $$ endif
+
+    let iridescence_thickness_minimum = u_material.iridescence_thickness_range[0];
+    let iridescence_thickness_maximum = u_material.iridescence_thickness_range[1];
+    $$ if use_iridescence_thickness_map is defined
+        material.iridescence_thickness = (iridescence_thickness_maximum - iridescence_thickness_minimum) * textureSample(t_iridescence_thickness_map, s_iridescence_thickness_map, varyings.texcoord{{iridescence_thickness_map_uv or ''}}).g + iridescence_thickness_minimum;
+    $$ else
+        material.iridescence_thickness = iridescence_thickness_maximum;
+    $$ endif
+
+    if (material.iridescence_thickness == 0.0) {
+        material.iridescence = 0.0;
+    }else{
+        material.iridescence = saturate( material.iridescence );
+    }
+
+    let dot_nvi = saturate( dot( normal, view ) );
+    if material.iridescence > 0.0 {
+        material.iridescence_fresnel = evalIridescence( 1.0, material.iridescence_ior, dot_nvi, material.iridescence_thickness, material.specular_color );
+        material.iridescence_f0 = Schlick_to_F0( material.iridescence_fresnel, 1.0, dot_nvi );
+    }
 $$ endif

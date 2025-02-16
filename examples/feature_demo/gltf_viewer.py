@@ -27,9 +27,7 @@ renderer = gfx.WgpuRenderer(canvas)
 
 scene = gfx.Scene()
 
-dl = gfx.DirectionalLight()
-dl.local.position = (-3, 10, 10)
-scene.add(gfx.AmbientLight(intensity=0.1), dl)
+scene.add(gfx.AmbientLight(intensity=0.1))
 camera = gfx.PerspectiveCamera(45, 1280 / 720)
 
 gfx.OrbitController(camera, register_events=renderer)
@@ -60,7 +58,7 @@ response.raise_for_status()
 model_list: list = response.json()
 
 # filter out models having "core" in tags
-model_list = [m for m in model_list if "core" in m.get("tags", [])]
+# model_list = [m for m in model_list if "core" in m.get("tags", [])]
 
 mixer = gfx.AnimationMixer()
 
@@ -83,6 +81,8 @@ env_tex = gfx.Texture(
 background = gfx.Background(None, gfx.BackgroundSkyboxMaterial(map=env_tex))
 background.visible = False
 scene.add(background)
+
+scene.add(gfx.Background.from_color((0.01, 0.01, 0.01, 1.0)))
 
 
 def add_env_map(obj):
