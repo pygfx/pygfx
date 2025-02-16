@@ -834,24 +834,37 @@ class TextBlock:
         self._input = input
         self._mark_dirty(layout=True)
 
-        # Split text in pieces using a tokenizer
+        # Split text in parts using a tokenizer
         text_parts = list(textmodule.tokenize_markdown(text))
 
-        # TODO: detect headers ###
-        # TODO: detect bullet lists
-        # TODO: with this, words can be split in two parts, make sure they stick together, or merge into one textitem?
-        # TODO: support newlines in text block with markdown too.
-
+        is_newline = True
         is_bold = is_italic = 0
+        max_i = len(text_parts) - 1
 
         for i in range(0, len(text_parts)):
             kind, text = text_parts[i]
+
+            # Detect bullets
+            if is_newline and i < max_i and text_parts[i + 1][0] == "ws":
+                if text in ("*", "-"):
+                    text_parts[i] = "bullet", "  •"
+                if text.startswith("#") and len(text.strip("#")) == 0:
+                    header_level = len(text)
+                    text_parts[i] = f"fmt:h{header_level}", text
+                    text_parts[i + 1] = "ws", ""  # remove whitespace
+            if kind == "nl":
+                is_newline = True
+
+            elif kind != "ws":
+                is_newline = False
+
+            # Detect bold / italics
             if kind == "stars":
                 # Get what surrounding parts look like
                 prev_is_wordlike = next_is_wordlike = False
                 if i > 0:
                     prev_is_wordlike = text_parts[i - 1][0] != "ws"
-                if i < len(text_parts) - 1:
+                if i < max_i:
                     next_is_wordlike = text_parts[i + 1][0] != "ws"
                 # Decide how to format
                 if not prev_is_wordlike and next_is_wordlike:
@@ -920,34 +933,43 @@ class TextBlock:
         # -b: unbold
         # +i: make italic
         # -i: make italic
-        #
-        # Formats:
-        # b: bold
-        # i: italic
-        format = ""
+        # h1 h2 h3 h4: headers
+        format = {}
+        bold_level = italic_level = 0
 
-        # Process the pieces to create TextItem objects
+        # Process the parts to create TextItem objects
         for kind, text in iter_of_kind_text:
             if kind.startswith("fmt:"):
                 modifier = kind.partition(":")[-1]
                 if modifier == "+b":
-                    format += "b"
+                    bold_level += 1
+                    format["weight"] = 300
                 elif modifier == "-b":
-                    format = format.replace("b", "", 1)
+                    bold_level -= 1
+                    if not bold_level:
+                        format.pop("weight", None)
                 elif modifier == "+i":
-                    format += "i"
+                    italic_level += 1
+                    format["slant"] = True
                 elif modifier == "-i":
-                    format = format.replace("i", "", 1)
+                    italic_level -= 1
+                    if not italic_level:
+                        format.pop("slant", None)
+                elif modifier.startswith("h"):
+                    level = int(modifier[1:])
+                    format["size"] = [1, 2.0, 1.5, 1.25][level] if level <= 3 else 1.1
             elif kind == "ws":
                 flush_pieces()
                 pending_whitespace += text
             elif kind == "nl":
+                format.clear()
+                bold_level = italic_level = 0
                 flush_pieces()
                 if pending_whitespace or not new_items:
                     flush_pieces(force=True)
                 new_items[-1].nl_after += text
             else:
-                add_piece(format, text)
+                add_piece(format.copy(), text)
 
         flush_pieces()
         if pending_whitespace:
@@ -1067,20 +1089,25 @@ class TextItem:
         last_reverse_index = 0
         for format, text2 in self.pieces:
             for text, font in textengine.select_font(text2, font_props):
+                rsize = format.get("size", 1.0)
+                weight, slant = format.get("weight", 0), format.get("slant", False)
                 unicode_indices, positions, meta = textengine.shape_text(
                     text, font.filename, direction
                 )
                 atlas_indices = textengine.generate_glyph(
                     unicode_indices, font.filename
                 )
-                if format:
-                    encode_font_props_in_atlas_indices(atlas_indices, format)
+                encode_font_props_in_atlas_indices(atlas_indices, weight, slant)
+                if rsize != 1.0:
+                    positions *= rsize
                 if extent:
                     positions[:, 0] += extent  # put pieces next to each-other
-                sizes = np.full((positions.shape[0],), 1.0, np.float32)
-                extent = extent + meta["extent"]
-                ascender = max(ascender, meta["ascender"])
-                descender = min(descender, meta["descender"])  # note: descender is neg
+                sizes = np.full((positions.shape[0],), rsize, np.float32)
+                extent = extent + meta["extent"] * rsize
+                ascender = max(ascender, meta["ascender"] * rsize)
+                descender = min(
+                    descender, meta["descender"] * rsize
+                )  # note: descender is neg
                 direction = meta["direction"]  # use last
                 # Put in list, take direction into account
                 if direction in ("rtl", "btt"):
@@ -1178,7 +1205,7 @@ class TextItem:
             self.glyph_indices = range(0)
 
 
-def encode_font_props_in_atlas_indices(atlas_indices, format):
+def encode_font_props_in_atlas_indices(atlas_indices, weight, slant):
     # We could put font properties in their own buffer(s), but to
     # safe memory, we encode them in the top bits of the atlas
     # indices. This seems like a good place, because these top bits
@@ -1186,15 +1213,10 @@ def encode_font_props_in_atlas_indices(atlas_indices, format):
     # glyph index is a rather "opaque" value to the user anyway.
     # You can think of the new glyph index as the index to the glyph
     # in the atlas, plus props to tweak its appearance.
-
-    # We compare the font_props (i.e. the requested font variant)
-    # with the actual font to see what correcion we need to apply.
-    # slanted_like = "italic", "oblique", "slanted"
-    # if font_props.style in slanted_like and font.style not in slanted_like:
-    if "i" in format:
+    if slant:
         atlas_indices += 0x08000000
     # weight_offset = font_props.weight - font.weight
-    weight_offset = 300 if "b" in format else 0
+    weight_offset = weight
     weight_0_15 = int((max(-250, weight_offset) + 250) / 50 + 0.4999)
     atlas_indices += max(0, min(15, weight_0_15)) << 28
 
@@ -1252,7 +1274,7 @@ def apply_block_layout(geometry, text_block):
     items = text_block._text_items
 
     if not items:
-        text_block._nlines = 0
+        text_block._nlines = 1  # an empty line also takes the space of ine line
         text_block._rect = Rect()
         return
 
@@ -1314,6 +1336,7 @@ def apply_block_layout(geometry, text_block):
 
     def make_new_line(n_new_lines=1, n_new_paragraphs=0):
         nonlocal current_line, current_rect
+        # Get space to skip
         skip = n_new_lines * line_height + n_new_paragraphs * paragraph_spacing
         if is_horizontal:
             offset[1] -= skip
