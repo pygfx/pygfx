@@ -130,7 +130,7 @@ automatically selects an appropriate backend to create a window on your screen::
 
 Like before, ``gfx.show`` will automatically create a canvas if we don't provide
 one explicitly. This works fine for quick visualizations where the render can
-appear as a standalone window. However, if we want to have more fine-graned
+appear as a standalone window. However, if we want to have more fine-grained
 control over the target, e.g., because we want to change the window size or
 title, we need specify the canvas explicitly. Another common use-case for an
 explicit canvas is because we are creating a larger GUI and we want the render
