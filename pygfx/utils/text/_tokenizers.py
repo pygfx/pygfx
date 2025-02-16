@@ -35,7 +35,9 @@ def tokenize_text(text):
 
 
 punctuation = r"[\,\.\;\:\?\!\…]+"
-markdown_prog = re.compile(r"(\n)+|(\s)+|(\d|\w|-|_)+|(\*)+|(" + punctuation + ")")
+markdown_prog = re.compile(
+    r"(\n)+|([ \r\f\t])+|(\d|\w|-|_)+|(\*)+|(" + punctuation + ")"
+)
 
 
 def tokenize_markdown(text):
