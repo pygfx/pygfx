@@ -57,7 +57,7 @@ class ImageBasicMaterial(Material):
     def map(self, map):
         assert_type("map", map, None, Texture, TextureMap)
         if isinstance(map, Texture):
-            map = TextureMap(map, wrap="clamp")
+            map = TextureMap(map, filter="linear", wrap="clamp")
         self._store.map = map
 
     @property

@@ -139,7 +139,7 @@ class BackgroundImageMaterial(BackgroundMaterial):
     def map(self, map):
         assert_type("map", map, None, Texture, TextureMap)
         if isinstance(map, Texture):
-            map = TextureMap(map)
+            map = TextureMap(map, filter="linear", wrap="clamp")
         self._store.map = map
 
 
