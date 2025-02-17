@@ -31,11 +31,15 @@ fn vs_main(in: VertexInput) -> Varyings {
         let d = - dot(abc, p0);
 
         // Get point on the plane closest to the origin (handy for debugging)
-        //let pos_origin = (d / length(abc)) * abc;
+        // let pos_origin = (d / length(abc)) * abc;
+        // length(abc) is 1 since v3 was normalized
+        // let pos_origin = d * abc;
 
         // Get position of camera projected on the plane
         let cam_pos = vec3<f32>(u_stdinfo.cam_transform_inv[3].xyz);
-        let cam_k = (dot(abc, cam_pos) + d) / length(abc);
+        // let cam_k = (dot(abc, cam_pos) + d) / length(abc);
+        // No need to divide by length(abc) since it known to be 1.
+        let cam_k = dot(abc, cam_pos) + d;
         let cam_pos_on_grid = cam_pos - cam_k * abc;
 
         // The closer the camera is to the plane, the less space you need to
