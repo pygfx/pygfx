@@ -69,11 +69,14 @@ class TextGeometry(Geometry):
 
     Parameters
     ----------
-    text : str
-        The plain text to render (optional).
-    markdown : str
+    text : str | list[str]
+        The plain text to render (optional). The text is split in one TextBlock per line,
+        unless a list is given, in which case each (str) item become a TextBlock.
+    markdown : str | list[str]
         The text to render, formatted as markdown (optional). See
         ``set_markdown()`` for details on the supported formatting.
+        The text is split in one TextBlock per line,
+        unless a list is given, in which case each (str) item become a TextBlock.
     font_size : float
         The size of the font, in object coordinates or pixel screen coordinates,
         depending on the value of the ``screen_space`` property. Default 12.
@@ -469,42 +472,54 @@ class TextGeometry(Geometry):
         """
         return self._text_blocks[index]
 
-    def set_text(self, text):
+    def set_text(self, text: str | list[str]):
         """Set the full text for this TextGeometry.
 
-        Each line (i.e. paragraph) results in one TextBlock.
-        On subsequent calls, blocks are re-used, and lines that did not change
+        Each line (i.e. paragraph) results in one TextBlock, unless a list is given,
+        in which case each (str) item become a TextBlock.
+
+        On subsequent calls, blocks are re-used, and blocks that did not change
         have near-zero overhead (only lines/blocks that changed need updating).
         """
-        if not isinstance(text, str):
+        if isinstance(text, str):
+            str_per_block = text.splitlines()
+        elif isinstance(text, list):
+            str_per_block = text
+        else:
             raise TypeError("TextGeometry text should be str.")
-        lines = text.splitlines()
-        self._ensure_text_block_count(len(lines))
-        for i, line in enumerate(lines):
+        self._ensure_text_block_count(len(str_per_block))
+        for i, s in enumerate(str_per_block):
             # Note that setting the blocks text is fast if it did not change
-            self._text_blocks[i].set_text(line)
+            self._text_blocks[i].set_text(s)
 
         # TODO: trigger a layout
         self._on_update_object()
 
-    def set_markdown(self, text):
+    def set_markdown(self, text: str | list[str]):
         """Set the full text, formatted as markdown.
 
-        The supported subset of markdown is limited to surrounding pieces of
-        text with single and double stars for slanted and bold text
-        respectively. Bold/slanted text should be limited to a single line (i.e.
-        not go beyond a newline).
+        The supported markdown features are:
+        * ``**bold** and *italic* text`` is supported for words, word-parts,
+          and (partial) sentences, but not multiple lines (formatting state does
+          not cross line boundaries).
+        # ``# h1``, ``## h2``, ``### h3``, etc.
+        # ``* bullet points``.
 
-        Each line (i.e. paragraph) results in one TextBlock.
-        On subsequent calls, blocks are re-used, and lines that did not change
+        Each line (i.e. paragraph) results in one TextBlock, unless a list is given,
+        in which case each (str) item become a TextBlock.
+
+        On subsequent calls, blocks are re-used, and blocks that did not change
         have near-zero overhead (only lines/blocks that changed need updating).
         """
-        if not isinstance(text, str):
+        if isinstance(text, str):
+            str_per_block = text.splitlines()
+        elif isinstance(text, list):
+            str_per_block = text
+        else:
             raise TypeError("TextGeometry markdown should be str.")
-        lines = text.splitlines()
-        self._ensure_text_block_count(len(lines))
-        for i, line in enumerate(lines):
-            self._text_blocks[i].set_markdown(line)
+        self._ensure_text_block_count(len(str_per_block))
+        for i, s in enumerate(str_per_block):
+            self._text_blocks[i].set_markdown(s)
 
         # TODO: trigger a layout
         self._on_update_object()
@@ -800,10 +815,12 @@ class TextBlock:
         self._text_items = []
         self._input = None
 
-    def set_text(self, text):
-        """Set the text for this TextBlock.
+    def set_text(self, text: str):
+        """Set the text for this TextBlock (as a string).
 
         This is called from ``TextGeometry.set_text()``, but can also be called directly.
+        Note that in contrast to ``TextGeometry.set_text()``, setting the text on a TextBlock
+        does not result in a re-layout (i.e. the bounding box is not updated).
         """
 
         if not isinstance(text, str):
@@ -819,10 +836,12 @@ class TextBlock:
         text_parts = textmodule.tokenize_text(text)
         self._text_parts_to_items(text_parts)
 
-    def set_markdown(self, text):
-        """Set the markdown for this TextBlock.
+    def set_markdown(self, text: str):
+        """Set the markdown for this TextBlock (as a string).
 
         This is called from ``TextGeometry.set_markdown()``, but can also be called directly.
+        Note that in contrast to ``TextGeometry.set_markdown()``, setting the text on a TextBlock
+        does not result in a re-layout (i.e. the bounding box is not updated).
         """
 
         if not isinstance(text, str):
