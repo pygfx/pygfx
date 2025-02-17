@@ -18,7 +18,6 @@ scene = gfx.Scene()
 scene.add(gfx.Background.from_color("#aaa"))
 
 md = """
-# H1 header
 ## H2 header
 ### H3 header
 
@@ -28,31 +27,27 @@ A bullet list:
 **bold** normal, loose ** stays
 normal *italic*, loose * stays
 **whole **sentense** bold.** not this
-also partial**bold** and **bold**partial
+also partial**bold**wordpart
 """
 
 material = gfx.TextMaterial(color="#000")
 
-text1 = gfx.Text(gfx.TextGeometry(space_mode="model"), material)
-text2 = gfx.Text(gfx.TextGeometry(space_mode="model"), material)
-text3 = gfx.Text(gfx.TextGeometry(space_mode="model"), material)
-text4 = gfx.Text(gfx.TextGeometry(space_mode="model"), material)
+text1 = gfx.Text(gfx.TextGeometry(anchor="top-left", space_mode="model"), material)
+text2 = gfx.Text(gfx.TextGeometry(anchor="top-left", space_mode="model"), material)
+text3 = gfx.Text(gfx.TextGeometry(anchor="top-left", space_mode="model"), material)
+text4 = gfx.Text(gfx.TextGeometry(anchor="top-left", space_mode="model"), material)
+
+# Set the markdown as markdown or as text. Also use the variation where
+# it results in a single TextBlock, which should result in the same result.
+text1.geometry.set_markdown("# md multi-block\n" + md)
+text2.geometry.set_markdown(["# md single-block", md])
+text3.geometry.set_text("--- text multi-block:\n" + md)
+text4.geometry.set_text(["--- text single-block:", md])
 
 text1.local.position = (0, 0, 0)
 text2.local.position = (250, 0, 0)
-text3.local.position = (0, -190, 0)
-text4.local.position = (250, -190, 0)
-
-text1.geometry.set_markdown(md)
-text2.geometry.set_text_block_count(1)
-text2.geometry.get_text_block(0).set_markdown(md)
-text3.geometry.set_text(md)
-text4.geometry.set_text_block_count(1)
-text4.geometry.get_text_block(0).set_text(md)
-
-for ob in (text1, text2, text3, text4):
-    ob.geometry.anchor = "top-left"
-    ob.geometry._on_update_object()
+text3.local.position = (0, -200, 0)
+text4.local.position = (250, -200, 0)
 
 scene.add(text1, text2, text3, text4)
 
@@ -60,7 +55,6 @@ camera = gfx.OrthographicCamera(1, 1)
 
 camera.show_object(scene, scale=0.7)
 renderer = gfx.renderers.WgpuRenderer(WgpuCanvas(size=(800, 600)))
-
 
 renderer.request_draw(lambda: renderer.render(scene, camera))
 
