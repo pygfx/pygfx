@@ -609,7 +609,7 @@ class MeshStandardShader(MeshShader):
         return result
 
 
-@register_wgpu_render_function(Mesh, MeshPhysicalMaterial)
+@register_wgpu_render_function(WorldObject, MeshPhysicalMaterial)
 class MeshPhysicalShader(MeshStandardShader):
     def __init__(self, wobject):
         super().__init__(wobject)
@@ -633,34 +633,57 @@ class MeshPhysicalShader(MeshStandardShader):
             )
             self["use_specular_intensity_map"] = True
 
+        # clearcoat
         if material.clearcoat:
             self["USE_CLEARCOAT"] = True
 
-        if material.clearcoat_map is not None:
-            bindings.extend(
-                self._define_texture_map(
-                    geometry, material.clearcoat_map, "clearcoat_map"
+            if material.clearcoat_map is not None:
+                bindings.extend(
+                    self._define_texture_map(
+                        geometry, material.clearcoat_map, "clearcoat_map"
+                    )
                 )
-            )
-            self["use_clearcoat_map"] = True
+                self["use_clearcoat_map"] = True
 
-        if material.clearcoat_roughness_map is not None:
-            bindings.extend(
-                self._define_texture_map(
-                    geometry,
-                    material.clearcoat_roughness_map,
-                    "clearcoat_roughness_map",
+            if material.clearcoat_roughness_map is not None:
+                bindings.extend(
+                    self._define_texture_map(
+                        geometry,
+                        material.clearcoat_roughness_map,
+                        "clearcoat_roughness_map",
+                    )
                 )
-            )
-            self["use_clearcoat_roughness_map"] = True
+                self["use_clearcoat_roughness_map"] = True
 
-        if material.clearcoat_normal_map is not None:
-            bindings.extend(
-                self._define_texture_map(
-                    geometry, material.clearcoat_normal_map, "clearcoat_normal_map"
+            if material.clearcoat_normal_map is not None:
+                bindings.extend(
+                    self._define_texture_map(
+                        geometry, material.clearcoat_normal_map, "clearcoat_normal_map"
+                    )
                 )
-            )
-            self["use_clearcoat_normal_map"] = True
+                self["use_clearcoat_normal_map"] = True
+
+        # iridescence
+        if material.iridescence:
+            self["USE_IRIDESCENCE"] = True
+
+            if material.iridescence_map is not None:
+                bindings.extend(
+                    self._define_texture_map(
+                        geometry, material.iridescence_map, "iridescence_map"
+                    )
+                )
+                self["use_iridescence_map"] = True
+
+            if material.iridescence_thickness_map is not None:
+                bindings.extend(
+                    self._define_texture_map(
+                        geometry,
+                        material.iridescence_thickness_map,
+                        "iridescence_thickness_map",
+                    )
+                )
+                self["use_iridescence_thickness_map"] = True
 
         # Define shader code for binding
         bindings = {i: binding for i, binding in enumerate(bindings)}

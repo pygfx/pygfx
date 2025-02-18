@@ -37,6 +37,7 @@ examples = [
     "trimesh <4.6",
     "gltflib",
     "imgui-bundle>=1.2.1",
+    "httpx",
 ]
 docs = [
     "sphinx>7.2",
@@ -49,6 +50,7 @@ docs = [
     "trimesh <4.6",
     "gltflib",
     "imgui-bundle>=1.6.0",
+    "httpx",
 ]
 tests = ["pytest", "psutil", "trimesh <4.6", "httpx", "gltflib", "imageio"]
 dev = ["pygfx[lint,tests,examples,docs]"]
