@@ -93,6 +93,7 @@ class AffineBase:
         "_scaling_signs",
         "_scaling_signs_view",
         "cache__decomposed_cache",
+        "cache__decomposed_position_cache",
         "cache__directions_cache",
         "cache__euler_cache",
         "cache__inverse_matrix_cache",
@@ -148,6 +149,12 @@ class AffineBase:
         return self._scaling_signs_view
 
     @cached
+    def _decomposed_position(self) -> np.ndarray:
+        position = la.mat_decompose_translation(self.matrix)
+        position.flags.writeable = False
+        return position
+
+    @cached
     def _decomposed(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         try:
             decomposed = la.mat_decompose(self.matrix, scaling_signs=self.scaling_signs)
@@ -200,7 +207,7 @@ class AffineBase:
     @property
     def position(self) -> np.ndarray:
         """The origin of source."""
-        return self._decomposed[0]
+        return self._decomposed_position
 
     @property
     def rotation(self) -> np.ndarray:
