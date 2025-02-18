@@ -1091,7 +1091,7 @@ class MeshPhysicalMaterial(MeshStandardMaterial):
         Typical ranges are 0-1. Default is (1,1).
     iridescence : float
         The intensity of the iridescence layer, simulating RGB color shift based on the angle
-        between the surface and the viewer,from 0.0 to 1.0. Default is 0.0.
+        between the surface and the viewer, from 0.0 to 1.0. Default is 0.0.
     iridescence_ior : float
         The strength of the iridescence RGB color shift effect, represented by an index-of-refraction.
         Default is 1.3.
