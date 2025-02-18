@@ -17,7 +17,8 @@ fn D_GGX(alpha: f32, dot_nh: f32) -> f32 {
     return RECIPROCAL_PI * a2/pow(denom, 2.0);
 }
 
-fn BRDF_GGX(light_dir: vec3<f32>, view_dir: vec3<f32>, normal: vec3<f32>, f0: vec3<f32>, f90: f32, roughness: f32) -> vec3<f32> {
+$$ if USE_CLEARCOAT is defined
+fn BRDF_GGX_CC(light_dir: vec3<f32>, view_dir: vec3<f32>, normal: vec3<f32>, f0: vec3<f32>, f90: f32, roughness: f32) -> vec3<f32> {
     let alpha = pow( roughness, 2.0 );
     let half_dir = normalize( light_dir + view_dir );
     let dot_nl = saturate( dot( normal, light_dir ) );
@@ -25,6 +26,25 @@ fn BRDF_GGX(light_dir: vec3<f32>, view_dir: vec3<f32>, normal: vec3<f32>, f0: ve
     let dot_nh = saturate( dot( normal, half_dir ) );
     let dot_vh = saturate( dot( view_dir, half_dir ) );
     let F = F_Schlick( f0, f90, dot_vh);
+    let V = V_GGX_SmithCorrelated( alpha, dot_nl, dot_nv );
+    let D = D_GGX( alpha, dot_nh );
+    return F * ( V * D );
+}
+$$ endif
+
+fn BRDF_GGX(light_dir: vec3<f32>, view_dir: vec3<f32>, normal: vec3<f32>, f0: vec3<f32>, f90: f32, roughness: f32, material: PhysicalMaterial) -> vec3<f32> {
+    let alpha = pow( roughness, 2.0 );
+    let half_dir = normalize( light_dir + view_dir );
+    let dot_nl = saturate( dot( normal, light_dir ) );
+    let dot_nv = saturate( dot( normal, view_dir ) );
+    let dot_nh = saturate( dot( normal, half_dir ) );
+    let dot_vh = saturate( dot( view_dir, half_dir ) );
+    var F = F_Schlick( f0, f90, dot_vh);
+
+    $$ if USE_IRIDESCENCE is defined
+        F = mix( F, material.iridescence_fresnel, material.iridescence );
+    $$ endif
+
     let V = V_GGX_SmithCorrelated( alpha, dot_nl, dot_nv );
     let D = D_GGX( alpha, dot_nh );
     return F * ( V * D );
@@ -62,6 +82,15 @@ struct PhysicalMaterial {
         clearcoat_f0: vec3<f32>,
         clearcoat_f90: f32,
     $$ endif
+
+    $$ if USE_IRIDESCENCE is defined
+        iridescence: f32,
+        iridescence_ior: f32,
+        iridescence_thickness: f32,
+        iridescence_fresnel: vec3<f32>,
+        iridescence_f0: vec3<f32>,
+    $$ endif
+
 };
 
 struct LightScatter {
@@ -73,6 +102,13 @@ var<private> clearcoat_specular_direct: vec3f = vec3f(0.0);
 var<private> clearcoat_specular_indirect: vec3f = vec3f(0.0);
 var<private> sheen_specular_direct: vec3f = vec3f(0.0);
 var<private> sheen_specular_indirect: vec3f = vec3f(0.0);
+
+fn Schlick_to_F0( f: vec3<f32>, f90: f32, dot_vh: f32 ) -> vec3<f32> {
+    let x = clamp( 1.0 - dot_vh, 0.0, 1.0 );
+    let x2 = x * x;
+    let x5 = clamp( x * x2 * x2, 0.0, 0.9999 );
+    return ( f - vec3<f32>( f90 ) * x5 ) / ( 1.0 - x5 );
+}
 
 fn getMipLevel(maxMIPLevelScalar: f32, level: f32) -> f32 {
     let sigma = (3.141592653589793 * level * level) / (1.0 + level);
@@ -91,9 +127,21 @@ fn getIBLRadiance( reflectVec: vec3<f32>, env_map: texture_cube<f32>, env_map_sa
     return srgb2physical(envMapColor_srgb.rgb) * u_material.env_map_intensity;
 }
 
-fn computeMultiscattering(normal: vec3<f32>, view_dir: vec3<f32>, specular_color: vec3<f32>, specular_f90: f32, roughness: f32) -> LightScatter {
+$$ if USE_IRIDESCENCE is defined
+fn computeMultiscatteringIridescence(normal: vec3<f32>, view_dir: vec3<f32>, specular_color: vec3<f32>, specular_f90: f32, roughness: f32, iridescence_f0: vec3<f32>, iridescence: f32) -> LightScatter {
+$$ else
+fn computeMultiscattering(normal: vec3<f32>, view_dir: vec3<f32>, specular_color: vec3<f32>, specular_f90: f32, roughness: f32 ) -> LightScatter {
+$$ endif
+
     let fab = DFGApprox( normal, view_dir, roughness );
-    let FssEss = specular_color * fab.x + specular_f90 * fab.y;
+
+    $$ if USE_IRIDESCENCE is defined
+        let Fr = mix(specular_color, iridescence_f0, iridescence );
+    $$ else
+        let Fr = specular_color;
+    $$ endif
+
+    let FssEss = Fr * fab.x + specular_f90 * fab.y;
     let Ess: f32 = fab.x + fab.y;
     let Ems: f32 = 1.0 - Ess;
     let Favg = specular_color + ( 1.0 - specular_color ) * 0.047619; // 1/21
@@ -111,7 +159,12 @@ fn RE_IndirectSpecular_Physical(radiance: vec3<f32>, irradiance: vec3<f32>, clea
         clearcoat_specular_indirect += clearcoat_radiance * EnvironmentBRDF( geometry.clearcoat_normal, geometry.view_dir, material.clearcoat_f0, material.clearcoat_f90, material.clearcoat_roughness );
     $$ endif
     let cosineWeightedIrradiance: vec3<f32> = irradiance * RECIPROCAL_PI;
-    let scatter = computeMultiscattering( geometry.normal, geometry.view_dir, material.specular_color, material.specular_f90, material.roughness);
+
+    $$ if USE_IRIDESCENCE is defined
+        let scatter = computeMultiscatteringIridescence( geometry.normal, geometry.view_dir, material.specular_color, material.specular_f90, material.roughness, material.iridescence_f0, material.iridescence );
+    $$ else
+        let scatter = computeMultiscattering( geometry.normal, geometry.view_dir, material.specular_color, material.specular_f90, material.roughness);
+    $$ endif
     let total_scattering = scatter.single_scatter + scatter.multi_scatter;
     let diffuse = material.diffuse_color * ( 1.0 - max( max( total_scattering.r, total_scattering.g ), total_scattering.b ) );
     // let diffuse = material.diffuse_color * ( 1.0 - scatter.single_scatter - scatter.multi_scatter);
@@ -130,11 +183,10 @@ fn RE_Direct_Physical(direct_light: IncidentLight, geometry: GeometricContext, m
     $$ if USE_CLEARCOAT is defined
         let dot_nl_cc = saturate( dot( geometry.clearcoat_normal, direct_light.direction ));
         let clearcoat_irradiance = dot_nl_cc * direct_light.color;
-
-        clearcoat_specular_direct += clearcoat_irradiance * BRDF_GGX( direct_light.direction, geometry.view_dir, geometry.clearcoat_normal, material.specular_color, material.clearcoat_f90, material.clearcoat_roughness );
+        clearcoat_specular_direct += clearcoat_irradiance * BRDF_GGX_CC( direct_light.direction, geometry.view_dir, geometry.clearcoat_normal, material.specular_color, material.clearcoat_f90, material.clearcoat_roughness );
     $$ endif
 
-    (*reflected_light).direct_specular += irradiance * BRDF_GGX( direct_light.direction, geometry.view_dir, geometry.normal, material.specular_color, material.specular_f90, material.roughness );
+    (*reflected_light).direct_specular += irradiance * BRDF_GGX( direct_light.direction, geometry.view_dir, geometry.normal, material.specular_color, material.specular_f90, material.roughness, material );
     (*reflected_light).indirect_diffuse += irradiance * BRDF_Lambert( material.diffuse_color );
 }
 
