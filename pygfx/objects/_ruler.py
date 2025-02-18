@@ -119,7 +119,7 @@ class Ruler(WorldObject):
         """The value at the end of the ruler (read-only)."""
         # Little caching mechanic. Props that affect the end_value set ._end_value to None
         if self._end_value is None:
-            self._end_value = (
+            self._end_value = float(
                 np.linalg.norm(self._end_pos - self._start_pos) + self._start_value
             )
         return self._end_value
@@ -375,13 +375,13 @@ class Ruler(WorldObject):
 
         # Determine distances for visible selection
         world_dist = self._visible_part_values[1] - self._visible_part_values[0]
-        screen_dist = np.linalg.norm(self._visible_part_screen_vec)
+        screen_dist = float(np.linalg.norm(self._visible_part_screen_vec))
 
         # Fall back to full size if selection is zero. This way, the
         # value of step still makes sense, even when the ruler itself
         # is not on screen, and calling code may still use it to e.g.
-        # configure a grid.
-        if not screen_dist:
+        # configure a grid. Account for roundoff errors resulting in a nonzero value.
+        if screen_dist < 1e-9:
             world_dist = self.end_value - self._start_value
             screen_dist = np.linalg.norm(self._screen_vec)
 
