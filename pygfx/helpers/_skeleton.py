@@ -31,6 +31,9 @@ class SkeletonHelper(Line):
 
         self.root = wobject
         self.bones = bones
+        self.bone_descendants = [
+            b for b in bones if b.parent and isinstance(b.parent, Bone)
+        ]
 
         self.local.matrix = wobject.world.matrix
 
@@ -44,22 +47,21 @@ class SkeletonHelper(Line):
         # TODO: we should update it automatically by some mechanism.
         # See: https://github.com/pygfx/pygfx/pull/715#issuecomment-2046493145
         """Update the helper object to match the Skeleton's bones."""
-        bones = self.bones
         geometry = self.geometry
         root_matrix_world_inv = self.root.world.inverse_matrix
         positions = geometry.positions
+        positions_data = positions.data
 
         j = 0
+        for bone in self.bone_descendants:
+            bone_parent = bone.parent
+            bone_matrix = root_matrix_world_inv @ bone.world.matrix
+            la.mat_decompose_translation(bone_matrix, out=positions_data[j])
 
-        for bone in bones:
-            if bone.parent and isinstance(bone.parent, Bone):
-                bone_matrix = root_matrix_world_inv @ bone.world.matrix
-                positions.data[j] = la.mat_decompose_translation(bone_matrix)
+            parent_bone_matrix = root_matrix_world_inv @ bone_parent.world.matrix
+            la.mat_decompose_translation(parent_bone_matrix, out=positions_data[j + 1])
 
-                parent_bone_matrix = root_matrix_world_inv @ bone.parent.world.matrix
-                positions.data[j + 1] = la.mat_decompose_translation(parent_bone_matrix)
-
-                j += 2
+            j += 2
 
         positions.update_range()
 
