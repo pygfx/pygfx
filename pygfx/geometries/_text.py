@@ -18,7 +18,7 @@ import numpy as np
 
 from ..resources import Buffer
 from ..utils import text as textmodule
-from ..utils.enums import TextAlign, TextAnchor
+from ..utils.enums import TextAlign, TextAnchor, TextPositionMode
 from ..utils import logger
 from ._base import Geometry
 
@@ -89,12 +89,8 @@ class TextGeometry(Geometry):
         The text direction. By default the text direction is determined
         automatically, but is always horizontal. Can be set to 'lrt', 'rtl',
         'ttb' or 'btt'.
-    space_mode : enums.CoordSpace
-        The coordinate space in which the text is rendered. Can be "screen" or "model", default "screen".
-    position_mode : str
-        TODO: maybe one enum space-mode: screen, model, label
-        How ``TextBlock`` objects are positioned. With "auto" the layout is performed automatically (in the same space as ``space``).
-        If "model" the positioning is done in model-space, a bit as if its a point set with labels (i.e. TextBlock's) as markers.
+    position_mode : enums.TextPositionMode
+        How the text is positioned. Can be "screen", "model", or "labels". Default 'model'.
     anchor : str | TextAnchor
         The position of the origin of the text. Default "middle-center".
     anchor_offset : float
@@ -130,7 +126,7 @@ class TextGeometry(Geometry):
         family=None,
         direction=None,
         screen_space=None,
-        space_mode="model",
+        position_mode="model",
         anchor="middle-center",
         anchor_offset=0,
         max_width=0,
@@ -195,10 +191,13 @@ class TextGeometry(Geometry):
         # Space props
         # TODO: fix reference to screen_space, and usage in examples
         if screen_space is not None:
-            raise DeprecationWarning(
-                "TextGeometry.screen_space is deprecated, use space_mode instead."
+            print(
+                DeprecationWarning(
+                    "TextGeometry.screen_space is deprecated, use position_mode instead."
+                )
             )
-        self.space_mode = space_mode
+            position_mode = "screen" if screen_space else "model"
+        self.position_mode = position_mode
 
         # Layout props
         self.anchor = anchor
@@ -285,8 +284,8 @@ class TextGeometry(Geometry):
         self._trigger_blocks_update(render_glyphs=True)
 
     @property
-    def space_mode(self):
-        """The mode to render in ("screen" vs "model").
+    def position_mode(self):
+        """The mode to render in ("screen", "model" or "labels").
 
         Notes
         -----
@@ -294,12 +293,17 @@ class TextGeometry(Geometry):
         transform the text.
 
         """
-        return self._store.space_mode
+        return self._store.position_mode
 
-    @space_mode.setter
-    def space_mode(self, value):
+    @position_mode.setter
+    def position_mode(self, position_mode):
         # TODO: check input value, use a new enum
-        self._store.space_mode = str(value)
+        position_mode = position_mode.lower().strip().replace("-", "_")
+        if position_mode not in TextPositionMode.__fields__:
+            raise ValueError(
+                f"Text position_mode must be one of {TextPositionMode}. Got {position_mode!r}"
+            )
+        self._store.position_mode = TextPositionMode[position_mode]
         self._trigger_blocks_update(layout=True)
 
     # --- layout properties
@@ -543,17 +547,17 @@ class TextGeometry(Geometry):
             return meta["extent"]
 
     def get_bounding_box(self):
-        space_mode = self._store["space_mode"]
-        if space_mode == "screen":
+        position_mode = self._store["position_mode"]
+        if position_mode == "screen":
             # There is no sensible bounding box for text in screen space, except
             # for the anchor point. Although the point has no volume, it does
             # contribute to e.g. the scene's bounding box.
             return np.zeros((2, 3), np.float32)
-        elif space_mode == "model":
+        elif position_mode == "model":
             # A bounding box makes sense, and we calculated it during layout,
             # because we're already shifting rects there.
             return self._aabb
-        elif space_mode == "labels":
+        elif position_mode == "labels":
             if not self._text_blocks:
                 return None
             if self._aabb_rev == self.positions.rev:
@@ -569,22 +573,22 @@ class TextGeometry(Geometry):
             self._aabb_rev = self.positions.rev
             return self._aabb
         else:
-            logger.warning(f"Unexpected space_mode {space_mode!r}")
+            logger.warning(f"Unexpected position_mode {position_mode!r}")
             return None
 
     def get_bounding_sphere(self):
-        space_mode = self._store["space_mode"]
-        if space_mode == "screen":
+        position_mode = self._store["position_mode"]
+        if position_mode == "screen":
             # There is no sensible bounding box for text in screen space, except
             # for the anchor point. Although the point has no volume, it does
             # contribute to e.g. the scene's bounding box.
             return np.zeros((4,), np.float32)
-        elif space_mode == "model":
+        elif position_mode == "model":
             # A bounding box makes sense, we can calculate it from the rect.
             mean = 0.5 * (self._aabb[1] + self._aabb[0])
             diag = np.norm(self._aabb[1] - self._aabb[0])
             return np.array([[mean[0], mean[1], mean[2], diag]], np.float32)
-        elif space_mode == "labels":
+        elif position_mode == "labels":
             positions = self.positions.data[: len(self._text_blocks)]
             center = positions.mean(axis=0)
             distances = np.linalg.norm(positions - center, axis=0)
@@ -594,7 +598,7 @@ class TextGeometry(Geometry):
             else:
                 return np.array([center[0], center[1], center[2], radius], np.float32)
         else:
-            logger.warning(f"Unexpected space_mode {space_mode!r}")
+            logger.warning(f"Unexpected position_mode {position_mode!r}")
             return None
 
     # --- private methods
@@ -622,7 +626,7 @@ class TextGeometry(Geometry):
 
         # Higher-level layout
         if need_high_level_layout:
-            if self.space_mode in ("screen", "model"):
+            if self.position_mode in ("screen", "model"):
                 apply_final_layout(self)
 
     # --- block management
@@ -1308,7 +1312,7 @@ def apply_block_layout(geometry, text_block):
     direction = geometry._direction or "ltr"
     anchor_offset = geometry._anchor_offset
 
-    geometrty_does_layout = geometry.space_mode in ("screen", "model", "world")
+    geometry_does_layout = geometry.position_mode in ("screen", "model")
 
     # Resolve text_align_last
     if text_align_last == "auto":
@@ -1434,7 +1438,7 @@ def apply_block_layout(geometry, text_block):
 
     # Determine horizontal anchor
 
-    if geometrty_does_layout:
+    if geometry_does_layout:
         # If the geometry does its layout, it's far easier to *not* to the anchoring here,
         # except to anchor according to text alignment.
         anchor_offset_x, anchor_offset_y = block_rect.get_offset_for_anchor(

@@ -23,7 +23,7 @@ class TextShader(BaseShader):
         super().__init__(wobject)
         geometry = wobject.geometry
         material = wobject.material
-        self["screen_space"] = geometry.space_mode == "screen"
+        self["position_mode"] = geometry.position_mode
         self["aa"] = material.aa
         self["REF_GLYPH_SIZE"] = REF_GLYPH_SIZE
 

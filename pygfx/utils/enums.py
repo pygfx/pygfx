@@ -17,6 +17,7 @@ The enums used in pygfx. The enums are all available from the root ``pygfx`` nam
     SizeMode
     TextAlign
     TextAnchor
+    TextPositionMode
     VisibleSide
 
 """
@@ -35,6 +36,7 @@ __all__ = [
     "SizeMode",
     "TextAlign",
     "TextAnchor",
+    "TextPositionMode",
     "VisibleSide",
 ]
 
@@ -179,6 +181,12 @@ class TextAnchor(Enum):
     bottom_left = "bottom-left"
     bottom_center = "bottom-center"
     bottom_right = "bottom-right"
+
+
+class TextPositionMode(Enum):
+    model = None  #: The text is positioned in the world as a regular object.
+    screen = None  #: The text is displayed in screen-space, at the position of the text object.
+    labels = None  #: The text blocks are positioned using the ``positions`` buffer (maintained externally), but rendered in screen-space.
 
 
 # NOTE: Don't forget to add new enums to the toctree and __all__

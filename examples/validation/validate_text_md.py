@@ -32,10 +32,10 @@ also partial**bold**wordpart
 
 material = gfx.TextMaterial(color="#000")
 
-text1 = gfx.Text(gfx.TextGeometry(anchor="top-left", space_mode="model"), material)
-text2 = gfx.Text(gfx.TextGeometry(anchor="top-left", space_mode="model"), material)
-text3 = gfx.Text(gfx.TextGeometry(anchor="top-left", space_mode="model"), material)
-text4 = gfx.Text(gfx.TextGeometry(anchor="top-left", space_mode="model"), material)
+text1 = gfx.Text(gfx.TextGeometry(anchor="top-left", position_mode="model"), material)
+text2 = gfx.Text(gfx.TextGeometry(anchor="top-left", position_mode="model"), material)
+text3 = gfx.Text(gfx.TextGeometry(anchor="top-left", position_mode="model"), material)
+text4 = gfx.Text(gfx.TextGeometry(anchor="top-left", position_mode="model"), material)
 
 # Set the markdown as markdown or as text. Also use the variation where
 # it results in a single TextBlock, which should result in the same result.
