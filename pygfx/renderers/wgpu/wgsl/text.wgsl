@@ -68,18 +68,20 @@ fn vs_main(in: VertexInput) -> Varyings {
     let slant = vec2<f32>(0.5 - corner.y, 0.0) * slant_factor;
 
     let pos_corner_factor = corner * vec2<f32>(1.0, -1.0);
-    let vertex_pos = block_pos.xy + glyph_pos + (pos_offset1 + pos_offset2 * pos_corner_factor + slant) * font_size;
+    let glyph_vertex_pos = glyph_pos + (pos_offset1 + pos_offset2 * pos_corner_factor + slant) * font_size;
     let texcoord_in_pixels = vec2<f32>(bitmap_rect.xy) + vec2<f32>(bitmap_rect.zw) * corner;
 
-    $$ if screen_space
+    $$ if position_mode == 'screen'
 
         // We take the object's pos (model pos is origin), move to NDC, and apply the
         // glyph-positioning in logical screen coords. The text position is affected
         // by the world_transform, but the local scale and rotation do not affect the position.
         // We apply these separately in screen space, so the user can scale and rotate the text that way.
 
-        let raw_pos = vec3<f32>(0.0, 0.0, 0.0);
-        let world_pos = u_wobject.world_transform * vec4<f32>(raw_pos, 1.0);
+        let model_pos = vec3<f32>(0.0, 0.0, 0.0);
+        let vertex_pos = block_pos.xy + glyph_vertex_pos;
+
+        let world_pos = u_wobject.world_transform * vec4<f32>(model_pos, 1.0);
         let ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos;
         let vertex_pos_rotated_and_scaled = u_wobject.rot_scale_transform * vec4<f32>(vertex_pos, 0.0, 1.0);
         let delta_ndc = vertex_pos_rotated_and_scaled.xy / screen_factor;
@@ -87,12 +89,29 @@ fn vs_main(in: VertexInput) -> Varyings {
         // Pixel scale is easy
         let atlas_pixel_scale = font_size / f32(REF_GLYPH_SIZE);
 
-    $$ else
+    $$ elif position_mode == 'labels'
+
+        // We take the block position as model pos, and glyph position in screen pos.
+
+        let model_pos = block_pos;
+        let vertex_pos = glyph_vertex_pos;
+
+        let world_pos = u_wobject.world_transform * vec4<f32>(model_pos, 1.0);
+        let ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos;
+        let vertex_pos_rotated_and_scaled = u_wobject.rot_scale_transform * vec4<f32>(vertex_pos, 0.0, 1.0);
+        let delta_ndc = vertex_pos_rotated_and_scaled.xy / screen_factor;
+
+        // Pixel scale is easy
+        let atlas_pixel_scale = font_size / f32(REF_GLYPH_SIZE);
+
+    $$ elif position_mode == 'model'
 
         // We take the glyph positions as model pos, move to world and then NDC.
 
-        let raw_pos = vec4<f32>(vertex_pos, 0.0, 1.0);
-        let world_pos = u_wobject.world_transform * raw_pos;
+        let model_pos = block_pos + vec3<f32>(glyph_vertex_pos, 0.0);
+        let vertex_pos = model_pos.xy;
+
+        let world_pos = u_wobject.world_transform * vec4<f32>(model_pos, 1.0);
         let ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos;
         let delta_ndc = vec2<f32>(0.0, 0.0);
 

@@ -63,7 +63,7 @@ text = gfx.Text(
     gfx.TextGeometry(
         text=text,
         font_size=28,
-        space_mode="screen",
+        position_mode="screen",
         text_align="center",
         anchor="middle-center",
         direction=direction,
