@@ -819,7 +819,9 @@ class TextBlock:
         return need_layout  # i.e. did_layout
 
     def _get_direction_from_items(self):
-        directions = {}
+        # The direction of a TextBlock is defined by the most-occuring direction of its items.
+        # ltr has the advantage if counts are equal
+        directions = {"ltr": 0}
         for item in self._text_items:
             d = item.direction
             directions[d] = directions.get(d, 0) + 1
@@ -1130,9 +1132,11 @@ class TextItem:
         # Init meta data
         extent = ascender = descender = 0
 
-        # The direction is set by the first piece and will then force the next pieces
-        # Text direction can be forced by setting it here.
-        direction = None
+        # The direction may be forced by the geometry.
+        # If the geoetries direction is None (default), the first piece
+        # will determine the direction for this text item.
+        # For a text block, the direction is calculated by counting the direction of the text items.
+        direction = geometry._direction
 
         # Text rendering steps: font selection, shaping, glyph generation
         last_reverse_index = 0
@@ -1335,6 +1339,7 @@ def apply_block_layout(geometry, text_block):
     text_align_last = geometry._text_align_last
     anchor_offset = geometry._anchor_offset
 
+    # Get the direction to apply
     direction = geometry._direction or text_block._direction or "ltr"
     paragraph_direction = "ttb"
 
@@ -1408,7 +1413,7 @@ def apply_block_layout(geometry, text_block):
         apply_whitespace_margin = True
         if max_width > 0 and current_line:
             item_width = (item.margin_before + item.extent) * font_size
-            if offset[0] + item_width > max_width:
+            if current_rect.width + item_width > max_width:
                 make_new_line()
                 apply_whitespace_margin = False
 

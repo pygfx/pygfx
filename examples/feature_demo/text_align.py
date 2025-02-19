@@ -26,6 +26,7 @@ scene.add(gfx.Background.from_color("#fff", "#000"))
 text = """
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, etc.
 Bonjour World Olá
+مرحبا بالعالم
 pygfx
 last lyne
 """.strip()
