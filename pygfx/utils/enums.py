@@ -153,14 +153,14 @@ class BindMode(Enum):
 class TextAlign(Enum):
     """How text is aligned."""
 
-    start = None  #: align to the start (left) of the block.
-    end = None  #: align to the end (right) of the block.
-    center = None  #: align to the center of the block.
-    justify = None  #: spread words to fill the full space determined by max_width.
-    justify_all = None  #: justify also the last line.
-    left = "start"  #: alias for start
-    right = "end"  #: alias for end
-    auto = None  #: unspecified alignment
+    start = None  #: The same as left if direction is left-to-right and right if direction is right-to-left.
+    end = None  #: The same as right if direction is left-to-right and left if direction is right-to-left.
+    left = None  #: The text is aligned to the left edge.
+    right = None  #: The text is aligned to the right edge.
+    center = None  #: The text is centered between the left and right edges.
+    justify = None  #: The words are spread to fill the full space set by max_width.
+    justify_all = None  #: Like justifym but also justify the last line.
+    auto = None  #: Unspecified alignment (use default).
 
 
 class TextAnchor(Enum):
