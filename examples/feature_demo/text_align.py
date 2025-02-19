@@ -31,7 +31,7 @@ pygfx
 last lyne
 """.strip()
 
-arabic_text = """
+text = """
 مرحبًا، مجرد جملة عشوائية
 أعتقد أن برنامج Pygfx رائع جدًا
 واحد اثنان ثلاثة أربعة
@@ -131,6 +131,12 @@ def change_justify(event):
         text.geometry.text_align = "center"
     elif event.key == "o":
         text.geometry.text_align = "right"
+    elif event.key == "U":
+        text.geometry.text_align = "start"
+    elif event.key == "I":
+        text.geometry.text_align = "center"
+    elif event.key == "O":
+        text.geometry.text_align = "end"
     elif event.key == "j":
         text.geometry.text_align = "justify"
     elif event.key == "h":

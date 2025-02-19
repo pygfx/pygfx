@@ -104,15 +104,13 @@ class TextGeometry(Geometry):
     paragraph_spacing : float
         An extra space between paragraphs. Default 0.
     text_align : str | TextAlign
-        The horizontal alignment of the inline-level content. Can be "start",
+        The horizontal alignment of the text. Can be "start",
         "end", "left", "right", "center", "justify" or "justify_all". Default
-        "left". Text alignment is ignored for top to bottom ('ttb') and
+        "start". Text alignment is ignored for top to bottom ('ttb') and
         bottom to top ('btt') directions.
     text_align_last: str | TextAlign
         The horizontal alignment of the last line of the content
-        element. Can be "start", "end", "left", "right", "center", "justify" or
-        "auto". Default "auto". Text alignment is ignored for top to
-        bottom ('ttb') and bottom to top ('btt') directions.
+        element. Default "auto".
     """
 
     _text_engine = TextEngine()
@@ -318,7 +316,7 @@ class TextGeometry(Geometry):
         * Vertical values: "top", "middle", "baseline", "bottom".
         * Horizontal values: "left", "center", "right".
 
-        See :obj:`pygfx.utils.enums.TextAlign`:
+        See :obj:`pygfx.utils.enums.TextAnchor`:
         """
         return self._anchor
 
@@ -407,7 +405,7 @@ class TextGeometry(Geometry):
         if align not in TextAlign.__fields__:
             raise ValueError(f"Text align must be one of {TextAlign}. Got {align!r}.")
         if align == "auto":
-            align = "left"
+            align = "start"
         self._text_align = TextAlign[align]
         self._trigger_blocks_update(layout=True)
 
@@ -1370,6 +1368,7 @@ def apply_block_layout(geometry, text_block):
         text_align = "left"
         text_align_last = "left"
 
+    # If we wrote the above correctly, we have a clear subset of alignment vars
     assert text_align in ("left", "right", "center", "justify")
     assert text_align_last in ("left", "right", "center", "justify")
 
