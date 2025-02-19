@@ -30,12 +30,18 @@ pygfx
 last lyne
 """.strip()
 
+arabic_text = """
+مرحبًا، مجرد جملة عشوائية
+أعتقد أن برنامج Pygfx رائع جدًا
+واحد اثنان ثلاثة أربعة
+""".strip()
+
 if "PYTEST_CURRENT_TEST" not in os.environ:
     import argparse
 
     parser = argparse.ArgumentParser(description="Text Alignment Demo")
     parser.add_argument(
-        "--direction", type=str, default="ltr", help="Direction parameter"
+        "--direction", type=str, default=None, help="Direction parameter"
     )
     parser.add_argument(
         "text",
@@ -48,7 +54,7 @@ if "PYTEST_CURRENT_TEST" not in os.environ:
     direction = args.direction
     text = args.text
 else:
-    direction = "ltr"
+    direction = None  # "ltr"
     text = (
         "Lorem ipsum\n"
         "Bonjour World Olá\n"  # some text that isn't equal in line
