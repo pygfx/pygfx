@@ -88,7 +88,7 @@ class TextGeometry(Geometry):
     direction : str
         The text direction. By default the text direction is determined
         automatically, but is always horizontal. Can be set to 'lrt', 'rtl',
-        'ttb' or 'btt'.
+        'ttb' or 'btt'. Or None (default) to auto-determine based on the script.
     position_mode : enums.TextPositionMode
         How the text is positioned. Can be "screen", "model", or "labels". Default 'model'.
     anchor : str | TextAnchor
@@ -764,6 +764,9 @@ class TextBlock:
         self._text_items = []
         self._old_text_items = []
 
+        # We set this to help layout
+        self._direction = None
+
         # Used by layout
         self._nlines = 0
         self._rect = Rect()
@@ -795,9 +798,14 @@ class TextBlock:
         self._old_text_items = []
 
         # Update in-use item objects
+        glyphs_rendered = False
         for item in self._text_items:
             if need_render_glyphs or item.need_render_glyphs:
                 item.render_glyphs(geometry)
+                glyphs_rendered = True
+
+        if glyphs_rendered:
+            self._direction = self._get_direction_from_items()
 
         # Layout
         if need_layout:
@@ -809,6 +817,18 @@ class TextBlock:
                 item.sync_with_geometry(geometry, self._index)
 
         return need_layout  # i.e. did_layout
+
+    def _get_direction_from_items(self):
+        directions = {}
+        for item in self._text_items:
+            d = item.direction
+            directions[d] = directions.get(d, 0) + 1
+        direction, count = "ltr", 0
+        for d, c in directions.items():
+            if c > count:
+                direction = d
+                count = c
+        return direction
 
     def clear(self, geometry):
         for item in self._old_text_items:
@@ -1006,6 +1026,9 @@ class TextBlock:
         # Store new worlds
         self._text_items = new_items
 
+        # Reset some stuff
+        self._direction = None
+
 
 class TextItem:
     """Represents one unit of text that moves as a whole to a new line when wrapped.
@@ -1106,7 +1129,10 @@ class TextItem:
 
         # Init meta data
         extent = ascender = descender = 0
-        direction = "ltr"
+
+        # The direction is set by the first piece and will then force the next pieces
+        # Text direction can be forced by setting it here.
+        direction = None
 
         # Text rendering steps: font selection, shaping, glyph generation
         last_reverse_index = 0
@@ -1128,10 +1154,8 @@ class TextItem:
                 sizes = np.full((positions.shape[0],), rsize, np.float32)
                 extent = extent + meta["extent"] * rsize
                 ascender = max(ascender, meta["ascender"] * rsize)
-                descender = min(
-                    descender, meta["descender"] * rsize
-                )  # note: descender is neg
-                direction = meta["direction"]  # use last
+                descender = min(descender, meta["descender"] * rsize)  # is neg
+                direction = meta["direction"]  # should be same as previous
                 # Put in list, take direction into account
                 if direction in ("rtl", "btt"):
                     atlas_indices_list.insert(last_reverse_index, atlas_indices)
@@ -1147,7 +1171,7 @@ class TextItem:
         self.extent = extent
         self.ascender = ascender
         self.descender = descender
-        self.direction = direction
+        self.direction = direction or "lrt"
 
         # Store as a single array
         if len(atlas_indices_list) == 0:
@@ -1309,8 +1333,10 @@ def apply_block_layout(geometry, text_block):
     anchor = geometry._anchor
     text_align = geometry._text_align
     text_align_last = geometry._text_align_last
-    direction = geometry._direction or "ltr"
     anchor_offset = geometry._anchor_offset
+
+    direction = geometry._direction or text_block._direction or "ltr"
+    paragraph_direction = "ttb"
 
     geometry_does_layout = geometry.position_mode in ("screen", "model")
 
@@ -1326,7 +1352,7 @@ def apply_block_layout(geometry, text_block):
         text_align = "justify"
 
     # Resolve text align to real directions
-    is_horizontal = direction is None or direction in ("ltr", "rtl")
+    is_horizontal = direction in ("ltr", "rtl")
     if is_horizontal:
         if direction == "ltr":
             map = {"start": "left", "end": "right"}
@@ -1359,14 +1385,16 @@ def apply_block_layout(geometry, text_block):
 
     def make_new_line(n_new_lines=1, n_new_paragraphs=0):
         nonlocal current_line, current_rect
-        # Get space to skip
-        skip = n_new_lines * line_height + n_new_paragraphs * paragraph_spacing
-        if is_horizontal:
+        # Update position
+        if paragraph_direction == "ttb":
+            skip = n_new_lines * line_height + n_new_paragraphs * paragraph_spacing
             offset[1] -= skip
             offset[0] = 0
-        else:
+        elif paragraph_direction == "ltr":
+            skip = n_new_lines * line_height + n_new_paragraphs * paragraph_spacing
             offset[1] = 0
             offset[0] += skip
+        # Add the line
         if current_line:
             lines.append(current_line)
             rects.append(current_rect)
@@ -1377,54 +1405,80 @@ def apply_block_layout(geometry, text_block):
 
     for item in items:
         # Get item width and determine if we need a new line
-        apply_margin = True
+        apply_whitespace_margin = True
         if max_width > 0 and current_line:
             item_width = (item.margin_before + item.extent) * font_size
             if offset[0] + item_width > max_width:
                 make_new_line()
-                apply_margin = False
+                apply_whitespace_margin = False
 
-        # Apply whitespace offset
-        if apply_margin:
-            offset[0] += item.margin_before * font_size
-
-        # Add item and store its initial offset, which we use later on
-        current_line.append(item)
-        if is_horizontal:
+        if direction == "ltr":
+            # Update offset
+            if apply_whitespace_margin:
+                offset[0] += item.margin_before * font_size
             item.layout_offset = tuple(offset)
-        else:
-            item.layout_offset = tuple(offset[::-1])
-
-        # Prepare for next
-        offset[0] += item.extent * font_size
-
-        # Update rect
-        if is_horizontal:
+            offset[0] += item.extent * font_size
+            # Update rect
             current_rect.left = 0
             current_rect.right = offset[0]
             current_rect.top = max(current_rect.top, item.ascender * font_size)
             current_rect.bottom = min(current_rect.bottom, item.descender * font_size)
-        else:
+        elif direction == "rtl":
+            # Update offset
+            if apply_whitespace_margin:
+                offset[0] -= item.margin_before * font_size
+            offset[0] -= item.extent * font_size
+            item.layout_offset = tuple(offset)
+            # Update rect
+            current_rect.left = offset[0]
+            current_rect.right = 0
+            current_rect.top = max(current_rect.top, item.ascender * font_size)
+            current_rect.bottom = min(current_rect.bottom, item.descender * font_size)
+        elif direction == "ttb":
+            # Update offset
+            if apply_whitespace_margin:
+                offset[1] += item.margin_before * font_size
+            item.layout_offset = tuple(offset[::-1])
+            offset[1] += item.extent * font_size
+            # Update rect
             current_rect.top = 0
             current_rect.bottom = offset[0]
             current_rect.right = max(current_rect.right, item.ascender * font_size)
             current_rect.left = min(current_rect.left, item.descender * font_size)
+        elif direction == "btt":
+            # Update offset
+            if apply_whitespace_margin:
+                offset[1] -= item.margin_before * font_size
+            offset[1] -= item.extent * font_size
+            item.layout_offset = tuple(offset[::-1])
+            # Update rect
+            current_rect.top = 0
+            current_rect.bottom = offset[0]
+            current_rect.right = max(current_rect.right, item.ascender * font_size)
+            current_rect.left = min(current_rect.left, item.descender * font_size)
+
+        current_line.append(item)
 
         # The item can have newlines too. Does not happen when using geometry.set_text(),
         # but can happen when using TextBlock.set_text().
         if item.nl_after:
             make_new_line(len(item.nl_after), 1)
 
+    # Properly end the loop
     if current_line:
         make_new_line()
 
-    # # If there's just one line ... its the last
-    # if len(lines) == 1:
-    #     text_align = text_align_last
-
     # Calculate block rect. The top is positive, the bottom is negative (descender).
     block_rect = Rect()
-    for rect in rects:
+    for line, rect in zip(lines, rects):
+        # Align each line so left is at the origin
+        if rect.left:
+            shift = -rect.left
+            rect.shift(shift, 0)
+            for item in line:
+                layout_offset = item.layout_offset
+                item.layout_offset = layout_offset[0] + shift, layout_offset[1]
+        # Aggregate
         block_rect.left = min(block_rect.left, rect.left)
         block_rect.right = max(block_rect.right, rect.right)
     block_rect.top = rects[0].top
@@ -1433,13 +1487,9 @@ def apply_block_layout(geometry, text_block):
     if text_align == "justify" or text_align_last == "justify":
         block_rect.right = max_width
 
-    # Resolve newlines at the end of the text
-    # block_rect.bottom = min(block_rect.bottom, offset[1])
-
     # Determine horizontal anchor
-
     if geometry_does_layout:
-        # If the geometry does its layout, it's far easier to *not* to the anchoring here,
+        # If the geometry does its layout, it's far easier to *not* do the anchoring here,
         # except to anchor according to text alignment.
         anchor_offset_x, anchor_offset_y = block_rect.get_offset_for_anchor(
             f"baseline-{text_align}", 0
@@ -1462,28 +1512,25 @@ def apply_block_layout(geometry, text_block):
             align = text_align_last
 
         line_length = rect.right - rect.left
+        block_length = block_rect.right - block_rect.left
 
         extra_space_per_word = 0
-        length_to_add = 0
         if align == "justify":
+            line_offset_x = 0
             length_to_add = max_width - line_length
             nwords = len(line)
             if nwords > 1:
                 extra_space_per_word = length_to_add / (nwords - 1)
-            else:
-                length_to_add = 0
-        if align == "center":
-            line_offset_x = 0.5 * (block_rect.right - block_rect.left) - 0.5 * (
-                rect.right - rect.left + length_to_add
-            )
+        elif align == "center":
+            line_offset_x = 0.5 * block_length - 0.5 * line_length
         elif align == "right":
-            line_offset_x = (block_rect.right - block_rect.left) - (
-                rect.right - rect.left + length_to_add
-            )
+            line_offset_x = block_length - line_length
         else:  # elif align == "left":
             line_offset_x = 0
 
         for j, item in enumerate(line):
+            if direction == "rtl":
+                j = len(line) - j - 1
             dx = (
                 item.layout_offset[0]
                 + anchor_offset_x
