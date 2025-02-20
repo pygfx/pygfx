@@ -21,9 +21,15 @@ scene = gfx.Scene()
 background = gfx.Background.from_color("#000")
 
 geometry = gfx.plane_geometry(50, 50)
-plane1 = gfx.Mesh(geometry, gfx.MeshBasicMaterial(color=(1, 0, 0, 0.4)))
-plane2 = gfx.Mesh(geometry, gfx.MeshBasicMaterial(color=(0, 1, 0, 0.4)))
-plane3 = gfx.Mesh(geometry, gfx.MeshBasicMaterial(color=(0, 0, 1, 0.4)))
+plane1 = gfx.Mesh(
+    geometry, gfx.MeshBasicMaterial(color=(1, 0, 0, 0.4), transparent=True)
+)
+plane2 = gfx.Mesh(
+    geometry, gfx.MeshBasicMaterial(color=(0, 1, 0, 0.4), transparent=True)
+)
+plane3 = gfx.Mesh(
+    geometry, gfx.MeshBasicMaterial(color=(0, 0, 1, 0.4), transparent=True)
+)
 
 plane1.local.position = (-10, -10, 1)
 plane2.local.position = (0, 0, 2)
