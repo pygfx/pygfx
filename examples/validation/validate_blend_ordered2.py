@@ -43,12 +43,22 @@ geometry = gfx.plane_geometry(100, 50)
 geometry_strip = gfx.plane_geometry(20, 200)
 
 strip_opaque = gfx.Mesh(geometry_strip, gfx.MeshBasicMaterial(color=(0, 0, 0.5, 1)))
-strip_transp = gfx.Mesh(geometry_strip, gfx.MeshBasicMaterial(color=(0, 0, 0.5, 0.5)))
+strip_transp = gfx.Mesh(
+    geometry_strip, gfx.MeshBasicMaterial(color=(0, 0, 0.5, 0.5), transparent=True)
+)
 
-plane_g1 = gfx.Mesh(geometry, gfx.MeshBasicMaterial(color=(0, 1, 0, 0.3)))
-plane_g2 = gfx.Mesh(geometry, gfx.MeshBasicMaterial(color=(0, 1, 0, 0.3)))
-plane_r1 = gfx.Mesh(geometry, gfx.MeshBasicMaterial(color=(1, 0, 0, 0.3)))
-plane_r2 = gfx.Mesh(geometry, gfx.MeshBasicMaterial(color=(1, 0, 0, 0.3)))
+plane_g1 = gfx.Mesh(
+    geometry, gfx.MeshBasicMaterial(color=(0, 1, 0, 0.3), transparent=True)
+)
+plane_g2 = gfx.Mesh(
+    geometry, gfx.MeshBasicMaterial(color=(0, 1, 0, 0.3), transparent=True)
+)
+plane_r1 = gfx.Mesh(
+    geometry, gfx.MeshBasicMaterial(color=(1, 0, 0, 0.3), transparent=True)
+)
+plane_r2 = gfx.Mesh(
+    geometry, gfx.MeshBasicMaterial(color=(1, 0, 0, 0.3), transparent=True)
+)
 
 strip_opaque.local.position = 10, 0, 0
 strip_transp.local.position = 21, 0, 0
