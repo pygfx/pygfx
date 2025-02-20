@@ -726,12 +726,11 @@ class WgpuRenderer(RootEventHandler, Renderer):
         fronts = wobjects["front"]
 
         # todo: only opaque objects should cast shadows?
-        for objects in [opaque_objects, transparent_objects, fronts]:
-            render_shadow_maps(
-                lights,
-                objects,
-                command_encoder,
-            )
+        render_shadow_maps(
+            lights,
+            opaque_objects + transparent_objects,
+            command_encoder,
+        )
 
         # --- render opaque objects
         if opaque_objects:
