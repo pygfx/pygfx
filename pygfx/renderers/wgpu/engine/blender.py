@@ -233,7 +233,7 @@ class SimpleSinglePass(OpaquePass):
             {
                 "format": blender.color_format,
                 "blend": {
-                    "alpha": blend_dict(bf.src_alpha, bf.one_minus_src_alpha, bo.add),
+                    "alpha": blend_dict(bf.one, bf.one_minus_src_alpha, bo.add),
                     "color": blend_dict(bf.src_alpha, bf.one_minus_src_alpha, bo.add),
                 },
                 "write_mask": wgpu.ColorWrite.ALL,
