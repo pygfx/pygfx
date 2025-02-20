@@ -64,6 +64,16 @@ class MeshShader(BaseShader):
         # Per-vertex color, colormap, or a plane color?
         self["colorspace"] = "srgb"
 
+        if material.alpha_test > 0:
+            self["USE_ALPHA_TEST"] = True
+
+        # now, we don't support user to define blend mode function in material
+        # so when material.transparent is False, we just set it to opaque,
+        # and no need to do alpha blending
+        # todo: In this case, we can disable the alpha blending in the pipeline to improve performance
+        if material.transparent is False:
+            self["OPAQUE"] = True
+
         color_mode = str(material.color_mode).split(".")[-1]
         if color_mode == "auto":
             if material.map is not None:

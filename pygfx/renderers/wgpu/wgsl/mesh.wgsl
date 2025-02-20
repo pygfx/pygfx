@@ -355,7 +355,11 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
     $$ else
         let physical_albeido = albeido;
     $$ endif
-    let opacity = color_value.a * u_material.opacity;
+    var opacity = color_value.a * u_material.opacity;
+
+    $$ if USE_ALPHA_TEST is defined
+        if (opacity < u_material.alpha_test) { discard; }
+    $$ endif
 
     // Get normal used to calculate lighting or reflection
     $$ if lighting or use_env_map is defined
@@ -545,6 +549,10 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
         if (distance_from_edge > 0.5 * u_material.wireframe) {
             discard;
         }
+    $$ endif
+
+    $$ if OPAQUE is defined
+        opacity = 1.0;
     $$ endif
 
     let out_color = vec4<f32>(physical_color, opacity);

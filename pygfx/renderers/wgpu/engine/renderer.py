@@ -10,6 +10,7 @@ from warnings import warn
 import numpy as np
 import wgpu
 import pylinalg as la
+from operator import attrgetter
 from rendercanvas import BaseRenderCanvas
 from wgpu.gui import WgpuCanvasBase
 
@@ -48,14 +49,26 @@ from .utils import GfxTextureView
 AnyBaseCanvas = BaseRenderCanvas, WgpuCanvasBase
 
 
-def _get_sort_function(camera: Camera):
+def _get_sort_function(camera: Camera, z=None):
     """Given a scene object, get a function to sort wobject-tuples"""
 
-    def sort_func(wobject: WorldObject):
+    sort_func = attrgetter("render_order")
+
+    # todo: we should use the bounding-sphere center to get a more accurate z.
+    def sort_func_z(wobject: WorldObject):
         z = la.vec_transform(wobject.world.position, camera.camera_matrix)[2]
         return wobject.render_order, z
 
-    return sort_func
+    def sort_func_z_inv(wobject: WorldObject):
+        z = la.vec_transform(wobject.world.position, camera.camera_matrix)[2]
+        return wobject.render_order, -z
+
+    if z is None:
+        return sort_func
+    elif z == "+":
+        return sort_func_z
+    elif z == "-":
+        return sort_func_z_inv
 
 
 class WgpuRenderer(RootEventHandler, Renderer):
@@ -410,7 +423,11 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
         class Flat:
             def __init__(self):
-                self.wobjects = []
+                self.wobjects = {
+                    "opaque": [],
+                    "transparent": [],
+                    "front": [],
+                }
                 self.lights = {
                     "point_lights": [],
                     "directional_lights": [],
@@ -420,10 +437,9 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
         flat = Flat()
 
-        def visit_wobject(ob):
-            # Add to semi-flat data structure
-            wobject_dict.setdefault(ob.render_order, []).append(ob)
+        from ....helpers import Stats
 
+        def visit_wobject(ob):
             # Update things like transform and uniform buffers
             ob._update_object()
 
@@ -440,21 +456,27 @@ class WgpuRenderer(RootEventHandler, Renderer):
                     ambient_color[0] += r * ob.intensity
                     ambient_color[1] += g * ob.intensity
                     ambient_color[2] += b * ob.intensity
+            else:
+                if ob.material:
+                    if isinstance(ob.parent, Stats):  # todo: special case for Stats now
+                        flat.wobjects["front"].append(ob)
+                    elif ob.material.transparent:
+                        flat.wobjects["transparent"].append(ob)
+                    else:
+                        flat.wobjects["opaque"].append(ob)
 
-        # Flatten the scenegraph, categorised by render_order
-        wobject_dict = {}
         scene.traverse(visit_wobject, True)
 
         # Produce a sorted list of world objects
         if self._sort_objects:
-            depth_sort_func = _get_sort_function(camera)
-            for render_order in sorted(wobject_dict.keys()):
-                wobjects = wobject_dict[render_order]
-                wobjects.sort(key=depth_sort_func)
-                flat.wobjects.extend(wobjects)
+            depth_sort_func = _get_sort_function(camera, z="+")
+            inverse_depth_sort_func = _get_sort_function(camera, z="-")
+            flat.wobjects["opaque"].sort(key=depth_sort_func)
+            flat.wobjects["transparent"].sort(key=inverse_depth_sort_func)
         else:
-            for render_order in sorted(wobject_dict.keys()):
-                flat.wobjects.extend(wobject_dict[render_order])
+            render_order_sort_func = _get_sort_function(camera)
+            flat.wobjects["opaque"].sort(key=render_order_sort_func)
+            flat.wobjects["transparent"].sort(key=render_order_sort_func)
 
         return flat
 
@@ -565,18 +587,20 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # Collect all pipeline container objects
         # todo: can we get this into _get_flat_scene?
         compute_pipeline_containers = []
-        render_pipeline_containers = []
-        for wobject in flat.wobjects:
-            if not wobject.material:
-                continue
-            container_group = get_pipeline_container_group(wobject, renderstate)
-            compute_pipeline_containers.extend(container_group.compute_containers)
-            render_pipeline_containers.extend(container_group.render_containers)
-            # Enable pipelines to update data on the CPU. This usually includes
-            # baking data into buffers. This is CPU intensive, but in practice
-            # it is only used by a few materials.
-            for func in container_group.bake_functions:
-                func(wobject, camera, logical_size)
+
+        opaque_objects = flat.wobjects["opaque"]
+        transparent_objects = flat.wobjects["transparent"]
+
+        for wobjects in [opaque_objects, transparent_objects]:
+            for wobject in wobjects:
+                container_group = get_pipeline_container_group(wobject, renderstate)
+                compute_pipeline_containers.extend(container_group.compute_containers)
+
+                # Enable pipelines to update data on the CPU. This usually includes
+                # baking data into buffers. This is CPU intensive, but in practice
+                # it is only used by a few materials.
+                for func in container_group.bake_functions:
+                    func(wobject, camera, logical_size)
 
         # Update *all* buffers and textures that have changed
         for resource in resource_update_registry.get_syncable_resources(flush=True):
@@ -588,19 +612,18 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # when the wobject's children, visible, render_order, or render_pass changes.
 
         # Record the rendering of all world objects, or re-use previous recording
-        command_buffers = []
-        command_buffers += self._render_recording(
+        command_encoder = self._device.create_command_encoder()
+        self._render_recording(
             renderstate,
             flat.wobjects,
             compute_pipeline_containers,
-            render_pipeline_containers,
             physical_viewport,
             clear_color,
+            command_encoder,
         )
-        command_buffers += self._blender.perform_combine_pass()
 
         # Collect commands and submit
-        self._device.queue.submit(command_buffers)
+        self._device.queue.submit([command_encoder.finish()])
 
         if flush:
             self.flush()
@@ -662,11 +685,11 @@ class WgpuRenderer(RootEventHandler, Renderer):
     def _render_recording(
         self,
         renderstate,
-        wobject_list,
+        wobjects,
         compute_pipeline_containers,
-        render_pipeline_containers,
         physical_viewport,
         clear_color,
+        command_encoder,
     ):
         # You might think that this is slow for large number of world
         # object. But it is actually pretty good. It does iterate over
@@ -674,7 +697,6 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # it, really.
         # todo: we may be able to speed this up with render bundles though
 
-        command_encoder = self._device.create_command_encoder()
         blender = self._blender
         if clear_color:
             blender.clear()
@@ -698,8 +720,41 @@ class WgpuRenderer(RootEventHandler, Renderer):
             + renderstate.lights["spot_lights"]
             + renderstate.lights["directional_lights"]
         )
-        render_shadow_maps(lights, wobject_list, command_encoder)
 
+        opaque_objects = wobjects["opaque"]
+        transparent_objects = wobjects["transparent"]
+        fronts = wobjects["front"]
+
+        # todo: only opaque objects should cast shadows?
+        for objects in [opaque_objects, transparent_objects, fronts]:
+            render_shadow_maps(
+                lights,
+                objects,
+                command_encoder,
+            )
+
+        # --- render opaque objects
+        if opaque_objects:
+            self._render_objects(
+                opaque_objects, renderstate, physical_viewport, command_encoder
+            )
+
+        # --- render transparent objects
+        if transparent_objects:
+            self._render_objects(
+                transparent_objects, renderstate, physical_viewport, command_encoder
+            )
+
+        # draw front objects last
+        if fronts:
+            self._render_objects(
+                fronts, renderstate, physical_viewport, command_encoder
+            )
+
+    def _render_objects(
+        self, wobjects, renderstate, physical_viewport, command_encoder
+    ):
+        blender = renderstate.blender
         for pass_index in range(blender.get_pass_count()):
             color_attachments = blender.get_color_attachments(pass_index)
             depth_attachment = blender.get_depth_attachment(pass_index)
@@ -714,14 +769,18 @@ class WgpuRenderer(RootEventHandler, Renderer):
             )
             render_pass.set_viewport(*physical_viewport)
 
-            for render_pipeline_container in render_pipeline_containers:
-                render_pipeline_container.draw(
-                    render_pass, renderstate, pass_index, render_mask
-                )
+            for wobject in wobjects:
+                if not wobject.material:
+                    continue
 
+                container_group = get_pipeline_container_group(wobject, renderstate)
+                for render_pipeline_container in container_group.render_containers:
+                    render_pipeline_container.draw(
+                        render_pass, renderstate, pass_index, render_mask
+                    )
             render_pass.end()
 
-        return [command_encoder.finish()]
+        blender.perform_combine_pass(command_encoder)
 
     def _update_stdinfo_buffer(
         self, camera: Camera, physical_size, logical_size, ndc_offset
