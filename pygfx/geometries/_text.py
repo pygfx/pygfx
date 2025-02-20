@@ -46,10 +46,16 @@ class TextEngine:
         """
         return textmodule.generate_glyph(glyph_indices, font_filename)
 
-    def get_ws_extent(self, ws, font):
+    def get_ws_extent(self, ws, font, direction):
         """Get the extent of a piece of whitespace text. Results of small strings are cached."""
-        direction = "ltr"
-        map = WHITESPACE_EXTENTS.setdefault(font.filename, {})
+        key = (font.filename, direction)
+        map = WHITESPACE_EXTENTS.setdefault(key, {})
+        # Try on the full ws
+        try:
+            return map[ws]
+        except KeyError:
+            pass
+        # Calculate extent on base components
         extent = 0
         for c in ws:
             try:
@@ -58,6 +64,9 @@ class TextEngine:
                 meta = self.shape_text(c, font.filename, direction)[2]
                 map[c] = meta["extent"]
                 extent += map[c]
+        # Calculate relatively short ws strings (e.g. indentation in code)
+        if len(ws) <= 20:
+            map[ws] = extent
         return extent
 
 
@@ -1103,16 +1112,23 @@ class TextItem:
         textengine = geometry._text_engine
 
         self.margin_before = 0
-        if self.ws_before:
-            # todo: caching
-            for ws, font in textengine.select_font(self.ws_before, font_props):
-                self.margin_before += textengine.get_ws_extent(ws, font)
+
+        # The direction may be forced by the geometry. If the geometry's
+        # direction is None (default), the first piece will determine the
+        # direction for this text item. For a text block, the direction is
+        # calculated by counting the direction of the text items.
+        direction = geometry._direction.partition("-")[0] or None
 
         if not self.pieces:
             self.atlas_indices = None
             self.positions = None
             self.sizes = None
             self.glyph_count = 0
+            if self.ws_before:
+                font = textengine.select_font(" ", font_props)[0][1]
+                self.margin_before = textengine.get_ws_extent(
+                    self.ws_before, font, direction
+                )
             return
 
         # Prepare containers for array
@@ -1122,12 +1138,7 @@ class TextItem:
 
         # Init meta data
         extent = ascender = descender = 0
-
-        # The direction may be forced by the geometry.
-        # If the geoetries direction is None (default), the first piece
-        # will determine the direction for this text item.
-        # For a text block, the direction is calculated by counting the direction of the text items.
-        direction = geometry._direction.partition("-")[0] or None
+        calculate_margin_before = bool(self.ws_before)
 
         # Text rendering steps: font selection, shaping, glyph generation
         last_reverse_index = 0
@@ -1161,6 +1172,13 @@ class TextItem:
                     positions_list.append(positions)
                     sizes_list.append(sizes)
                     last_reverse_index = len(atlas_indices_list)
+
+                # Calculate margin_before based on the font and direction of the first piece
+                if calculate_margin_before:
+                    calculate_margin_before = False
+                    self.margin_before = textengine.get_ws_extent(
+                        self.ws_before, font, direction
+                    )
 
         # Store meta data on the item
         self.extent = extent
