@@ -182,7 +182,7 @@ def shape_text_hb(text, font_filename, direction=None):
     font_ext = font.get_font_extents(buf.direction)
 
     meta = {
-        "extent": (pen_x if is_horizontal else pen_y) / ref_size,
+        "extent": abs(pen_x if is_horizontal else pen_y) / ref_size,
         "ascender": font_ext.ascender / ref_size,
         "descender": font_ext.descender / ref_size,
         "direction": buf.direction,
