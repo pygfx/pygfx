@@ -31,19 +31,23 @@ pygfx
 last lyne
 """.strip()
 
-text = """
+arabic_text = """
 مرحبًا، مجرد جملة عشوائية
 أعتقد أن برنامج Pygfx رائع جدًا
 واحد اثنان ثلاثة أربعة
 """.strip()
 
+chinese_text = """
+你好世界
+我认为 Pygfx 很酷
+""".strip()
+
+
 if "PYTEST_CURRENT_TEST" not in os.environ:
     import argparse
 
     parser = argparse.ArgumentParser(description="Text Alignment Demo")
-    parser.add_argument(
-        "--direction", type=str, default=None, help="Direction parameter"
-    )
+    parser.add_argument("--direction", type=str, default="", help="Direction parameter")
     parser.add_argument(
         "text",
         type=str,
