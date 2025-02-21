@@ -1,6 +1,6 @@
 """
-Text labels
-===========
+Text multiple labels
+====================
 
 This example demonstrate how to use text labels, where text blocks
 are positioned in world-space, but displayed in screen-space.
@@ -28,8 +28,8 @@ scene.add(gfx.Background.from_color("#aab", "#eef"))
 
 # Create text object
 text = gfx.Text(
-    gfx.TextGeometry(
-        anchor="top-left", anchor_offset=2, position_mode="labels", font_size=14
+    gfx.MultiTextGeometry(
+        anchor="top-left", anchor_offset=2, screen_space=True, font_size=14
     ),
     gfx.TextMaterial(color="#000"),
 )

@@ -48,6 +48,7 @@ The standardized names are:
     :template: ../_templates/custom_layout.rst
 
     TextGeometry
+    MultiTextGeometry
 
 .. rubric:: Other/Special Geometry
 .. autosummary::
@@ -79,7 +80,7 @@ from ._polyhedron import (
     tetrahedron_geometry,
 )
 from ._toroidal import torus_knot_geometry, klein_bottle_geometry
-from ._text import TextGeometry
+from ._text import TextGeometry, MultiTextGeometry
 
 # Define __all__ for e.g. Sphinx
 __all__ = [

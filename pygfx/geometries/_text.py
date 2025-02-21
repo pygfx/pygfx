@@ -18,7 +18,7 @@ import numpy as np
 
 from ..resources import Buffer
 from ..utils import text as textmodule
-from ..utils.enums import TextAlign, TextAnchor, TextPositionMode
+from ..utils.enums import TextAlign, TextAnchor, CoordSpace
 from ..utils import logger
 from ._base import Geometry
 
@@ -88,13 +88,14 @@ class TextGeometry(Geometry):
         unless a list is given, in which case each (str) item become a TextBlock.
     font_size : float
         The size of the font, in object coordinates or pixel screen coordinates,
-        depending on the value of the ``position_mode`` property. Default 12.
+        depending on the value of the ``screen_space`` property. Default 12.
     family : str, tuple
         The name(s) of the font to prefer.
     direction : str | None
         The text direction overload.
-    position_mode : enums.TextPositionMode
-        How the text is positioned. Can be "screen", "model", or "labels". Default 'model'.
+    screen_space : bool
+        Whether the text is rendered in model space or in screen space (like a label).
+        Default False (i.e. model-space).
     anchor : str | TextAnchor
         The position of the origin of the text. Default "middle-center".
     anchor_offset : float
@@ -115,6 +116,7 @@ class TextGeometry(Geometry):
     """
 
     _text_engine = TextEngine()
+    is_multi = False
 
     def __init__(
         self,
@@ -124,8 +126,7 @@ class TextGeometry(Geometry):
         font_size=12,
         family=None,
         direction=None,
-        screen_space=None,
-        position_mode="model",
+        screen_space=False,
         anchor="middle-center",
         anchor_offset=0,
         max_width=0,
@@ -186,17 +187,7 @@ class TextGeometry(Geometry):
         self.font_size = font_size
         self.family = family
         self.direction = direction
-
-        # Space props
-        # TODO: fix reference to screen_space, and usage in examples
-        if screen_space is not None:
-            print(
-                DeprecationWarning(
-                    "TextGeometry.screen_space is deprecated, use position_mode instead."
-                )
-            )
-            position_mode = "screen" if screen_space else "model"
-        self.position_mode = position_mode
+        self.screen_space = screen_space
 
         # Layout props
         self.anchor = anchor
@@ -302,24 +293,20 @@ class TextGeometry(Geometry):
         self._trigger_blocks_update(render_glyphs=True)
 
     @property
-    def position_mode(self):
-        """The mode to render in ("screen", "model" or "labels").
+    def screen_space(self):
+        """Whether to render text in screen space.
 
-        Note that regardless of choice, the local object's rotation and scale will still
-        transform the text.
+        * False: Render in model-pace (making it part of the scene), and having a bounding box.
+        * True: Render in screen-space (like a label).
 
+        Note that in both cases, the local object's rotation and scale will
+        still transform the text.
         """
-        return self._store.position_mode
+        return self._store.screen_space
 
-    @position_mode.setter
-    def position_mode(self, position_mode):
-        # TODO: check input value, use a new enum
-        position_mode = position_mode.lower().strip().replace("-", "_")
-        if position_mode not in TextPositionMode.__fields__:
-            raise ValueError(
-                f"Text position_mode must be one of {TextPositionMode}. Got {position_mode!r}"
-            )
-        self._store.position_mode = TextPositionMode[position_mode]
+    @screen_space.setter
+    def screen_space(self, screen_space):
+        self._store.screen_space = bool(screen_space)
         self._trigger_blocks_update(layout=True)
 
     # --- layout properties
@@ -395,7 +382,7 @@ class TextGeometry(Geometry):
 
     @property
     def paragraph_spacing(self):
-        """The extra space between two paragraphs.
+        """The extra margin between two paragraphs.
 
         Measured in text units (like line height and font size).
         """
@@ -456,44 +443,6 @@ class TextGeometry(Geometry):
 
     # --- public methods
 
-    # TODO: refine this API, maybe ensure_block_count() or something is sufficient
-
-    def set_text_block_count(self, n):
-        """Set the number of text blocks to n.
-
-        Use this if you want to use text blocks directly and you know how many
-        blocks you need beforehand. After this, get access to the blocks
-        using ``get_text_block()``.
-        """
-        self._ensure_text_block_count(n)
-
-    def get_text_block_count(self):
-        """Get how many text blocks this geometry has."""
-        return len(self._text_blocks)
-
-    def create_text_block(self):
-        """Create a text block and return it.
-
-        The text block count is increased by one.
-        """
-        self._ensure_text_block_count(len(self._text_blocks) + 1)
-        return self._text_blocks[-1]
-
-    def create_text_blocks(self, n):
-        """Create n text blocks and return as a list.
-
-        The text block count is increased by one.
-        """
-        self._ensure_text_block_count(len(self._text_blocks) + n)
-        return self._text_blocks[-n:]
-
-    def get_text_block(self, index):
-        """Get the TextBlock instance at the given index.
-
-        The block's position is stored in ``geometry.positions.data[index]``.
-        """
-        return self._text_blocks[index]
-
     def set_text(self, text: str | list[str]):
         """Set the full text for this TextGeometry.
 
@@ -547,59 +496,29 @@ class TextGeometry(Geometry):
         self._on_update_object()
 
     def get_bounding_box(self):
-        position_mode = self._store["position_mode"]
-        if position_mode == "screen":
+        screen_space = self._store["screen_space"]
+        if screen_space:
             # There is no sensible bounding box for text in screen space, except
             # for the anchor point. Although the point has no volume, it does
             # contribute to e.g. the scene's bounding box.
             return np.zeros((2, 3), np.float32)
-        elif position_mode == "model":
+        else:
             # A bounding box makes sense, and we calculated it during layout,
             # because we're already shifting rects there.
             return self._aabb
-        elif position_mode == "labels":
-            if not self._text_blocks:
-                return None
-            if self._aabb_rev == self.positions.rev:
-                return self._aabb
-            aabb = None
-            # Get positions and check expected shape
-            positions = self.positions.data[: len(self._text_blocks)]
-            aabb = np.array([positions.min(axis=0), positions.max(axis=0)], np.float32)
-            # If positions contains xy, but not z, assume z=0
-            if aabb.shape[1] == 2:
-                aabb = np.column_stack([aabb, np.zeros((2, 1), np.float32)])
-            self._aabb = aabb
-            self._aabb_rev = self.positions.rev
-            return self._aabb
-        else:
-            logger.warning(f"Unexpected position_mode {position_mode!r}")
-            return None
 
     def get_bounding_sphere(self):
-        position_mode = self._store["position_mode"]
-        if position_mode == "screen":
+        screen_space = self._store["screen_space"]
+        if screen_space:
             # There is no sensible bounding box for text in screen space, except
             # for the anchor point. Although the point has no volume, it does
             # contribute to e.g. the scene's bounding box.
             return np.zeros((4,), np.float32)
-        elif position_mode == "model":
+        else:
             # A bounding box makes sense, we can calculate it from the rect.
             mean = 0.5 * (self._aabb[1] + self._aabb[0])
             diag = np.norm(self._aabb[1] - self._aabb[0])
             return np.array([[mean[0], mean[1], mean[2], diag]], np.float32)
-        elif position_mode == "labels":
-            positions = self.positions.data[: len(self._text_blocks)]
-            center = positions.mean(axis=0)
-            distances = np.linalg.norm(positions - center, axis=0)
-            radius = float(distances.max())
-            if len(center) == 2:
-                return np.array([center[0], center[1], 0.0, radius], np.float32)
-            else:
-                return np.array([center[0], center[1], center[2], radius], np.float32)
-        else:
-            logger.warning(f"Unexpected position_mode {position_mode!r}")
-            return None
 
     # --- private methods
 
@@ -626,8 +545,17 @@ class TextGeometry(Geometry):
 
         # Higher-level layout
         if need_high_level_layout:
-            if self.position_mode in ("screen", "model"):
-                apply_final_layout(self)
+            self._layout_blocks()
+
+    def _layout_blocks(self):
+        total_rect = apply_final_layout(self)
+        self._aabb = np.array(
+            [
+                (total_rect.left, total_rect.bottom, 0),
+                (total_rect.right, total_rect.top, 0),
+            ],
+            np.float32,
+        )
 
     # --- block management
 
@@ -648,7 +576,7 @@ class TextGeometry(Geometry):
         # Add or remove blocks
         while len(self._text_blocks) > n:
             block = self._text_blocks.pop(-1)
-            block.clear(self)
+            block._clear(self)
         while len(self._text_blocks) < n:
             block = TextBlock(len(self._text_blocks), self._dirty_blocks)
             self._text_blocks.append(block)
@@ -744,6 +672,108 @@ class TextGeometry(Geometry):
         self.glyph_sizes = Buffer(glyph_sizes)
 
 
+class MultiTextGeometry(TextGeometry):
+    # TODO: refine this API, maybe ensure_block_count() or something is sufficient
+
+    is_multi = True
+
+    def set_text_block_count(self, n):
+        """Set the number of text blocks to n.
+
+        Use this if you want to use text blocks directly and you know how many
+        blocks you need beforehand. After this, get access to the blocks
+        using ``get_text_block()``.
+        """
+        self._ensure_text_block_count(n)
+
+    def get_text_block_count(self):
+        """Get how many text blocks this geometry has."""
+        return len(self._text_blocks)
+
+    def create_text_block(self):
+        """Create a text block and return it.
+
+        The text block count is increased by one.
+        """
+        self._ensure_text_block_count(len(self._text_blocks) + 1)
+        return self._text_blocks[-1]
+
+    def create_text_blocks(self, n):
+        """Create n text blocks and return as a list.
+
+        The text block count is increased by n.
+        """
+        self._ensure_text_block_count(len(self._text_blocks) + n)
+        return self._text_blocks[-n:]
+
+    def get_text_block(self, index):
+        """Get the TextBlock instance at the given index.
+
+        The block's position is stored in ``geometry.positions.data[index]``.
+        """
+        return self._text_blocks[index]
+
+    def set_text_block_position(self, index: int, position):
+        """Set the position for the given text block index."""
+        index = int(index)
+        self.positions.data[index] = position
+        self.positions.update_indices(index)
+
+    def _layout_blocks(self):
+        total_rect = Rect()
+        for block in self._text_blocks:
+            total_rect.left = min(total_rect.left, block._rect.left)
+            total_rect.right = max(total_rect.right, block._rect.right)
+            total_rect.top = max(total_rect.top, block._rect.top)
+            total_rect.bottom = min(total_rect.bottom, block._rect.bottom)
+
+        self._aabb = np.array(
+            [
+                (total_rect.left, total_rect.bottom, 0),
+                (total_rect.right, total_rect.top, 0),
+            ],
+            np.float32,
+        )
+
+    def get_bounding_box(self):
+        screen_space = self._store["screen_space"]
+        if screen_space:
+            if not self._text_blocks:
+                return None
+            if self._aabb_rev == self.positions.rev:
+                return self._aabb
+            aabb = None
+            # Get positions and check expected shape
+            positions = self.positions.data[: len(self._text_blocks)]
+            aabb = np.array([positions.min(axis=0), positions.max(axis=0)], np.float32)
+            # If positions contains xy, but not z, assume z=0
+            if aabb.shape[1] == 2:
+                aabb = np.column_stack([aabb, np.zeros((2, 1), np.float32)])
+            self._aabb = aabb
+            self._aabb_rev = self.positions.rev
+            return self._aabb
+        else:
+            # A bounding box makes sense, and we calculated it during layout,
+            # because we're already shifting rects there.
+            return self._aabb
+
+    def get_bounding_sphere(self):
+        screen_space = self._store["screen_space"]
+        if screen_space:
+            positions = self.positions.data[: len(self._text_blocks)]
+            center = positions.mean(axis=0)
+            distances = np.linalg.norm(positions - center, axis=0)
+            radius = float(distances.max())
+            if len(center) == 2:
+                return np.array([center[0], center[1], 0.0, radius], np.float32)
+            else:
+                return np.array([center[0], center[1], center[2], radius], np.float32)
+        else:
+            mean = 0.5 * (self._aabb[1] + self._aabb[0])
+            diag = np.norm(self._aabb[1] - self._aabb[0])
+            return np.array([[mean[0], mean[1], mean[2], diag]], np.float32)
+
+
 class TextBlock:
     """The TextBlock represents one block or paragraph of text.
 
@@ -832,7 +862,7 @@ class TextBlock:
                 count = c
         return direction
 
-    def clear(self, geometry):
+    def _clear(self, geometry):
         for item in self._old_text_items:
             item.clear(geometry)
         self._old_text_items = []
@@ -1033,8 +1063,8 @@ class TextBlock:
 
 
 class TextItem:
-    """Represents one unit of text that moves as a whole to a new line when wrapped.
-    This is an internal object (not public).
+    """Represents one unit of text that moves as a whole to a new line when wrapped (usually a word).
+    This is a low-level internal object (not public).
     """
 
     __slots__ = [
@@ -1329,6 +1359,9 @@ class Rect:
         return dx, dy
 
 
+# ----- Layout functions
+
+
 def apply_block_layout(geometry, text_block):
     """The layout step. Updates positions and sizes to finalize the geometry."""
 
@@ -1359,8 +1392,6 @@ def apply_block_layout(geometry, text_block):
 
     word_direction_is_horizontal = word_direction in ("ltr", "rtl")
     line_direction_is_vertical = line_direction in ("ttb", "btt")
-
-    geometry_does_layout = geometry.position_mode in ("screen", "model")
 
     # Resolve text_align_last
     if text_align_last == "auto":
@@ -1535,16 +1566,16 @@ def apply_block_layout(geometry, text_block):
         block_rect.right = max_width
 
     # Determine horizontal anchor
-    if geometry_does_layout:
+    if geometry.is_multi:
+        # Full layout done here, including anchoring.
+        anchor_offset_x, anchor_offset_y = block_rect.get_offset_for_anchor(
+            anchor, anchor_offset
+        )
+    else:
         # If the geometry does its layout, it's far easier to *not* do the anchoring here,
         # except to anchor according to text alignment.
         anchor_offset_x, anchor_offset_y = block_rect.get_offset_for_anchor(
             f"baseline-{text_align}", 0
-        )
-    else:
-        # Full layout done here, including anchoring.
-        anchor_offset_x, anchor_offset_y = block_rect.get_offset_for_anchor(
-            anchor, anchor_offset
         )
 
     # Shift block rect for anchoring
@@ -1658,13 +1689,6 @@ def apply_final_layout(geometry):
     # Shift bounding box rect, and store for geomerty bounding box.
     # Note how we swap top and bottom here, because bottom has smaller values than top.
     total_rect.shift(anchor_offset_x, anchor_offset_y)
-    geometry._aabb = np.array(
-        [
-            (total_rect.left, total_rect.bottom, 0),
-            (total_rect.right, total_rect.top, 0),
-        ],
-        np.float32,
-    )
 
     # Update positions
     if line_direction_is_vertical:
@@ -1674,3 +1698,5 @@ def apply_final_layout(geometry):
         geometry.positions.data[: len(offsets), 0] = offsets + anchor_offset_x
         geometry.positions.data[: len(offsets), 1] = anchor_offset_y
     geometry.positions.update_range(0, len(offsets))
+
+    return total_rect
