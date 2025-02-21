@@ -18,8 +18,7 @@ import numpy as np
 
 from ..resources import Buffer
 from ..utils import text as textmodule
-from ..utils.enums import TextAlign, TextAnchor, CoordSpace
-from ..utils import logger
+from ..utils.enums import TextAlign, TextAnchor
 from ._base import Geometry
 
 
