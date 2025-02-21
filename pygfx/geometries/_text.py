@@ -42,6 +42,9 @@ from ..utils.enums import TextAlign, TextAnchor
 from ._base import Geometry
 
 
+SHORT_ANCHORS = {anchor.replace("-", ""): anchor for anchor in TextAnchor}
+SHORT_ANCHORS["center"] = "middle-center"
+
 # We cache the extents of small whitespace strings to improve performance
 WHITESPACE_EXTENTS = {}
 
@@ -350,9 +353,8 @@ class TextGeometry(Geometry):
             anchor = "middle-center"
         elif not isinstance(anchor, str):
             raise TypeError("Text anchor must be str.")
+        anchor = SHORT_ANCHORS.get(anchor, anchor)
         anchor = anchor.lower().strip().replace("-", "_")
-        if anchor == "center":
-            anchor = "middle-center"
         if anchor not in TextAnchor.__fields__:
             raise ValueError(f"Text anchor must be one of {TextAnchor}. Got {anchor!r}")
         self._anchor = TextAnchor[anchor]
@@ -590,7 +592,7 @@ class TextGeometry(Geometry):
         # Make sure the underlying buffers are large enough
         current_buffer_size = self.positions.nitems
         if current_buffer_size < n or current_buffer_size > 4 * n:
-            new_size = 2 ** int(np.ceil(np.log2(n)))
+            new_size = 2 ** int(np.ceil(np.log2(max(n, 1))))
             new_size = max(8, new_size)
             self._allocate_block_buffers(new_size)
 
@@ -1399,8 +1401,6 @@ class Rect:
 
 def apply_block_layout(geometry, text_block):
     """The layout step. Updates positions and sizes to finalize the geometry."""
-
-    # TODO: maybe move inplementation to utils.text.layout because its so long ...
 
     items = text_block._text_items
 
