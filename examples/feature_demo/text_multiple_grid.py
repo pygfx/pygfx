@@ -27,7 +27,7 @@ text = gfx.Text(
 scene.add(text)
 
 
-def peudo_random(*seeds):
+def pseudo_random(*seeds):
     seeds = np.array(seeds, float) + 317
     return np.sin(np.prod(seeds)) / 2 + 1
 
