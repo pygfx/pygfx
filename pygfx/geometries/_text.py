@@ -4,15 +4,35 @@ together. Most steps in the text rendering process come from pygfx.utils.text,
 though most of the alignment is implemented here.
 
 For details about the text rendering process, see pygfx/utils/text/README.md
-"""
 
-# TODO: check below explanation at the end. I wrote this when picking this pr up again
-# Text is divided into multiple blocks, which represents lines/paragraphs, and which can
-# be individually positioned, e.g. to be used as labels.
-# Each TextBlock contains multiple TextItem's, which represent groups of characters that stick
-# together,during laytout i.e. words in most cases.
-# The geomety maintains per-block arrays/buffers for position (and size?). It also has arrays
-# to store the per-glyph data in the text items.
+
+## On text geometry, text blocks, text items, and text pieces
+
+The geomety maintains the text. It holds and manages the arrays for the glyph
+locations and atlas indices. It is also the main entrypoint for the user.
+
+Text is divided into multiple blocks, typically one per line/paragraph, similar
+to how Qt splits text in blocks in its editor component. This makes it easy to
+edit one block, and then merely shift the other blocks to update the layout. In
+the multi-text scenario, these blocks can be individually be controlled and
+positioned by the user.
+
+Each text block again divides its text into multiple items. Each item is a unit
+of text that is moved as a whole during layout. Each word typically becomes one
+item. Each item is created from one or more text pieces which each can have a
+different format (bold, italic, size).
+
+## On layout
+
+Layout is performed on each block, shifting the text items into position based
+on text_align, anchor and direction. This positoning is done by offsetting the
+item's array of glyph positions. The offset is applied when the item's positions
+are copied into the geometry's big glyph_positions buffer.
+
+The TextGeometry also performs a high level layout by positioning the blocks.
+The MultiTextGeometry does not do this, as the user is responsible for
+positioning the blocks.
+"""
 
 import numpy as np
 
@@ -27,6 +47,8 @@ WHITESPACE_EXTENTS = {}
 
 
 class TextEngine:
+    """A small abstraction that allows subclasses of TextGeometry to use a different text engine."""
+
     def select_font(self, text, font_props):
         """The font selection step. Returns (text, font_filename) tuples.
         Can be overloaded for custom behavior.
@@ -150,17 +172,13 @@ class TextGeometry(Geometry):
 
         # The position of each text block
         self.positions = Buffer(np.zeros((8, 3), np.float32))
-        # The size of each text block
-        # TODO: remove or rename to font_sizes
-        self.sizes = Buffer(np.zeros((8,), np.float32))
-        # self.colors = None
+        # self.colors = Buffer(np.zeros((8,4), np.float32))-> we could later implement per-block colors
 
         # --- create per-glyph arrays/buffers
 
         # Index into the atlas that contains all glyphs
         self.glyph_atlas_indices = Buffer(np.zeros((16,), np.uint32))
         # Index into the block list above (i.e. the block.index)
-        # TODO: I don't think we need this???
         self.glyph_block_indices = Buffer(np.zeros((16,), np.uint32))
         # Sub-position for glyph size, shaping, kerning, etc.
         self.glyph_positions = Buffer(np.zeros((16, 2), np.float32))
@@ -207,8 +225,6 @@ class TextGeometry(Geometry):
             self.set_text(text)
         elif markdown is not None:
             self.set_markdown(markdown)
-        else:
-            pass  # TODO: ??
 
     # --- font properties
 
@@ -235,8 +251,7 @@ class TextGeometry(Geometry):
     @font_size.setter
     def font_size(self, value):
         self._font_size = float(value)
-        # TODO: render_glyphs or only layout?
-        self._trigger_blocks_update(layout=True)
+        self._trigger_blocks_update(layout=True)  # only need re-layout
 
     @property
     def family(self):
@@ -466,7 +481,7 @@ class TextGeometry(Geometry):
             # Note that setting the blocks text is fast if it did not change
             self._text_blocks[i].set_text(s)
 
-        # TODO: trigger a layout
+        # Do a layout now, so the bounding box is up-to-date
         self._on_update_object()
 
     def set_markdown(self, text: str | list[str]):
@@ -495,7 +510,7 @@ class TextGeometry(Geometry):
         for i, s in enumerate(str_per_block):
             self._text_blocks[i].set_markdown(s)
 
-        # TODO: trigger a layout
+        # Do a layout now, so the bounding box is up-to-date
         self._on_update_object()
 
     def get_bounding_box(self):
@@ -551,7 +566,7 @@ class TextGeometry(Geometry):
             self._layout_blocks()
 
     def _layout_blocks(self):
-        total_rect = apply_final_layout(self)
+        total_rect = apply_high_level_layout(self)
         self._aabb = np.array(
             [
                 (total_rect.left, total_rect.bottom, 0),
@@ -587,15 +602,9 @@ class TextGeometry(Geometry):
     def _allocate_block_buffers(self, n):
         """Allocate new buffers for text blocks with the given size."""
         smallest_n = min(n, len(self._text_blocks))
-        # Create new buffers
         new_positions = np.zeros((n, 3), np.float32)
-        new_sizes = np.zeros((n,), np.float32)
-        # Copy data
         new_positions[:smallest_n] = self.positions.data[:smallest_n]
-        new_sizes[:smallest_n] = self.sizes.data[:smallest_n]
-        # Assign
         self.positions = Buffer(new_positions)
-        self.sizes = Buffer(new_sizes)
 
     # --- glyph array management
 
@@ -788,8 +797,6 @@ class TextBlock:
     The ``TextGeometry`` uses text blocks internally to do effeicient re-layout as text is updated.
     With the ``MultiTextGeometry`` the text blocks are positioned by the user or external code.
     """
-
-    # TODO: __slots__ = []
 
     def __init__(self, index, dirty_blocks):
         self._index = index  # e.g. the index in geometry.positions
@@ -1389,7 +1396,6 @@ class Rect:
 def apply_block_layout(geometry, text_block):
     """The layout step. Updates positions and sizes to finalize the geometry."""
 
-    # TODO: move to geometry, so it can be overloaded, see text_snake example.
     # TODO: maybe move inplementation to utils.text.layout because its so long ...
 
     items = text_block._text_items
@@ -1649,14 +1655,13 @@ def apply_block_layout(geometry, text_block):
     text_block._nlines = len(rects)
 
 
-def apply_final_layout(geometry):
+def apply_high_level_layout(geometry):
     text_blocks = geometry._text_blocks
 
     if not text_blocks:
         geometry._aabb = np.zeros((2, 3), np.float32)
         return
 
-    # TODO: apply alias via enums
     anchor = geometry._anchor
     anchor_offset = geometry._anchor_offset
     line_height = geometry._line_height * geometry._font_size  # like CSS
