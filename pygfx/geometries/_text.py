@@ -1665,7 +1665,7 @@ def apply_high_level_layout(geometry):
     anchor = geometry._anchor
     anchor_offset = geometry._anchor_offset
     line_height = geometry._line_height * geometry._font_size  # like CSS
-    paragraph_spacing = geometry._paragraph_spacing * geometry._font_size
+    par_spacing = geometry._paragraph_spacing * geometry._font_size
 
     # Get line direction.
     line_direction = geometry._direction.partition("-")[2] or "ttb"
@@ -1678,34 +1678,38 @@ def apply_high_level_layout(geometry):
     total_rect = Rect()
     if line_direction == "ttb":
         for i, block in enumerate(text_blocks):
+            rect = block._rect
             offsets[i] = offset
-            offset -= block._nlines * line_height + paragraph_spacing
-            total_rect.left = min(total_rect.left, block._rect.left)
-            total_rect.right = max(total_rect.right, block._rect.right)
+            offset -= max(block._nlines * line_height, 0.5 * rect.height) + par_spacing
+            total_rect.left = min(total_rect.left, rect.left)
+            total_rect.right = max(total_rect.right, rect.right)
         total_rect.top = text_blocks[0]._rect.top
         total_rect.bottom = offsets[-1] + text_blocks[-1]._rect.bottom
     elif line_direction == "btt":
         for i, block in enumerate(text_blocks):
+            rect = block._rect
             offsets[i] = offset
-            offset += block._nlines * line_height + paragraph_spacing
-            total_rect.left = min(total_rect.left, block._rect.left)
-            total_rect.right = max(total_rect.right, block._rect.right)
+            offset += max(block._nlines * line_height, 0.5 * rect.height) + par_spacing
+            total_rect.left = min(total_rect.left, rect.left)
+            total_rect.right = max(total_rect.right, rect.right)
         total_rect.top = offsets[-1] + text_blocks[-1]._rect.top
         total_rect.bottom = text_blocks[0]._rect.bottom
     elif line_direction == "rtl":
         for i, block in enumerate(text_blocks):
+            rect = block._rect
             offsets[i] = offset
-            offset -= block._nlines * line_height + paragraph_spacing
-            total_rect.bottom = min(total_rect.bottom, block._rect.bottom)
-            total_rect.top = max(total_rect.top, block._rect.top)
+            offset -= max(block._nlines * line_height, 0.5 * rect.width) + par_spacing
+            total_rect.bottom = min(total_rect.bottom, rect.bottom)
+            total_rect.top = max(total_rect.top, rect.top)
         total_rect.left = offsets[-1] + text_blocks[-1]._rect.left
         total_rect.right = text_blocks[0]._rect.right
     elif line_direction == "ltr":
         for i, block in enumerate(text_blocks):
+            rect = block._rect
             offsets[i] = offset
-            offset += block._nlines * line_height + paragraph_spacing
-            total_rect.bottom = min(total_rect.bottom, block._rect.bottom)
-            total_rect.top = max(total_rect.top, block._rect.top)
+            offset += max(block._nlines * line_height, 0.5 * rect.width) + par_spacing
+            total_rect.bottom = min(total_rect.bottom, rect.bottom)
+            total_rect.top = max(total_rect.top, rect.top)
         total_rect.left = text_blocks[0]._rect.left
         total_rect.right = offsets[-1] + text_blocks[-1]._rect.right
 
