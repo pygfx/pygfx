@@ -49,6 +49,7 @@ The standardized names are:
 
     TextGeometry
     MultiTextGeometry
+    TextBlock
 
 .. rubric:: Other/Special Geometry
 .. autosummary::
@@ -80,7 +81,7 @@ from ._polyhedron import (
     tetrahedron_geometry,
 )
 from ._toroidal import torus_knot_geometry, klein_bottle_geometry
-from ._text import TextGeometry, MultiTextGeometry
+from ._text import TextGeometry, MultiTextGeometry, TextBlock
 
 # Define __all__ for e.g. Sphinx
 __all__ = [
@@ -92,4 +93,5 @@ __all__ = [
 __all__.sort()
 __all__.remove("Geometry")
 __all__.insert(0, "Geometry")
+__all__.insert(__all__.index("MultiTextGeometry") + 1, "TextBlock")
 __all__.append("geometry_from_trimesh")
