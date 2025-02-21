@@ -58,7 +58,7 @@ plane.add(text2)
 text3 = gfx.Text(
     gfx.TextGeometry(
         markdown=" **Screen** space",
-        position_mode="screen",
+        screen_space=True,
         font_size=20,
         anchor="bottom-left",
     ),

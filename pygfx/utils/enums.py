@@ -17,7 +17,6 @@ The enums used in pygfx. The enums are all available from the root ``pygfx`` nam
     SizeMode
     TextAlign
     TextAnchor
-    TextPositionMode
     VisibleSide
 
 """
@@ -36,7 +35,6 @@ __all__ = [
     "SizeMode",
     "TextAlign",
     "TextAnchor",
-    "TextPositionMode",
     "VisibleSide",
 ]
 
@@ -84,9 +82,9 @@ class SizeMode(Enum):
 class CoordSpace(Enum):
     """The CoordSpace enum specifies a coordinate space."""
 
-    model = None  #: The space relative to the object. When the object (or one of its parents) is e.g. scaled with ``wobject.local.scale = 2`` the thing becomes bigger.
-    world = None  #: The size is expressed in the scene's space. Scaling of objects will not affect the thing's size.
-    screen = None  #: The size is expressed in (logical) screen pixels, and are the same size regardless of zooming or scaling.
+    model = None  #: The space relative to the object. When the object (or a parent) is e.g. scaled with ``wobject.local.scale = 2`` the thing becomes bigger.
+    world = None  #: The space of the scene (the root object). Scaling or rotating of objects does not affect the thing's size or orientation.
+    screen = None  #: The screen space (in logical pixels). The thing's size is not affected by zooming or scaling.
 
 
 class MarkerShape(Enum):
@@ -181,12 +179,6 @@ class TextAnchor(Enum):
     bottom_left = "bottom-left"
     bottom_center = "bottom-center"
     bottom_right = "bottom-right"
-
-
-class TextPositionMode(Enum):
-    model = None  #: The text is positioned in the world as a regular object.
-    screen = None  #: The text is displayed in screen-space, at the position of the text object.
-    labels = None  #: The text blocks are positioned using the ``positions`` buffer (maintained externally), but rendered in screen-space.
 
 
 # NOTE: Don't forget to add new enums to the toctree and __all__

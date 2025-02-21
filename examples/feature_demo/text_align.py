@@ -23,7 +23,7 @@ scene = gfx.Scene()
 
 scene.add(gfx.Background.from_color("#fff", "#000"))
 
-text = """
+demo_text = """
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, etc.
 Bonjour World Olá
 مرحبا بالعالم
@@ -52,14 +52,14 @@ if "PYTEST_CURRENT_TEST" not in os.environ:
         "text",
         type=str,
         nargs="?",
-        default=text,
+        default=demo_text,
         help="Text to display",
     )
     args = parser.parse_args()
     direction = args.direction
     text = args.text
 else:
-    direction = None  # "ltr"
+    direction = None
     text = (
         "Lorem ipsum\n"
         "Bonjour World Olá\n"  # some text that isn't equal in line
@@ -74,7 +74,7 @@ text = gfx.Text(
     gfx.TextGeometry(
         text=text,
         font_size=28,
-        position_mode="screen",
+        screen_space=True,
         text_align="center",
         anchor="middle-center",
         direction=direction,
