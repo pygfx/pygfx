@@ -658,11 +658,12 @@ class TextGeometry(Geometry):
         # Only update the sizes, shader uses this to check empty slots
         self.glyph_sizes.update_indices(indices)
         # Deallocate
-        self._glyph_indices_gaps.update(indices)
         self._glyph_count -= len(indices)
         # Small optimization to avoid gaps
         if indices.min() == self._glyph_indices_top - len(indices):
             self._glyph_indices_top -= len(indices)
+        else:
+            self._glyph_indices_gaps.update(indices)
         # TODO: Reduce buffer sizes from the Text object, re-packing all items
         # # Maybe reduce buffer size
         # max_glyph_slots = self.glyph_positions.nitems
