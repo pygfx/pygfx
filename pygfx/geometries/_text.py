@@ -187,7 +187,7 @@ class TextGeometry(Geometry):
         # --- init variables to help manage the glyph arrays
 
         # The number of allocated glyph slots.
-        # This must be equal to _glyph_indices_top - _glyph_indices_gaps
+        # This must be equal to _glyph_indices_top - len(_glyph_indices_gaps)
         self._glyph_count = 0
         # The index marking the maximum used in the arrays. All elements higher than _glyph_indices_top are free.
         self._glyph_indices_top = 0
@@ -561,6 +561,9 @@ class TextGeometry(Geometry):
         # Reset
         dirty_blocks.clear()
 
+        # Update drawing range. Note that the "gaps" are still rendered.
+        self.draw_range = 0, self._glyph_indices_top
+
         # Higher-level layout
         if need_high_level_layout:
             self._layout_blocks()
@@ -642,14 +645,21 @@ class TextGeometry(Geometry):
         return indices
 
     def _glyphs_deallocate(self, indices):
-        # Nullify data
-        self.glyph_block_indices[indices] = -1
-        self.glyph_atlas_indices[indices] = 0
-        # self.glyph_positions[indices] = 0.0
-        # self.glyph_sizes[indices] = 0.0
+        # These glyphs will still end up in the vertex shader,
+        # but it will discard early by producing degeneate triangles.
+        # Clear data, for sanity
+        self.glyph_block_indices.data[indices] = 0
+        self.glyph_atlas_indices.data[indices] = 0
+        self.glyph_sizes.data[indices] = 0.0
+        self.glyph_positions.data[indices] = 0.0
+        # Only update the sizes, shader uses this to check empty slots
+        self.glyph_sizes.update_indices(indices)
         # Deallocate
         self._glyph_indices_gaps.update(indices)
         self._glyph_count -= len(indices)
+        # Small optimization to avoid gaps
+        if indices.min() == self._glyph_indices_top - len(indices):
+            self._glyph_indices_top -= len(indices)
         # TODO: Reduce buffer sizes from the Text object, re-packing all items
         # # Maybe reduce buffer size
         # max_glyph_slots = self.glyph_positions.nitems
@@ -890,9 +900,10 @@ class TextBlock:
         return direction
 
     def _clear(self, geometry):
-        for item in self._old_text_items:
-            item.clear(geometry)
-        self._old_text_items = []
+        if self._old_text_items:
+            for item in self._old_text_items:
+                item.clear(geometry)
+            self._old_text_items = []
         for item in self._text_items:
             item.clear(geometry)
         self._text_items = []
@@ -1138,7 +1149,7 @@ class TextItem:
         self.glyph_count = 0
 
         # The indices for slots in the arrays at the geometry. This value is managed by the geometry.
-        self.glyph_indices = range(0)
+        self.glyph_indices = np.zeros((0,), np.uint32)
 
         # Transform info when copying to he geometry buffers. Set during layout.
         self.offset = (1.0, 0.0, 0.0)
@@ -1308,22 +1319,15 @@ class TextItem:
         geometry.glyph_sizes.data[indices] = sizes
 
         # Trigger sync
-        if isinstance(indices, range):
-            count = indices.stop - indices.start
-            geometry.glyph_block_indices.update_range(indices.start, count)
-            geometry.glyph_atlas_indices.update_range(indices.start, count)
-            geometry.glyph_positions.update_range(indices.start, count)
-            geometry.glyph_sizes.update_range(indices.start, count)
-        else:
-            geometry.glyph_block_indices.update_indices(indices)
-            geometry.glyph_atlas_indices.update_indices(indices)
-            geometry.glyph_positions.update_indices(indices)
-            geometry.glyph_sizes.update_indices(indices)
+        geometry.glyph_block_indices.update_indices(indices)
+        geometry.glyph_atlas_indices.update_indices(indices)
+        geometry.glyph_positions.update_indices(indices)
+        geometry.glyph_sizes.update_indices(indices)
 
     def clear(self, geometry):
         if len(self.glyph_indices):
             geometry._glyphs_deallocate(self.glyph_indices)
-            self.glyph_indices = range(0)
+            self.glyph_indices = np.zeros((0,), np.uint32)
 
 
 def encode_font_props_in_atlas_indices(atlas_indices, weight, slant):

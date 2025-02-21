@@ -40,7 +40,7 @@ fn vs_main(in: VertexInput) -> Varyings {
 
 
     // Extract actual glyph index and the encoded font props
-    let atlas_index = i32(glyph_index_raw & 0x00FFFFFFu);
+    let atlas_index = u32(glyph_index_raw & 0x00FFFFFFu);
     let weight_0_15 = (glyph_index_raw & 0xF0000000u) >> 28u;  // highest 4 bits
     let is_slanted = bool(glyph_index_raw & 0x08000000u);
     //let reserved1 = bool(glyph_index_raw & 0x04000000u);
@@ -137,8 +137,14 @@ fn vs_main(in: VertexInput) -> Varyings {
 
     $$ endif
 
+    // Construct final ndc pos, or degenerate quad if this is an empty slot in the glyph array
+    var final_ndc_pos = vec4<f32>(ndc_pos.xy + delta_ndc * ndc_pos.w, ndc_pos.zw);
+    if (font_size == 0.0) {
+        final_ndc_pos= vec4<f32>(0.0);
+    }
+
     var varyings: Varyings;
-    varyings.position = vec4<f32>(ndc_pos.xy + delta_ndc * ndc_pos.w, ndc_pos.zw);
+    varyings.position = vec4<f32>(final_ndc_pos);
     varyings.world_pos = vec3<f32>(world_pos.xyz / world_pos.w);
     varyings.atlas_pixel_scale = f32(atlas_pixel_scale);
     varyings.texcoord_in_pixels = vec2<f32>(texcoord_in_pixels);
