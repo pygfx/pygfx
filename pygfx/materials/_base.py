@@ -1,6 +1,15 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from ..utils.trackable import Trackable
 from ..utils import array_from_shadertype
 from ..resources import Buffer
+
+if TYPE_CHECKING:
+    from typing import ClassVar, TypeAlias, Literal, Sequence
+
+    ABCDTuple: TypeAlias = tuple[float, float, float, float]
 
 
 class Material(Trackable):
@@ -34,7 +43,7 @@ class Material(Trackable):
     # primary rendering backend, and other backends should deal with it.
     # See https://github.com/pygfx/pygfx/issues/272
 
-    uniform_type = dict(
+    uniform_type: ClassVar[dict[str, str]] = dict(
         opacity="f4",
         clipping_planes="0*4xf4",  # array<vec4<f32>,3>
     )
@@ -42,11 +51,11 @@ class Material(Trackable):
     def __init__(
         self,
         *,
-        opacity=1,
-        clipping_planes=None,
-        clipping_mode="any",
-        depth_test=True,
-        pick_write=False,
+        opacity: float = 1,
+        clipping_planes: Sequence[ABCDTuple] = (),
+        clipping_mode: Literal["ANY", "ALL"] = "ANY",
+        depth_test: bool = True,
+        pick_write: bool = False,
     ):
         super().__init__()
 
@@ -55,12 +64,12 @@ class Material(Trackable):
         )
 
         self.opacity = opacity
-        self.clipping_planes = clipping_planes or []
+        self.clipping_planes = clipping_planes
         self.clipping_mode = clipping_mode
         self.depth_test = depth_test
         self.pick_write = pick_write
 
-    def _set_size_of_uniform_array(self, key, new_length):
+    def _set_size_of_uniform_array(self, key: str, new_length: int) -> None:
         """Resize the given array field in the uniform struct if the
         current length does not match the given length. This adjusts
         the uniform type, creates a new buffer from that, and copies
@@ -91,7 +100,7 @@ class Material(Trackable):
             if k != key:
                 self.uniform_buffer.data[k] = data[k]
 
-    def _wgpu_get_pick_info(self, pick_value):
+    def _wgpu_get_pick_info(self, pick_value) -> dict:
         """Given a 4 element tuple, sampled from the pick texture,
         return info about what was picked in the object. The first value
         refers to the object id. The use of the remaining values differs
@@ -101,7 +110,7 @@ class Material(Trackable):
         return {}
 
     @property
-    def uniform_buffer(self):
+    def uniform_buffer(self) -> Buffer:
         """The uniform buffer object for this material.
 
         Properties that are represented in the buffer can be updated cheaply
@@ -110,7 +119,7 @@ class Material(Trackable):
         return self._store.uniform_buffer
 
     @property
-    def opacity(self):
+    def opacity(self) -> float:
         """The opacity (a.k.a. alpha value) applied to this material, expressed
         as a value between 0 and 1. If the material contains any
         non-opaque fragments, their alphas are simply scaled by this value.
@@ -118,32 +127,32 @@ class Material(Trackable):
         return float(self.uniform_buffer.data["opacity"])
 
     @opacity.setter
-    def opacity(self, value):
+    def opacity(self, value: float) -> None:
         value = min(max(float(value), 0), 1)
         self.uniform_buffer.data["opacity"] = value
         self.uniform_buffer.update_full()
         self._store.is_transparent = value < 1
 
     @property
-    def is_transparent(self):
+    def is_transparent(self) -> bool:
         """Whether this material is (semi) transparent because of its opacity value.
         If False the object can still appear transparent because of its color.
         """
         return self._store.is_transparent
 
     @property
-    def clipping_planes(self):
+    def clipping_planes(self) -> Sequence[ABCDTuple]:
         """A tuple of planes (abcd tuples) in world space. Points in
         space whose signed distance to the plane is negative are clipped
         (not rendered). Applies to the object to which this material is attached.
         """
         return [
-            tuple(float(f) for f in plane.flat)
+            tuple(float(f) for f in plane.flat)  # type: ignore
             for plane in self.uniform_buffer.data["clipping_planes"]
         ]
 
     @clipping_planes.setter
-    def clipping_planes(self, planes):
+    def clipping_planes(self, planes: Sequence[ABCDTuple]):
         if not isinstance(planes, (tuple, list)):
             raise TypeError("Clipping planes must be a list.")
         planes2 = []
@@ -171,12 +180,12 @@ class Material(Trackable):
         self.uniform_buffer.update_full()
 
     @property
-    def clipping_plane_count(self):
+    def clipping_plane_count(self) -> int:
         """The number of clipping planes (readonly)."""
         return self._store.clipping_plane_count
 
     @property
-    def clipping_mode(self):
+    def clipping_mode(self) -> Literal["ANY", "ALL"]:
         """Set the behavior for multiple clipping planes: "ANY" or "ALL".
         If this is "ANY" (the default) a fragment is discarded
         if it is clipped by any clipping plane. If this is "ALL", a
@@ -186,7 +195,7 @@ class Material(Trackable):
         return self._clipping_mode
 
     @clipping_mode.setter
-    def clipping_mode(self, value):
+    def clipping_mode(self, value: Literal["ANY", "ALL"]) -> None:
         mode = value.upper()
         if mode in ("ANY", "ALL"):
             self._clipping_mode = mode
@@ -194,24 +203,24 @@ class Material(Trackable):
             raise ValueError(f"Unexpected clipping_mode: {value}")
 
     @property
-    def depth_test(self):
+    def depth_test(self) -> bool:
         """Whether the object takes the depth buffer into account."""
         return self._store.depth_test
 
     @depth_test.setter
-    def depth_test(self, value):
+    def depth_test(self, value: int) -> None:
         # Explicit test that this is a bool. We *could* maybe later allow e.g. 'greater'.
         if not isinstance(value, (bool, int)):
             raise TypeError("Material.depth_test must be bool.")
         self._store.depth_test = bool(value)
 
     @property
-    def pick_write(self):
+    def pick_write(self) -> bool:
         """Whether this material is picked by the pointer."""
         return self._store.pick_write
 
     @pick_write.setter
-    def pick_write(self, value):
+    def pick_write(self, value: int) -> None:
         if not isinstance(value, (bool, int)):
             raise TypeError("Material.pick_write must be bool.")
         self._store.pick_write = bool(value)

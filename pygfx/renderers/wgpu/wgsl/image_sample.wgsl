@@ -21,7 +21,7 @@ fn sampled_value_to_color(value_rgba: vec4<f32>) -> vec4<f32> {
     let value_clim = (value_cor - u_material.clim[0]) / (u_material.clim[1] - u_material.clim[0]);
 
     // Apply gamma correction
-    let value_gamma = pow(value_clim, gamma_vec);
+    let value_gamma = saturate(pow(value_clim, gamma_vec));
 
     // Apply colormap or compose final color
     $$ if colormap_dim

@@ -20,7 +20,7 @@ requires-python = ">= 3.9"
 dependencies = [
     "rendercanvas >= 2",
     "wgpu >=0.19.0,<0.20.0",
-    "pylinalg >=0.6.3,<0.7.0",
+    "pylinalg >=0.6.4,<0.7.0",
     "numpy",
     "freetype-py",
     "uharfbuzz",
@@ -37,6 +37,7 @@ examples = [
     "trimesh <4.6",
     "gltflib",
     "imgui-bundle>=1.2.1",
+    "httpx",
 ]
 docs = [
     "sphinx>7.2",
@@ -49,6 +50,7 @@ docs = [
     "trimesh <4.6",
     "gltflib",
     "imgui-bundle>=1.6.0",
+    "httpx",
 ]
 tests = ["pytest", "psutil", "trimesh <4.6", "httpx", "gltflib", "imageio"]
 dev = ["pygfx[lint,tests,examples,docs]"]
@@ -75,7 +77,7 @@ build-backend = "flit_core.buildapi"
 line-length = 88
 
 [tool.ruff.lint]
-select = ["F", "E", "W", "N", "B", "RUF"]
+select = ["F", "E", "W", "N", "B", "RUF", "TC"]
 ignore = [
     "E501",   # Line too long
     "E731",   # Do not assign a `lambda` expression, use a `def`

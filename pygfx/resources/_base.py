@@ -22,7 +22,7 @@ class Resource(Trackable):
         resource_update_registry._gfx_mark_for_sync(self)
 
     @property
-    def rev(self):
+    def rev(self) -> int:
         """The revision number (integer).
 
         The number changes when ``update_range()`` is called. The number is

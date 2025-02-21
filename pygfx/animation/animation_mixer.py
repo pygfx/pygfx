@@ -96,35 +96,48 @@ class AnimationMixer(RootEventHandler):
             action._update(dt)
 
         # apply the accumulated value
+        components_map = ["position", "rotation", "scale"]
+        for target, paths in self.__property_accu_cache.items():
+            components = [None, None, None]
+            for path, (accu_value, accu_weight) in paths.items():
+                if accu_weight < 1:
+                    ori_value = self.__property_ori_cache[(target, path)]
+                    if path == "rotation":
+                        accu_value = self._mix_slerp(
+                            accu_value, ori_value, 1 - accu_weight
+                        )
+                    else:
+                        # translation\scale\weights
+                        accu_value = self._mix_lerp(
+                            accu_value, ori_value, 1 - accu_weight
+                        )
 
-        for target, path in self.__property_accu_cache:
-            accu_value, accu_weight = self.__property_accu_cache[(target, path)]
-            if accu_weight < 1:
-                ori_value = self.__property_ori_cache[(target, path)]
-                if path == "rotation":
-                    accu_value = self._mix_slerp(accu_value, ori_value, 1 - accu_weight)
+                if path in components_map:
+                    components[components_map.index(path)] = accu_value
                 else:
-                    # tnranslation\scale\weights
-                    accu_value = self._mix_lerp(accu_value, ori_value, 1 - accu_weight)
+                    self._set_path_value(target, path, accu_value)
 
-            self._set_path_value(target, path, accu_value)
+            if any(c is not None for c in components):
+                self._set_path_value(target, "components", components)
 
     def _accumulate(self, target, path, value, weight):
-        key = (target, path)
-        if key not in self.__property_accu_cache:
-            self.__property_accu_cache[key] = (value, weight)
+        accu_cache = self.__property_accu_cache
+        if target not in accu_cache:
+            accu_cache[target] = {}
+        if path not in accu_cache[target]:
+            accu_cache[target][path] = (value, weight)
         else:
-            current_value, current_weight = self.__property_accu_cache[key]
+            current_value, current_weight = accu_cache[target][path]
             current_weight += weight
             mix = weight / current_weight
 
             if path == "rotation":
                 current_value = self._mix_slerp(current_value, value, mix)
             else:
-                # tnranslation\scale\weights
+                # translation\scale\weights
                 current_value = self._mix_lerp(current_value, value, mix)
 
-            self.__property_accu_cache[key] = (current_value, current_weight)
+            accu_cache[target][path] = (current_value, current_weight)
 
     def _mix_lerp(self, a, b, t):
         return a * (1 - t) + b * t
@@ -154,6 +167,8 @@ class AnimationMixer(RootEventHandler):
             return target.local.position
         elif path == "rotation":
             return target.local.rotation
+        elif path == "components":
+            return target.local.components
         elif path == "weights":
             if isinstance(target, Mesh):
                 return target.morph_target_influences
@@ -169,6 +184,8 @@ class AnimationMixer(RootEventHandler):
             target.local.position = value
         elif path == "rotation":
             target.local.rotation = value
+        elif path == "components":
+            target.local.components = value
         elif path == "weights":
             if isinstance(target, Mesh):
                 target.morph_target_influences = value

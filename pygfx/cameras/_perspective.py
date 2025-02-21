@@ -332,6 +332,7 @@ class PerspectiveCamera(Camera):
                 left, right, top, bottom, near, far, depth_range=(0, 1)
             )
 
+        projection_matrix.flags.writeable = False
         return projection_matrix
 
     def show_pos(self, target, *, up=None):
@@ -505,12 +506,13 @@ class PerspectiveCamera(Camera):
             and the third to the world position of that corner.
 
         """
-        projection_matrix = self.projection_matrix
-
         ndc_corners = np.array([(-1, -1), (1, -1), (1, 1), (-1, 1)])
         depths = np.array((0, 1))[:, None]
-        local_corners = la.vec_unproject(ndc_corners, projection_matrix, depth=depths)
+        local_corners = la.vec_unproject(
+            ndc_corners, self.projection_matrix, depth=depths
+        )
         world_corners = la.vec_transform(local_corners, self.world.matrix)
+        world_corners.flags.writeable = False
         return world_corners
 
 

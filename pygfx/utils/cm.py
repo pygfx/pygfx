@@ -22,14 +22,14 @@ from ._cmdata_mpl import (
     _cividis_data,
 )
 
-from ..resources import Texture
+from ..resources import Texture, TextureMap
 
 
 __all__ = ["cividis", "inferno", "magma", "plasma", "viridis"]
 
 
-viridis = Texture(_viridis_data, dim=1)
-plasma = Texture(_plasma_data, dim=1)
-inferno = Texture(_inferno_data, dim=1)
-magma = Texture(_magma_data, dim=1)
-cividis = Texture(_cividis_data, dim=1)
+viridis = TextureMap(Texture(_viridis_data, dim=1), filter="linear", wrap="clamp")
+plasma = TextureMap(Texture(_plasma_data, dim=1), filter="linear", wrap="clamp")
+inferno = TextureMap(Texture(_inferno_data, dim=1), filter="linear", wrap="clamp")
+magma = TextureMap(Texture(_magma_data, dim=1), filter="linear", wrap="clamp")
+cividis = TextureMap(Texture(_cividis_data, dim=1), filter="linear", wrap="clamp")
