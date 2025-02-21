@@ -76,7 +76,7 @@ class TextShader(BaseShader):
 
     def get_render_info(self, wobject, shared):
         material = wobject.material
-        n = wobject.geometry.glyph_positions.nitems * 6
+        n = wobject.geometry.glyph_positions.draw_range[1] * 6
 
         render_mask = 0
         if wobject.render_mask:
