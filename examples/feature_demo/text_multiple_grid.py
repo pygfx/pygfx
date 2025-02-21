@@ -51,7 +51,7 @@ for iy in range(10):
 
         block = text.geometry.create_text_block()
         block.set_text(str(count))
-        text.geometry.set_text_block_position(block.index, (x, y, 0))
+        block.set_position(x, y)
 
 
 camera = gfx.OrthographicCamera(100, 100)

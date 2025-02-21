@@ -70,10 +70,14 @@ class TextEngine:
 
 
 class TextGeometry(Geometry):
-    """Geometry specific for representing text.
+    """Geometry for representing text.
 
-    The TextGeometry creates and stores the geometry to render a piece of text.
-    It can be provided as plain text or in markdown to support basic formatting.
+    The ``TextGeometry`` creates and stores the geometry to render text. It supports plain text
+    as well as formatting with (a subset of) markdown.
+
+    Updates to text are relatively efficient, because text is internally divided
+    into text blocks (for lines/paragraphs). Use a ``MultiTextGeometry`` if you
+    want to directly control the text blocks.
 
     Parameters
     ----------
@@ -672,7 +676,17 @@ class TextGeometry(Geometry):
 
 
 class MultiTextGeometry(TextGeometry):
-    # TODO: refine this API, maybe ensure_block_count() or something is sufficient
+    """Geometry for representing multiple text blocks.
+
+    The ``MultiTextGeometry`` manages a collection of ``TextBlock`` objects,
+    for which the text (or markdown) can be individually set, and which can
+    be individually positioned. Each text block has the same layout support
+    as the ``TextGeometry``.
+
+    Most properties are defined by the geometry, i.e. shared across all text
+    objects for that geometry. But this may change in the future to allow more
+    flexibility.
+    """
 
     is_multi = True
 
@@ -711,12 +725,6 @@ class MultiTextGeometry(TextGeometry):
         The block's position is stored in ``geometry.positions.data[index]``.
         """
         return self._text_blocks[index]
-
-    def set_text_block_position(self, index: int, position):
-        """Set the position for the given text block index."""
-        index = int(index)
-        self.positions.data[index] = position
-        self.positions.update_indices(index)
 
     def _layout_blocks(self):
         total_rect = Rect()
@@ -776,8 +784,9 @@ class MultiTextGeometry(TextGeometry):
 class TextBlock:
     """The TextBlock represents one block or paragraph of text.
 
-    Text blocks are positioned using an entry in geometry.positions. This allows using it for e.g. a collection of text labels.
-
+    Text blocks are positioned using an entry in ``geometry.positions``.
+    The ``TextGeometry`` uses text blocks internally to do effeicient re-layout as text is updated.
+    With the ``MultiTextGeometry`` the text blocks are positioned by the user or external code.
     """
 
     # TODO: __slots__ = []
@@ -789,6 +798,7 @@ class TextBlock:
         self._input = None
         self._need_layout = False
         self._need_render_glyphs = False
+        self._pending_position = None
 
         self._text_items = []
         self._old_text_items = []
@@ -814,6 +824,12 @@ class TextBlock:
     def _update(self, geometry):
         """Do the work to bring this block up-to-date. Be fast!"""
 
+        # Update position?
+        if self._pending_position is not None:
+            geometry.positions.data[self.index] = self._pending_position
+            geometry.positions.update_indices(self.index)
+            self._pending_position = None
+
         # Reset flags
         # self._dirty_blocks.discard(self._index)  # no, geometry calls clear
         need_render_glyphs = self._need_render_glyphs
@@ -822,9 +838,14 @@ class TextBlock:
         self._need_layout = False
 
         # De-allocate old item objects
-        for item in self._old_text_items:
-            item.clear(geometry)
-        self._old_text_items = []
+        if self._old_text_items:
+            for item in self._old_text_items:
+                item.clear(geometry)
+            self._old_text_items = []
+
+        # Quick exit
+        if not (need_render_glyphs or need_layout):
+            return False
 
         # Update in-use item objects
         glyphs_rendered = False
@@ -869,6 +890,10 @@ class TextBlock:
             item.clear(geometry)
         self._text_items = []
         self._input = None
+
+    def set_position(self, x, y, z=0):
+        self._mark_dirty()
+        self._pending_position = float(x), float(y), float(z)
 
     def set_text(self, text: str):
         """Set the text for this TextBlock (as a string).
