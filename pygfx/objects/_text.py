@@ -4,12 +4,12 @@ from ._base import WorldObject
 
 
 class Text(WorldObject):
-    """A collection of text to be rendered.
+    """Render text or a collection of text blocks.
 
     Can be used to render a piece of multi-paragraph text, or to create a collection of text blocks that
-    can be individually positioned, and have the same font and layout properties.
+    can be individually positioned.
 
-    See :class:``pygfx.TextGeometry`` for details.
+    See :class:``pygfx.TextGeometry`` and :class:``pygfx.MultiTextGeometry`` for details.
     """
 
     uniform_type = dict(

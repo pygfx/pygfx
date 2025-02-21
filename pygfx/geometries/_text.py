@@ -14,7 +14,7 @@ locations and atlas indices. It is also the main entrypoint for the user.
 Text is divided into multiple blocks, typically one per line/paragraph, similar
 to how Qt splits text in blocks in its editor component. This makes it easy to
 edit one block, and then merely shift the other blocks to update the layout. In
-the multi-text scenario, these blocks can be individually be controlled and
+the multi-text scenario, these blocks can be individually controlled and
 positioned by the user.
 
 Each text block again divides its text into multiple items. Each item is a unit
@@ -42,8 +42,9 @@ from ..utils.enums import TextAlign, TextAnchor
 from ._base import Geometry
 
 
-SHORT_ANCHORS = {anchor.replace("-", ""): anchor for anchor in TextAnchor}
-SHORT_ANCHORS["center"] = "middle-center"
+# Allow anchor to be written without a dash, for backward compat.
+ANCHOR_ALIASES = {anchor.replace("-", ""): anchor for anchor in TextAnchor}
+ANCHOR_ALIASES["center"] = "middle-center"
 
 # We cache the extents of small whitespace strings to improve performance
 WHITESPACE_EXTENTS = {}
@@ -353,7 +354,7 @@ class TextGeometry(Geometry):
             anchor = "middle-center"
         elif not isinstance(anchor, str):
             raise TypeError("Text anchor must be str.")
-        anchor = SHORT_ANCHORS.get(anchor, anchor)
+        anchor = ANCHOR_ALIASES.get(anchor, anchor)
         anchor = anchor.lower().strip().replace("-", "_")
         if anchor not in TextAnchor.__fields__:
             raise ValueError(f"Text anchor must be one of {TextAnchor}. Got {anchor!r}")
@@ -805,8 +806,10 @@ class MultiTextGeometry(TextGeometry):
 class TextBlock:
     """The TextBlock represents one block or paragraph of text.
 
+    Users can obtain instances of this class from the ``MultiTextGeometry``.
+
     Text blocks are positioned using an entry in ``geometry.positions``.
-    The ``TextGeometry`` uses text blocks internally to do effeicient re-layout as text is updated.
+    The ``TextGeometry`` uses text blocks internally to do efficient re-layout when text is updated.
     With the ``MultiTextGeometry`` the text blocks are positioned by the user or external code.
     """
 
