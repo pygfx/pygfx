@@ -376,7 +376,7 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
 
     $$ endif
     // Apply opacity
-    diffuse_color = diffuse_color * u_material.opacity;
+    diffuse_color.a = diffuse_color.a * u_material.opacity;
 
     let physical_albeido = diffuse_color.rgb;
 
