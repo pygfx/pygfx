@@ -67,6 +67,17 @@ fn sample_im(texcoord: vec2<f32>, sizef: vec2<f32>) -> vec4<f32> {
             $$ else
             return yuv_full_to_rgb(y, u, v);
             $$ endif
+        $$ elif emulate_rgb
+            let d = 1.0 / (3. * sizef.x);
+            let x = modf(texcoord.x * sizef.x).whole / sizef.x + d / 2.;
+
+            // return vec4<f32>(textureSample(t_img, s_img, vec2<f32>(x, texcoord.y)).xxx, 1.0);
+            return vec4<f32>(
+                textureSample(t_img, s_img, vec2<f32>(x, texcoord.y)).x,
+                textureSample(t_img, s_img, vec2<f32>(x + d, texcoord.y)).x,
+                textureSample(t_img, s_img, vec2<f32>(x + d + d, texcoord.y)).x,
+                1.0
+            );
         $$ else
             return textureSample(t_img, s_img, texcoord.xy);
         $$ endif
@@ -90,7 +101,11 @@ fn get_im_geometry() -> ImGeometry {
     geo.indices = array<i32,6>(0, 1, 2,   3, 2, 1);
 
     let pos1 = vec2<f32>(-0.5);
+    $$ if emulate_rgb
+    let pos2= vec2<f32>(f32(size.x / 3), f32(size.y)) + pos1;
+    $$ else
     let pos2 = vec2<f32>(size.xy) + pos1;
+    $$ endif
     geo.positions = array<vec3<f32>,4>(
         vec3<f32>(pos2.x, pos1.y, 0.0),
         vec3<f32>(pos2.x, pos2.y, 0.0),

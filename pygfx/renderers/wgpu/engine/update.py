@@ -93,8 +93,6 @@ def _update_texture(texture):
     fmt = to_texture_format(texture.format)
     pad_value = 0.0
     extra_bytes = 0
-    if texture._wgpu_emulate_rgb:
-        _, pad_value, extra_bytes = ALTTEXFORMAT[fmt]
 
     bytes_per_pixel = (
         texture.nbytes // (texture.size[0] * texture.size[1] * texture.size[2])

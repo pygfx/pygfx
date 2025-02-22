@@ -149,6 +149,8 @@ class Geometry(Trackable):
                 return self._aabb
             # account for multi-channel image data
             grid_shape = tuple(reversed(grid.size[: grid.dim]))
+            if grid.emulate_rgb:
+                grid_shape = (grid_shape[0], grid_shape[1] // 3)
             # create aabb in index/data space
             aabb = np.array([np.zeros_like(grid_shape), grid_shape[::-1]], dtype="f8")
             # convert to local image space by aligning
