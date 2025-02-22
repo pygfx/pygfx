@@ -188,7 +188,7 @@ fn vs_main(in: VertexInput) -> Varyings {
     varyings.position = vec4<f32>(ndc_pos.xyz, ndc_pos.w);
 
     // per-vertex or per-face coloring
-    $$ if color_mode == 'face' or color_mode == 'vertex'
+    $$ if use_vertex_color
         $$ if color_mode == 'face'
             let color_index = face_index;
         $$ else
@@ -335,27 +335,50 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
         surface_normal = select(-surface_normal, surface_normal, is_front);
     $$ endif
 
-    $$ if color_mode == 'vertex' or color_mode == 'face'
-        let color_value = varyings.color;
-        let albeido = color_value.rgb;
-    $$ elif color_mode == 'vertex_map' or color_mode == 'face_map'
-        let color_value = sample_colormap(varyings.texcoord) * u_material.color;
-        let albeido = color_value.rgb;  // no more colormap
-    $$ elif color_mode == 'normal'
-        let albeido = normalize(surface_normal) * 0.5 + 0.5;
-        let color_value = vec4<f32>(albeido, 1.0);
-    $$ else
-        let color_value = u_material.color;
-        let albeido = color_value.rgb;
-    $$ endif
 
-    // Move to physical colorspace (linear photon count) so we can do math
-    $$ if colorspace == 'srgb'
-        let physical_albeido = srgb2physical(albeido);
+    $$ if color_mode == 'normal'
+        var diffuse_color = vec4<f32>((normalize(surface_normal) * 0.5 + 0.5), 1.0);
     $$ else
-        let physical_albeido = albeido;
+        // to support color modes
+        var diffuse_color = u_material.color;
+        $$ if colorspace == 'srgb'
+            diffuse_color = vec4f(srgb2physical(diffuse_color.rgb), diffuse_color.a);
+        $$ endif
+
+        $$ if color_mode != 'uniform'
+            $$ if use_colormap
+                var sample_color = sample_colormap(varyings.texcoord);
+                $$ if colorspace == 'srgb'
+                    sample_color = vec4f(srgb2physical(sample_color.rgb), sample_color.a);
+                $$ endif
+        
+                $$ if color_mode == 'vertex_map' or color_mode == 'face_map'
+                    diffuse_color = sample_color;
+                $$ else  
+                    // default mode
+                    diffuse_color *= sample_color;
+                $$ endif
+            $$ endif
+
+            $$ if use_vertex_color
+                // The vertex color should already in physical space
+                $$ if color_mode == 'vertex' or color_mode == 'face'
+                    diffuse_color = varyings.color;
+                $$ else
+                    // default mode
+                    diffuse_color *= varyings.color;
+                $$ endif
+            $$ endif
+
+        // uniform
+        $$ endif 
+
+
     $$ endif
-    let opacity = color_value.a * u_material.opacity;
+    // Apply opacity
+    diffuse_color = diffuse_color * u_material.opacity;
+
+    let physical_albeido = diffuse_color.rgb;
 
     // Get normal used to calculate lighting or reflection
     $$ if lighting or use_env_map is defined
@@ -547,7 +570,7 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
         }
     $$ endif
 
-    let out_color = vec4<f32>(physical_color, opacity);
+    let out_color = vec4<f32>(physical_color, diffuse_color.a);
 
     // Wrap up
 

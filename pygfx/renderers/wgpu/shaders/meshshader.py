@@ -65,43 +65,24 @@ class MeshShader(BaseShader):
         self["colorspace"] = "srgb"
 
         color_mode = str(material.color_mode).split(".")[-1]
-        if color_mode == "auto":
-            if material.map is not None:
-                self["color_mode"] = "vertex_map"
-                self["color_buffer_channels"] = 0
-                self["colorspace"] = material.map.texture.colorspace
-            else:
-                self["color_mode"] = "uniform"
-                self["color_buffer_channels"] = 0
-        elif color_mode == "uniform":
-            self["color_mode"] = "uniform"
-            self["color_buffer_channels"] = 0
-        elif color_mode == "vertex":
-            nchannels = nchannels_from_format(geometry.colors.format)
-            self["color_mode"] = "vertex"
-            self["color_buffer_channels"] = nchannels
-            if nchannels not in (1, 2, 3, 4):
-                raise ValueError(f"Geometry.colors needs 1-4 columns, not {nchannels}")
-        elif color_mode == "face":
-            nchannels = nchannels_from_format(geometry.colors.format)
-            self["color_mode"] = "face"
-            self["color_buffer_channels"] = nchannels
-            if nchannels not in (1, 2, 3, 4):
-                raise ValueError(f"Geometry.colors needs 1-4 columns, not {nchannels}")
-        elif color_mode == "vertex_map":
-            self["color_mode"] = "vertex_map"
-            self["color_buffer_channels"] = 0
+
+        self["color_mode"] = color_mode
+
+        if material.map is not None:
+            self["use_colormap"] = True
             self["colorspace"] = material.map.texture.colorspace
-            if material.map is None:
-                raise ValueError("Cannot apply colormap is no material.map is set.")
-        elif color_mode == "face_map":
-            self["color_mode"] = "face_map"
-            self["color_buffer_channels"] = 0
-            self["colorspace"] = material.map.texture.colorspace
-            if material.map is None:
-                raise ValueError("Cannot apply colormap is no material.map is set.")
         else:
-            raise RuntimeError(f"Unknown color_mode: '{color_mode}'")
+            self["use_colormap"] = False
+
+        if getattr(geometry, "colors", None):
+            nchannels = nchannels_from_format(geometry.colors.format)
+            self["use_vertex_color"] = True
+            self["color_buffer_channels"] = nchannels
+            if nchannels not in (1, 2, 3, 4):
+                raise ValueError(f"Geometry.colors needs 1-4 columns, not {nchannels}")
+        else:
+            self["color_buffer_channels"] = 0
+            self["use_vertex_color"] = False
 
     def _define_texture_map(self, geometry, map, name, view_dim="2d", check=True):
         if check:
@@ -180,9 +161,10 @@ class MeshShader(BaseShader):
             Binding("s_normals", rbuffer, normal_buffer, "VERTEX"),
         ]
 
-        if self["color_mode"] in ("vertex", "face"):
+        if self["use_vertex_color"]:
             bindings.append(Binding("s_colors", rbuffer, geometry.colors, "VERTEX"))
-        elif self["color_mode"] in ("vertex_map", "face_map"):
+
+        if self["use_colormap"]:
             bindings.extend(
                 # todo: unify the logic with other maps (use self._define_texture_map)?
                 self.define_colormap(material.map, geometry.texcoords)
@@ -483,6 +465,8 @@ class MeshShader(BaseShader):
                     render_mask = RenderMask.opaque
             elif self["color_mode"] == "normal":
                 render_mask = RenderMask.opaque
+            elif self["color_mode"] == "auto":
+                render_mask = RenderMask.all
             else:
                 raise RuntimeError(f"Unexpected color mode {self['color_mode']}")
 
