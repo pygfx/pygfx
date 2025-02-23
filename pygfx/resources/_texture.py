@@ -89,6 +89,7 @@ class Texture(Resource):
         generate_mipmaps=False,
         chunk_size=None,
         force_contiguous=False,
+        emulate_rgb=None,
         usage=0,
     ):
         super().__init__()
@@ -156,9 +157,8 @@ class Texture(Resource):
                     f"Expected 1-4 texture color channels, got {nchannels}."
                 )
             if nchannels == 3:
-                self._wgpu_emulate_rgb = True
+                emulate_rgb = True
                 nchannels = 1
-                the_size = the_size[0] * 3, the_size[1], the_size[2]
             detected_format = (f"{nchannels}x" + element_format).lstrip("1x")
         elif size is not None and format is not None:
             the_size = size
@@ -168,6 +168,10 @@ class Texture(Resource):
             raise ValueError(
                 "Texture must be instantiated with either data or size and format."
             )
+
+        if emulate_rgb:
+            self._wgpu_emulate_rgb = emulate_rgb
+            the_size = the_size[0] * 3, the_size[1], the_size[2]
 
         # Check size
         if not all(the_size[i] > 0 for i in range(3)):
