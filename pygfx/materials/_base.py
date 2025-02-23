@@ -33,7 +33,19 @@ class Material(Trackable):
     depth_test : bool
         Whether the object takes the depth buffer into account.
         Default True. If False, the object is like a ghost: not testing
-        against the depth buffer and also not writing to it.
+        against the depth buffer.
+    depth_write : bool
+        Whether the object writes to the depth buffer.
+        Default True. If False, the object does not write to the depth buffer.
+    transparent : bool
+        Whether the object is (semi) transparent.
+        Default False. If True, the object is rendered in a transparent way.
+    alpha_test : float
+        The alpha test value for this material. Default 0.0, meaning no alpha
+        test is performed.
+        When it is set to a value > 0, the fragment is discarded if its alpha
+        value is less than the alpha_test value. This is useful for e.g. grass
+        or foliage textures, where the texture has a lot of transparent areas
     """
 
     # Note that in the material classes we define what properties are stored as
@@ -45,6 +57,7 @@ class Material(Trackable):
 
     uniform_type: ClassVar[dict[str, str]] = dict(
         opacity="f4",
+        alpha_test="f4",
         clipping_planes="0*4xf4",  # array<vec4<f32>,3>
     )
 
@@ -55,7 +68,10 @@ class Material(Trackable):
         clipping_planes: Sequence[ABCDTuple] = (),
         clipping_mode: Literal["ANY", "ALL"] = "ANY",
         depth_test: bool = True,
+        depth_write: bool = True,
         pick_write: bool = False,
+        transparent: bool = False,
+        alpha_test: float = 0.0,
     ):
         super().__init__()
 
@@ -67,7 +83,10 @@ class Material(Trackable):
         self.clipping_planes = clipping_planes
         self.clipping_mode = clipping_mode
         self.depth_test = depth_test
+        self.depth_write = depth_write
         self.pick_write = pick_write
+        self.transparent = transparent
+        self.alpha_test = alpha_test
 
     def _set_size_of_uniform_array(self, key: str, new_length: int) -> None:
         """Resize the given array field in the uniform struct if the
@@ -139,6 +158,15 @@ class Material(Trackable):
         If False the object can still appear transparent because of its color.
         """
         return self._store.is_transparent
+
+    @property
+    def transparent(self) -> bool:
+        """Whether this material is (semi) transparent."""
+        return self._transparent
+
+    @transparent.setter
+    def transparent(self, value: bool) -> None:
+        self._transparent = bool(value)
 
     @property
     def clipping_planes(self) -> Sequence[ABCDTuple]:
@@ -213,6 +241,28 @@ class Material(Trackable):
         if not isinstance(value, (bool, int)):
             raise TypeError("Material.depth_test must be bool.")
         self._store.depth_test = bool(value)
+
+    @property
+    def depth_write(self) -> bool:
+        """Whether the object writes to the depth buffer."""
+        return self._store.depth_write
+
+    @depth_write.setter
+    def depth_write(self, value: int) -> None:
+        if not isinstance(value, (bool, int)):
+            raise TypeError("Material.depth_write must be bool.")
+        self._store.depth_write = bool(value)
+
+    @property
+    def alpha_test(self) -> bool:
+        """The alpha test value for this material."""
+        return self.uniform_buffer.data["alpha_test"]
+
+    @alpha_test.setter
+    def alpha_test(self, value: float) -> None:
+        value = min(max(float(value), 0), 1)
+        self.uniform_buffer.data["alpha_test"] = value
+        self.uniform_buffer.update_full()
 
     @property
     def pick_write(self) -> bool:

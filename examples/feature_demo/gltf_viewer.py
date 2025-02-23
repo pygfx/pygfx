@@ -24,10 +24,16 @@ import asyncio
 canvas = WgpuCanvas(size=(1280, 720), max_fps=-1, title="glTF viewer", vsync=False)
 
 renderer = gfx.WgpuRenderer(canvas)
+renderer.sort_objects = True
+renderer.blend_mode = "ordered1"
 
 scene = gfx.Scene()
 
-scene.add(gfx.AmbientLight(intensity=0.1))
+scene.add(gfx.AmbientLight(intensity=0.3))
+directional_light = gfx.DirectionalLight(intensity=2.5)
+directional_light.local.position = (1, 2, 3)
+scene.add(directional_light)
+
 camera = gfx.PerspectiveCamera(45, 1280 / 720)
 
 gfx.OrbitController(camera, register_events=renderer)
@@ -58,7 +64,7 @@ response.raise_for_status()
 model_list: list = response.json()
 
 # filter out models having "core" in tags
-model_list = [m for m in model_list if "core" in m.get("tags", [])]
+# model_list = [m for m in model_list if "core" in m.get("tags", [])]
 
 mixer = gfx.AnimationMixer()
 
@@ -82,7 +88,7 @@ background = gfx.Background(None, gfx.BackgroundSkyboxMaterial(map=env_tex))
 background.visible = False
 scene.add(background)
 
-scene.add(gfx.Background.from_color((0.1, 0.1, 0.1, 1)))
+scene.add(gfx.Background.from_color((0.01, 0.01, 0.01, 1.0)))
 
 
 def add_env_map(obj):

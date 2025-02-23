@@ -20,6 +20,9 @@ $$ endif
 $$ if USE_IRIDESCENCE is defined
     {$ include 'pygfx.iridescence.wgsl' $}
 $$ endif
+$$ if USE_TRANSMISSION is defined
+    {$ include 'pygfx.transmission.wgsl' $}
+$$ endif
 
 struct VertexInput {
     @builtin(vertex_index) vertex_index : u32,
@@ -188,7 +191,7 @@ fn vs_main(in: VertexInput) -> Varyings {
     varyings.position = vec4<f32>(ndc_pos.xyz, ndc_pos.w);
 
     // per-vertex or per-face coloring
-    $$ if color_mode == 'face' or color_mode == 'vertex'
+    $$ if use_vertex_color
         $$ if color_mode == 'face'
             let color_index = face_index;
         $$ else
@@ -335,27 +338,54 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
         surface_normal = select(-surface_normal, surface_normal, is_front);
     $$ endif
 
-    $$ if color_mode == 'vertex' or color_mode == 'face'
-        let color_value = varyings.color;
-        let albeido = color_value.rgb;
-    $$ elif color_mode == 'vertex_map' or color_mode == 'face_map'
-        let color_value = sample_colormap(varyings.texcoord) * u_material.color;
-        let albeido = color_value.rgb;  // no more colormap
-    $$ elif color_mode == 'normal'
-        let albeido = normalize(surface_normal) * 0.5 + 0.5;
-        let color_value = vec4<f32>(albeido, 1.0);
+
+    $$ if color_mode == 'normal'
+        var diffuse_color = vec4<f32>((normalize(surface_normal) * 0.5 + 0.5), 1.0);
     $$ else
-        let color_value = u_material.color;
-        let albeido = color_value.rgb;
+        // to support color modes
+        var diffuse_color = u_material.color;
+        $$ if colorspace == 'srgb'
+            diffuse_color = vec4f(srgb2physical(diffuse_color.rgb), diffuse_color.a);
+        $$ endif
+
+        $$ if color_mode != 'uniform'
+            $$ if use_colormap
+                var sample_color = sample_colormap(varyings.texcoord);
+                $$ if colorspace == 'srgb'
+                    sample_color = vec4f(srgb2physical(sample_color.rgb), sample_color.a);
+                $$ endif
+        
+                $$ if color_mode == 'vertex_map' or color_mode == 'face_map'
+                    diffuse_color = sample_color;
+                $$ else  
+                    // default mode
+                    diffuse_color *= sample_color;
+                $$ endif
+            $$ endif
+
+            $$ if use_vertex_color
+                // The vertex color should already in physical space
+                $$ if color_mode == 'vertex' or color_mode == 'face'
+                    diffuse_color = varyings.color;
+                $$ else
+                    // default mode
+                    diffuse_color *= varyings.color;
+                $$ endif
+            $$ endif
+
+        // uniform
+        $$ endif 
+
+
+    $$ endif
+    // Apply opacity
+    diffuse_color.a = diffuse_color.a * u_material.opacity;
+
+    $$ if USE_ALPHA_TEST is defined
+        if (diffuse_color.a < u_material.alpha_test) { discard; }
     $$ endif
 
-    // Move to physical colorspace (linear photon count) so we can do math
-    $$ if colorspace == 'srgb'
-        let physical_albeido = srgb2physical(albeido);
-    $$ else
-        let physical_albeido = albeido;
-    $$ endif
-    let opacity = color_value.a * u_material.opacity;
+    let physical_albeido = diffuse_color.rgb;
 
     // Get normal used to calculate lighting or reflection
     $$ if lighting or use_env_map is defined
@@ -499,7 +529,27 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
     $$ endif
 
     // Combine direct and indirect light
-    var physical_color = reflected_light.direct_diffuse + reflected_light.direct_specular + reflected_light.indirect_diffuse + reflected_light.indirect_specular;
+    // var physical_color = reflected_light.direct_diffuse + reflected_light.direct_specular + reflected_light.indirect_diffuse + reflected_light.indirect_specular;
+
+    var total_diffuse = reflected_light.direct_diffuse + reflected_light.indirect_diffuse;
+    var total_specular = reflected_light.direct_specular + reflected_light.indirect_specular;
+
+    $$ if USE_TRANSMISSION is defined
+        let model_matrix = u_wobject.world_transform;
+        let view_matrix = u_stdinfo.cam_transform;
+        let projection_matrix = u_stdinfo.projection_transform;
+
+        let transmitted = getIBLVolumeRefraction(
+            normal, view, material.roughness, material.diffuse_color, material.specular_color, material.specular_f90,
+            varyings.world_pos, model_matrix, view_matrix, projection_matrix, material.dispersion, material.ior, material.thickness,
+            material.attenuation_color, material.attenuation_distance );
+
+        material.transmission_alpha = mix( material.transmission_alpha, transmitted.a, material.transmission );
+
+        total_diffuse = mix( total_diffuse, transmitted.rgb, material.transmission );
+    $$ endif
+
+    var physical_color = total_diffuse + total_specular;
 
     // Add emissive color
     // Now for phong、pbr and toon lighting
@@ -547,7 +597,16 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
         }
     $$ endif
 
-    let out_color = vec4<f32>(physical_color, opacity);
+    $$ if OPAQUE is defined
+        diffuse_color.a = 1.0;
+    $$ endif
+
+    $$ if USE_TRANSMISSION is defined
+        diffuse_color.a *= material.transmission_alpha;
+    $$ endif
+
+
+    let out_color = vec4<f32>(physical_color, diffuse_color.a);
 
     // Wrap up
 

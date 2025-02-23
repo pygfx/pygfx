@@ -190,6 +190,10 @@ class _GLTF:
         self._plugins.append(GLTFMaterialsSpecularExtension(self))
         self._plugins.append(GLTFMaterialsClearcoatExtension(self))
         self._plugins.append(GLTFMaterialsIridescenceExtension(self))
+        self._plugins.append(GLTFMaterialsEmissiveStrengthExtension(self))
+        self._plugins.append(GLTFMaterialsTransmissionExtension(self))
+        self._plugins.append(GLTFMaterialsVolumeExtension(self))
+        self._plugins.append(GLTFMaterialsDispersionExtension(self))
 
     def load(self, path, quiet=False, remote_ok=True):
         """Load the whole gltf file, including meshes, skeletons, cameras, and animations."""
@@ -600,8 +604,9 @@ class _GLTF:
                 if plugin.name in extensions:
                     if hasattr(plugin, "get_material_type"):
                         # get the material type from the first plugin that can handle it
-                        material_type = plugin.get_material_type(material)
-                        break
+                        if plugin.get_material_type(material) is not None:
+                            material_type = plugin.get_material_type(material)
+                            break
 
         gfx_material = material_type()
 
@@ -665,6 +670,16 @@ class _GLTF:
 
         # todo alphaMode
         # todo alphaCutoff
+        if material.alphaMode == "BLEND":
+            gfx_material.transparent = True
+            gfx_material.depth_write = False
+        else:
+            gfx_material.transparent = False
+            if material.alphaMode == "MASK":
+                if material.alphaCutoff is None:
+                    gfx_material.alpha_test = 0.5
+                else:
+                    gfx_material.alpha_test = material.alphaCutoff
 
         gfx_material.side = (
             gfx.enums.VisibleSide.both
@@ -705,7 +720,7 @@ class _GLTF:
 
             if sampler.magFilter == 9728:
                 map.mag_filter = "nearest"
-            elif sampler.magFilter == 9729:
+            elif sampler.magFilter == 9729 or sampler.magFilter is None:
                 map.mag_filter = "linear"
 
             if sampler.minFilter == 9728:  # NEAREST
@@ -713,15 +728,21 @@ class _GLTF:
             elif sampler.minFilter == 9729:  # LINEAR
                 map.min_filter = "linear"
             elif sampler.minFilter == 9984:  # NEAREST_MIPMAP_NEAREST
+                texture._generate_mipmaps = True
                 map.min_filter = "nearest"
                 map.mipmap_filter = "nearest"
             elif sampler.minFilter == 9985:  # LINEAR_MIPMAP_NEAREST
+                texture._generate_mipmaps = True
                 map.min_filter = "linear"
                 map.mipmap_filter = "nearest"
             elif sampler.minFilter == 9986:  # NEAREST_MIPMAP_LINEAR
+                texture._generate_mipmaps = True
                 map.min_filter = "nearest"
                 map.mipmap_filter = "linear"
-            elif sampler.minFilter == 9987:  # LINEAR_MIPMAP_LINEAR
+            elif (
+                sampler.minFilter == 9987 or sampler.minFilter is None
+            ):  # LINEAR_MIPMAP_LINEAR
+                texture._generate_mipmaps = True
                 map.min_filter = "linear"
                 map.mipmap_filter = "linear"
 
@@ -1209,3 +1230,89 @@ class GLTFMaterialsIridescenceExtension(GLTFBaseMaterialsExtension):
             material.iridescence_thickness_map = self._load_texture(
                 iridescence_thickness_texture
             )
+
+
+class GLTFMaterialsEmissiveStrengthExtension(GLTFBaseMaterialsExtension):
+    EXTENSION_NAME = "KHR_materials_emissive_strength"
+    MATERIAL_TYPE = None
+
+    def get_material_type(self, material_def):
+        return None
+
+    def extend_material(self, material_def, material):
+        if (
+            not material_def.extensions
+            or self.EXTENSION_NAME not in material_def.extensions
+        ):
+            return
+
+        extension = material_def.extensions[self.EXTENSION_NAME]
+        emissive_strength = extension.get("emissiveStrength", None)
+        if emissive_strength is not None:
+            material.emissive_intensity = emissive_strength
+
+
+class GLTFMaterialsTransmissionExtension(GLTFBaseMaterialsExtension):
+    EXTENSION_NAME = "KHR_materials_transmission"
+
+    def extend_material(self, material_def, material):
+        if (
+            not material_def.extensions
+            or self.EXTENSION_NAME not in material_def.extensions
+        ):
+            return
+
+        extension = material_def.extensions[self.EXTENSION_NAME]
+
+        transmission_factor = extension.get("transmissionFactor", None)
+        if transmission_factor is not None:
+            material.transmission = transmission_factor
+
+        transmission_texture = extension.get("transmissionTexture", None)
+        if transmission_texture is not None:
+            material.transmission_map = self._load_texture(transmission_texture)
+
+
+class GLTFMaterialsVolumeExtension(GLTFBaseMaterialsExtension):
+    EXTENSION_NAME = "KHR_materials_volume"
+
+    def extend_material(self, material_def, material):
+        if (
+            not material_def.extensions
+            or self.EXTENSION_NAME not in material_def.extensions
+        ):
+            return
+
+        extension = material_def.extensions[self.EXTENSION_NAME]
+
+        thickness_factor = extension.get("thicknessFactor", None)
+        if thickness_factor is not None:
+            material.thickness = thickness_factor
+
+        thickness_texture = extension.get("thicknessTexture", None)
+        if thickness_texture is not None:
+            material.thickness_map = self._load_texture(thickness_texture)
+
+        attenuation_color = extension.get("attenuationColor", None)
+        if attenuation_color is not None:
+            material.attenuation_color = gfx.Color.from_physical(*attenuation_color)
+
+        attenuation_distance = extension.get("attenuationDistance", None)
+        if attenuation_distance is not None:
+            material.attenuation_distance = attenuation_distance
+
+
+class GLTFMaterialsDispersionExtension(GLTFBaseMaterialsExtension):
+    EXTENSION_NAME = "KHR_materials_dispersion"
+
+    def extend_material(self, material_def, material):
+        if (
+            not material_def.extensions
+            or self.EXTENSION_NAME not in material_def.extensions
+        ):
+            return
+
+        extension = material_def.extensions[self.EXTENSION_NAME]
+        dispersion = extension.get("dispersion", None)
+        if dispersion is not None:
+            material.dispersion = dispersion

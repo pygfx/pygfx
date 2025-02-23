@@ -1091,7 +1091,7 @@ class MeshPhysicalMaterial(MeshStandardMaterial):
         Typical ranges are 0-1. Default is (1,1).
     iridescence : float
         The intensity of the iridescence layer, simulating RGB color shift based on the angle
-        between the surface and the viewer, from 0.0 to 1.0. Default is 0.0.
+        between the surface and the viewer,from 0.0 to 1.0. Default is 0.0.
     iridescence_ior : float
         The strength of the iridescence RGB color shift effect, represented by an index-of-refraction.
         Default is 1.3.
@@ -1121,6 +1121,11 @@ class MeshPhysicalMaterial(MeshStandardMaterial):
         iridescence="f4",
         iridescence_ior="f4",
         iridescence_thickness_range="2xf4",
+        transmission="f4",
+        thickness="f4",
+        attenuation_color="4xf4",
+        attenuation_distance="f4",
+        dispersion="f4",
     )
 
     def __init__(
@@ -1141,6 +1146,13 @@ class MeshPhysicalMaterial(MeshStandardMaterial):
         iridescence_ior=1.3,
         iridescence_thickness_range=(100, 400),
         iridescence_thickness_map=None,
+        transmission=0.0,
+        transmission_map=None,
+        thickness=0.0,
+        thickness_map=None,
+        attenuation_color="#fff",
+        attenuation_distance=math.inf,
+        dispersion=0.0,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -1149,6 +1161,7 @@ class MeshPhysicalMaterial(MeshStandardMaterial):
         self.specular_map = specular_map
         self.specular_intensity = specular_intensity
         self.specular_intensity_map = specular_intensity_map
+
         self.clearcoat = clearcoat
         self.clearcoat_map = clearcoat_map
         self.clearcoat_normal_map = clearcoat_normal_map
@@ -1161,6 +1174,14 @@ class MeshPhysicalMaterial(MeshStandardMaterial):
         self.iridescence_ior = iridescence_ior
         self.iridescence_thickness_range = iridescence_thickness_range
         self.iridescence_thickness_map = iridescence_thickness_map
+
+        self.transmission = transmission
+        self.transmission_map = transmission_map
+        self.thickness = thickness
+        self.thickness_map = thickness_map
+        self.attenuation_color = attenuation_color
+        self.attenuation_distance = attenuation_distance
+        self.dispersion = dispersion
 
     @property
     def ior(self):
@@ -1346,3 +1367,86 @@ class MeshPhysicalMaterial(MeshStandardMaterial):
         if isinstance(map, Texture):
             map = TextureMap(map)
         self._store.iridescence_thickness_map = map
+
+    @property
+    def transmission(self):
+        """How much the material is transparent. Default is 0.0."""
+        return float(self.uniform_buffer.data["transmission"])
+
+    @transmission.setter
+    def transmission(self, value):
+        self.uniform_buffer.data["transmission"] = value
+        self.uniform_buffer.update_full()
+
+    @property
+    def transmission_map(self):
+        """The red channel of this texture is used to alter the transmission of the material."""
+        return self._store.transmission_map
+
+    @transmission_map.setter
+    def transmission_map(self, map):
+        assert_type("transmission_map", map, None, Texture, TextureMap)
+        if isinstance(map, Texture):
+            map = TextureMap(map)
+        self._store.transmission_map = map
+
+    @property
+    def thickness(self):
+        """The thickness of the material. Default is 0.0."""
+        return float(self.uniform_buffer.data["thickness"])
+
+    @thickness.setter
+    def thickness(self, value):
+        self.uniform_buffer.data["thickness"] = value
+        self.uniform_buffer.update_full()
+
+    @property
+    def thickness_map(self):
+        """The red channel of this texture is used to alter the thickness of the material."""
+        return self._store.thickness_map
+
+    @thickness_map.setter
+    def thickness_map(self, map):
+        assert_type("thickness_map", map, None, Texture, TextureMap)
+        if isinstance(map, Texture):
+            map = TextureMap(map)
+        self._store.thickness_map = map
+
+    @property
+    def attenuation_color(self):
+        """The color of the attenuation. Default is #fff."""
+        return Color(self.uniform_buffer.data["attenuation_color"])
+
+    @attenuation_color.setter
+    def attenuation_color(self, color):
+        color = Color(color)
+        self.uniform_buffer.data["attenuation_color"] = color
+        self.uniform_buffer.update_full()
+
+    @property
+    def attenuation_distance(self):
+        """The distance of the attenuation. Default is math.inf."""
+        v = float(self.uniform_buffer.data["attenuation_distance"])
+        if v == 0.0:
+            v = math.inf
+        return v
+
+    @attenuation_distance.setter
+    def attenuation_distance(self, value):
+        if value == math.inf:
+            value = 0.0
+        self.uniform_buffer.data["attenuation_distance"] = value
+        self.uniform_buffer.update_full()
+
+    @property
+    def dispersion(self):
+        """The dispersion of the material.
+        Any value zero or larger is valid, the typical range of realistic values is [0, 1]. Default is 0 (no dispersion).
+        This property can be only be used with transmissive objects
+        """
+        return float(self.uniform_buffer.data["dispersion"])
+
+    @dispersion.setter
+    def dispersion(self, value):
+        self.uniform_buffer.data["dispersion"] = value
+        self.uniform_buffer.update_full()
