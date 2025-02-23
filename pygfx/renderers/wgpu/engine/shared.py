@@ -152,6 +152,7 @@ class Shared(Trackable):
             self._store.transmission_framebuffer = Texture(
                 dim=2,
                 size=(size[0], size[1], 1),
+                colorspace="tex-srgb",
                 format="rgba8unorm-srgb",
                 generate_mipmaps=True,
                 usage=wgpu.TextureUsage.COPY_DST
