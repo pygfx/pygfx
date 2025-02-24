@@ -57,7 +57,7 @@ class EdgeMode(Enum):
 class ColorMode(Enum):
     """The ColorMode enum specifies how an object's color is established."""
 
-    auto = None  #: Use all the color sources in (material.color, geometry.colors, material.map) if available.
+    auto = None  #: Use (multiply) all the color sources in (material.color, geometry.colors, material.map) if available.
     uniform = None  #: Use the uniform color (usually ``material.color``).
     vertex = None  #: Use the per-vertex color specified in the geometry  (usually  ``geometry.colors``).
     face = None  #: Use the per-face color specified in the geometry  (usually  ``geometry.colors``).
