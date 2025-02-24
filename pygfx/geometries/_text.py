@@ -44,7 +44,7 @@ from ._base import Geometry
 
 # Allow anchor to be written without a dash, for backward compat.
 ANCHOR_ALIASES = {anchor.replace("-", ""): anchor for anchor in TextAnchor}
-ANCHOR_ALIASES["center"] = "middle-center"
+ANCHOR_ALIASES["center"] = ANCHOR_ALIASES["middle"] = "middle-center"
 
 # We cache the extents of small whitespace strings to improve performance
 WHITESPACE_EXTENTS = {}
@@ -826,9 +826,6 @@ class TextBlock:
         self._text_items = []
         self._old_text_items = []
 
-        # We set this to help layout
-        self._direction = None
-
         # Used by layout
         self._nlines = 0
         self._rect = Rect()
@@ -871,14 +868,9 @@ class TextBlock:
             return False
 
         # Update in-use item objects
-        glyphs_rendered = False
         for item in self._text_items:
             if need_render_glyphs or item.need_render_glyphs:
                 item.render_glyphs(geometry)
-                glyphs_rendered = True
-
-        if glyphs_rendered:
-            self._direction = self._get_direction_from_items()
 
         # Layout
         if need_layout:
@@ -890,20 +882,6 @@ class TextBlock:
                 item.sync_with_geometry(geometry, self._index)
 
         return need_layout  # i.e. did_layout
-
-    def _get_direction_from_items(self):
-        # The direction of a TextBlock is defined by the most-occuring direction of its items.
-        # ltr has the advantage if counts are equal
-        directions = {"ltr": 0}
-        for item in self._text_items:
-            d = item.direction
-            directions[d] = directions.get(d, 0) + 1
-        direction, count = "ltr", 0
-        for d, c in directions.items():
-            if c > count:
-                direction = d
-                count = c
-        return direction
 
     def _clear(self, geometry):
         if self._old_text_items:
@@ -970,7 +948,8 @@ class TextBlock:
             # Detect bullets
             if is_newline and i < max_i and text_parts[i + 1][0] == "ws":
                 if text in ("*", "-"):
-                    text_parts[i] = "bullet", "  •"
+                    text_parts[i] = "bullet", "  •  "  # ltr and rtl compatible
+                    text_parts[i + 1] = "ws", ""  # remove whitespace
                 if text.startswith("#") and len(text.strip("#")) == 0:
                     header_level = len(text)
                     text_parts[i] = f"fmt:h{header_level}", text
@@ -1106,9 +1085,6 @@ class TextBlock:
         # Store new worlds
         self._text_items = new_items
 
-        # Reset some stuff
-        self._direction = None
-
 
 class TextItem:
     """Represents one unit of text that moves as a whole to a new line when wrapped (usually a word).
@@ -1191,10 +1167,9 @@ class TextItem:
 
         self.margin_before = 0
 
-        # The direction may be forced by the geometry. If the geometry's
-        # direction is None (default), the first piece will determine the
-        # direction for this text item. For a text block, the direction is
-        # calculated by counting the direction of the text items.
+        # The direction may be forced by the geometry. If the geometry's direction is
+        # None (default), the first piece that is word-like will determine the direction
+        # for this text item.
         direction = geometry._direction.partition("-")[0] or None
 
         if not self.pieces:
@@ -1239,7 +1214,9 @@ class TextItem:
                 extent = extent + meta["extent"] * rsize
                 ascender = max(ascender, meta["ascender"] * rsize)
                 descender = min(descender, meta["descender"] * rsize)  # is neg
-                direction = meta["direction"]  # should be same as previous
+                # The first piece that has actual words (not numbers or punctuation) defines direction
+                if direction is None and meta["script"]:
+                    direction = meta["direction"]
                 # Put in list, take direction into account
                 if direction in ("rtl", "btt"):
                     atlas_indices_list.insert(last_reverse_index, atlas_indices)
@@ -1262,7 +1239,7 @@ class TextItem:
         self.extent = extent
         self.ascender = ascender
         self.descender = descender
-        self.direction = direction or "lrt"
+        self.direction = direction  # Can be None
 
         # Store as a single array
         if len(atlas_indices_list) == 0:
@@ -1425,8 +1402,27 @@ def apply_block_layout(geometry, text_block):
 
     # Get the direction to apply
     word_direction, _, line_direction = geometry._direction.partition("-")
-    word_direction = word_direction or text_block._direction or "ltr"
     line_direction = line_direction or "ttb"
+
+    # If not overriden by the geometry, the block direction is defined by the direction of the
+    # first item that has a direction. Only items with actual words/script have a direction.
+    ordered_items = items
+    if not word_direction:
+        # Find direction
+        for item in items:
+            if item.direction:
+                word_direction = item.direction
+                break
+        word_direction = word_direction or "ltr"
+        # Re-order to allow subsentences in other scripts.
+        ordered_items = []
+        i = 0
+        for item in items:
+            if item.direction and item.direction != word_direction:
+                ordered_items.insert(i, item)
+            else:
+                ordered_items.append(item)
+                i = len(ordered_items)
 
     word_direction_is_horizontal = word_direction in ("ltr", "rtl")
     line_direction_is_vertical = line_direction in ("ttb", "btt")
@@ -1497,8 +1493,7 @@ def apply_block_layout(geometry, text_block):
             current_rect = Rect()
 
     # Resolve position and sizes
-
-    for item in items:
+    for item in ordered_items:
         # Get item width and determine if we need a new line
         apply_whitespace_margin = True
         if max_width > 0 and current_line:
