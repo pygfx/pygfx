@@ -68,13 +68,19 @@ class MeshShader(BaseShader):
 
         self["color_mode"] = color_mode
 
-        if material.map is not None:
+        if material.map is not None and color_mode in (
+            "vertex_map",
+            "face_map",
+            "auto",
+        ):
             self["use_colormap"] = True
             self["colorspace"] = material.map.texture.colorspace
         else:
             self["use_colormap"] = False
 
-        if getattr(geometry, "colors", None):
+        if getattr(geometry, "colors", None) and (
+            color_mode in ("vertex", "face", "auto")
+        ):
             nchannels = nchannels_from_format(geometry.colors.format)
             self["use_vertex_color"] = True
             self["color_buffer_channels"] = nchannels
