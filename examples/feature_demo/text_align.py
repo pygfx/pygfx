@@ -19,9 +19,8 @@ from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 
 scene = gfx.Scene()
-
-
 scene.add(gfx.Background.from_color("#fff", "#000"))
+
 
 demo_text = """
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, etc.
@@ -32,14 +31,17 @@ last lyne
 """.strip()
 
 arabic_text = """
-مرحبًا، مجرد جملة عشوائية
-أعتقد أن برنامج Pygfx رائع جدًا
-واحد اثنان ثلاثة أربعة
+ضوء القمر أمام السرير
+يشتبه في وجود الصقيع على الأرض
+أنظر إلى القمر الساطع
+اخفض رأسك وافتقد مسقط رأسك
 """.strip()
 
 chinese_text = """
-你好世界
-我认为 Pygfx 很酷
+床前明月光
+疑是地上霜
+举头望明月
+低头思故乡
 """.strip()
 
 

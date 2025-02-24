@@ -1406,6 +1406,7 @@ def apply_block_layout(geometry, text_block):
 
     # If not overriden by the geometry, the block direction is defined by the direction of the
     # first item that has a direction. Only items with actual words/script have a direction.
+    # (Thanks to Harfbuz we can actually distinguish between script / no-script.)
     ordered_items = items
     if not word_direction:
         # Find direction
@@ -1415,6 +1416,8 @@ def apply_block_layout(geometry, text_block):
                 break
         word_direction = word_direction or "ltr"
         # Re-order to allow subsentences in other scripts.
+        # Note that in this case we only have ltr and rtl, because vertical
+        # text only happens when forced by the geometry, and then everything is the same direction.
         ordered_items = []
         i = 0
         for item in items:
@@ -1596,7 +1599,11 @@ def apply_block_layout(geometry, text_block):
         block_rect.right = offset[0] - line_height + rects[-1].right
 
     if text_align == "justify" or text_align_last == "justify":
-        block_rect.right = max_width
+        if max_width > 0:
+            block_rect.right = max_width
+        else:
+            # Within a block, support justify without max-width
+            max_width = block_rect.right
 
     # Determine horizontal anchor
     if geometry.is_multi:
