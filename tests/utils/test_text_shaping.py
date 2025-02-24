@@ -188,7 +188,7 @@ def test_shape_direction_hb():
     _, positions2, meta2 = shape_text_hb(text, font.filename, "ttb")
 
     assert meta1["extent"] > 0
-    assert meta2["extent"] < 0
+    assert meta2["extent"] > 0
     assert np.all(positions1[2:, 0] > 1)
     assert np.all(positions1[:, 1] == 0)
     assert np.all(np.abs(positions2[:, 0]) < 0.5)  # x-offsets

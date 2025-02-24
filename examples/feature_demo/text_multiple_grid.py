@@ -40,7 +40,7 @@ for iy in range(10):
         x = ix * 10
         y = 100 - iy * 10
 
-        rgba = peudo_random(x, y, 1), peudo_random(x, y, 2), peudo_random(x, y, 3), 1
+        rgba = pseudo_random(x, y, 1), pseudo_random(x, y, 2), pseudo_random(x, y, 3), 1
         ob = gfx.Mesh(
             gfx.plane_geometry(8, 8),
             gfx.MeshBasicMaterial(color=rgba),
