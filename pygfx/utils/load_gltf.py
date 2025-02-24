@@ -190,6 +190,7 @@ class _GLTF:
         self._plugins.append(GLTFMaterialsSpecularExtension(self))
         self._plugins.append(GLTFMaterialsClearcoatExtension(self))
         self._plugins.append(GLTFMaterialsIridescenceExtension(self))
+        self._plugins.append(GLTFMaterialsEmissiveStrengthExtension(self))
 
     def load(self, path, quiet=False, remote_ok=True):
         """Load the whole gltf file, including meshes, skeletons, cameras, and animations."""
@@ -600,8 +601,9 @@ class _GLTF:
                 if plugin.name in extensions:
                     if hasattr(plugin, "get_material_type"):
                         # get the material type from the first plugin that can handle it
-                        material_type = plugin.get_material_type(material)
-                        break
+                        if plugin.get_material_type(material) is not None:
+                            material_type = plugin.get_material_type(material)
+                            break
 
         gfx_material = material_type()
 
@@ -1209,3 +1211,23 @@ class GLTFMaterialsIridescenceExtension(GLTFBaseMaterialsExtension):
             material.iridescence_thickness_map = self._load_texture(
                 iridescence_thickness_texture
             )
+
+
+class GLTFMaterialsEmissiveStrengthExtension(GLTFBaseMaterialsExtension):
+    EXTENSION_NAME = "KHR_materials_emissive_strength"
+    MATERIAL_TYPE = None
+
+    def get_material_type(self, material_def):
+        return None
+
+    def extend_material(self, material_def, material):
+        if (
+            not material_def.extensions
+            or self.EXTENSION_NAME not in material_def.extensions
+        ):
+            return
+
+        extension = material_def.extensions[self.EXTENSION_NAME]
+        emissive_strength = extension.get("emissiveStrength", None)
+        if emissive_strength is not None:
+            material.emissive_intensity = emissive_strength
