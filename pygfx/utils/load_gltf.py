@@ -191,6 +191,7 @@ class _GLTF:
         self._plugins.append(GLTFMaterialsClearcoatExtension(self))
         self._plugins.append(GLTFMaterialsIridescenceExtension(self))
         self._plugins.append(GLTFMaterialsEmissiveStrengthExtension(self))
+        self._plugins.append(GLTFTextureTransformExtension(self))
 
     def load(self, path, quiet=False, remote_ok=True):
         """Load the whole gltf file, including meshes, skeletons, cameras, and animations."""
@@ -682,16 +683,30 @@ class _GLTF:
 
         uv_channel = texture_info.texCoord
         texture_map.uv_channel = uv_channel or 0
+
+        extensions = texture_info.extensions
+
+        if extensions:
+            for plugin in self._plugins:
+                if plugin.name in extensions:
+                    if hasattr(plugin, "extend_texture"):
+                        plugin.extend_texture(texture_info, texture_map)
+
         return texture_map
 
     @lru_cache(maxsize=None)
-    def _load_gltf_texture_map(self, texture_index):
+    def _load_texture(self, texture_index):
         texture_desc = self._gltf.model.textures[texture_index]
         source = texture_desc.source
         image = self._load_image(source)
         texture = gfx.Texture(image, dim=2)
+        return texture
+
+    def _load_gltf_texture_map(self, texture_index):
+        texture = self._load_texture(texture_index)
 
         map = gfx.TextureMap(texture)
+        texture_desc = self._gltf.model.textures[texture_index]
         sampler = texture_desc.sampler
         if sampler is not None:
             sampler = self._load_gltf_sampler(sampler)
@@ -1076,7 +1091,15 @@ class GLTFBaseMaterialsExtension(GLTFExtension):
         texture_index = texture_info["index"]
         texture_map = self.parser._load_gltf_texture_map(texture_index)
         uv_channel = texture_info.get("texCoord", 0)
-        texture_map.channel = uv_channel or 0
+        texture_map.uv_channel = uv_channel or 0
+
+        extensions = texture_info.get("extensions", None)
+        if extensions:
+            for plugin in self.parser._plugins:
+                if plugin.name in extensions:
+                    if hasattr(plugin, "extend_texture"):
+                        plugin.extend_texture(texture_info, texture_map)
+
         return texture_map
 
     def get_material_type(self, material_def):
@@ -1231,3 +1254,36 @@ class GLTFMaterialsEmissiveStrengthExtension(GLTFBaseMaterialsExtension):
         emissive_strength = extension.get("emissiveStrength", None)
         if emissive_strength is not None:
             material.emissive_intensity = emissive_strength
+
+
+class GLTFTextureTransformExtension(GLTFExtension):
+    EXTENSION_NAME = "KHR_texture_transform"
+
+    def extend_texture(self, texture_info, texture_map):
+        if isinstance(texture_info, dict):
+            extensions = texture_info.get("extensions", None)
+        else:
+            extensions = texture_info.extensions
+
+        if self.EXTENSION_NAME not in extensions:
+            return
+
+        extension = extensions[self.EXTENSION_NAME]
+
+        offset = extension.get("offset", None)
+        if offset is not None:
+            texture_map.offset = offset
+
+        rotation = extension.get("rotation", None)
+        if rotation is not None:
+            texture_map.rotation = rotation
+
+        scale = extension.get("scale", None)
+        if scale is not None:
+            texture_map.scale = scale
+
+        texcoord = extension.get("texCoord", None)
+        if texcoord is not None:
+            texture_map.uv_channel = texcoord
+
+        texture_map.update_matrix()
