@@ -34,6 +34,8 @@ The MultiTextGeometry does not do this, as the user is responsible for
 positioning the blocks.
 """
 
+from typing import List, Union
+
 import numpy as np
 
 from ..resources import Buffer
@@ -464,7 +466,7 @@ class TextGeometry(Geometry):
 
     # --- public methods
 
-    def set_text(self, text: str | list[str]):
+    def set_text(self, text: Union[str, List[str]]):
         """Set the full text for this TextGeometry.
 
         Each line (i.e. paragraph) results in one TextBlock, unless a list is given,
@@ -487,7 +489,7 @@ class TextGeometry(Geometry):
         # Do a layout now, so the bounding box is up-to-date
         self._on_update_object()
 
-    def set_markdown(self, text: str | list[str]):
+    def set_markdown(self, text: Union[str, List[str]]):
         """Set the full text, formatted as markdown.
 
         The supported markdown features are:
