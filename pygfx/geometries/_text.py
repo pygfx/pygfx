@@ -493,11 +493,12 @@ class TextGeometry(Geometry):
         """Set the full text, formatted as markdown.
 
         The supported markdown features are:
+
         * ``**bold** and *italic* text`` is supported for words, word-parts,
           and (partial) sentences, but not multiple lines (formatting state does
           not cross line boundaries).
-        # ``# h1``, ``## h2``, ``### h3``, etc.
-        # ``* bullet points``.
+        * ``# h1``, ``## h2``, ``### h3``, etc.
+        * ``* bullet points``.
 
         Each line (i.e. paragraph) results in one TextBlock, unless a list is given,
         in which case each (str) item become a TextBlock.
