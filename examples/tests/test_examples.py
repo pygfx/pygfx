@@ -148,7 +148,7 @@ def test_examples_compare(filename, pytestconfig, force_offscreen, mock_time):
     stored_img = iio.imread(screenshot_path)
 
     # assert similarity
-    atol = 2
+    atol = 1
     try:
         np.testing.assert_allclose(img, stored_img, atol=atol)
         is_similar = True
