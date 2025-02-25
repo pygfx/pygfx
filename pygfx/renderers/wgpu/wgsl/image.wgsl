@@ -37,7 +37,12 @@ fn vs_main(in: VertexInput) -> Varyings {
 
 @fragment
 fn fs_main(varyings: Varyings) -> FragmentOutput {
+    $$ if emulate_rgb
+    let size = textureDimensions(t_img);
+    let sizef = vec2<f32>(f32(size.x / 3), f32(size.y));
+    $$ else
     let sizef = vec2<f32>(textureDimensions(t_img));
+    $$ endif
     let value = sample_im(varyings.texcoord.xy, sizef);
     let color = sampled_value_to_color(value);
 

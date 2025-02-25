@@ -89,6 +89,7 @@ class Texture(Resource):
         generate_mipmaps=False,
         chunk_size=None,
         force_contiguous=False,
+        emulate_rgb=None,
         usage=0,
     ):
         super().__init__()
@@ -156,11 +157,8 @@ class Texture(Resource):
                     f"Expected 1-4 texture color channels, got {nchannels}."
                 )
             if nchannels == 3:
-                self._wgpu_emulate_rgb = True
-                if self._force_contiguous:
-                    raise ValueError(
-                        "When force_contiguous is set, the texture data cannot be rgb, because it requires a padding operation on upload."
-                    )
+                emulate_rgb = True
+                nchannels = 1
             detected_format = (f"{nchannels}x" + element_format).lstrip("1x")
         elif size is not None and format is not None:
             the_size = size
@@ -170,6 +168,10 @@ class Texture(Resource):
             raise ValueError(
                 "Texture must be instantiated with either data or size and format."
             )
+
+        if emulate_rgb:
+            self._wgpu_emulate_rgb = emulate_rgb
+            the_size = the_size[0] * 3, the_size[1], the_size[2]
 
         # Check size
         if not all(the_size[i] > 0 for i in range(3)):
@@ -221,6 +223,11 @@ class Texture(Resource):
             shape = tuple(ceil(the_size[i] / self._chunk_size[i]) for i in (2, 1, 0))
             self._chunk_mask = np.ones(shape, bool)
             self._chunk_list = None
+
+    @property
+    def emulate_rgb(self):
+        """Whether the texture is emulating RGB data with monochrome data."""
+        return self._wgpu_emulate_rgb
 
     @property
     def dim(self):
@@ -529,16 +536,7 @@ class Texture(Resource):
             # Slice, pad, make contiguous. Note that the chance of the chunks not being contiguous is pretty big.
             chunk = self._view[slice_per_dim]
             if emulate_rgb:
-                if self._force_contiguous:
-                    logger.warning(
-                        "force_contiguous was set, but still need pixel padding"
-                    )
-                # Copy into array with one extra channel
-                nchannels = chunk.shape[3]  # usually 3 for rgb, padded to make rgba
-                padded_shape = chunk.shape[:3] + (nchannels + 1,)
-                padded_chunk = np.full(padded_shape, pad_value, dtype=chunk.dtype)
-                padded_chunk[:, :, :, :nchannels] = chunk
-                chunk = padded_chunk
+                chunk = chunk.reshape(chunk.shape[:2] + (-1,))
 
         # Normalize chunk
         if not is_little_endian(chunk):

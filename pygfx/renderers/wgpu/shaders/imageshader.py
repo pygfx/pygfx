@@ -57,8 +57,14 @@ class ImageShader(BaseShader):
         # Set gamma
         self["gamma"] = material.gamma
 
+        emulate_rgb = geometry.grid.emulate_rgb
+        self["emulate_rgb"] = emulate_rgb
+
         # Channels
-        self["img_nchannels"] = len(fmt) - len(fmt.lstrip("rgba"))
+        if emulate_rgb:
+            self["img_nchannels"] = 3
+        else:
+            self["img_nchannels"] = len(fmt) - len(fmt.lstrip("rgba"))
 
         # Determine colorspace
         self["colorspace"] = geometry.grid.colorspace
