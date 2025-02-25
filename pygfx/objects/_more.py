@@ -1,4 +1,3 @@
-import pylinalg as la
 import numpy as np
 
 from ._base import WorldObject
@@ -382,65 +381,3 @@ class Volume(WorldObject):
             "index": (ix, iy, iz),
             "voxel_coord": (x - ix, y - iy, z - iz),
         }
-
-
-class Text(WorldObject):
-    """A text.
-
-    See :class:``pygfx.TextGeometry`` for details.
-
-    Parameters
-    ----------
-    geometry : TextGeometry
-        The data defining the glyphs that make up the text.
-    material : Material
-        The data defining the appearance of the object.
-    visible : bool
-        Whether the object is visible.
-    render_order : int
-        The render order (when applicable for the renderer's blend mode).
-    render_mask : str
-        Determines the render passes that the object is rendered in. It's
-        recommended to let the renderer decide, using "auto".
-    position : Vector
-        The position of the object in the world. Default (0, 0, 0).
-    name : str
-        The name of the text object for inspection and debugging.
-
-    """
-
-    uniform_type = dict(
-        WorldObject.uniform_type,
-        rot_scale_transform="4x4xf4",
-    )
-
-    def __init__(
-        self,
-        geometry=None,
-        material=None,
-        *,
-        visible=True,
-        render_order=0,
-        render_mask="auto",
-        name="",
-    ):
-        super().__init__(
-            geometry,
-            material,
-            visible=visible,
-            render_order=render_order,
-            render_mask=render_mask,
-            name=name,
-        )
-
-    def _update_world_transform(self):
-        # Update when the world transform has changed
-        super()._update_world_transform()
-        # When rendering in screen space, the world transform is used
-        # to establish the point in the scene where the text is placed.
-        # The only part of the local transform that is used is the
-        # position. Therefore, we also keep a transform containing the
-        # local rotation and scale, so that these can be applied to the
-        # text in screen coordinates.
-        matrix = la.mat_compose((0, 0, 0), self.local.rotation, self.local.scale)
-        self.uniform_buffer.data["rot_scale_transform"] = matrix.T

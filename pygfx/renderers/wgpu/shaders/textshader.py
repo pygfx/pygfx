@@ -23,7 +23,8 @@ class TextShader(BaseShader):
         super().__init__(wobject)
         geometry = wobject.geometry
         material = wobject.material
-        self["screen_space"] = geometry.screen_space
+        self["is_screen_space"] = geometry.screen_space
+        self["is_multi_text"] = geometry.is_multi
         self["aa"] = material.aa
         self["REF_GLYPH_SIZE"] = REF_GLYPH_SIZE
 
@@ -36,9 +37,15 @@ class TextShader(BaseShader):
             Binding("u_stdinfo", "buffer/uniform", shared.uniform_buffer),
             Binding("u_wobject", "buffer/uniform", wobject.uniform_buffer),
             Binding("u_material", "buffer/uniform", material.uniform_buffer),
-            Binding("s_indices", sbuffer, geometry.indices, "VERTEX"),
             Binding("s_positions", sbuffer, geometry.positions, "VERTEX"),
-            Binding("s_sizes", sbuffer, geometry.sizes, "VERTEX"),
+            Binding(
+                "s_glyph_block_indices", sbuffer, geometry.glyph_block_indices, "VERTEX"
+            ),
+            Binding(
+                "s_glyph_atlas_indices", sbuffer, geometry.glyph_atlas_indices, "VERTEX"
+            ),
+            Binding("s_glyph_positions", sbuffer, geometry.glyph_positions, "VERTEX"),
+            Binding("s_glyph_sizes", sbuffer, geometry.glyph_sizes, "VERTEX"),
         ]
 
         tex = shared.glyph_atlas_texture
@@ -69,7 +76,7 @@ class TextShader(BaseShader):
 
     def get_render_info(self, wobject, shared):
         material = wobject.material
-        n = wobject.geometry.positions.nitems * 6
+        n = wobject.geometry.glyph_positions.draw_range[1] * 6
 
         render_mask = 0
         if wobject.render_mask:

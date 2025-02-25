@@ -73,7 +73,7 @@ scene.add(gfx.Background.from_color("#bbb", "#777", "#f00", "#0f0"))
 
 y = 0
 text = gfx.Text(
-    gfx.TextGeometry("centered", anchor="middle-middle", font_size=1),
+    gfx.TextGeometry("centered", anchor="middle-center", font_size=1),
     gfx.TextMaterial("#000"),
 )
 text.local.y = y
@@ -81,7 +81,7 @@ text.local.x = npoints
 scene.add(text)
 
 text = gfx.Text(
-    gfx.TextGeometry("inner", anchor="middle-middle", font_size=1),
+    gfx.TextGeometry("inner", anchor="middle-center", font_size=1),
     gfx.TextMaterial("#000"),
 )
 text.local.y = y
@@ -89,7 +89,7 @@ text.local.x = 2 * npoints + npoints
 scene.add(text)
 
 text = gfx.Text(
-    gfx.TextGeometry("outer", anchor="middle-middle", font_size=1),
+    gfx.TextGeometry("outer", anchor="middle-center", font_size=1),
     gfx.TextMaterial("#000"),
 )
 text.local.y = y

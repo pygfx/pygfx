@@ -24,7 +24,7 @@ text = gfx.Text(
         font_size=100,
         screen_space=True,
         text_align="right",
-        anchor="center",
+        anchor="middle-center",
     ),
     gfx.TextMaterial(
         color="#DA9DFF",
