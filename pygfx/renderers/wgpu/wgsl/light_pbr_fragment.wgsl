@@ -70,7 +70,7 @@ $$ if USE_CLEARCOAT is defined
     $$ endif
 
     $$ if use_clearcoat_roughness_map is defined
-        material.clearcoat_roughness *= textureSample( t_clearcoat_roughness_map, s_clearcoat_roughness_map, varyings.texcoord{{clearcoat_roughness_map_uv or ''}} ).r;
+        material.clearcoat_roughness *= textureSample( t_clearcoat_roughness_map, s_clearcoat_roughness_map, varyings.texcoord{{clearcoat_roughness_map_uv or ''}} ).g;
     $$ endif
 
     material.clearcoat = saturate( material.clearcoat );
