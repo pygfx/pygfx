@@ -173,7 +173,14 @@ def ensure_wgpu_object(resource):
             resource._wgpu_object = wgpu_texture.create_view()
         else:
             fmt = to_texture_format(resource.format)
-            fmt = ALTTEXFORMAT.get(fmt, [fmt])[0]
+            if fmt in ALTTEXFORMAT:
+                fmt = ALTTEXFORMAT[fmt][0]
+            if resource.texture.colorspace == "tex-srgb" and not fmt.endswith("-srgb"):
+                fmt += "-srgb"
+            elif resource.texture.colorspace == "srgb" and fmt.endswith("-srgb"):
+                logger.warning(
+                    "Using texture.format 'xx-srgb' AND texture.colorspace 'srgb'."
+                )
             resource._wgpu_object = wgpu_texture.create_view(
                 format=fmt,
                 dimension=resource.view_dim,
