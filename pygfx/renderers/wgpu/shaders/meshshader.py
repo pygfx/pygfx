@@ -105,6 +105,7 @@ class MeshShader(BaseShader):
         bindings = [
             Binding(f"s_{name}", "sampler/filtering", sampler, "FRAGMENT"),
             Binding(f"t_{name}", "texture/auto", view, "FRAGMENT"),
+            Binding(f"u_{name}", "buffer/uniform", map.uniform_buffer, "FRAGMENT"),
         ]
 
         if map.uv_channel not in self["used_uv"]:
@@ -170,19 +171,10 @@ class MeshShader(BaseShader):
         if self["use_vertex_color"]:
             bindings.append(Binding("s_colors", rbuffer, geometry.colors, "VERTEX"))
 
-        if self["use_colormap"]:
-            bindings.extend(
-                # todo: unify the logic with other maps (use self._define_texture_map)?
-                self.define_colormap(material.map, geometry.texcoords)
-            )
-
-            if 0 not in self["used_uv"]:
-                texcoords = getattr(geometry, "texcoords", None)
-                bindings.append(Binding("s_texcoords", rbuffer, texcoords, "VERTEX"))
-                if texcoords.data.ndim == 1:
-                    self["used_uv"][0] = 1
-                else:
-                    self["used_uv"][0] = texcoords.data.shape[-1]
+        if material.map is not None:
+            bindings.extend(self._define_texture_map(geometry, material.map, "map"))
+            self["use_map"] = True
+            self["colorspace"] = material.map.texture.colorspace
 
         if self["use_skinning"]:
             # Skinning requires skin_index and skin_weight buffers
