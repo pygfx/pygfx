@@ -119,7 +119,7 @@ class WorldObject(EventTarget, Trackable):
 
     _FORWARD_IS_MINUS_Z = False  # Default is +Z (lights and cameras use -Z)
 
-    _gfx_transparent = None  # set by pipeline to None, True, or False
+    _gfx_blends_fragments = None  # set by pipeline to None, True, or False
     _id = 0
 
     # The uniform type describes the structured info for this object, which represents

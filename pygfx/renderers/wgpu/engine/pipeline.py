@@ -372,14 +372,14 @@ class PipelineContainer:
                 self.wobject_info["depth_write"] = wobject.material.depth_write
             self._check_pipeline_info()
             # Auto-transparent
-            wobject._gfx_transparent = self.pipeline_info["transparent"]
-            # todo: make _gfx_transparent False if blending is no or dither?
+            if self.wobject_info["blending"] in ("no", "dither"):
+                wobject._gfx_blends_fragments = False
+            else:
+                wobject._gfx_blends_fragments = self.pipeline_info["transparent"]
             # Auto-depth-write
             if self.wobject_info["depth_write"] is None:
-                if self.wobject_info["blending"] in ("no", "dither"):
-                    self.wobject_info["depth_write"] = True
-                elif wobject._gfx_transparent is not None:
-                    self.wobject_info["depth_write"] = not wobject._gfx_transparent
+                if wobject._gfx_blends_fragments is not None:
+                    self.wobject_info["depth_write"] = not wobject._gfx_blends_fragments
                 else:
                     self.wobject_info["depth_write"] = True  # default to True?
 
