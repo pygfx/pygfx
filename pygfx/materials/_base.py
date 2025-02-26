@@ -6,8 +6,9 @@ from ..utils.trackable import Trackable
 from ..utils import array_from_shadertype
 from ..resources import Buffer
 
+
 if TYPE_CHECKING:
-    from typing import ClassVar, TypeAlias, Literal, Sequence
+    from typing import Union, ClassVar, TypeAlias, Literal, Sequence
 
     ABCDTuple: TypeAlias = tuple[float, float, float, float]
 
@@ -30,10 +31,18 @@ class Material(Trackable):
         is "any" (the default) a fragment is discarded if it is clipped by any
         clipping plane. If this is "all", a fragment is discarded only if it is
         clipped by *all* of the clipping planes.
+    transparent : bool | None
+        Whether the object is (semi) transparent.
+        Default (None) tries to derive this from the shader.
+    blending : str : dict
+        The way to blend semi-transparent fragments  (alpha < 1) for this material.
     depth_test : bool
         Whether the object takes the depth buffer into account.
         Default True. If False, the object is like a ghost: not testing
         against the depth buffer and also not writing to it.
+    depth_write :  bool | None
+        Whether the object writes to the depth buffer. Default (None' is
+        based on transparency.
     """
 
     # Note that in the material classes we define what properties are stored as
@@ -54,7 +63,10 @@ class Material(Trackable):
         opacity: float = 1,
         clipping_planes: Sequence[ABCDTuple] = (),
         clipping_mode: Literal["ANY", "ALL"] = "ANY",
+        transparent: Union[bool, None] = None,
+        blending: str = "normal",
         depth_test: bool = True,
+        depth_write: Union[bool, None] = None,
         pick_write: bool = False,
     ):
         super().__init__()
@@ -66,7 +78,10 @@ class Material(Trackable):
         self.opacity = opacity
         self.clipping_planes = clipping_planes
         self.clipping_mode = clipping_mode
+        self.transparent = transparent
+        self.blending = blending
         self.depth_test = depth_test
+        self.depth_write = depth_write
         self.pick_write = pick_write
 
     def _set_size_of_uniform_array(self, key: str, new_length: int) -> None:
@@ -133,6 +148,7 @@ class Material(Trackable):
         self.uniform_buffer.update_full()
         self._store.is_transparent = value < 1
 
+    # todo: rename to _opacity_is_transparent
     @property
     def is_transparent(self) -> bool:
         """Whether this material is (semi) transparent because of its opacity value.
@@ -203,16 +219,84 @@ class Material(Trackable):
             raise ValueError(f"Unexpected clipping_mode: {value}")
 
     @property
+    def transparent(self) -> Union[bool, None]:
+        """Whether this material is (semi) transparent.
+
+        * True: consider the object as transparent.
+        * False: consider the object as opaque.
+        * None: auto-determine based on ``.opacity``, ``.color`` and more.
+        """
+        return self._store.transparent
+
+    @transparent.setter
+    def transparent(self, value: Union[bool, None]) -> None:
+        if value is None:
+            self._store.transparent = None
+        elif isinstance(value, bool):
+            self._store.transparent = bool(value)
+        else:
+            raise TypeError("material.transparent must be bool or None.")
+
+    @property
+    def blending(self):
+        """The way to blend semi-transparent fragments (alpha < 1) for this material.
+
+        * "no": No blending, render as opaque.
+        * "normal": Alpha blending using the over operator (the default).
+        * "add": Add the fragment color, multiplied by alpha.
+        * "subtract": Subtract the fragment color, multiplied by alpha.
+        * "dither": use stochastic blending. All fragments are opaque, and the chance
+          of a fragment being discared (invisible) is one minus alpha.
+        * A dict: Custom blend function (equation, src, dst).
+        """
+        return self._store.blending
+
+    @blending.setter
+    def blending(self, blending):
+        if blending is None:
+            blending = "normal"
+        valids = ["no", "normal", "add", "subtract", "dither"]
+        if isinstance(blending, str):
+            if blending not in valids:
+                raise ValueError(
+                    f"Blending is {blending!r} but expected one of {valids!r}"
+                )
+        elif isinstance(blending, dict):
+            raise NotImplementedError()
+        else:
+            raise TypeError("Material.blending must be None, str or dict.")
+        self._store.blending = blending
+
+    @property
     def depth_test(self) -> bool:
         """Whether the object takes the depth buffer into account."""
         return self._store.depth_test
 
     @depth_test.setter
-    def depth_test(self, value: int) -> None:
+    def depth_test(self, value: bool) -> None:
         # Explicit test that this is a bool. We *could* maybe later allow e.g. 'greater'.
         if not isinstance(value, (bool, int)):
             raise TypeError("Material.depth_test must be bool.")
         self._store.depth_test = bool(value)
+
+    @property
+    def depth_write(self) -> Union[bool, None]:
+        """Whether this material writes to the depth buffer, preventing futher writing behind it.
+
+        * True: yes, write depth.
+        * False: no, don't write depth.
+        * None: auto-determine based on ``blending`` and (detected) transparency.
+        """
+        return self._store.depth_write
+
+    @depth_write.setter
+    def depth_write(self, value: Union[bool, None]) -> None:
+        if value is None:
+            self._store.depth_write = None
+        elif isinstance(value, bool):
+            self._store.depth_write = bool(value)
+        else:
+            raise TypeError("material.depth_write must be bool or None.")
 
     @property
     def pick_write(self) -> bool:

@@ -51,38 +51,17 @@ AnyBaseCanvas = BaseRenderCanvas, WgpuCanvasBase
 def _get_sort_function(camera: Camera):
     """Given a scene object, get a function to sort wobject-tuples"""
 
+    # todo: camera.view, excluding the prpjection, project=False arg for vec_transform.
+    # todo: reverse?
     def sort_func(wobject: WorldObject):
         z = la.vec_transform(wobject.world.position, camera.camera_matrix)[2]
-        return wobject.render_order, z
+        return wobject.render_order, -z
 
     return sort_func
 
 
 class WgpuRenderer(RootEventHandler, Renderer):
     """Turns Scenes into rasterized images using wgpu.
-
-    The current implementation supports various ``blend_modes`` which control how
-    transparency is handled during the rendering process. The following modes exist:
-
-        * "default" or None: Select the default: currently this is "ordered2".
-        * "additive": single-pass approach that adds fragments together.
-        * "opaque": single-pass approach that ignores transparency.
-        * "ordered1": single-pass approach that blends fragments (using alpha
-          blending). Can only produce correct results if fragments are drawn
-          from back to front.
-        * "ordered2": two-pass approach that first processes all opaque
-          fragments and then blends transparent fragments (using alpha blending)
-          with depth-write disabled. The visual results are usually better than
-          ordered1, but still depend on the drawing order.
-        * "weighted": two-pass approach for order independent transparency based
-          on alpha weights.
-        * "weighted_depth": two-pass approach for order independent transparency
-          based on alpha weights and depth [1]. Note that the depth range
-          affects the (quality of the) visual result.
-        * "weighted_plus": three-pass approach for order independent
-          transparency, in which the front-most transparent layer is rendered
-          correctly, while transparent layers behind it are blended using alpha
-          weights.
 
     Parameters
     ----------
@@ -96,8 +75,6 @@ class WgpuRenderer(RootEventHandler, Renderer):
     show_fps : bool
         Whether to display the frames per second. Beware that
         depending on the GUI toolkit, the canvas may impose a frame rate limit.
-    blend_mode : str
-        The method for handling transparency. If None, use ``"ordered2"``.
     sort_objects : bool
         If True, sort objects by depth before rendering. The sorting
         uses a hierarchical index based on the object's (1) ``render_order``,
@@ -111,10 +88,6 @@ class WgpuRenderer(RootEventHandler, Renderer):
         The gamma correction to apply in the final render stage. Typically a
         number between 0.0 and 2.0. A value of 1.0 indicates no correction.
 
-    References
-    ----------
-    [1] Morgan McGuire and Louis Bavoil, Weighted Blended Order-Independent Transparency, Journal of Computer Graphics Techniques (JCGT), vol. 2, no. 2, 122-141, 2013
-
     """
 
     _blenders_available = {}
@@ -127,8 +100,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         pixel_ratio=None,
         pixel_filter=None,
         show_fps=False,
-        blend_mode="default",
-        sort_objects=False,
+        sort_objects=True,
         enable_events=True,
         gamma_correction=1.0,
         **kwargs,
@@ -182,7 +154,12 @@ class WgpuRenderer(RootEventHandler, Renderer):
             self._target._wgpu_usage |= wgpu.TextureUsage.TEXTURE_BINDING
 
         # Prepare render targets.
-        self.blend_mode = blend_mode
+        from . import blender as _blender_module  # noqa F401
+
+        blender = self._blenders_available.get("ordered1")
+        self._blend_mode = "ordered1"
+        self._blender = blender()
+
         self.sort_objects = sort_objects
 
         # Prepare object that performs the final render step into a texture
@@ -301,6 +278,8 @@ class WgpuRenderer(RootEventHandler, Renderer):
     def blend_mode(self):
         """The method for blending fragments bases on their alpha values:
 
+        Stuck to "ordered1" until we clean up the whole blender and renderer.blend_mode.
+
         * "default" or None: Select the default: currently this is "ordered2".
         * "additive": single-pass approach that adds fragments together.
         * "opaque": single-pass approach that consider every fragment opaque.
@@ -344,34 +323,6 @@ class WgpuRenderer(RootEventHandler, Renderer):
             )
         WgpuRenderer._blenders_available[name] = blender_class
         return blender_class
-
-    @blend_mode.setter
-    def blend_mode(self, value):
-        # Without importing our standard blender module, the
-        # blenders will not be registered and available.
-        # since they import the renderer module
-        # we cannot have this import at the top level otherwise it
-        # creates a circular import
-        # https://github.com/pygfx/pygfx/pull/966
-        from . import blender as _blender_module  # noqa F401
-
-        # Massage and check the input
-        if value is None:
-            value = "default"
-        value = value.lower()
-        if value == "default":
-            value = "ordered2"
-
-        blender = self._blenders_available.get(value)
-        if blender is None:
-            available = list(self._blenders_available.keys())
-            raise ValueError(f"Unknown blend_mode '{value}', use any of {available}.")
-        # Set blender object
-        self._blend_mode = value
-        self._blender = blender()
-        # If our target is a canvas, request a new draw
-        if isinstance(self._target, AnyBaseCanvas):
-            self._target.request_draw()
 
     @property
     def sort_objects(self):
@@ -703,7 +654,6 @@ class WgpuRenderer(RootEventHandler, Renderer):
         for pass_index in range(blender.get_pass_count()):
             color_attachments = blender.get_color_attachments(pass_index)
             depth_attachment = blender.get_depth_attachment(pass_index)
-            render_mask = blender.passes[pass_index].render_mask
             if not color_attachments:
                 continue
 
@@ -715,9 +665,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
             render_pass.set_viewport(*physical_viewport)
 
             for render_pipeline_container in render_pipeline_containers:
-                render_pipeline_container.draw(
-                    render_pass, renderstate, pass_index, render_mask
-                )
+                render_pipeline_container.draw(render_pass, renderstate, pass_index)
 
             render_pass.end()
 

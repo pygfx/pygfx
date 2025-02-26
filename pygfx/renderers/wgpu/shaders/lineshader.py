@@ -347,34 +347,32 @@ class ThinLineShader(LineShader):
         return {
             "primitive_topology": wgpu.PrimitiveTopology.line_strip,
             "cull_mode": wgpu.CullMode.none,
+            "transparent": self._get_transparent(wobject),
         }
 
-    def get_render_info(self, wobject, shared):
+    def _get_transparent(self, wobject):
         material = wobject.material
-        offset, size = wobject.geometry.positions.draw_range
-        render_mask = wobject.render_mask
-        if not render_mask:
-            render_mask = RenderMask.all
+        transparent = material.transparent
+        if transparent is None:
             if material.is_transparent:
-                render_mask = RenderMask.transparent
+                transparent = True
             elif self["color_mode"] == "uniform":
                 if material.color_is_transparent:
-                    render_mask = RenderMask.transparent
+                    transparent = True
                 else:
-                    render_mask = RenderMask.opaque
+                    transparent = False
             elif self["color_mode"] == "vertex":
-                if self["color_buffer_channels"] in (2, 4):
-                    render_mask = RenderMask.all
-                else:
-                    render_mask = RenderMask.opaque
+                if self["color_buffer_channels"] in (1, 3):
+                    transparent = False
             elif self["color_mode"] == "vertex_map":
-                if self["colormap_nchannels"] in (2, 4):
-                    render_mask = RenderMask.all
-                else:
-                    render_mask = RenderMask.opaque
+                if self["colormap_nchannels"] in (1, 3):
+                    transparent = False
+        return transparent
+
+    def get_render_info(self, wobject, shared):
+        offset, size = wobject.geometry.positions.draw_range
         return {
             "indices": (size, 1, offset, 0),
-            "render_mask": render_mask,
         }
 
     def get_code(self):

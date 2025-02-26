@@ -58,10 +58,10 @@ class Background(WorldObject):
 
     """
 
-    def __init__(self, geometry=None, material=None, render_mask="opaque", **kwargs):
+    def __init__(self, geometry=None, material=None, **kwargs):
         if geometry is not None and material is None:
             raise TypeError("You need to instantiate using Background(None, material)")
-        super().__init__(None, material, render_mask=render_mask, **kwargs)
+        super().__init__(None, material, **kwargs)
 
     @classmethod
     def from_color(cls, *colors):
@@ -399,9 +399,6 @@ class Text(WorldObject):
         Whether the object is visible.
     render_order : int
         The render order (when applicable for the renderer's blend mode).
-    render_mask : str
-        Determines the render passes that the object is rendered in. It's
-        recommended to let the renderer decide, using "auto".
     position : Vector
         The position of the object in the world. Default (0, 0, 0).
     name : str
@@ -421,7 +418,6 @@ class Text(WorldObject):
         *,
         visible=True,
         render_order=0,
-        render_mask="auto",
         name="",
     ):
         super().__init__(
@@ -429,7 +425,6 @@ class Text(WorldObject):
             material,
             visible=visible,
             render_order=render_order,
-            render_mask=render_mask,
             name=name,
         )
 
