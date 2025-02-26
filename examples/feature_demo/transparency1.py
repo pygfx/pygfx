@@ -3,7 +3,7 @@ Transparency 1
 ==============
 
 Example showing transparency using three overlapping planes.
-The normal blending can produce corect results by sorting
+The normal blending can produce correct results by sorting
 the objects in z.
 
 Press space to toggle the order of the planes.
