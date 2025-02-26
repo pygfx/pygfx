@@ -1587,7 +1587,6 @@ def apply_block_layout(geometry, text_block):
             block_rect.top = max(block_rect.top, rect.top)
             block_rect.bottom = min(block_rect.bottom, rect.bottom)
 
-    # breakpoint()
     if line_direction == "ttb":
         block_rect.top = rects[0].top
         block_rect.bottom = offset[1] + line_height + rects[-1].bottom

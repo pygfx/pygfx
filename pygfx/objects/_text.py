@@ -31,5 +31,8 @@ class Text(WorldObject):
         # position. Therefore, we also keep a transform containing the
         # local rotation and scale, so that these can be applied to the
         # text in screen coordinates.
+        # Note that this applies to the whole text, all text blocks rotate around
+        # the text-object origin. To rotate text blocks around their own origin,
+        # we should probably implement TextBlock.angle.
         matrix = la.mat_compose((0, 0, 0), self.local.rotation, self.local.scale)
         self.uniform_buffer.data["rot_scale_transform"] = matrix.T
