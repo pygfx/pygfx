@@ -1025,7 +1025,7 @@ class MeshStandardMaterial(MeshBasicMaterial):
         # mipmap technique is needed: PMREM (Prefiltered Mipmap Radiance
         # Environment Maps). We could (I think) add this technique in addition
         # to our normal mipmapping.
-        return self._env_map
+        return self._store.env_map
 
     @env_map.setter
     def env_map(self, map):
@@ -1033,7 +1033,8 @@ class MeshStandardMaterial(MeshBasicMaterial):
         if isinstance(map, Texture):
             map = TextureMap(map)
 
-        self._env_map = map
+        self._store.env_map = map
+
         if map is None:
             self.uniform_buffer.data["env_map_max_mip_level"] = 0
         else:
