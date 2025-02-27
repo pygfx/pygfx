@@ -56,7 +56,7 @@ env_tex = gfx.Texture(
 gltf_path = model_dir / "just_a_girl" / "scene.gltf"
 
 gltf = gfx.load_gltf(gltf_path)
-gfx.print_scene_graph(gltf.scene)  # Uncomment to see the tree structure
+# gfx.print_scene_graph(gltf.scene)  # Uncomment to see the tree structure
 
 
 def add_env_map(obj, env_map):
@@ -140,13 +140,9 @@ camera = gfx.PerspectiveCamera(45, 640 / 480)
 camera.show_object(scene)
 controller = gfx.OrbitController(camera, register_events=renderer)
 
-stats = gfx.Stats(viewport=renderer)
-
 
 def animate():
-    with stats:
-        renderer.render(scene, camera, flush=False)
-    stats.render()
+    renderer.render(scene, camera)
     gui_renderer.render()
     canvas.request_draw()
 
