@@ -58,10 +58,10 @@ class Background(WorldObject):
 
     """
 
-    def __init__(self, geometry=None, material=None, **kwargs):
+    def __init__(self, geometry=None, material=None, *, render_order=-1000, **kwargs):
         if geometry is not None and material is None:
             raise TypeError("You need to instantiate using Background(None, material)")
-        super().__init__(None, material, **kwargs)
+        super().__init__(None, material, render_order=render_order, **kwargs)
 
     @classmethod
     def from_color(cls, *colors):
@@ -92,10 +92,12 @@ class Grid(WorldObject):
         <pygfx.objects.WorldObject>`.
     """
 
-    def __init__(self, geometry=None, material=None, *, orientation, **kwargs):
+    def __init__(
+        self, geometry=None, material=None, *, orientation, render_order=-100, **kwargs
+    ):
         if geometry is not None and material is None:
             raise TypeError("You need to instantiate using Grid(None, material)")
-        super().__init__(None, material, **kwargs)
+        super().__init__(None, material, render_order=render_order, **kwargs)
         if orientation is not None:
             if orientation == "xy":
                 pass
