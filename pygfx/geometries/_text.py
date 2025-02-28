@@ -843,8 +843,9 @@ class TextBlock:
 
         # Update position?
         if self._pending_position is not None:
-            geometry.positions.data[self.index] = self._pending_position
-            geometry.positions.update_indices(self.index)
+            positions = geometry.positions
+            positions.data[self.index] = self._pending_position
+            positions.update_indices(self.index)
             self._pending_position = None
 
         # Reset flags
@@ -1358,7 +1359,7 @@ class Rect:
         self.bottom = self.bottom + dy
 
     def get_offset_for_anchor(self, anchor, anchor_offset):
-        v_anchor, h_anchor = anchor.split("-")
+        v_anchor, _, h_anchor = anchor.partition("-")
 
         if h_anchor == "left":
             dx = -self.left + anchor_offset
@@ -1471,8 +1472,7 @@ def apply_block_layout(geometry, text_block):
     # The current line holds the text items for the line being processed.
     current_line = []
 
-    lines = []  # list of lists of TextItems
-    rects = []  # List of Rects
+    lines_rects = []  # List[ Tuple[ List[TextItem], Rect] ]
 
     def make_new_line(n_new_lines=1, n_new_paragraphs=0):
         nonlocal current_line, current_rect
@@ -1492,8 +1492,7 @@ def apply_block_layout(geometry, text_block):
             offset[0] += skip
         # Add the line
         if current_line:
-            lines.append(current_line)
-            rects.append(current_rect)
+            lines_rects.append((current_line, current_rect))
             current_line = []
             current_rect = Rect()
 
@@ -1570,7 +1569,7 @@ def apply_block_layout(geometry, text_block):
 
     # Calculate block rect. The top is positive, the bottom is negative (descender).
     block_rect = Rect()
-    for line, rect in zip(lines, rects):
+    for line, rect in lines_rects:
         # For rtl, align each line so left is at the origin
         if word_direction == "rtl":
             shift = -rect.left
@@ -1586,18 +1585,19 @@ def apply_block_layout(geometry, text_block):
             block_rect.top = max(block_rect.top, rect.top)
             block_rect.bottom = min(block_rect.bottom, rect.bottom)
 
+    first_rect, last_rect = lines_rects[0][1], lines_rects[-1][1]
     if line_direction == "ttb":
-        block_rect.top = rects[0].top
-        block_rect.bottom = offset[1] + line_height + rects[-1].bottom
+        block_rect.top = first_rect.top
+        block_rect.bottom = offset[1] + line_height + last_rect.bottom
     elif line_direction == "btt":
-        block_rect.top = offset[1] - line_height + rects[-1].top
-        block_rect.bottom = rects[0].bottom
+        block_rect.top = offset[1] - line_height + last_rect.top
+        block_rect.bottom = first_rect.bottom
     elif line_direction == "rtl":
-        block_rect.left = offset[0] + line_height + rects[-1].left
-        block_rect.right = rects[0].right
+        block_rect.left = offset[0] + line_height + last_rect.left
+        block_rect.right = first_rect.right
     elif line_direction == "ltr":
-        block_rect.left = rects[0].left
-        block_rect.right = offset[0] - line_height + rects[-1].right
+        block_rect.left = first_rect.left
+        block_rect.right = offset[0] - line_height + last_rect.right
 
     if text_align == "justify" or text_align_last == "justify":
         if max_width > 0:
@@ -1624,9 +1624,9 @@ def apply_block_layout(geometry, text_block):
 
     # Align the text, i.e. shift individual lines so they fit inside the block rect according to the current alignment
 
-    num_lines = len(lines)
+    num_lines = len(lines_rects)
     align = text_align
-    for i, (line, rect) in enumerate(zip(lines, rects)):
+    for i, (line, rect) in enumerate(lines_rects):
         if i == num_lines - 1:
             align = text_align_last
 
@@ -1663,7 +1663,7 @@ def apply_block_layout(geometry, text_block):
 
     # Update block's rect. Used by the final layout and to calculate bounding boxes.
     text_block._rect = block_rect
-    text_block._nlines = len(rects)
+    text_block._nlines = num_lines
 
 
 def apply_high_level_layout(geometry):
@@ -1673,10 +1673,11 @@ def apply_high_level_layout(geometry):
         geometry._aabb = np.zeros((2, 3), "f4")
         return
 
+    font_size = geometry._font_size
     anchor = geometry._anchor
     anchor_offset = geometry._anchor_offset
-    line_height = geometry._line_height * geometry._font_size  # like CSS
-    par_spacing = geometry._paragraph_spacing * geometry._font_size
+    line_height = geometry._line_height * font_size  # like CSS
+    par_spacing = geometry._paragraph_spacing * font_size
 
     # Get line direction.
     line_direction = geometry._direction.partition("-")[2] or "ttb"
@@ -1735,12 +1736,16 @@ def apply_high_level_layout(geometry):
     total_rect.shift(anchor_offset_x, anchor_offset_y)
 
     # Update positions
+    positions = geometry.positions
     if line_direction_is_vertical:
-        geometry.positions.data[: len(offsets), 0] = anchor_offset_x
-        geometry.positions.data[: len(offsets), 1] = offsets + anchor_offset_y
+        positions.data[: len(offsets), 0] = anchor_offset_x
+        positions.data[: len(offsets), 1] = offsets + anchor_offset_y
     else:
-        geometry.positions.data[: len(offsets), 0] = offsets + anchor_offset_x
-        geometry.positions.data[: len(offsets), 1] = anchor_offset_y
-    geometry.positions.update_range(0, len(offsets))
+        positions.data[: len(offsets), 0] = offsets + anchor_offset_x
+        positions.data[: len(offsets), 1] = anchor_offset_y
+
+    # Update full positions buffer to avoid overhead of chunking logic. Measurably faster.
+    positions.update_full()
+    # positions.update_range(0, len(offsets))
 
     return total_rect
