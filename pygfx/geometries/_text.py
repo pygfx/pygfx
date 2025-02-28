@@ -1154,6 +1154,10 @@ class TextItem:
     def render_glyphs(self, geometry):
         """Update the item's arrays."""
 
+        # TODO: The methods on this class are hot code. They access
+        # attributes fromgeometry quite a few times. Unfortunately this access
+        # is expensive, because of the custom __getattr__. Would be good to store
+        # less stuff on the geometry, and more on another object.
         self.need_render_glyphs = False
         self.need_sync_with_geometry = True
 
