@@ -75,7 +75,7 @@ from pygfx.utils.load_gltf import _GLTF  # noqa
 parser = _GLTF()
 del parser._plugins["KHR_materials_unlit"]
 
-pbr_gltf = parser.load(gltf_path)
+pbr_gltf = parser.load(gltf_path, quiet=True)
 pbr_model = pbr_gltf.scene if pbr_gltf.scene else pbr_gltf.scenes[0]
 pbr_model.traverse(lambda obj: add_env_map(obj, env_tex))
 pbr_model.local.position = (100, 0, 0)

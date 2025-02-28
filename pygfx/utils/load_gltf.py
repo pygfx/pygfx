@@ -482,12 +482,7 @@ class _GLTF:
 
         if node_mark == "Bone":
             node_obj = gfx.Bone()
-            # Now, Bone is special, so we need to set the position, rotation, and scale manually.
-            # See: https://github.com/pygfx/pygfx/pull/746
-            # node_obj.local.position = translation
-            # node_obj.local.rotation = rotation
-            # node_obj.local.scale = scale
-            # node_obj.local.matrix = matrix
+
         elif node.camera is not None:
             camera_info = gltf.model.cameras[node.camera]
             if camera_info.type == "perspective":
