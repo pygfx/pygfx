@@ -55,23 +55,15 @@ WHITESPACE_EXTENTS = {}
 class TextEngine:
     """A small abstraction that allows subclasses of TextGeometry to use a different text engine."""
 
-    def select_font(self, text, font_props):
-        """The font selection step. Returns (text, font_filename) tuples.
-        Can be overloaded for custom behavior.
-        """
-        return textmodule.select_font(text, font_props)
+    def __init__(self):
+        # The shaping step, returns (glyph_indices, positions, meta)
+        self.shape_text = textmodule._shaper.shape_text_hb
 
-    def shape_text(self, text, font_filename, direction):
-        """The shaping step. Returns (glyph_indices, positions, meta).
-        Can be overloaded for custom behavior.
-        """
-        return textmodule.shape_text(text, font_filename, direction)
+        # The font selection step, returns (text, font_filename) tuples.
+        self.select_font = textmodule.select_font
 
-    def generate_glyph(self, glyph_indices, font_filename):
-        """The glyph generation step. Returns an array with atlas indices.
-        Can be overloaded for custom behavior.
-        """
-        return textmodule.generate_glyph(glyph_indices, font_filename)
+        # The glyph generation step. Returns an array with atlas indices.
+        self.generate_glyph = textmodule.generate_glyph
 
     def get_ws_extent(self, ws, font, direction):
         """Get the extent of a piece of whitespace text. Results of small strings are cached."""
@@ -595,18 +587,20 @@ class TextGeometry(Geometry):
 
         # Make sure the underlying buffers are large enough
         current_buffer_size = self.positions.nitems
-        if current_buffer_size < n or current_buffer_size > 4 * n:
+        max_oversize = max(4 * n, 8)
+        if current_buffer_size < n or current_buffer_size > max_oversize:
             new_size = 2 ** int(np.ceil(np.log2(max(n, 1))))
             new_size = max(8, new_size)
             self._allocate_block_buffers(new_size)
 
-        # Add or remove blocks
-        while len(self._text_blocks) > n:
-            block = self._text_blocks.pop(-1)
-            block._clear(self)
-        while len(self._text_blocks) < n:
-            block = TextBlock(len(self._text_blocks), self._dirty_blocks)
-            self._text_blocks.append(block)
+        if n != len(self._text_blocks):
+            # Add or remove blocks
+            while len(self._text_blocks) > n:
+                block = self._text_blocks.pop(-1)
+                block._clear(self)
+            while len(self._text_blocks) < n:
+                block = TextBlock(len(self._text_blocks), self._dirty_blocks)
+                self._text_blocks.append(block)
 
     def _allocate_block_buffers(self, n):
         """Allocate new buffers for text blocks with the given size."""
@@ -1014,9 +1008,6 @@ class TextBlock:
         pending_pieces = []
         new_items = []
 
-        def add_piece(format, text):
-            pending_pieces.append((format, text))
-
         def flush_pieces(force=False):
             nonlocal pending_whitespace
             if pending_pieces or force:
@@ -1074,7 +1065,7 @@ class TextBlock:
                     flush_pieces(force=True)
                 new_items[-1].nl_after += text
             else:
-                add_piece(format.copy(), text)
+                pending_pieces.append((format.copy(), text))
 
         flush_pieces()
         if pending_whitespace:

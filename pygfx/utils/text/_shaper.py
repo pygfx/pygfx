@@ -47,6 +47,8 @@ class TemporalCache:
         self._cache = {}
         self._lifetimes = {}
         self._getter = getter
+        self._last_key = None
+        self._last_val = None
 
     def __getitem__(self, key):
         """Gets the object corresponding to the given key.
@@ -54,14 +56,25 @@ class TemporalCache:
         Will reset the item's lifetime.
         Getting triggers the lifetimes of all items to be checked.
         """
+        # Make subsequent calls *really* fast
+        if key == self._last_key:
+            return self._last_val
+
+        # Get result
         try:
             res = self._cache[key]
         except KeyError:
             res = self._getter(key)
             self._cache[key] = res
 
+        self._last_key = key
+        self._last_val = res
+
+        # Update cache
         self._lifetimes[key] = time.time()
-        self.check_lifetimes()
+        if len(self._cache) > self._minimum_items:
+            self.check_lifetimes()
+
         return res
 
     def __contains__(self, key):
@@ -154,7 +167,7 @@ def shape_text_hb(text, font_filename, direction=None):
         is_horizontal = direction in ("ltr", "rtl")
 
     # Load font, maybe from the cache
-    blob, face, font = CACHE_HB[font_filename]
+    _blob, _face, font = CACHE_HB[font_filename]
 
     # Shape!
     uharfbuzz.shape(font, buf)
@@ -165,8 +178,8 @@ def shape_text_hb(text, font_filename, direction=None):
 
     # Get glyph indices (these can be different from the text's Unicode
     # code points) and convert advances to positions.
-    glyph_indices = np.zeros((n_glyphs,), np.uint32)
-    positions = np.zeros((n_glyphs, 2), np.float32)
+    glyph_indices = np.empty((n_glyphs,), np.uint32)
+    positions = np.empty((n_glyphs, 2), np.float32)
     pen_x = pen_y = 0
     for i in range(n_glyphs):
         glyph_indices[i] = glyph_infos[i].codepoint

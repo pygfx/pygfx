@@ -31,23 +31,16 @@ def _tokenze(text, groups, prog):
     pos = 0
     while True:
         match = prog.search(text, pos)
-
-        if not match:
-            other = text[pos:]
-            if other:
-                yield "other", other
+        if match is None:
             break
 
-        other = text[pos : match.start()]
-        if other:
-            yield "other", other
+        start = match.start()
+        if start > pos:
+            yield "other", text[pos : match.start()]
 
-        s = match.group()
-        for group_index, group_name in enumerate(groups, 1):
-            if match.group(group_index):
-                yield group_name, s
-                break
-        else:
-            yield "other", s
-
+        yield groups[match.lastindex - 1], match.group()
         pos = match.end()
+
+    other = text[pos:]
+    if other:
+        yield "other", other
