@@ -1,5 +1,3 @@
-import pylinalg as la
-
 from ._base import WorldObject
 
 
