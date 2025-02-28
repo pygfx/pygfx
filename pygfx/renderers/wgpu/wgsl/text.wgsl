@@ -31,12 +31,16 @@ fn vs_main(in: VertexInput) -> Varyings {
     let sub_index = raw_index % 6;
 
     // Load glyph info
-    let glyph_index_raw = u32(load_s_indices(index));
-    let font_size = load_s_sizes(index);
-    let glyph_pos = load_s_positions(index);
+    let block_index = i32(load_s_glyph_block_indices(index));
+    let glyph_index_raw = u32(load_s_glyph_atlas_indices(index));
+    let font_size = load_s_glyph_sizes(index);
+    let glyph_pos = load_s_glyph_positions(index);
+
+    let block_pos: vec3<f32> = load_s_positions(block_index);
+
 
     // Extract actual glyph index and the encoded font props
-    let glyph_index = i32(glyph_index_raw & 0x00FFFFFFu);
+    let atlas_index = u32(glyph_index_raw & 0x00FFFFFFu);
     let weight_0_15 = (glyph_index_raw & 0xF0000000u) >> 28u;  // highest 4 bits
     let is_slanted = bool(glyph_index_raw & 0x08000000u);
     //let reserved1 = bool(glyph_index_raw & 0x04000000u);
@@ -44,7 +48,7 @@ fn vs_main(in: VertexInput) -> Varyings {
     //let reserved3 = bool(glyph_index_raw & 0x01000000u);
 
     // Load meta-data of the glyph in the atlas
-    let glyph_info = s_glyph_infos[glyph_index];
+    let glyph_info = s_glyph_infos[atlas_index];
     let bitmap_rect = vec4<i32>(glyph_info.origin, glyph_info.size );
 
     // Prep correction vectors
@@ -64,31 +68,43 @@ fn vs_main(in: VertexInput) -> Varyings {
     let slant = vec2<f32>(0.5 - corner.y, 0.0) * slant_factor;
 
     let pos_corner_factor = corner * vec2<f32>(1.0, -1.0);
-    let vertex_pos = glyph_pos + (pos_offset1 + pos_offset2 * pos_corner_factor + slant) * font_size;
+    let glyph_vertex_pos = glyph_pos + (pos_offset1 + pos_offset2 * pos_corner_factor + slant) * font_size;
     let texcoord_in_pixels = vec2<f32>(bitmap_rect.xy) + vec2<f32>(bitmap_rect.zw) * corner;
 
-    $$ if screen_space
+
+    $$ if is_screen_space
 
         // We take the object's pos (model pos is origin), move to NDC, and apply the
         // glyph-positioning in logical screen coords. The text position is affected
         // by the world_transform, but the local scale and rotation do not affect the position.
         // We apply these separately in screen space, so the user can scale and rotate the text that way.
 
-        let raw_pos = vec3<f32>(0.0, 0.0, 0.0);
-        let world_pos = u_wobject.world_transform * vec4<f32>(raw_pos, 1.0);
+        $$ if is_multi_text
+            // In multi text geometry, the positions array is used to position blocks in model space.
+            let model_pos = block_pos;
+            let vertex_pos = glyph_vertex_pos;
+        $$ else
+            // In single text geometry, the positions array is used for layout in screen space.
+            let model_pos = vec3<f32>(0.0, 0.0, 0.0);
+            let vertex_pos = block_pos.xy + glyph_vertex_pos;
+        $$ endif
+
+        let world_pos = u_wobject.world_transform * vec4<f32>(model_pos, 1.0);
         let ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos;
-        let vertex_pos_rotated_and_scaled = u_wobject.rot_scale_transform * vec4<f32>(vertex_pos, 0.0, 1.0);
+        let vertex_pos_rotated_and_scaled = u_wobject.rot_scale_transform * vec2<f32>(vertex_pos);
         let delta_ndc = vertex_pos_rotated_and_scaled.xy / screen_factor;
 
         // Pixel scale is easy
         let atlas_pixel_scale = font_size / f32(REF_GLYPH_SIZE);
 
     $$ else
-
+        // model-space
         // We take the glyph positions as model pos, move to world and then NDC.
 
-        let raw_pos = vec4<f32>(vertex_pos, 0.0, 1.0);
-        let world_pos = u_wobject.world_transform * raw_pos;
+        let model_pos = block_pos + vec3<f32>(glyph_vertex_pos, 0.0);
+        let vertex_pos = model_pos.xy;
+
+        let world_pos = u_wobject.world_transform * vec4<f32>(model_pos, 1.0);
         let ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos;
         let delta_ndc = vec2<f32>(0.0, 0.0);
 
@@ -121,8 +137,14 @@ fn vs_main(in: VertexInput) -> Varyings {
 
     $$ endif
 
+    // Construct final ndc pos, or degenerate quad if this is an empty slot in the glyph array
+    var final_ndc_pos = vec4<f32>(ndc_pos.xy + delta_ndc * ndc_pos.w, ndc_pos.zw);
+    if (font_size == 0.0) {
+        final_ndc_pos= vec4<f32>(0.0);
+    }
+
     var varyings: Varyings;
-    varyings.position = vec4<f32>(ndc_pos.xy + delta_ndc * ndc_pos.w, ndc_pos.zw);
+    varyings.position = vec4<f32>(final_ndc_pos);
     varyings.world_pos = vec3<f32>(world_pos.xyz / world_pos.w);
     varyings.atlas_pixel_scale = f32(atlas_pixel_scale);
     varyings.texcoord_in_pixels = vec2<f32>(texcoord_in_pixels);

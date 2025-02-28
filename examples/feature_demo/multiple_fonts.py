@@ -54,7 +54,7 @@ def change_text(event):
     now = datetime.now()
     text = now.strftime("%H:%M:%S")
     text_noto.geometry.set_text("Noto Sans: " + text)
-    text_humor.geometry.set_text("Humor Sans: " + text, family="Humor Sans")
+    text_humor.geometry.set_text("Humor Sans: " + text)
     renderer.request_draw()
 
 

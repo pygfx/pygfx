@@ -3,7 +3,8 @@ from math import floor, ceil, log10
 import numpy as np
 
 from ._base import WorldObject
-from ._more import Line, Points, Text
+from ._more import Line, Points
+from ._text import Text
 from ..resources import Buffer
 from ..geometries import Geometry, TextGeometry
 from ..materials import LineMaterial, PointsMaterial, TextMaterial
