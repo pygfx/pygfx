@@ -1284,22 +1284,30 @@ class TextItem:
     def _sync_data(self, geometry, block_index):
         indices = self.glyph_indices
 
+        # TODO: I think we may optimize by combining arrays from multiple glyphs
+
         # Make the positioning absolute
         scale, dx, dy = self.offset
         positions = self.positions * scale + (dx, dy)
         sizes = self.sizes * scale
 
+        # Get buffers from geometry (the getattr is a bit expensive)
+        glyph_block_indices = geometry.glyph_block_indices
+        glyph_atlas_indices = geometry.glyph_atlas_indices
+        glyph_positions = geometry.glyph_positions
+        glyph_sizes = geometry.glyph_sizes
+
         # Write glyph data
-        geometry.glyph_block_indices.data[indices] = block_index
-        geometry.glyph_atlas_indices.data[indices] = self.atlas_indices
-        geometry.glyph_positions.data[indices] = positions
-        geometry.glyph_sizes.data[indices] = sizes
+        glyph_block_indices.data[indices] = block_index
+        glyph_atlas_indices.data[indices] = self.atlas_indices
+        glyph_positions.data[indices] = positions
+        glyph_sizes.data[indices] = sizes
 
         # Trigger sync
-        geometry.glyph_block_indices.update_indices(indices)
-        geometry.glyph_atlas_indices.update_indices(indices)
-        geometry.glyph_positions.update_indices(indices)
-        geometry.glyph_sizes.update_indices(indices)
+        glyph_block_indices.update_indices(indices)
+        glyph_atlas_indices.update_indices(indices)
+        glyph_positions.update_indices(indices)
+        glyph_sizes.update_indices(indices)
 
     def clear(self, geometry):
         if len(self.glyph_indices):
