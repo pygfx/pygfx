@@ -178,8 +178,8 @@ def shape_text_hb(text, font_filename, direction=None):
 
     # Get glyph indices (these can be different from the text's Unicode
     # code points) and convert advances to positions.
-    glyph_indices = np.empty((n_glyphs,), np.uint32)
-    positions = np.empty((n_glyphs, 2), np.float32)
+    glyph_indices = np.empty((n_glyphs,), "u4")
+    positions = np.empty((n_glyphs, 2), "f4")
     pen_x = pen_y = 0
     for i in range(n_glyphs):
         glyph_indices[i] = glyph_infos[i].codepoint
@@ -232,7 +232,7 @@ def shape_text_ft(text, font_filename, direction=None):
     advances = [(x / 65536 if x > 65536 * 10 else x) for x in advances]
 
     # Convert advances to positions
-    positions = np.zeros((n_glyphs, 2), np.float32)
+    positions = np.empty((n_glyphs, 2), "f4")
     pen_x = 0
     prev = " "
     for i in range(n_glyphs):

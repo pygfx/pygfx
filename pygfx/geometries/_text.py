@@ -169,18 +169,18 @@ class TextGeometry(Geometry):
         # --- create per-item arrays/buffers
 
         # The position of each text block
-        self.positions = Buffer(np.zeros((8, 3), np.float32))
-        # self.colors = Buffer(np.zeros((8,4), np.float32))-> we could later implement per-block colors
+        self.positions = Buffer(np.zeros((8, 3), "f4"))
+        # self.colors = Buffer(np.zeros((8,4), "f4"))-> we could later implement per-block colors
 
         # --- create per-glyph arrays/buffers
 
         # Index into the atlas that contains all glyphs
-        self.glyph_atlas_indices = Buffer(np.zeros((16,), np.uint32))
+        self.glyph_atlas_indices = Buffer(np.zeros((16,), "u4"))
         # Index into the block list above (i.e. the block.index)
-        self.glyph_block_indices = Buffer(np.zeros((16,), np.uint32))
+        self.glyph_block_indices = Buffer(np.zeros((16,), "u4"))
         # Sub-position for glyph size, shaping, kerning, etc.
-        self.glyph_positions = Buffer(np.zeros((16, 2), np.float32))
-        self.glyph_sizes = Buffer(np.zeros((16,), np.float32))
+        self.glyph_positions = Buffer(np.zeros((16, 2), "f4"))
+        self.glyph_sizes = Buffer(np.zeros((16,), "f4"))
 
         # --- init variables to help manage the glyph arrays
 
@@ -198,7 +198,7 @@ class TextGeometry(Geometry):
 
         # --- other geomery-specific things
 
-        self._aabb = np.zeros((2, 3), np.float32)
+        self._aabb = np.zeros((2, 3), "f4")
 
         # --- set propss
 
@@ -517,7 +517,7 @@ class TextGeometry(Geometry):
             # There is no sensible bounding box for text in screen space, except
             # for the anchor point. Although the point has no volume, it does
             # contribute to e.g. the scene's bounding box.
-            return np.zeros((2, 3), np.float32)
+            return np.zeros((2, 3), "f4")
         else:
             # A bounding box makes sense, and we calculated it during layout,
             # because we're already shifting rects there.
@@ -529,12 +529,12 @@ class TextGeometry(Geometry):
             # There is no sensible bounding box for text in screen space, except
             # for the anchor point. Although the point has no volume, it does
             # contribute to e.g. the scene's bounding box.
-            return np.zeros((4,), np.float32)
+            return np.zeros((4,), "f4")
         else:
             # A bounding box makes sense, we can calculate it from the rect.
             mean = 0.5 * (self._aabb[1] + self._aabb[0])
             diag = np.norm(self._aabb[1] - self._aabb[0])
-            return np.array([[mean[0], mean[1], mean[2], diag]], np.float32)
+            return np.array([[mean[0], mean[1], mean[2], diag]], "f4")
 
     # --- private methods
 
@@ -573,7 +573,7 @@ class TextGeometry(Geometry):
                 (total_rect.left, total_rect.bottom, 0),
                 (total_rect.right, total_rect.top, 0),
             ],
-            np.float32,
+            "f4",
         )
 
     # --- block management
@@ -605,7 +605,7 @@ class TextGeometry(Geometry):
     def _allocate_block_buffers(self, n):
         """Allocate new buffers for text blocks with the given size."""
         smallest_n = min(n, len(self._text_blocks))
-        new_positions = np.zeros((n, 3), np.float32)
+        new_positions = np.zeros((n, 3), "f4")
         new_positions[:smallest_n] = self.positions.data[:smallest_n]
         self.positions = Buffer(new_positions)
 
@@ -628,7 +628,7 @@ class TextGeometry(Geometry):
             self._glyph_indices_top += n
         else:
             # First use gaps ...
-            indices = np.empty((n,), np.uint32)
+            indices = np.empty((n,), "u4")
             n_from_gap = min(n, len(self._glyph_indices_gaps))
             for i in range(n_from_gap):
                 indices[i] = self._glyph_indices_gaps.pop()
@@ -676,10 +676,10 @@ class TextGeometry(Geometry):
         new_size = max(16, new_size)
 
         # Prepare new arrays
-        glyph_block_indices = np.zeros((new_size,), np.uint32)
-        glyph_atlas_indices = np.zeros((new_size,), np.uint32)
-        glyph_positions = np.zeros((new_size, 2), np.float32)
-        glyph_sizes = np.zeros((new_size,), np.float32)
+        glyph_block_indices = np.zeros((new_size,), "u4")
+        glyph_atlas_indices = np.zeros((new_size,), "u4")
+        glyph_positions = np.zeros((new_size, 2), "f4")
+        glyph_sizes = np.zeros((new_size,), "f4")
 
         # Copy data over
         n = self._glyph_indices_top
@@ -759,7 +759,7 @@ class MultiTextGeometry(TextGeometry):
                 (total_rect.left, total_rect.bottom, 0),
                 (total_rect.right, total_rect.top, 0),
             ],
-            np.float32,
+            "f4",
         )
 
     def get_bounding_box(self):
@@ -772,10 +772,10 @@ class MultiTextGeometry(TextGeometry):
             aabb = None
             # Get positions and check expected shape
             positions = self.positions.data[: len(self._text_blocks)]
-            aabb = np.array([positions.min(axis=0), positions.max(axis=0)], np.float32)
+            aabb = np.array([positions.min(axis=0), positions.max(axis=0)], "f4")
             # If positions contains xy, but not z, assume z=0
             if aabb.shape[1] == 2:
-                aabb = np.column_stack([aabb, np.zeros((2, 1), np.float32)])
+                aabb = np.column_stack([aabb, np.zeros((2, 1), "f4")])
             self._aabb = aabb
             self._aabb_rev = self.positions.rev
             return self._aabb
@@ -792,13 +792,13 @@ class MultiTextGeometry(TextGeometry):
             distances = np.linalg.norm(positions - center, axis=0)
             radius = float(distances.max())
             if len(center) == 2:
-                return np.array([center[0], center[1], 0.0, radius], np.float32)
+                return np.array([center[0], center[1], 0.0, radius], "f4")
             else:
-                return np.array([center[0], center[1], center[2], radius], np.float32)
+                return np.array([center[0], center[1], center[2], radius], "f4")
         else:
             mean = 0.5 * (self._aabb[1] + self._aabb[0])
             diag = np.norm(self._aabb[1] - self._aabb[0])
-            return np.array([[mean[0], mean[1], mean[2], diag]], np.float32)
+            return np.array([[mean[0], mean[1], mean[2], diag]], "f4")
 
 
 class TextBlock:
@@ -1125,7 +1125,7 @@ class TextItem:
         self.glyph_count = 0
 
         # The indices for slots in the arrays at the geometry. This value is managed by the geometry.
-        self.glyph_indices = np.zeros((0,), np.uint32)
+        self.glyph_indices = np.zeros((0,), "u4")
 
         # Transform info when copying to he geometry buffers. Set during layout.
         self.offset = (1.0, 0.0, 0.0)
@@ -1204,7 +1204,7 @@ class TextItem:
                     positions *= rsize
                 if extent:
                     positions[:, 0] += extent  # put pieces next to each-other
-                sizes = np.full((positions.shape[0],), rsize, np.float32)
+                sizes = np.full((positions.shape[0],), rsize, "f4")
                 extent = extent + meta["extent"] * rsize
                 ascender = max(ascender, meta["ascender"] * rsize)
                 descender = min(descender, meta["descender"] * rsize)  # is neg
@@ -1276,7 +1276,7 @@ class TextItem:
             extra_indices = geometry._glyphs_allocate(
                 glyph_count - current_glyph_indices_count
             )
-            new_indices = np.empty((glyph_count,), np.uint32)
+            new_indices = np.empty((glyph_count,), "u4")
             new_indices[:current_glyph_indices_count] = glyph_indices
             new_indices[current_glyph_indices_count:] = extra_indices
             self.glyph_indices = new_indices
@@ -1304,7 +1304,7 @@ class TextItem:
     def clear(self, geometry):
         if len(self.glyph_indices):
             geometry._glyphs_deallocate(self.glyph_indices)
-            self.glyph_indices = np.zeros((0,), np.uint32)
+            self.glyph_indices = np.zeros((0,), "u4")
 
 
 def encode_font_props_in_atlas_indices(atlas_indices, weight, slant):
@@ -1662,7 +1662,7 @@ def apply_high_level_layout(geometry):
     text_blocks = geometry._text_blocks
 
     if not text_blocks:
-        geometry._aabb = np.zeros((2, 3), np.float32)
+        geometry._aabb = np.zeros((2, 3), "f4")
         return
 
     anchor = geometry._anchor
@@ -1676,7 +1676,7 @@ def apply_high_level_layout(geometry):
 
     # Calculate offsets to put the blocks beneath each-other, as well as the full rect.
     # Note that the distance between anchor points is independent on the anchor-mode.
-    offsets = np.zeros((len(text_blocks),), np.float32)
+    offsets = np.zeros((len(text_blocks),), "f4")
     offset = 0
     total_rect = Rect()
     if line_direction == "ttb":
