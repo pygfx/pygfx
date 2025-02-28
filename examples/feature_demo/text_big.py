@@ -14,7 +14,7 @@ import pygfx as gfx
 
 
 canvas = RenderCanvas(
-    size=(800, 600), title="Big static text $fps", update_mode="fastest"
+    size=(800, 600), title="Big static text $fps", update_mode="continuous"
 )
 renderer = gfx.renderers.WgpuRenderer(canvas)
 
