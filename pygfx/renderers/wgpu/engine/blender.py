@@ -227,15 +227,40 @@ class SimpleSinglePass(OpaquePass):
     render_mask = RenderMask.opaque | RenderMask.transparent
     write_pick = True
 
-    def get_color_descriptors(self, blender, material_write_pick):
+    def get_color_descriptors(self, blender, material_write_pick, blending):
         bf, bo = wgpu.BlendFactor, wgpu.BlendOperation
+        if isinstance(blending, str):
+            if blending == "no":
+                blend = {
+                    "alpha": blend_dict(bf.one, bf.zero, bo.add),
+                    "color": blend_dict(bf.one, bf.zero, bo.add),
+                }
+            elif blending == "normal":
+                blend = {
+                    "alpha": blend_dict(bf.one, bf.one_minus_src_alpha, bo.add),
+                    "color": blend_dict(bf.src_alpha, bf.one_minus_src_alpha, bo.add),
+                }
+            elif blending == "add":
+                blend = {
+                    "alpha": blend_dict(bf.one, bf.one, bo.add),
+                    "color": blend_dict(bf.one, bf.one, bo.add),
+                }
+            elif blending == "subtract":
+                # todo: correct?
+                blend = {
+                    "alpha": blend_dict(bf.one, bf.one, bo.subtract),
+                    "color": blend_dict(bf.one, bf.one, bo.subtract),
+                }
+            elif blending == "dither":
+                blend = {
+                    "alpha": blend_dict(bf.one, bf.zero, bo.add),
+                    "color": blend_dict(bf.one, bf.zero, bo.add),
+                }
+
         return [
             {
                 "format": blender.color_format,
-                "blend": {
-                    "alpha": blend_dict(bf.one, bf.one_minus_src_alpha, bo.add),
-                    "color": blend_dict(bf.one, bf.one_minus_src_alpha, bo.add),
-                },
+                "blend": blend,
                 "write_mask": wgpu.ColorWrite.ALL,
             },
             {
@@ -245,8 +270,35 @@ class SimpleSinglePass(OpaquePass):
             },
         ]
 
-    def get_shader_code(self, blender):
+    def get_shader_code(self, blender, blending):
         # Take depth into account, but don't treat transparent fragments differently
+
+        if blending == "no":
+            outlines = "out.color = vec4<f32>(color.rgb, 1.0);"
+        elif blending == "normal":
+            outlines = "out.color = vec4<f32>(color.rgb, color.a);"
+        elif blending == "dither":
+            # We want the seed for the random function to be such that the result is
+            # deterministic, so that rendered images can be visually compared. This
+            # is why the object-id should not be used. Using the xy ndc coord is a
+            # no-brainer seed. Using only these will give an effect often observed
+            # in games, where the pattern is "stuck to the screen". We also seed with
+            # the depth, since this covers *a lot* of cases, e.g. different objects
+            # behind each-other, as well as the same object having different parts
+            # at the same screen pixel. This only does not cover cases where objects
+            # are exactly on top of each other. Therefore we use rgba as another seed.
+            # So the only case where the same pattern may be used for different
+            # fragments if an object is at the same depth and has the same color.
+            outlines = """
+            let seed1 = position.x * position.y * position.z;
+            let seed2 = color.r * 0.12 + color.g * 0.34 + color.b * 0.56 + color.a * 0.78;
+            let rand = random2(vec2<f32>(seed1, seed2));
+            if ( color.a < 1.0 - ALPHA_COMPARE_EPSILON && color.a < rand ) { discard; }
+            out.color = vec4<f32>(color.rgb, 1.0);  // fragments that pass through are opaque
+            """.strip()
+        else:
+            outlines = "out.color = vec4<f32>(color.rgb, color.a);"
+
         return """
         struct FragmentOutput {
             @location(0) color: vec4<f32>,
@@ -254,10 +306,10 @@ class SimpleSinglePass(OpaquePass):
         };
         fn get_fragment_output(position: vec4<f32>, color: vec4<f32>) -> FragmentOutput {
             var out : FragmentOutput;
-            out.color = vec4<f32>(color.rgb * color.a, color.a);
+            OUTLINES
             return out;
         }
-        """
+        """.replace("OUTLINES", outlines)
 
 
 class SimpleTransparencyPass(BasePass):
@@ -618,16 +670,19 @@ class BaseFragmentBlender:
 
     # The five methods below represent the API that the render system uses.
 
-    def get_color_descriptors(self, pass_index, material_write_pick):
-        return self.passes[pass_index].get_color_descriptors(self, material_write_pick)
+    def get_color_descriptors(self, pass_index, material_write_pick, material_blending):
+        return self.passes[pass_index].get_color_descriptors(
+            self, material_write_pick, material_blending
+        )
 
     def get_color_attachments(self, pass_index):
         return self.passes[pass_index].get_color_attachments(self)
 
-    def get_depth_descriptor(self, pass_index, depth_test=True):
+    def get_depth_descriptor(self, pass_index, depth_test=True, depth_write=True):
         des = self.passes[pass_index].get_depth_descriptor(self)
         if not depth_test:
             des["depth_compare"] = wgpu.CompareFunction.always
+        if not depth_write:
             des["depth_write_enabled"] = False
         return {
             **des,
@@ -642,9 +697,11 @@ class BaseFragmentBlender:
         # We don't use the stencil yet, but when we do, we will also have to specify
         # "stencil_read_only", "stencil_load_op", and "stencil_store_op"
 
-    def get_shader_kwargs(self, pass_index):
+    def get_shader_kwargs(self, pass_index, material_blending):
         return {
-            "blending_code": self.passes[pass_index].get_shader_code(self),
+            "blending_code": self.passes[pass_index].get_shader_code(
+                self, material_blending
+            ),
             "write_pick": self.passes[pass_index].write_pick,
         }
 
