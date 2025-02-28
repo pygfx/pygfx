@@ -118,6 +118,7 @@ def test_text_geometry_blocks():
 def test_text_geometry_blocks_buffer():
     class MyTextGeometry(MultiTextGeometry):
         allocation_count = 0
+
         def _allocate_block_buffers(self, n):
             super()._allocate_block_buffers(n)
             self.allocation_count += 1
