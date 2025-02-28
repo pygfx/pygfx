@@ -722,7 +722,7 @@ class _GLTF:
 
             if sampler.magFilter == 9728:
                 map.mag_filter = "nearest"
-            elif sampler.magFilter == 9729:
+            elif sampler.magFilter == 9729 or sampler.magFilter is None:
                 map.mag_filter = "linear"
 
             if sampler.minFilter == 9728:  # NEAREST
@@ -730,15 +730,21 @@ class _GLTF:
             elif sampler.minFilter == 9729:  # LINEAR
                 map.min_filter = "linear"
             elif sampler.minFilter == 9984:  # NEAREST_MIPMAP_NEAREST
+                texture._generate_mipmaps = True
                 map.min_filter = "nearest"
                 map.mipmap_filter = "nearest"
             elif sampler.minFilter == 9985:  # LINEAR_MIPMAP_NEAREST
+                texture._generate_mipmaps = True
                 map.min_filter = "linear"
                 map.mipmap_filter = "nearest"
             elif sampler.minFilter == 9986:  # NEAREST_MIPMAP_LINEAR
+                texture._generate_mipmaps = True
                 map.min_filter = "nearest"
                 map.mipmap_filter = "linear"
-            elif sampler.minFilter == 9987:  # LINEAR_MIPMAP_LINEAR
+            elif (
+                sampler.minFilter == 9987 or sampler.minFilter is None
+            ):  # LINEAR_MIPMAP_LINEAR
+                texture._generate_mipmaps = True
                 map.min_filter = "linear"
                 map.mipmap_filter = "linear"
 
