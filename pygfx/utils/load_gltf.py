@@ -183,14 +183,19 @@ class _GLTF:
         self.cameras = []
         self.animations = None
 
-        self._plugins = []
+        self._plugins = {}
 
-        self._plugins.append(GLTFMeshQuantizationExtension(self))
-        self._plugins.append(GLTFMaterialsIorExtension(self))
-        self._plugins.append(GLTFMaterialsSpecularExtension(self))
-        self._plugins.append(GLTFMaterialsClearcoatExtension(self))
-        self._plugins.append(GLTFMaterialsIridescenceExtension(self))
-        self._plugins.append(GLTFMaterialsEmissiveStrengthExtension(self))
+        self._register_plugin(GLTFMeshQuantizationExtension)
+        self._register_plugin(GLTFMaterialsIorExtension)
+        self._register_plugin(GLTFMaterialsSpecularExtension)
+        self._register_plugin(GLTFMaterialsClearcoatExtension)
+        self._register_plugin(GLTFMaterialsIridescenceExtension)
+        self._register_plugin(GLTFMaterialsEmissiveStrengthExtension)
+        self._register_plugin(GLTFMaterialsUnlitExtension)
+
+    def _register_plugin(self, plugin_class):
+        plugin = plugin_class(self)
+        self._plugins[plugin.name] = plugin
 
     def load(self, path, quiet=False, remote_ok=True):
         """Load the whole gltf file, including meshes, skeletons, cameras, and animations."""
@@ -391,7 +396,7 @@ class _GLTF:
         if not quiet:
             extensions_required = self._gltf.model.extensionsRequired or []
 
-            supported_extensions = [plugin.name for plugin in self._plugins]
+            supported_extensions = self._plugins.keys()
 
             unsupported_extensions_required = set(extensions_required) - set(
                 supported_extensions
@@ -477,12 +482,7 @@ class _GLTF:
 
         if node_mark == "Bone":
             node_obj = gfx.Bone()
-            # Now, Bone is special, so we need to set the position, rotation, and scale manually.
-            # See: https://github.com/pygfx/pygfx/pull/746
-            node_obj.local.position = translation
-            node_obj.local.rotation = rotation
-            node_obj.local.scale = scale
-            node_obj.local.matrix = matrix
+
         elif node.camera is not None:
             camera_info = gltf.model.cameras[node.camera]
             if camera_info.type == "perspective":
@@ -592,78 +592,93 @@ class _GLTF:
     def _load_gltf_material(self, material_index):
         material = self._gltf.model.materials[material_index]
 
-        material_type = gfx.MeshStandardMaterial
+        extensions = material.extensions or {}
 
-        extensions = material.extensions
-        # check if any plugin can handle this material type
-        if extensions:
-            for plugin in self._plugins:
-                if plugin.name in extensions:
+        if (
+            GLTFMaterialsUnlitExtension.EXTENSION_NAME in extensions
+            and GLTFMaterialsUnlitExtension.EXTENSION_NAME in self._plugins
+        ):
+            plugin = self._plugins[GLTFMaterialsUnlitExtension.EXTENSION_NAME]
+            material_type = plugin.get_material_type(material)
+            gfx_material = material_type()
+            plugin.extend_material(material, gfx_material)
+
+        else:  # PBR
+            material_type = gfx.MeshStandardMaterial
+
+            # check if any plugin can handle this material type
+            for extension in extensions:
+                if extension in self._plugins:
+                    plugin = self._plugins[extension]
                     if hasattr(plugin, "get_material_type"):
-                        # get the material type from the first plugin that can handle it
-                        if plugin.get_material_type(material) is not None:
-                            material_type = plugin.get_material_type(material)
+                        _material_type = plugin.get_material_type(material)
+                        if _material_type is not None:
+                            material_type = _material_type
                             break
 
-        gfx_material = material_type()
+            gfx_material = material_type()
 
-        # check if any plugin can extend the material
-        if extensions:
-            for plugin in self._plugins:
-                if plugin.name in extensions:
+            # check if any plugin can extend the material
+            for extension in extensions:
+                if extension in self._plugins:
+                    plugin = self._plugins[extension]
                     if hasattr(plugin, "extend_material"):
                         plugin.extend_material(material, gfx_material)
 
-        pbr_metallic_roughness = material.pbrMetallicRoughness
-        if pbr_metallic_roughness is not None:
-            if pbr_metallic_roughness.baseColorFactor is not None:
-                gfx_material.color = gfx.Color.from_physical(
-                    *pbr_metallic_roughness.baseColorFactor
+            pbr_metallic_roughness = material.pbrMetallicRoughness
+            if pbr_metallic_roughness is not None:
+                if pbr_metallic_roughness.baseColorFactor is not None:
+                    gfx_material.color = gfx.Color.from_physical(
+                        *pbr_metallic_roughness.baseColorFactor
+                    )
+
+                if pbr_metallic_roughness.baseColorTexture is not None:
+                    gfx_material.map = self._load_gltf_texture(
+                        pbr_metallic_roughness.baseColorTexture
+                    )
+
+                if pbr_metallic_roughness.metallicRoughnessTexture is not None:
+                    metallic_roughness_map = self._load_gltf_texture(
+                        pbr_metallic_roughness.metallicRoughnessTexture
+                    )
+                    gfx_material.roughness_map = metallic_roughness_map
+                    gfx_material.metalness_map = metallic_roughness_map
+
+                if pbr_metallic_roughness.roughnessFactor is not None:
+                    gfx_material.roughness = pbr_metallic_roughness.roughnessFactor
+                else:
+                    gfx_material.roughness = 1.0
+
+                if pbr_metallic_roughness.metallicFactor is not None:
+                    gfx_material.metalness = pbr_metallic_roughness.metallicFactor
+                else:
+                    gfx_material.metalness = 1.0
+
+            if material.normalTexture is not None:
+                gfx_material.normal_map = self._load_gltf_texture(
+                    material.normalTexture
+                )
+                scale_factor = material.normalTexture.scale
+                if scale_factor is None:
+                    scale_factor = 1.0
+
+                # pygfx now assume the normal map is in tangent space, so we need to flip the y-axis.
+                # See: https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/NormalTangentTest#problem-flipped-y-axis-or-flipped-green-channel
+                # TODO: support object space normal map, and flip the y-axis when only in tangent space.(check if the tangent attribute in the mesh primitive)
+                gfx_material.normal_scale = (scale_factor, -scale_factor)
+
+            if material.occlusionTexture is not None:
+                gfx_material.ao_map = self._load_gltf_texture(material.occlusionTexture)
+
+            if material.emissiveFactor is not None:
+                gfx_material.emissive = gfx.Color.from_physical(
+                    *material.emissiveFactor
                 )
 
-            if pbr_metallic_roughness.baseColorTexture is not None:
-                gfx_material.map = self._load_gltf_texture(
-                    pbr_metallic_roughness.baseColorTexture
+            if material.emissiveTexture is not None:
+                gfx_material.emissive_map = self._load_gltf_texture(
+                    material.emissiveTexture
                 )
-
-            if pbr_metallic_roughness.metallicRoughnessTexture is not None:
-                metallic_roughness_map = self._load_gltf_texture(
-                    pbr_metallic_roughness.metallicRoughnessTexture
-                )
-                gfx_material.roughness_map = metallic_roughness_map
-                gfx_material.metalness_map = metallic_roughness_map
-
-            if pbr_metallic_roughness.roughnessFactor is not None:
-                gfx_material.roughness = pbr_metallic_roughness.roughnessFactor
-            else:
-                gfx_material.roughness = 1.0
-
-            if pbr_metallic_roughness.metallicFactor is not None:
-                gfx_material.metalness = pbr_metallic_roughness.metallicFactor
-            else:
-                gfx_material.metalness = 1.0
-
-        if material.normalTexture is not None:
-            gfx_material.normal_map = self._load_gltf_texture(material.normalTexture)
-            scale_factor = material.normalTexture.scale
-            if scale_factor is None:
-                scale_factor = 1.0
-
-            # pygfx now assume the normal map is in tangent space, so we need to flip the y-axis.
-            # See: https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/NormalTangentTest#problem-flipped-y-axis-or-flipped-green-channel
-            # TODO: support object space normal map, and flip the y-axis when only in tangent space.(check if the tangent attribute in the mesh primitive)
-            gfx_material.normal_scale = (scale_factor, -scale_factor)
-
-        if material.occlusionTexture is not None:
-            gfx_material.ao_map = self._load_gltf_texture(material.occlusionTexture)
-
-        if material.emissiveFactor is not None:
-            gfx_material.emissive = gfx.Color.from_physical(*material.emissiveFactor)
-
-        if material.emissiveTexture is not None:
-            gfx_material.emissive_map = self._load_gltf_texture(
-                material.emissiveTexture
-            )
 
         # todo alphaMode
         # todo alphaCutoff
@@ -1237,3 +1252,27 @@ class GLTFMaterialsEmissiveStrengthExtension(GLTFBaseMaterialsExtension):
         emissive_strength = extension.get("emissiveStrength", None)
         if emissive_strength is not None:
             material.emissive_intensity = emissive_strength
+
+
+class GLTFMaterialsUnlitExtension(GLTFBaseMaterialsExtension):
+    EXTENSION_NAME = "KHR_materials_unlit"
+    MATERIAL_TYPE = gfx.MeshBasicMaterial
+
+    def extend_material(self, material_def, material):
+        if (
+            not material_def.extensions
+            or self.EXTENSION_NAME not in material_def.extensions
+        ):
+            return
+
+        pbr_metallic_roughness = material_def.pbrMetallicRoughness
+        if pbr_metallic_roughness is not None:
+            if pbr_metallic_roughness.baseColorFactor is not None:
+                material.color = gfx.Color.from_physical(
+                    *pbr_metallic_roughness.baseColorFactor
+                )
+
+            if pbr_metallic_roughness.baseColorTexture is not None:
+                material.map = self.parser._load_gltf_texture(
+                    pbr_metallic_roughness.baseColorTexture
+                )
