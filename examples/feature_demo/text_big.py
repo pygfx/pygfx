@@ -53,14 +53,9 @@ scene.add(tob)
 camera = gfx.OrthographicCamera(900, 900)
 controller = gfx.PanZoomController(camera, register_events=renderer)
 
-stats = gfx.Stats(viewport=renderer)
-
 
 def animate():
     renderer.render(scene, camera, flush=False)
-    with stats:
-        renderer.render(scene, camera, flush=False)
-    stats.render()
 
 
 renderer.request_draw(animate)
