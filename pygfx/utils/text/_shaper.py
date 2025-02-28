@@ -58,6 +58,7 @@ class TemporalCache:
         """
         # Make subsequent calls *really* fast
         if key == self._last_key:
+            self._lifetimes[key] = time.time()
             return self._last_val
 
         # Get result
