@@ -91,7 +91,7 @@ fn vs_main(in: VertexInput) -> Varyings {
 
         let world_pos = u_wobject.world_transform * vec4<f32>(model_pos, 1.0);
         let ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos;
-        let vertex_pos_rotated_and_scaled = u_wobject.rot_scale_transform * vec4<f32>(vertex_pos, 0.0, 1.0);
+        let vertex_pos_rotated_and_scaled = u_wobject.rot_scale_transform * vec2<f32>(vertex_pos);
         let delta_ndc = vertex_pos_rotated_and_scaled.xy / screen_factor;
 
         // Pixel scale is easy

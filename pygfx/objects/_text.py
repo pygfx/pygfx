@@ -14,7 +14,7 @@ class Text(WorldObject):
 
     uniform_type = dict(
         WorldObject.uniform_type,
-        rot_scale_transform="4x4xf4",
+        rot_scale_transform="2x2xf4",
     )
 
     def _update_object(self):
@@ -34,5 +34,5 @@ class Text(WorldObject):
         # Note that this applies to the whole text, all text blocks rotate around
         # the text-object origin. To rotate text blocks around their own origin,
         # we should probably implement TextBlock.angle.
-        matrix = la.mat_compose((0, 0, 0), self.local.rotation, self.local.scale)
+        matrix = self.local.matrix[:2, :2]
         self.uniform_buffer.data["rot_scale_transform"] = matrix.T
