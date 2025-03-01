@@ -205,7 +205,7 @@ class Geometry(Trackable):
                         )
                     else:
                         bsphere = np.array(
-                            [center[0], center[1], center[1], radius], np.float32
+                            [center[0], center[1], center[2], radius], np.float32
                         )
             self._bsphere = bsphere
             self._bsphere_rev = positions.rev

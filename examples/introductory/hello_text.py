@@ -46,7 +46,7 @@ text3 = gfx.Text(
         markdown=" **Screen** space",
         screen_space=True,
         font_size=20,
-        anchor="bottomleft",
+        anchor="bottom-left",
     ),
     gfx.TextMaterial(color="#0f4"),
 )

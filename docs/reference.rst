@@ -48,7 +48,8 @@ Currently this includes the following classes, which comprise the public API:
     ~pygfx.geometries.plane_geometry
     ~pygfx.geometries.Geometry
     ~pygfx.geometries.TextGeometry
-    ~pygfx.geometries.TextItem
+    ~pygfx.geometries.MultiTextGeometry
+    ~pygfx.geometries.TextBlock
     ~pygfx.geometries.geometry_from_trimesh
     ~pygfx.geometries.octahedron_geometry
     ~pygfx.geometries.icosahedron_geometry
