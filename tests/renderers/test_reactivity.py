@@ -159,7 +159,7 @@ def test_reactivity_mesh3():
     tex3 = gfx.Texture(cmap3, dim=1)
 
     # only float32 color map is supported in MeshPhongMaterial for now
-    obj = gfx.Mesh(geometry, gfx.MeshBasicMaterial(map=tex1))
+    obj = gfx.Mesh(geometry, gfx.MeshColormapMaterial(map=tex1))
 
     # Render once
     render(obj)
@@ -248,7 +248,7 @@ def test_change_blend_mode():
 
     cube = gfx.Mesh(
         geometry,
-        gfx.MeshPhongMaterial(map=gfx.cm.plasma),
+        gfx.MeshColormapMaterial(map=gfx.cm.plasma),
     )
 
     # Render once
