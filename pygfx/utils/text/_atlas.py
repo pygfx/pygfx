@@ -147,6 +147,17 @@ class GlyphAtlas(RectPacker):
         self._hash2index = {}  # hash -> index
         self._index2hash = {}
 
+        # While a padding of 1 pixel (0.5 pixel on each side)
+        # should be perfectly ok
+        # I've seen that on the CI it seems to cause issues with artefacts
+        # thus i'm leaving this as a parameter so we can more easily adjust
+        # it and see the effects of the general padding strategy
+        # A padding of "1" is permissible to avoid the artifacts
+        # since we use "repeat" sampling for the shader
+        # giving us a symmetric padding around each glyph, even those at the
+        # very bounds of the atlas
+        self._padding = 1
+
         # Indices monotonically increase, but can also be reused from freed regions
         self._index_counter = 0
         self._free_indices = set()
@@ -176,6 +187,33 @@ class GlyphAtlas(RectPacker):
         self._initial_array_size = get_suitable_size(initial_array_size**2)
         self._set_new_infos_array(initial_infos_size)
         self._set_new_glyphs_array(self._initial_array_size)
+
+    def _select_region(self, width, height):
+        # A glyph atlas is a special case of a rectangle packer.
+        # Unlike a regular rectangle packer, we need to ensure we have
+        # padding around each glyph in order for interpolation not to
+        # cause characters to bleed into each other.
+
+        # We search for regions with padding "0.5 pixel around it".
+        # In effect, each region should request a region exactly 1 pixel
+        # wider, and 1 pixel taller from the underlying atlas
+        # and return a "1 pixel offset" from the region that it receives
+        # This is to avoid artifacts due to linear filtering in the shader.
+
+        padded_region = super()._select_region(
+            width + self._padding, height + self._padding
+        )
+        if padded_region is None:
+            return None
+        # Return a region with a 1 pixel offset so that the user
+        # may assume zero padding outside of it
+        region = (
+            padded_region[0] + self._padding // 2,
+            padded_region[1] + self._padding // 2,
+            width,
+            height,
+        )
+        return region
 
     @property
     def region_count(self):
@@ -211,15 +249,37 @@ class GlyphAtlas(RectPacker):
         """
         assert size > 0
 
+        # Set the fill value to 255 to debug the text. it should create
+        # slight artifacts around the text, but it should be very hard to see.
+        # However our tests should be able to see it
+        fill_value = 0
         if size == self._array.shape[0]:
             # Keep the array, we'll repack only
             array1 = self._array.copy()
             array2 = self._array
-            array2.fill(0)
+            array2.fill(fill_value)
         else:
             # Create new array
             array1 = self._array
-            array2 = np.zeros((size, size), np.uint8)
+            # TODO: before merging, we can remove this check that ensures
+            # that the padding is 0 on the edges of the array
+            if array1 is not None and array1.shape != (0,):
+                # With half pixel padding, we can only check the fill value
+                # on the "0" edge
+                np.testing.assert_array_equal(
+                    array1[: self._padding // 2, :], fill_value
+                )
+                np.testing.assert_array_equal(
+                    array1[:, : self._padding // 2], fill_value
+                )
+                if self._padding > 2:
+                    np.testing.assert_array_equal(
+                        array1[-self._padding // 2 :, :], fill_value
+                    )
+                    np.testing.assert_array_equal(
+                        array1[:, -self._padding // 2 :], fill_value
+                    )
+            array2 = np.full((size, size), fill_value=fill_value, dtype=np.uint8)
             self._array = array2
 
         # We're going to pack it up fresh
@@ -231,18 +291,26 @@ class GlyphAtlas(RectPacker):
             info = self._infos[index]
             x1, y1 = info["origin"]
             w1, h1 = info["size"]
-            if not w1 or not h1:
-                continue  # freed region
+            # An index can have 0 size, for example the
+            # character 32, a non-printable character.
+            # has a glyph that is empty, but it should still
+            # take space and have an index in our atlas.
+            if index in self._free_indices:
+                # freed region
+                continue
             x2, y2, w2, h2 = self._select_region(w1, h1)
             info["origin"] = x2, y2
             array2[y2 : y2 + h2, x2 : x2 + w2] = array1[y1 : y1 + h1, x1 : x1 + w1]
-            allocated_area += w2 * h2
+            # 2 pixel padding for the allocated area
+            allocated_area += (w2 + self._padding) * (h2 + self._padding)
 
-        assert allocated_area == self._allocated_area
+        assert allocated_area == self._allocated_area, (
+            f"{allocated_area} != {self._allocated_area}"
+        )
 
         self._free_area = 0
         self._allocated_area = allocated_area
-        self._free_indices.clear()
+        # self._free_indices.clear()
 
     def allocate_region(self, w, h):
         """Allocate a region of the given size. Returns the index for
@@ -294,7 +362,7 @@ class GlyphAtlas(RectPacker):
 
             # Bookkeeping
             self._region_count += 1
-            self._allocated_area += w * h
+            self._allocated_area += (w + self._padding) * (h + self._padding)
 
             return index
 
@@ -361,8 +429,9 @@ class GlyphAtlas(RectPacker):
             self._free_indices.add(index)
             # Bookkeeping
             self._region_count -= 1
-            self._free_area += w * h
-            self._allocated_area -= w * h
+            area = (w + self._padding) * (h + self._padding)
+            self._free_area += area
+            self._allocated_area -= area
             # Clear hash data
             hash = self._index2hash.pop(index, None)
             if hash is not None:
