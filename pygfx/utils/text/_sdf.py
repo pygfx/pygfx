@@ -40,7 +40,7 @@ def generate_glyph(glyph_indices, font_filename):
     # we keep the face alive in the cache.
     face = CACHE_FT[font_filename]
 
-    atlas_indices = np.zeros((len(glyph_indices),), np.uint32)
+    atlas_indices = np.empty((len(glyph_indices),), "u4")
     for i in range(len(glyph_indices)):
         glyph_index = int(glyph_indices[i])
         glyph_hash = (font_index, glyph_index)
