@@ -13,6 +13,7 @@ from ....materials import (
     MeshNormalMaterial,
     MeshNormalLinesMaterial,
     MeshSliceMaterial,
+    MeshColormapMaterial,
     MeshStandardMaterial,
     MeshPhysicalMaterial,
 )
@@ -73,10 +74,10 @@ class MeshShader(BaseShader):
             "face_map",
             "auto",
         ):
-            self["use_colormap"] = True
+            self["use_map"] = True
             self["colorspace"] = material.map.texture.colorspace
         else:
-            self["use_colormap"] = False
+            self["use_map"] = False
 
         if getattr(geometry, "colors", None) and (
             color_mode in ("vertex", "face", "auto")
@@ -170,19 +171,23 @@ class MeshShader(BaseShader):
         if self["use_vertex_color"]:
             bindings.append(Binding("s_colors", rbuffer, geometry.colors, "VERTEX"))
 
-        if self["use_colormap"]:
-            bindings.extend(
-                # todo: unify the logic with other maps (use self._define_texture_map)?
-                self.define_colormap(material.map, geometry.texcoords)
-            )
+        if self["use_map"]:
+            if "use_color_map" in self.kwargs:
+                # special for color_map
+                bindings.extend(self.define_colormap(material.map, geometry.texcoords))
+                if 0 not in self["used_uv"]:
+                    texcoords = getattr(geometry, "texcoords", None)
+                    bindings.append(
+                        Binding("s_texcoords", rbuffer, texcoords, "VERTEX")
+                    )
+                    if texcoords.data.ndim == 1:
+                        self["used_uv"][0] = 1
+                    else:
+                        self["used_uv"][0] = texcoords.data.shape[-1]
+            else:
+                bindings.extend(self._define_texture_map(geometry, material.map, "map"))
 
-            if 0 not in self["used_uv"]:
-                texcoords = getattr(geometry, "texcoords", None)
-                bindings.append(Binding("s_texcoords", rbuffer, texcoords, "VERTEX"))
-                if texcoords.data.ndim == 1:
-                    self["used_uv"][0] = 1
-                else:
-                    self["used_uv"][0] = texcoords.data.shape[-1]
+            self["colorspace"] = material.map.texture.colorspace
 
         if self["use_skinning"]:
             # Skinning requires skin_index and skin_weight buffers
@@ -839,3 +844,12 @@ class MeshSliceShader(BaseShader):
 
     def get_code(self):
         return load_wgsl("mesh_slice.wgsl")
+
+
+@register_wgpu_render_function(Mesh, MeshColormapMaterial)
+class MeshColormapShader(MeshPhongShader):
+    def __init__(self, wobject):
+        super().__init__(wobject)
+
+        if wobject.material.map is not None:
+            self["use_color_map"] = True
