@@ -58,6 +58,7 @@ class RectPacker:
         """Find a free region of given size and allocate it.
         Returns the newly allocated region as (x, y, w, h), or None on failure.
         """
+
         # Find best place to fit it
         best_height = best_width = np.inf
         best_index = -1
