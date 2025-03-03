@@ -53,9 +53,8 @@ WHITESPACE_EXTENTS = {}
 
 GLYPH_DTYPE = np.dtype(
     [
-        ("x", "f4"),
-        ("y", "f4"),
-        ("s", "f4"),
+        ("pos", "f4", 2),
+        ("size", "f4"),
         ("atlas_index", "u4"),
         ("block_index", "u2"),
         ("format", "u2"),  # bitmask encoding relative weight and more
@@ -1322,9 +1321,8 @@ class TextItem:
         glyph_data_array = glyph_data.data
 
         # Write data
-        glyph_data_array["x"][indices] = positions[:, 0]
-        glyph_data_array["y"][indices] = positions[:, 1]
-        glyph_data_array["s"][indices] = sizes
+        glyph_data_array["pos"][indices] = positions
+        glyph_data_array["size"][indices] = sizes
         glyph_data_array["atlas_index"][indices] = self.atlas_indices
         glyph_data_array["block_index"][indices] = block_index
         glyph_data_array["format"][indices] = self.formats
