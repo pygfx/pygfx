@@ -55,7 +55,7 @@ controller = gfx.PanZoomController(camera, register_events=renderer)
 
 
 def animate():
-    renderer.render(scene, camera, flush=False)
+    renderer.render(scene, camera)
 
 
 renderer.request_draw(animate)
