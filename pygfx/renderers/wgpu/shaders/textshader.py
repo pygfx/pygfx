@@ -41,7 +41,11 @@ class TextShader(BaseShader):
         ]
 
         tex = shared.glyph_atlas_texture
-        sampler = GfxSampler("linear", "clamp")
+        # We use a repeat since we have a half pixel padding on each glyph
+        # however, we only have half on the '0' edge of the x and y dimensions
+        # therefore on the high value edge, we need to 'wrap' back to the beginning
+        # to get the '0' from the 0 edge.
+        sampler = GfxSampler("linear", "repeat")
         tex_view = GfxTextureView(tex)
         bindings.append(Binding("s_atlas", "sampler/filtering", sampler, "FRAGMENT"))
         bindings.append(Binding("t_atlas", "texture/auto", tex_view, "FRAGMENT"))
