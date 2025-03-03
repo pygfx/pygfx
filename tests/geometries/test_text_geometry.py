@@ -116,20 +116,53 @@ def test_text_geometry_blocks():
 
 
 def test_text_geometry_blocks_buffer():
-    geo = MultiTextGeometry()
+    class MyTextGeometry(MultiTextGeometry):
+        allocation_count = 0
+
+        def _allocate_block_buffers(self, n):
+            super()._allocate_block_buffers(n)
+            self.allocation_count += 1
+
+    geo = MyTextGeometry()
+
     assert geo.positions.nitems == 8
+    assert geo.allocation_count == 0
+
+    # Note that the minimum is 8
+
+    geo.set_text_block_count(1)
+    assert geo.positions.nitems == 8
+    assert geo.allocation_count == 0
+
+    geo.set_text_block_count(1)
+    assert geo.positions.nitems == 8
+    assert geo.allocation_count == 0
+
+    geo.set_text_block_count(2)
+    assert geo.positions.nitems == 8
+    assert geo.allocation_count == 0
 
     geo.set_text_block_count(8)
     assert geo.positions.nitems == 8
+    assert geo.allocation_count == 0
+
+    # Now we bump
 
     geo.set_text_block_count(9)
     assert geo.positions.nitems == 16
+    assert geo.allocation_count == 1
+
+    geo.set_text_block_count(9)
+    assert geo.positions.nitems == 16
+    assert geo.allocation_count == 1
 
     geo.set_text_block_count(16)
     assert geo.positions.nitems == 16
+    assert geo.allocation_count == 1
 
     geo.set_text_block_count(17)
     assert geo.positions.nitems == 32
+    assert geo.allocation_count == 2
 
     geo.set_text_block_count(33)
     assert geo.positions.nitems == 64
