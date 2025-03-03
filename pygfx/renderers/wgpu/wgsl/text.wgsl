@@ -22,8 +22,8 @@ struct GlyphData {
     x: f32,
     y: f32,
     s: f32,  // f16 is plenty precise, but is unknown type, I think our current wgsl is not recent enoug    h to support it
-    atlas_index: u32,
-    block_index_and_format: u32,
+    block_index: u32,
+    atlas_index_and_format: u32,
 }
 
 
@@ -45,9 +45,9 @@ fn vs_main(in: VertexInput) -> Varyings {
 
     // Load glyph data
     let glyph_data = s_glyph_data[index];
-    let block_index  = i32(glyph_data.block_index_and_format & 0xFFFFu);
-    let format_bitmask = (glyph_data.block_index_and_format & 0xFFFF0000u) >> 16u;
-    let atlas_index  = i32(glyph_data.atlas_index);
+    let block_index  = i32(glyph_data.block_index);
+    let atlas_index = i32(glyph_data.atlas_index_and_format & 0xFFFFu);
+    let format_bitmask = (glyph_data.atlas_index_and_format & 0xFFFF0000u) >> 16u;
     let glyph_pos = vec2<f32>(glyph_data.x, glyph_data.y);
     let font_size = f32(glyph_data.s);
 

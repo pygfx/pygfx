@@ -55,8 +55,8 @@ GLYPH_DTYPE = np.dtype(
     [
         ("pos", "f4", 2),
         ("size", "f4"),
-        ("atlas_index", "u4"),
-        ("block_index", "u2"),
+        ("block_index", "u4"),
+        ("atlas_index", "u2"),
         ("format", "u2"),  # bitmask encoding relative weight and more
     ]
 )
