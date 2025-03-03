@@ -27,7 +27,7 @@ different format (bold, italic, size).
 Layout is performed on each block, shifting the text items into position based
 on text_align, anchor and direction. This positoning is done by offsetting the
 item's array of glyph positions. The offset is applied when the item's positions
-are copied into the geometry's big glyph_positions buffer.
+are copied into the geometry's big glyph_data buffer.
 
 The TextGeometry also performs a high level layout by positioning the blocks.
 The MultiTextGeometry does not do this, as the user is responsible for
@@ -50,6 +50,36 @@ ANCHOR_ALIASES["center"] = ANCHOR_ALIASES["middle"] = "middle-center"
 
 # We cache the extents of small whitespace strings to improve performance
 WHITESPACE_EXTENTS = {}
+
+GLYPH_DTYPE = np.dtype(
+    [
+        ("x", "f4"),
+        ("y", "f4"),
+        ("s", "f4"),
+        ("atlas_index", "u4"),
+        ("block_index", "u2"),
+        ("format", "u2"),  # bitmask encoding relative weight and more
+    ]
+)
+
+
+def encode_format(relative_weight, relative_slant):
+    """Encode format props into a u16"""
+    # Weigth: -250 .. 500, steps of 50  -> 4 bits
+    relative_weight = min(max(relative_weight, -250), 500)
+    weight_4 = int((relative_weight + 250) / 50 + 0.4999)
+    # weight = weight_4 * 50 - 250
+
+    # Slant: -1.75 .. 2, steps of 0.25 -> 4 bits
+    relative_slant = min(max(relative_slant, -1.75), 2)
+    slant_4 = int((relative_slant + 1.75) * 4 + 0.4999)
+    # slant = slant_4 / 4.0 - 1.75;
+
+    # There'res 8 bits left for possible future use
+
+    packed = (weight_4 << 12) + (slant_4 << 8)
+
+    return packed
 
 
 class TextEngine:
@@ -166,21 +196,14 @@ class TextGeometry(Geometry):
         if len(text_and_markdown) > 1:
             raise TypeError("Either text or markdown must be given, not both.")
 
-        # --- create per-item arrays/buffers
+        # --- create buffers
 
         # The position of each text block
         self.positions = Buffer(np.zeros((8, 3), "f4"))
         # self.colors = Buffer(np.zeros((8,4), "f4"))-> we could later implement per-block colors
 
-        # --- create per-glyph arrays/buffers
-
-        # Index into the atlas that contains all glyphs
-        self.glyph_atlas_indices = Buffer(np.zeros((16,), "u4"))
-        # Index into the block list above (i.e. the block.index)
-        self.glyph_block_indices = Buffer(np.zeros((16,), "u4"))
-        # Sub-position for glyph size, shaping, kerning, etc.
-        self.glyph_positions = Buffer(np.zeros((16, 2), "f4"))
-        self.glyph_sizes = Buffer(np.zeros((16,), "f4"))
+        # The per-glyph data, stored with a structured dtype
+        self.glyph_data = Buffer(np.zeros(16, GLYPH_DTYPE))
 
         # --- init variables to help manage the glyph arrays
 
@@ -560,7 +583,7 @@ class TextGeometry(Geometry):
         dirty_blocks.clear()
 
         # Update drawing range. Note that the "gaps" are still rendered.
-        self.draw_range = 0, self._glyph_indices_top
+        self.glyph_data.draw_range = 0, self._glyph_indices_top
 
         # Higher-level layout
         if need_high_level_layout:
@@ -612,7 +635,7 @@ class TextGeometry(Geometry):
     # --- glyph array management
 
     def _glyphs_allocate(self, n):
-        max_glyph_slots = self.glyph_positions.nitems
+        max_glyph_slots = self.glyph_data.nitems
 
         # Need larger buffer?
         n_free = max_glyph_slots - self._glyph_count
@@ -648,12 +671,8 @@ class TextGeometry(Geometry):
         # These glyphs will still end up in the vertex shader,
         # but it will discard early by producing degeneate triangles.
         # Clear data, for sanity
-        self.glyph_block_indices.data[indices] = 0
-        self.glyph_atlas_indices.data[indices] = 0
-        self.glyph_sizes.data[indices] = 0.0
-        self.glyph_positions.data[indices] = 0.0
-        # Only update the sizes, shader uses this to check empty slots
-        self.glyph_sizes.update_indices(indices)
+        self.glyph_data.data[indices] = 0
+        self.glyph_data.update_indices(indices)
         # Deallocate
         self._glyph_count -= len(indices)
         # Small optimization to avoid gaps
@@ -663,7 +682,7 @@ class TextGeometry(Geometry):
             self._glyph_indices_gaps.update(indices)
         # TODO: Reduce buffer sizes from the Text object, re-packing all items
         # # Maybe reduce buffer size
-        # max_glyph_slots = self.glyph_positions.nitems
+        # max_glyph_slots = self.glyph_data.nitems
         # if self._glyph_count < 0.25 * max_glyph_slots:
         #     self._glyphs_create_new_buffers()
 
@@ -674,25 +693,13 @@ class TextGeometry(Geometry):
         need_size = self._glyph_indices_top + extra_needed
         new_size = 2 ** int(np.ceil(np.log2(need_size)))
         new_size = max(16, new_size)
-
         # Prepare new arrays
-        glyph_block_indices = np.zeros((new_size,), "u4")
-        glyph_atlas_indices = np.zeros((new_size,), "u4")
-        glyph_positions = np.zeros((new_size, 2), "f4")
-        glyph_sizes = np.zeros((new_size,), "f4")
-
+        glyph_data = np.zeros(new_size, GLYPH_DTYPE)
         # Copy data over
         n = self._glyph_indices_top
-        glyph_block_indices[:n] = self.glyph_block_indices.data[:n]
-        glyph_atlas_indices[:n] = self.glyph_atlas_indices.data[:n]
-        glyph_positions[:n] = self.glyph_positions.data[:n]
-        glyph_sizes[:n] = self.glyph_sizes.data[:n]
-
+        glyph_data[:n] = self.glyph_data.data[:n]
         # Store
-        self.glyph_block_indices = Buffer(glyph_block_indices)
-        self.glyph_atlas_indices = Buffer(glyph_atlas_indices)
-        self.glyph_positions = Buffer(glyph_positions)
-        self.glyph_sizes = Buffer(glyph_sizes)
+        self.glyph_data = Buffer(glyph_data)
 
 
 class MultiTextGeometry(TextGeometry):
@@ -1040,14 +1047,14 @@ class TextBlock:
                 modifier = kind.partition(":")[-1]
                 if modifier == "+b":
                     bold_level += 1
-                    format["weight"] = 300
+                    format["weight"] = 300  # weight can be -250 .. 500
                 elif modifier == "-b":
                     bold_level -= 1
                     if not bold_level:
                         format.pop("weight", None)
                 elif modifier == "+i":
                     italic_level += 1
-                    format["slant"] = True
+                    format["slant"] = 1  # slant can be -1.75 .. 2.00
                 elif modifier == "-i":
                     italic_level -= 1
                     if not italic_level:
@@ -1092,6 +1099,7 @@ class TextItem:
         "descender",
         "direction",
         "extent",
+        "formats",
         "glyph_count",
         "glyph_indices",
         "layout_offset",
@@ -1123,6 +1131,7 @@ class TextItem:
         self.atlas_indices = None
         self.positions = None
         self.sizes = None
+        self.formats = None
         self.glyph_count = 0
 
         # The indices for slots in the arrays at the geometry. This value is managed by the geometry.
@@ -1175,6 +1184,7 @@ class TextItem:
             self.atlas_indices = None
             self.positions = None
             self.sizes = None
+            self.formats = None
             self.glyph_count = 0
             if self.ws_before:
                 font = textengine.select_font(" ", font_props)[0][1]
@@ -1187,6 +1197,7 @@ class TextItem:
         atlas_indices_list = []
         positions_list = []
         sizes_list = []
+        formats_list = []
 
         # Init meta data
         extent = ascender = descender = 0
@@ -1195,21 +1206,22 @@ class TextItem:
         # Text rendering steps: font selection, shaping, glyph generation
         last_reverse_index = 0
         for format, text2 in self.pieces:
+            rsize = format.get("size", 1.0)
+            format_mask = encode_format(format.get("weight", 0), format.get("slant", 0))
             for text, font in textengine.select_font(text2, font_props):
-                rsize = format.get("size", 1.0)
-                weight, slant = format.get("weight", 0), format.get("slant", False)
                 unicode_indices, positions, meta = textengine.shape_text(
                     text, font.filename, direction
                 )
                 atlas_indices = textengine.generate_glyph(
                     unicode_indices, font.filename
                 )
-                encode_font_props_in_atlas_indices(atlas_indices, weight, slant)
+                n = atlas_indices.shape[0]
                 if rsize != 1.0:
                     positions *= rsize
                 if extent:
                     positions[:, 0] += extent  # put pieces next to each-other
-                sizes = np.full((positions.shape[0],), rsize, "f4")
+                sizes = np.full(n, rsize, "f4")
+                formats = np.full(n, format_mask, "u2")
                 extent = extent + meta["extent"] * rsize
                 ascender = max(ascender, meta["ascender"] * rsize)
                 descender = min(descender, meta["descender"] * rsize)  # is neg
@@ -1221,10 +1233,12 @@ class TextItem:
                     atlas_indices_list.insert(last_reverse_index, atlas_indices)
                     positions_list.insert(last_reverse_index, positions)
                     sizes_list.insert(last_reverse_index, sizes)
+                    formats_list.insert(last_reverse_index, formats)
                 else:
                     atlas_indices_list.append(atlas_indices)
                     positions_list.append(positions)
                     sizes_list.append(sizes)
+                    formats_list.append(formats)
                     last_reverse_index = len(atlas_indices_list)
 
                 # Calculate margin_before based on the font and direction of the first piece
@@ -1245,16 +1259,19 @@ class TextItem:
             self.atlas_indices = None
             self.positions = None
             self.sizes = None
+            self.formats = None
             self.glyph_count = 0
         elif len(atlas_indices_list) == 1:
             self.atlas_indices = atlas_indices_list[0]
             self.positions = positions_list[0]
             self.sizes = sizes_list[0]
+            self.formats = formats_list[0]
             self.glyph_count = len(self.positions)
         else:
             self.atlas_indices = np.concatenate(atlas_indices_list, axis=0)
             self.positions = np.concatenate(positions_list, axis=0)
             self.sizes = np.concatenate(sizes_list, axis=0)
+            self.formats = np.concatenate(formats_list, axis=0)
             self.glyph_count = len(self.positions)
 
     def sync_with_geometry(self, geometry, block_index):
@@ -1297,43 +1314,25 @@ class TextItem:
         sizes = self.sizes * scale
 
         # Get buffers from geometry (the getattr is a bit expensive)
-        glyph_block_indices = geometry.glyph_block_indices
-        glyph_atlas_indices = geometry.glyph_atlas_indices
-        glyph_positions = geometry.glyph_positions
-        glyph_sizes = geometry.glyph_sizes
+        glyph_data = geometry.glyph_data
 
-        # Write glyph data
-        glyph_block_indices.data[indices] = block_index
-        glyph_atlas_indices.data[indices] = self.atlas_indices
-        glyph_positions.data[indices] = positions
-        glyph_sizes.data[indices] = sizes
+        # Get subset and mark indices for upload
+        # glyph_data.update_indices(indices)
+        glyph_data.update_full()
+        glyph_data_array = glyph_data.data
 
-        # Trigger sync
-        glyph_block_indices.update_indices(indices)
-        glyph_atlas_indices.update_indices(indices)
-        glyph_positions.update_indices(indices)
-        glyph_sizes.update_indices(indices)
+        # Write data
+        glyph_data_array["x"][indices] = positions[:, 0]
+        glyph_data_array["y"][indices] = positions[:, 1]
+        glyph_data_array["s"][indices] = sizes
+        glyph_data_array["atlas_index"][indices] = self.atlas_indices
+        glyph_data_array["block_index"][indices] = block_index
+        glyph_data_array["format"][indices] = self.formats
 
     def clear(self, geometry):
         if len(self.glyph_indices):
             geometry._glyphs_deallocate(self.glyph_indices)
             self.glyph_indices = np.zeros((0,), "u4")
-
-
-def encode_font_props_in_atlas_indices(atlas_indices, weight, slant):
-    # We could put font properties in their own buffer(s), but to
-    # safe memory, we encode them in the top bits of the atlas
-    # indices. This seems like a good place, because these top bits
-    # won't be used (2**24 is more than enough glyphs), and the
-    # glyph index is a rather "opaque" value to the user anyway.
-    # You can think of the new glyph index as the index to the glyph
-    # in the atlas, plus props to tweak its appearance.
-    if slant:
-        atlas_indices += 0x08000000
-    # weight_offset = font_props.weight - font.weight
-    weight_offset = weight
-    weight_0_15 = int((max(-250, weight_offset) + 250) / 50 + 0.4999)
-    atlas_indices += max(0, min(15, weight_0_15)) << 28
 
 
 class Rect:
