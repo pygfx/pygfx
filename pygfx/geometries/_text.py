@@ -573,13 +573,15 @@ class TextGeometry(Geometry):
 
         # Update blocks
         need_high_level_layout = False
+        need_glyph_data_sync = False
         for index in dirty_blocks:
             try:
                 block = self._text_blocks[index]
             except IndexError:
                 continue  # block was removed after being marked dirty
-            did_block_layout = block._update(self)
+            did_block_layout, did_new_glyph_data = block._update(self)
             need_high_level_layout |= did_block_layout
+            need_glyph_data_sync |= did_new_glyph_data
 
         # Reset
         dirty_blocks.clear()
@@ -590,6 +592,10 @@ class TextGeometry(Geometry):
         # Higher-level layout
         if need_high_level_layout:
             self._layout_blocks()
+
+        # Updating in full turns out to be more efficient than doing all the calls to update_indices
+        if need_glyph_data_sync:
+            self.glyph_data.update_full()
 
     def _layout_blocks(self):
         total_rect = apply_high_level_layout(self)
@@ -618,14 +624,19 @@ class TextGeometry(Geometry):
             new_size = max(8, new_size)
             self._allocate_block_buffers(new_size)
 
-        if n != len(self._text_blocks):
-            # Add or remove blocks
-            while len(self._text_blocks) > n:
-                block = self._text_blocks.pop(-1)
-                block._clear(self)
+        if n == len(self._text_blocks):
+            pass
+        elif len(self._text_blocks) < n:
+            # Add blocks
             while len(self._text_blocks) < n:
                 block = TextBlock(len(self._text_blocks), self._dirty_blocks)
                 self._text_blocks.append(block)
+        else:
+            # Remove blocks
+            self.glyph_data.update_full()  # cleared blocks, means cleared glyph indices
+            while len(self._text_blocks) > n:
+                block = self._text_blocks.pop(-1)
+                block._clear(self)
 
     def _allocate_block_buffers(self, n):
         """Allocate new buffers for text blocks with the given size."""
@@ -674,7 +685,7 @@ class TextGeometry(Geometry):
         # but it will discard early by producing degeneate triangles.
         # Clear data, for sanity
         self.glyph_data.data[indices] = 0
-        self.glyph_data.update_indices(indices)
+        # self.glyph_data.update_indices(indices) -> update_full is called from _on_update_object when needed
         # Deallocate
         self._glyph_count -= len(indices)
         # Small optimization to avoid gaps
@@ -861,18 +872,20 @@ class TextBlock:
         # self._dirty_blocks.discard(self._index)  # no, geometry calls clear
         need_render_glyphs = self._need_render_glyphs
         need_layout = self._need_layout
+        need_glyph_data_upload = False
         self._need_render_glyphs = False
         self._need_layout = False
 
         # De-allocate old item objects
         if self._old_text_items:
+            need_glyph_data_upload = True
             for item in self._old_text_items:
                 item.clear(geometry)
             self._old_text_items = []
 
         # Quick exit
         if not (need_render_glyphs or need_layout):
-            return False
+            return False, False
 
         # Update in-use item objects
         for item in self._text_items:
@@ -886,9 +899,10 @@ class TextBlock:
         # Item updates, and layout, may require syncing glyph data
         for item in self._text_items:
             if item.need_sync_with_geometry:
+                need_glyph_data_upload = True
                 item.sync_with_geometry(geometry, self._index)
 
-        return need_layout  # i.e. did_layout
+        return need_layout, need_glyph_data_upload  # i.e. did_layout
 
     def _clear(self, geometry):
         if self._old_text_items:
@@ -1319,9 +1333,8 @@ class TextItem:
         glyph_data = geometry.glyph_data
 
         # Get subset and mark indices for upload
-        # glyph_data.update_indices(indices)
-        glyph_data.update_full()
         glyph_data_array = glyph_data.data
+        # glyph_data.update_indices(indices) -> doing a full upload is faster (done in _on_update_object)
 
         # Write data
         glyph_data_array["pos"][indices] = positions
