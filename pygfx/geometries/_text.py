@@ -51,6 +51,9 @@ ANCHOR_ALIASES["center"] = ANCHOR_ALIASES["middle"] = "middle-center"
 # We cache the extents of small whitespace strings to improve performance
 WHITESPACE_EXTENTS = {}
 
+# This is the dtype for per-glyph data. In the shader we can only use 32bit datatypes (maybe f16 in a future version).
+# To safe memory, we combine the atlas_index and format mask into a single u32. Here they look like two uint16 but
+# in the shader they're interpreted as a single word, and decomposed.
 GLYPH_DTYPE = np.dtype(
     [
         ("pos", "f4", 2),
