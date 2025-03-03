@@ -41,7 +41,7 @@ def MaterialClass(**kwargs):  # noqa
     map = kwargs.get("map")
     map = gfx.TextureMap(map, filter="nearest") if map is not None else None
     kwargs["map"] = map
-    return gfx.MeshPhongMaterial(**kwargs)
+    return gfx.MeshColormapMaterial(**kwargs)
     # return gfx.PointsMaterial(size=10, **kwargs)
     # return gfx.LineMaterial(thickness=5, **kwargs)
 
