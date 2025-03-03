@@ -38,14 +38,6 @@ class TextShader(BaseShader):
             Binding("u_wobject", "buffer/uniform", wobject.uniform_buffer),
             Binding("u_material", "buffer/uniform", material.uniform_buffer),
             Binding("s_positions", sbuffer, geometry.positions, "VERTEX"),
-            Binding(
-                "s_glyph_block_indices", sbuffer, geometry.glyph_block_indices, "VERTEX"
-            ),
-            Binding(
-                "s_glyph_atlas_indices", sbuffer, geometry.glyph_atlas_indices, "VERTEX"
-            ),
-            Binding("s_glyph_positions", sbuffer, geometry.glyph_positions, "VERTEX"),
-            Binding("s_glyph_sizes", sbuffer, geometry.glyph_sizes, "VERTEX"),
         ]
 
         tex = shared.glyph_atlas_texture
@@ -60,8 +52,9 @@ class TextShader(BaseShader):
 
         bindings1 = {}
         bindings1[0] = Binding(
-            "s_glyph_infos", sbuffer, shared.glyph_atlas_info_buffer, "VERTEX"
+            "s_glyph_info", sbuffer, shared.glyph_atlas_info_buffer, "VERTEX"
         )
+        bindings1[1] = Binding("s_glyph_data", sbuffer, geometry.glyph_data, "VERTEX")
 
         return {
             0: bindings,
@@ -76,7 +69,7 @@ class TextShader(BaseShader):
 
     def get_render_info(self, wobject, shared):
         material = wobject.material
-        n = wobject.geometry.glyph_positions.draw_range[1] * 6
+        n = wobject.geometry.glyph_data.draw_range[1] * 6
 
         render_mask = 0
         if wobject.render_mask:

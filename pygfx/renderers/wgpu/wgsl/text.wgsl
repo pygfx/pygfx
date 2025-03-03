@@ -17,8 +17,21 @@ struct GlyphInfo {
     offset: vec2<f32>,  // positional offset of the glyph
 };
 
+// The per-glyph struct. Should match text's GLYPH_DTYPE
+struct GlyphData {
+    x: f32,
+    y: f32,
+    s: f32,  // f16 is plenty precise, but is unknown type, I think our current wgsl is not recent enoug    h to support it
+    block_index: u32,
+    atlas_index_and_format: u32,
+}
+
+
 @group(1) @binding(0)
-var<storage,read> s_glyph_infos: array<GlyphInfo>;
+var<storage,read> s_glyph_info: array<GlyphInfo>;
+
+@group(1) @binding(1)
+var<storage,read> s_glyph_data: array<GlyphData>;
 
 
 @vertex
@@ -30,25 +43,27 @@ fn vs_main(in: VertexInput) -> Varyings {
     let index = raw_index / 6;
     let sub_index = raw_index % 6;
 
-    // Load glyph info
-    let block_index = i32(load_s_glyph_block_indices(index));
-    let glyph_index_raw = u32(load_s_glyph_atlas_indices(index));
-    let font_size = load_s_glyph_sizes(index);
-    let glyph_pos = load_s_glyph_positions(index);
+    // Load glyph data
+    let glyph_data = s_glyph_data[index];
+    let block_index  = i32(glyph_data.block_index);
+    let atlas_index = i32(glyph_data.atlas_index_and_format & 0xFFFFu);
+    let format_bitmask = (glyph_data.atlas_index_and_format & 0xFFFF0000u) >> 16u;
+    let glyph_pos = vec2<f32>(glyph_data.x, glyph_data.y);
+    let font_size = f32(glyph_data.s);
 
+    // Get position of the current block
     let block_pos: vec3<f32> = load_s_positions(block_index);
 
-
     // Extract actual glyph index and the encoded font props
-    let atlas_index = u32(glyph_index_raw & 0x00FFFFFFu);
-    let weight_0_15 = (glyph_index_raw & 0xF0000000u) >> 28u;  // highest 4 bits
-    let is_slanted = bool(glyph_index_raw & 0x08000000u);
-    //let reserved1 = bool(glyph_index_raw & 0x04000000u);
-    //let reserved2 = bool(glyph_index_raw & 0x02000000u);
-    //let reserved3 = bool(glyph_index_raw & 0x01000000u);
+    let weight_0_15 = (format_bitmask & 0xF000u) >> 12u;  // 4 bits encode -250 .. 500 in steps of 50
+    let weight_offset = f32(weight_0_15) * 50.0 - 250.0;
+    let slant_0_15 = (format_bitmask & 0x0F00u) >> 8u;  // 4 bits encode -1.75 .. 2 in steps of 0.25
+    let slant_offset = f32(slant_0_15) / 4.0 - 1.75;
+    //let reserved1 = (format_bitmask & 0x00F0u) >> 4u;
+    //let reserved2 = (format_bitmask & 0x000Fu);
 
     // Load meta-data of the glyph in the atlas
-    let glyph_info = s_glyph_infos[atlas_index];
+    let glyph_info = s_glyph_info[atlas_index];
     let bitmap_rect = vec4<i32>(glyph_info.origin, glyph_info.size );
 
     // Prep correction vectors
@@ -64,7 +79,7 @@ fn vs_main(in: VertexInput) -> Varyings {
     let corner = corners[sub_index];
 
     // Apply slanting, a.k.a. automated obliques, a.k.a. fake italics
-    let slant_factor = f32(is_slanted) * 0.23;  // empirically selected based on NotoSans-Italic
+    let slant_factor = slant_offset * 0.23;  // empirically selected based on NotoSans-Italic
     let slant = vec2<f32>(0.5 - corner.y, 0.0) * slant_factor;
 
     let pos_corner_factor = corner * vec2<f32>(1.0, -1.0);
@@ -148,7 +163,7 @@ fn vs_main(in: VertexInput) -> Varyings {
     varyings.world_pos = vec3<f32>(world_pos.xyz / world_pos.w);
     varyings.atlas_pixel_scale = f32(atlas_pixel_scale);
     varyings.texcoord_in_pixels = vec2<f32>(texcoord_in_pixels);
-    varyings.weight_offset = f32(f32(weight_0_15) * 50.0 - 250.0);  // encodes -250..500 in steps of 50
+    varyings.weight_offset = f32(weight_offset);
 
     // Picking
     varyings.pick_idx = u32(index);
