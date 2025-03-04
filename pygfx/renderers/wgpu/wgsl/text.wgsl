@@ -64,7 +64,7 @@ fn vs_main(in: VertexInput) -> Varyings {
 
     // Load meta-data of the glyph in the atlas
     let glyph_info = s_glyph_info[atlas_index];
-    let bitmap_rect = vec4<i32>(glyph_info.origin, glyph_info.size );
+    let bitmap_rect = vec4<i32>(glyph_info.origin, glyph_info.size);
 
     // Prep correction vectors
     // The first offsets the rectangle to put it on the baseline/origin.
@@ -84,7 +84,6 @@ fn vs_main(in: VertexInput) -> Varyings {
 
     let pos_corner_factor = corner * vec2<f32>(1.0, -1.0);
     let glyph_vertex_pos = glyph_pos + (pos_offset1 + pos_offset2 * pos_corner_factor + slant) * font_size;
-    let texcoord_in_pixels = vec2<f32>(bitmap_rect.xy) + vec2<f32>(bitmap_rect.zw) * corner;
 
 
     $$ if is_screen_space
@@ -162,12 +161,12 @@ fn vs_main(in: VertexInput) -> Varyings {
     varyings.position = vec4<f32>(final_ndc_pos);
     varyings.world_pos = vec3<f32>(world_pos.xyz / world_pos.w);
     varyings.atlas_pixel_scale = f32(atlas_pixel_scale);
-    varyings.texcoord_in_pixels = vec2<f32>(texcoord_in_pixels);
+    varyings.bitmap_rect = vec4<i32>(bitmap_rect);
+    varyings.glyph_coord = vec2<f32>(corner);
     varyings.weight_offset = f32(weight_offset);
 
     // Picking
     varyings.pick_idx = u32(index);
-    varyings.glyph_coord = vec2<f32>(corner);
 
     return varyings;
 }
@@ -178,9 +177,18 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
 
     let l2p:f32 = u_stdinfo.physical_size.x / u_stdinfo.logical_size.x;
 
-    // Get the float texcoord
-    let atlas_size = textureDimensions(t_atlas);
-    let texcoord = varyings.texcoord_in_pixels  / vec2<f32>(atlas_size);
+    // Calulate the texcoord in pixels, using the bitmap rect (x, y, w, h) and the glyph's texcoord (0..1).
+    // We do that here in the fragment shader, to prevent the interpolaton of the varyings to give
+    // a slightly different result depending on where in the atlas the glyph is stored.
+    let bitmap_rect = vec4<f32>(varyings.bitmap_rect);
+    var texcoord_in_pixels = bitmap_rect.xy + bitmap_rect.zw * varyings.glyph_coord;
+
+    // Constrain the sampling to within the actual patch allocated for this glyph.
+    // Basically address_mode is CLAMP, but local to this patch.
+    texcoord_in_pixels = clamp(texcoord_in_pixels, bitmap_rect.xy + 0.5, bitmap_rect.xy + bitmap_rect.zw - 0.5);
+
+    // Convert to normalized texcoords.
+    let texcoord = texcoord_in_pixels  / vec2<f32>(textureDimensions(t_atlas));
 
     // Sample the distance. A value of 0.5 represents the edge of the glyph,
     // with positive values representing the inside.
