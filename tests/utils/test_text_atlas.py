@@ -319,6 +319,46 @@ def test_atlas_glyps():
     assert array_id == id(atlas._array)
 
 
+def test_against_glyph_bleeding():
+    big_tex = """
+    Lorem ipsum odor amet, consectetuer adipiscing elit. Congue aliquet fusce hendrerit leo fames ac. Proin nec sit mauris lobortis quam ultrices. Senectus habitasse ad orci posuere fusce. Ut lectus inceptos commodo taciti porttitor a habitasse. Vulputate tempus ullamcorper aptent molestie vestibulum massa. Tristique nec ac sagittis morbi; egestas nisl donec morbi. Et nisi donec conubia duis rutrum tellus?
+    """
+    chars = list(big_tex)
+
+    camera = gfx.OrthographicCamera(340, 200)
+    target = gfx.Texture(dim=2, size=(3400, 2000), format="rgba8unorm")
+    renderer = gfx.WgpuRenderer(target, pixel_ratio=1)
+
+    def render_text():
+        text = gfx.Text(
+            gfx.TextGeometry(text=big_tex, max_width=300),
+            gfx.TextMaterial(color="#fff", outline_thickness=5),
+        )
+        scene = gfx.Scene().add(gfx.Background.from_color("#fff"), text)
+        renderer.render(scene, camera)
+        return renderer.snapshot()
+
+    # Render the text
+    im1 = render_text()
+
+    # Reset and shuffle the atlas
+    global_atlas.__init__()
+    random.shuffle(chars)
+    gfx.TextGeometry(text="".join(chars))
+
+    # Render the text again, glyphs are now in a different spot in the atlas
+    im2 = render_text()
+
+    # Get the difference
+    diff = (im1 != im2).max(axis=2)
+    diff_count = diff.sum()
+    # diff_image = diff.astype("u1") * 255
+    if diff_count:
+        print("Number of pixels that differ:", diff_count)
+    assert diff_count == 0
+
+
+
 if __name__ == "__main__":
     for ob in list(globals().values()):
         if callable(ob) and ob.__name__.startswith("test_"):
