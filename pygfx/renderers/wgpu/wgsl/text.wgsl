@@ -203,9 +203,10 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     let weight_thickness = weight_offset * 0.00031;  // empirically derived factor
     let outline_thickness = u_material.outline_thickness;
 
-    // The softness is calculated from the scale of one atlas-pixel in screen space.
+    // The softness defines the width of the aa fall-off region.
+    // It is calculated from the scale of one atlas-pixel in screen space, so that the aa is somewhat consistent over different text sizes.
     let max_softness = 0.75;
-    let softness = clamp(4.0 / (f32(REF_GLYPH_SIZE) * varyings.atlas_pixel_scale * l2p), 0.0, max_softness);
+    let softness = clamp(2.0 / (f32(REF_GLYPH_SIZE) * varyings.atlas_pixel_scale * l2p), 0.0, max_softness);
 
     // Turns out that how thick a font looks depends on a number of factors:
     // - In pygfx the size of the font for which the sdf was created affects the output a bit.
@@ -238,7 +239,7 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
         let outside_ness = smoothstep(cut_off - softness, cut_off + softness, distance);
         aa_alpha = (1.0 - outside_ness);
         // High softness values also result in lower alpha to prevent artifacts under high angles.
-        soften_alpha = 1.0 - max(softness / max_softness - 0.1, 0.0);
+        soften_alpha = max(1.0 - softness / max_softness, 0.2);
         // Outline
         let outline_softness = min(softness, 0.5 * outline_thickness);
         outline = smoothstep(outline_cutoff - outline_softness, outline_cutoff + outline_softness, distance);
