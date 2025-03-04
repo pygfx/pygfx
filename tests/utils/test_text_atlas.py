@@ -1,5 +1,7 @@
-import numpy as np
+import random
 
+import numpy as np
+import pygfx as gfx
 from pygfx.utils.text._atlas import GlyphAtlas, SIZES, get_suitable_size
 from pygfx.utils.text import glyph_atlas as global_atlas
 
@@ -356,7 +358,6 @@ def test_against_glyph_bleeding():
     if diff_count:
         print("Number of pixels that differ:", diff_count)
     assert diff_count == 0
-
 
 
 if __name__ == "__main__":

@@ -31,7 +31,7 @@ args = parser.parse_args()
 
 text_to_display = args.text
 
-canvas_size = 800,600
+canvas_size = 800, 600
 
 canvas = WgpuCanvas(size=canvas_size)
 renderer = gfx.renderers.WgpuRenderer(canvas)
@@ -60,7 +60,9 @@ text_scene = gfx.Scene()
 text_scene.add(gfx.Background.from_color("#888"))
 text_camera = gfx.OrthographicCamera(100, 100)
 
-text_material = gfx.TextMaterial(color="#06E", outline_color="#000", outline_thickness=0.2)
+text_material = gfx.TextMaterial(
+    color="#06E", outline_color="#000", outline_thickness=0.2
+)
 text_geometry = gfx.TextGeometry(text_to_display, font_size=18, screen_space=False)
 text_object = gfx.Text(text_geometry, text_material)
 
@@ -87,12 +89,14 @@ def draw_imgui():
         text_to_display = text
     # Creata float slider for the font size
     imgui.text("Font size:")
-    changed, font_size = imgui.slider_float("##font_size", text_geometry.font_size, 1, 100)
+    changed, font_size = imgui.slider_float(
+        "##font_size", text_geometry.font_size, 1, 100
+    )
     if changed:
         text_geometry.font_size = font_size
 
     changed, outline_thickness = imgui.slider_float(
-        "Outline Thickness", text_material.outline_thickness, 0, 1.
+        "Outline Thickness", text_material.outline_thickness, 0, 1.0
     )
     if changed:
         text_material.outline_thickness = outline_thickness
