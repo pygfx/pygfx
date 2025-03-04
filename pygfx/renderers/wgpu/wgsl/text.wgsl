@@ -203,10 +203,18 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     let weight_thickness = weight_offset * 0.00031;  // empirically derived factor
     let outline_thickness = u_material.outline_thickness;
 
-    // The softness defines the width of the aa fall-off region.
-    // It is calculated from the scale of one atlas-pixel in screen space, so that the aa is somewhat consistent over different text sizes.
-    let max_softness = 0.75;
-    let softness = clamp(2.0 / (f32(REF_GLYPH_SIZE) * varyings.atlas_pixel_scale * l2p), 0.0, max_softness);
+    // The relative size of the text, more or less it's size on screen in logical pixels.
+    // When this value reaches about 10, the text becomes readable.
+    let relative_size = varyings.atlas_pixel_scale * f32(REF_GLYPH_SIZE);
+    let text_is_readable = smoothstep(1.0, 10.0, relative_size);
+
+    // The softness defines the width of the aa fall-off region. How much "distance" is used to make this text appear smooth.
+    // It is calculated from the scale of one atlas-pixel in screen space, so that the aa is consistent over different text sizes.
+    let max_softness = 0.4;
+    let softness = clamp(2.0 / (relative_size * l2p), 0.0, max_softness);
+
+    // Similarly, a smooth transition from front to outline
+    let outline_softness = min(softness, 0.5 * outline_thickness);
 
     // Turns out that how thick a font looks depends on a number of factors:
     // - In pygfx the size of the font for which the sdf was created affects the output a bit.
@@ -225,28 +233,28 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     // is darker than the bg. More info at issue #358.
     let cut_off_correction = 0.25 * softness;
 
-    // Calculate cut-off's. Apply min so it's always a valid shape.
-    let cut_off = min(0.49, 0.0 + cut_off_correction + weight_thickness + outline_thickness);
-    let outline_cutoff = max(0.0, cut_off - outline_thickness);
+    // Calculate cutoffs
+    let max_inner_cutoff = 0.40 - softness;
+    let max_outer_cutoff = 0.49 - outline_softness;
+    let inner_cutoff = min(0.0 + cut_off_correction + weight_thickness, max_inner_cutoff);
+    let outer_cutoff = min(inner_cutoff + outline_thickness, max_outer_cutoff);
 
     // Init opacity value to get the shape of the glyph
     var aa_alpha = 1.0;
-    var soften_alpha = 1.0;
+    var readable_alpha = 1.0;
     var outline = 0.0;
 
     $$ if aa
         // We use smoothstep to include alpha blending.
-        let outside_ness = smoothstep(cut_off - softness, cut_off + softness, distance);
+        let outside_ness = smoothstep(outer_cutoff - softness, (outer_cutoff + softness), distance);
         aa_alpha = (1.0 - outside_ness);
-        // High softness values also result in lower alpha to prevent artifacts under high angles.
-        soften_alpha = max(1.0 - softness / max_softness, 0.2);
-        // Outline
-        let outline_softness = min(softness, 0.5 * outline_thickness);
-        outline = smoothstep(outline_cutoff - outline_softness, outline_cutoff + outline_softness, distance);
+        outline = smoothstep(inner_cutoff - outline_softness, inner_cutoff + outline_softness, distance);
+        // Less readable text is made more transparent
+        readable_alpha = 0.2 + 0.8 * text_is_readable;
     $$ else
         // Do a hard transition
-        aa_alpha = select(0.0, 1.0, distance < cut_off);
-        outline = select(1.0, 0.0, distance < outline_cutoff);
+        aa_alpha = select(0.0, 1.0, distance < outer_cutoff);
+        outline = select(1.0, 0.0, distance < inner_cutoff);
     $$ endif
 
     // Early exit
@@ -262,7 +270,7 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     let color_alpha = mix(base_srgb.a, outline_srgb.a, outline);
 
     // Compose total opacity and the output color
-    let opacity = u_material.opacity * color_alpha * aa_alpha * soften_alpha;
+    let opacity = u_material.opacity * color_alpha * aa_alpha * readable_alpha;
     var color_out = vec4<f32>(color, opacity);
 
     // Debug
