@@ -310,7 +310,6 @@ class GlyphAtlas(RectPacker):
 
         self._free_area = 0
         self._allocated_area = allocated_area
-        # self._free_indices.clear()
 
     def allocate_region(self, w, h):
         """Allocate a region of the given size. Returns the index for
