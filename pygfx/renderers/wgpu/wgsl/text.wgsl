@@ -205,7 +205,7 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
 
     // The softness is calculated from the scale of one atlas-pixel in screen space.
     let max_softness = 0.75;
-    let softness = clamp(0.0, max_softness, 4.0 / (f32(REF_GLYPH_SIZE) * varyings.atlas_pixel_scale * l2p));
+    let softness = clamp(4.0 / (f32(REF_GLYPH_SIZE) * varyings.atlas_pixel_scale * l2p), 0.0, max_softness);
 
     // Turns out that how thick a font looks depends on a number of factors:
     // - In pygfx the size of the font for which the sdf was created affects the output a bit.
