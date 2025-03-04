@@ -43,8 +43,10 @@ if len(args.images) == 2:
     reference = imageio.imread(args.images[0])
     image = imageio.imread(args.images[1])
 elif len(args.images) == 0:
+    # Cannot use __file__ since sphinx-gallery does not support it
+    this_file = sys.argv[0]
     gfx_examples_screenshot_dir = (
-        Path(__file__).parent.parent / "screenshots"
+        Path(this_file).parent.parent / "screenshots"
     ).resolve()
     reference = imageio.imread(
         gfx_examples_screenshot_dir / "validate_blend_weightedplus.png"
