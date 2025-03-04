@@ -304,7 +304,6 @@ def test_atlas_glyps():
     assert array_id == id(atlas._array)
 
 
-
 def test_against_glyph_bleeding():
     big_tex = """
     Lorem ipsum odor amet, consectetuer adipiscing elit. Congue aliquet fusce hendrerit leo fames ac. Proin nec sit mauris lobortis quam ultrices. Senectus habitasse ad orci posuere fusce. Ut lectus inceptos commodo taciti porttitor a habitasse. Vulputate tempus ullamcorper aptent molestie vestibulum massa. Tristique nec ac sagittis morbi; egestas nisl donec morbi. Et nisi donec conubia duis rutrum tellus?
@@ -342,7 +341,6 @@ def test_against_glyph_bleeding():
     if diff_count:
         print("Number of pixels that differ:", diff_count)
     assert diff_count == 0
-
 
 
 if __name__ == "__main__":
