@@ -252,9 +252,6 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     // Early exit
     if (aa_alpha <= 0.0) { discard; }
 
-    // For aa we reduce alpha quicker, which looks better to the human eye
-    aa_alpha = aa_alpha * aa_alpha;
-
     // Turn outline really off if not used. Otherwise some of it may leak through in the aa fragments.
     outline = select(0.0, outline, outline_thickness > 0.0);
 
