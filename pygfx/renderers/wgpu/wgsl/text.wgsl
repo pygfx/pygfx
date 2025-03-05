@@ -206,7 +206,7 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
 
     // Sample the distance. A value of 0.5 represents the edge of the glyph,
     // with positive values representing the inside.
-    let atlas_value = f32(textureSample(t_atlas, s_atlas, texcoord).r) * atlas_value_multiplier;
+    let atlas_value = f32(textureSample(t_atlas, s_atlas, texcoord).r);// * atlas_value_multiplier;
 
     // Convert to a more useful measure, where the edge is at 0.0, and the inside is negative.
     // The maximum value at which we can still detect the edge is just below 0.5.
