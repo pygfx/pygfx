@@ -135,8 +135,11 @@ def material_from_trimesh(x):
         # also be undefined in which case it's just a default material
         gfx_material = MeshPhongMaterial(color=x.main_color / 255)
 
-        gfx_material.shininess = x.defaults["material_shine"]
-        gfx_material.specular = Color(*(x.defaults["material_specular"] / 255))
+        default_mat = getattr(trimesh.visual.color, "DEFAULT_MAT", None)
+        if default_mat is None:
+            default_mat = x.defaults  # trimesh < 4.6.3
+        gfx_material.shininess = default_mat["material_shine"]
+        gfx_material.specular = Color(*(default_mat["material_specular"] / 255))
 
         gfx_material.side = "front"
 
