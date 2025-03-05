@@ -18,7 +18,7 @@ $$ if num_spot_lights > 0
         if (i >= {{ num_spot_lights }}) { break; }
         let spot_light = u_spot_lights[i];
         var punctual_light = getSpotLightInfo(spot_light, geometry);
-        if (! light.visible) { continue; }
+        if (! punctual_light.visible) { continue; }
         $$ if receive_shadow
         if (spot_light.cast_shadow != 0){
             let coords = spot_light.light_view_proj_matrix * vec4<f32>(geometry.position,1.0);
