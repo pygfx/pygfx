@@ -124,6 +124,11 @@ class ImageErrorOverlay(gfx.Image):
 @register_wgpu_render_function(ImageErrorOverlay, gfx.ImageBasicMaterial)
 class ErrorOverlayShader(ImageShader):
     def get_code(self):
+        # Note that we provide no guarantees on the continuity of the shader code
+        # using text manipulation like this is not guaranteed to work as part
+        # of our API.
+        # we would typically recommend that users build up their own objects
+        # and shaders.
         return (
             super()
             .get_code()
