@@ -638,6 +638,8 @@ class TextGeometry(Geometry):
                 block = self._text_blocks.pop(-1)
                 block._clear(self)
 
+        self.positions.draw_range = 0, n
+
     def _allocate_block_buffers(self, n):
         """Allocate new buffers for text blocks with the given size."""
         smallest_n = min(n, len(self._text_blocks))
