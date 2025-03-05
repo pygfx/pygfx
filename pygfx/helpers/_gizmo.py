@@ -22,6 +22,8 @@ BLUE = "#007eb7"
 
 THICKNESS = 3
 
+NoneType = type(None)
+
 
 class TransformGizmo(WorldObject):
     """Gizmo to manipulate a WorldObject.
@@ -88,7 +90,7 @@ class TransformGizmo(WorldObject):
 
         """
 
-        if not isinstance(object, (WorldObject, None)):
+        if not isinstance(object, (WorldObject, NoneType)):
             raise ValueError("The object must be None or a WorldObject instance.")
 
         self._object_to_control = object
