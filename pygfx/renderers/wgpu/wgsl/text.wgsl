@@ -177,14 +177,7 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
 
     let l2p:f32 = u_stdinfo.physical_size.x / u_stdinfo.logical_size.x;
 
-    // Calulate the texcoord in pixels, using the bitmap rect (x, y, w, h) and the glyph's texcoord (0..1).
-    // We do that here in the fragment shader, to prevent the interpolaton of the varyings to give
-    // a slightly different result depending on where in the atlas the glyph is stored.
     let bitmap_rect = vec4<f32>(varyings.bitmap_rect);
-    // let texcoord_in_pixels = bitmap_rect.xy + bitmap_rect.zw * varyings.glyph_coord;
-
-    let half_pixel_in_tex_coords = 0.5 / bitmap_rect.zw;
-    let glyph_texcoord = clamp(varyings.glyph_coord, half_pixel_in_tex_coords, 1.0 - half_pixel_in_tex_coords);
 
     //  _______     Imagine this being the leftmost pixel in the patch for this glyph.
     // |       |
@@ -194,18 +187,24 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     // A   B   C
     //              Sampling from point B and beyond is fine. But in the part between A and B, the sampled value will
     //              also include thet value of the pixel to the left of here (of another glyph). To prevent that,
-    //              we clamp the texcoord_in_pixels.
+    //              we clamp the glyph_texcoord.
 
+    // Get the glyph's local texcoord (0..1 in two dimensions), and clamp it.
     // Basically address_mode is CLAMP, but local to this patch.
-    // let texcoord_in_pixels_clamped = clamp(texcoord_in_pixels, bitmap_rect.xy + 0.5, bitmap_rect.xy + bitmap_rect.zw - 0.5);
+    let half_pixel_in_tex_coords = 0.5 / bitmap_rect.zw;
+    let glyph_texcoord = varyings.glyph_coord;
+    let glyph_texcoord_clamped = clamp(varyings.glyph_coord, half_pixel_in_tex_coords, 1.0 - half_pixel_in_tex_coords);
 
-    // The pixels at the edge of the SDF may not always be zero (i.e. the furthest distance).
+    // The pixels at the edge of the SDF may not be zero (i.e. the furthest distance).
     // But we can assume that the value at A must be zero, and we can make it so.
-    let close_to_edge = abs(glyph_texcoord - varyings.glyph_coord) / half_pixel_in_tex_coords; // 0..1
+    let close_to_edge = abs(glyph_texcoord_clamped - glyph_texcoord) / half_pixel_in_tex_coords; // 0..1
     let atlas_value_multiplier = 1.0 - max(close_to_edge.x, close_to_edge.y);
 
     // Convert to normalized texcoords.
-    let texcoord = (bitmap_rect.xy + bitmap_rect.zw * glyph_texcoord) / vec2<f32>(textureDimensions(t_atlas));
+    // Note that this is the first time that we use bitmap_rect.xy; we want to be careful with that value,
+    // otherwise roundoff errors can cause slightly different results depending on the position of the glyph in the atlas,
+    // which is anoying, because it can e.g. cause image-based tests to fail (for us and our users).
+    let texcoord = (bitmap_rect.xy + bitmap_rect.zw * glyph_texcoord_clamped) / vec2<f32>(textureDimensions(t_atlas));
 
     // Sample the distance. A value of 0.5 represents the edge of the glyph,
     // with positive values representing the inside.
