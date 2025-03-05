@@ -88,6 +88,16 @@ def draw_imgui():
     if changed:
         text_material.outline_thickness = outline_thickness
 
+    # Add a checkbox for debug mode
+    changed, debug_mode = imgui.checkbox(
+        "Debug Mode", text_material._debug_mode is not None
+    )
+    if changed:
+        if debug_mode:
+            text_material._debug_mode = "sample_raw_pixels"
+        else:
+            text_material._debug_mode = None
+
     imgui.end()
     imgui.end_frame()
     imgui.render()

@@ -184,7 +184,11 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
 
     // Sample the distance. A value of 0.5 represents the edge of the glyph,
     // with positive values representing the inside.
+    $$ if debug_mode == "sample_raw_pixels"
+    let atlas_value = textureLoad(t_atlas, vec2<i32>(varyings.texcoord_in_pixels), 0).r;
+    $$ else
     let atlas_value = textureSample(t_atlas, s_atlas, texcoord).r;
+    $$ endif
 
     // Convert to a more useful measure, where the edge is at 0.0, and the inside is negative.
     // The maximum value at which we can still detect the edge is just below 0.5.
@@ -225,7 +229,7 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     var soften_alpha = 1.0;
     var outline = 0.0;
 
-    $$ if aa
+$$ if aa
         // We use smoothstep to include alpha blending.
         let outside_ness = smoothstep(cut_off - softness, cut_off + softness, distance);
         aa_alpha = (1.0 - outside_ness);
@@ -241,7 +245,9 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     $$ endif
 
     // Early exit
+    $$ if debug_mode != "sample_raw_pixels"
     if (aa_alpha <= 0.0) { discard; }
+    $$ endif
 
     // For aa we reduce alpha quicker, which looks better to the human eye
     aa_alpha = aa_alpha * aa_alpha;
@@ -257,10 +263,13 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
 
     // Compose total opacity and the output color
     let opacity = u_material.opacity * color_alpha * aa_alpha * soften_alpha;
-    var color_out = vec4<f32>(color, opacity);
 
     // Debug
-    //color_out = vec4<f32>(atlas_value, 0.0, 0.0, 1.0);
+    $$ if debug_mode == "sample_raw_pixels"
+    var color_out = vec4<f32>(atlas_value, 0.0, 0.0, 1.0);
+    $$ else
+    var color_out = vec4<f32>(color, opacity);
+    $$ endif
 
     // Wrap up
     apply_clipping_planes(varyings.world_pos);

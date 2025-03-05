@@ -27,6 +27,7 @@ class TextShader(BaseShader):
         self["is_multi_text"] = geometry.is_multi
         self["aa"] = material.aa
         self["REF_GLYPH_SIZE"] = REF_GLYPH_SIZE
+        self["debug_mode"] = material._debug_mode
 
     def get_bindings(self, wobject, shared):
         geometry = wobject.geometry

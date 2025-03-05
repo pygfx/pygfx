@@ -53,6 +53,7 @@ class TextMaterial(Material):
     ):
         super().__init__(**kwargs)
 
+        self._debug_mode = None
         self.color = color
         self.outline_color = outline_color
         self.outline_thickness = outline_thickness
@@ -69,6 +70,18 @@ class TextMaterial(Material):
             "glyph_index": values["index"],
             "point_coord": (values["x"] / 511.0, values["y"] / 511.0),
         }
+
+    @property
+    def _debug_mode(self):
+        return self._store.debug_mode
+
+    @_debug_mode.setter
+    def _debug_mode(self, value):
+        if value not in (None, "sample_raw_pixels"):
+            raise ValueError(
+                "Invalid debug mode, must be one of None, 'sample_raw_pixels'"
+            )
+        self._store.debug_mode = value
 
     @property
     def aa(self):
