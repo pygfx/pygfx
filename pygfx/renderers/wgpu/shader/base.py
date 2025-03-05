@@ -95,11 +95,11 @@ class BaseShader(ShaderInterface):
     type = "render"  # must be "compute" or "render"
     needs_bake_function = False
 
-    def __init__(self, wobject, **kwargs):
+    def __init__(self, wobject):
         super().__init__()
 
         # The shader kwargs
-        self.kwargs = kwargs
+        self.kwargs = {}
 
         # The stored hash. If set, the hash is locked, and kwargs cannot
         # be set. This is to prevent the shader implementations setting

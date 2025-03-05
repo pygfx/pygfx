@@ -28,11 +28,12 @@ def test_templating():
             """
 
     # Missing variables
-    shader = MyShader(foo=True)
+    shader = MyShader()
     with raises(ValueError):
         shader.generate_wgsl()
 
     # Fill in value
+    shader["foo"] = True
     shader["bar"] = 42
     assert shader["bar"] == 42
     assert shader.generate_wgsl().strip() == "x = 42"
@@ -50,7 +51,8 @@ def test_templating():
             {$ if foo $} 1 {$ else $} 2 {$ endif $}
             """
 
-    shader = MyShader(foo=True)
+    shader = MyShader()
+    shader["foo"] = True
     assert shader.generate_wgsl().strip() == "1"
     assert shader.generate_wgsl(foo=False).strip() == "2"
 
@@ -63,8 +65,9 @@ def test_logic_beyond_templating():
             else:
                 return "x = {{bar}}"
 
-    shader = MyShader(foo=False, bar=24)
-
+    shader = MyShader()
+    shader["foo"] = False
+    shader["bar"] = 24
     assert shader.generate_wgsl().strip() == "x = 24"
     shader["foo"] = True
     assert shader.generate_wgsl().strip() == "x = 25"
