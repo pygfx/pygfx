@@ -88,7 +88,7 @@ class TransformGizmo(WorldObject):
 
         """
 
-        if not isinstance(object, (WorldObject, None)):
+        if not isinstance(object, (WorldObject, type(None))):
             raise ValueError("The object must be None or a WorldObject instance.")
 
         self._object_to_control = object
