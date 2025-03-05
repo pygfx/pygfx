@@ -511,7 +511,7 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
 
         $$ if lighting == 'pbr' and use_IBL is defined
             let dot_nv = saturate( dot( geometry.normal, geometry.view_dir ) );
-		    reflected_light.indirect_specular *= computeSpecularOcclusion( dot_nv, ambient_occlusion, material.roughness );
+            reflected_light.indirect_specular *= computeSpecularOcclusion( dot_nv, ambient_occlusion, material.roughness );
         $$ endif
     $$ endif
 
