@@ -22,6 +22,7 @@ in order to discard pixels based on their color.
 
 import argparse
 import sys
+import os
 from pathlib import Path
 
 import imageio.v3 as imageio
@@ -34,15 +35,14 @@ import pygfx as gfx
 from pygfx.renderers.wgpu import register_wgpu_render_function
 from pygfx.renderers.wgpu.shaders.imageshader import ImageShader
 
-parser = argparse.ArgumentParser(description="Image Comparison")
-# Require two optional arguements
-parser.add_argument("images", nargs="*", help="The two images to compare")
-args = parser.parse_args()
+if "PYTEST_CURRENT_TEST" not in os.environ:
+    parser = argparse.ArgumentParser(description="Image Comparison")
+    # Require two optional arguements
+    parser.add_argument("images", nargs="*", help="The two images to compare")
+    args = parser.parse_args()
 
-if len(args.images) == 2:
-    reference = imageio.imread(args.images[0])
-    image = imageio.imread(args.images[1])
-elif len(args.images) == 0:
+
+if "PYTEST_CURRENT_TEST" in os.environ or len(args.images) == 0:
     # Cannot use __file__ since sphinx-gallery does not support it
     this_file = sys.argv[0]
     gfx_examples_screenshot_dir = (
@@ -52,8 +52,11 @@ elif len(args.images) == 0:
         gfx_examples_screenshot_dir / "validate_blend_weightedplus.png"
     )
     image = imageio.imread(gfx_examples_screenshot_dir / "validate_blend_dither.png")
+elif len(args.images) == 2:
+    reference = imageio.imread(args.images[0])
+    image = imageio.imread(args.images[1])
 else:
-    print("Exactly two images are required")
+    print("Please provide two images to compare")
     sys.exit(1)
 
 if image.shape != reference.shape:
