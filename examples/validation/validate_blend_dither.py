@@ -29,13 +29,7 @@ plane1.local.rotation = la.quat_from_axis_angle((1, 0, 0), 1.571)
 plane2.local.rotation = la.quat_from_axis_angle((0, 1, 0), 1.571)
 plane3.local.rotation = la.quat_from_axis_angle((0, 0, 1), 1.571)
 
-t = gfx.Text(
-    gfx.TextGeometry(renderer.blend_mode, screen_space=True, font_size=20),
-    gfx.TextMaterial(),
-)
-t.local.position = (0, 40, 0)
-
-scene.add(plane1, plane2, plane3, sphere, t)
+scene.add(plane1, plane2, plane3, sphere)
 scene.add(gfx.AmbientLight(1, 1))
 
 camera = gfx.PerspectiveCamera(70, 16 / 9, depth_range=(0.1, 2000))
