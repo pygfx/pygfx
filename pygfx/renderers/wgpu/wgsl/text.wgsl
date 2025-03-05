@@ -64,7 +64,7 @@ fn vs_main(in: VertexInput) -> Varyings {
 
     // Load meta-data of the glyph in the atlas
     let glyph_info = s_glyph_info[atlas_index];
-    let bitmap_rect = vec4<i32>(glyph_info.origin, glyph_info.size );
+    let bitmap_rect = vec4<i32>(glyph_info.origin, glyph_info.size);
 
     // Prep correction vectors
     // The first offsets the rectangle to put it on the baseline/origin.
@@ -84,7 +84,6 @@ fn vs_main(in: VertexInput) -> Varyings {
 
     let pos_corner_factor = corner * vec2<f32>(1.0, -1.0);
     let glyph_vertex_pos = glyph_pos + (pos_offset1 + pos_offset2 * pos_corner_factor + slant) * font_size;
-    let texcoord_in_pixels = vec2<f32>(bitmap_rect.xy) + vec2<f32>(bitmap_rect.zw) * corner;
 
 
     $$ if is_screen_space
@@ -162,12 +161,12 @@ fn vs_main(in: VertexInput) -> Varyings {
     varyings.position = vec4<f32>(final_ndc_pos);
     varyings.world_pos = vec3<f32>(world_pos.xyz / world_pos.w);
     varyings.atlas_pixel_scale = f32(atlas_pixel_scale);
-    varyings.texcoord_in_pixels = vec2<f32>(texcoord_in_pixels);
+    varyings.bitmap_rect = vec4<i32>(bitmap_rect);
+    varyings.glyph_coord = vec2<f32>(corner);
     varyings.weight_offset = f32(weight_offset);
 
     // Picking
     varyings.pick_idx = u32(index);
-    varyings.glyph_coord = vec2<f32>(corner);
 
     return varyings;
 }
@@ -178,26 +177,65 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
 
     let l2p:f32 = u_stdinfo.physical_size.x / u_stdinfo.logical_size.x;
 
-    // Get the float texcoord
-    let atlas_size = textureDimensions(t_atlas);
-    let texcoord = varyings.texcoord_in_pixels  / vec2<f32>(atlas_size);
+    let bitmap_rect = vec4<f32>(varyings.bitmap_rect);
+
+    //  _______     Imagine this being the leftmost pixel in the patch for this glyph.
+    // |       |
+    // |       |    A = bitmap_rect.x
+    // |_______|    B = bitmap_rect.x + 0.5
+    // |   |   |    C = bitmap_rect.x + 1.0
+    // A   B   C
+    //              Sampling from point B and beyond is fine. But in the part between A and B, the sampled value will
+    //              also include thet value of the pixel to the left of here (of another glyph). To prevent that,
+    //              we clamp the glyph_texcoord.
+
+    // Get the glyph's local texcoord (0..1 in two dimensions), and clamp it.
+    // Basically address_mode is CLAMP, but local to this patch.
+    let half_pixel_in_tex_coords = 0.5 / bitmap_rect.zw;
+    let glyph_texcoord = varyings.glyph_coord;
+    let glyph_texcoord_clamped = clamp(varyings.glyph_coord, half_pixel_in_tex_coords, 1.0 - half_pixel_in_tex_coords);
+
+    // The pixels at the edge of the SDF may not be zero (i.e. the furthest distance).
+    // But we can assume that the value at A must be zero, and we can make it so.
+    let close_to_edge = abs(glyph_texcoord_clamped - glyph_texcoord) / half_pixel_in_tex_coords; // 0..1
+    let atlas_value_multiplier = 1.0 - max(close_to_edge.x, close_to_edge.y);
+
+    // Convert to normalized texcoords.
+    // Note that this is the first time that we use bitmap_rect.xy; we want to be careful with that value,
+    // otherwise roundoff errors can cause slightly different results depending on the position of the glyph in the atlas,
+    // which is anoying, because it can e.g. cause image-based tests to fail (for us and our users).
+    let texcoord = (bitmap_rect.xy + bitmap_rect.zw * glyph_texcoord_clamped) / vec2<f32>(textureDimensions(t_atlas));
 
     // Sample the distance. A value of 0.5 represents the edge of the glyph,
     // with positive values representing the inside.
-    let atlas_value = textureSample(t_atlas, s_atlas, texcoord).r;
+    let atlas_value = f32(textureSample(t_atlas, s_atlas, texcoord).r) * atlas_value_multiplier;
 
     // Convert to a more useful measure, where the edge is at 0.0, and the inside is negative.
     // The maximum value at which we can still detect the edge is just below 0.5.
-    let distance = (0.5 - atlas_value);
+    var distance = (0.5 - atlas_value);
 
     // Load thickness factors
     let weight_offset = clamp(varyings.weight_offset + u_material.weight_offset, -400.0, 1600.0);
     let weight_thickness = weight_offset * 0.00031;  // empirically derived factor
     let outline_thickness = u_material.outline_thickness;
 
-    // The softness is calculated from the scale of one atlas-pixel in screen space.
-    let max_softness = 0.75;
-    let softness = clamp(0.0, max_softness, 4.0 / (f32(REF_GLYPH_SIZE) * varyings.atlas_pixel_scale * l2p));
+    // The relative size of the text, more or less it's size on screen in physical pixels.
+    // Text looked at from an angle (thus getting very scewed) has a low relative_size too.
+    let relative_size = varyings.atlas_pixel_scale * f32(REF_GLYPH_SIZE) * l2p;
+
+    // When the relative_size reaches about 10, the text becomes readable.
+    // We render unreadable text as little blobs, which reduces aliasing/flicker a bit.
+    let text_is_readable = smoothstep(4.0, 8.0, relative_size);
+    let alt_distance = length(varyings.glyph_coord - 0.5) * 2.0 - 0.5;
+    distance = mix(alt_distance, distance, text_is_readable);
+
+    // The softness defines the width of the aa fall-off region. How much "distance" is used to make this text appear smooth.
+    // It is calculated from the scale of one atlas-pixel in screen space, so that the aa is consistent over different text sizes.
+    let max_softness = 0.4; // max sdf-distance used to make it soft, if using too much, there's no more room for the outline.
+    let softness = clamp(2.0 / relative_size, 0.0, max_softness);
+
+    // Similarly, a smooth transition from front to outline
+    let outline_softness = min(softness, 0.5 * outline_thickness);
 
     // Turns out that how thick a font looks depends on a number of factors:
     // - In pygfx the size of the font for which the sdf was created affects the output a bit.
@@ -216,35 +254,30 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     // is darker than the bg. More info at issue #358.
     let cut_off_correction = 0.25 * softness;
 
-    // Calculate cut-off's. Apply min so it's always a valid shape.
-    let cut_off = min(0.49, 0.0 + cut_off_correction + weight_thickness + outline_thickness);
-    let outline_cutoff = max(0.0, cut_off - outline_thickness);
+    // Calculate cutoffs
+    let max_inner_cutoff = 0.40 - softness;
+    let max_outer_cutoff = 0.49 - outline_softness;
+    let inner_cutoff = min(0.0 + cut_off_correction + weight_thickness, max_inner_cutoff);
+    let outer_cutoff = min(inner_cutoff + outline_thickness, max_outer_cutoff);
 
     // Init opacity value to get the shape of the glyph
     var aa_alpha = 1.0;
-    var soften_alpha = 1.0;
     var outline = 0.0;
 
     $$ if aa
         // We use smoothstep to include alpha blending.
-        let outside_ness = smoothstep(cut_off - softness, cut_off + softness, distance);
+        let outside_ness = smoothstep(outer_cutoff - softness, (outer_cutoff + softness), distance);
         aa_alpha = (1.0 - outside_ness);
-        // High softness values also result in lower alpha to prevent artifacts under high angles.
-        soften_alpha = 1.0 - max(softness / max_softness - 0.1, 0.0);
-        // Outline
-        let outline_softness = min(softness, 0.5 * outline_thickness);
-        outline = smoothstep(outline_cutoff - outline_softness, outline_cutoff + outline_softness, distance);
+        outline = smoothstep(inner_cutoff - outline_softness, inner_cutoff + outline_softness, distance);
+        // Less readable text is made more transparent
     $$ else
         // Do a hard transition
-        aa_alpha = select(0.0, 1.0, distance < cut_off);
-        outline = select(1.0, 0.0, distance < outline_cutoff);
+        aa_alpha = select(0.0, 1.0, distance < outer_cutoff);
+        outline = select(1.0, 0.0, distance < inner_cutoff);
     $$ endif
 
     // Early exit
     if (aa_alpha <= 0.0) { discard; }
-
-    // For aa we reduce alpha quicker, which looks better to the human eye
-    aa_alpha = aa_alpha * aa_alpha;
 
     // Turn outline really off if not used. Otherwise some of it may leak through in the aa fragments.
     outline = select(0.0, outline, outline_thickness > 0.0);
@@ -256,7 +289,7 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     let color_alpha = mix(base_srgb.a, outline_srgb.a, outline);
 
     // Compose total opacity and the output color
-    let opacity = u_material.opacity * color_alpha * aa_alpha * soften_alpha;
+    let opacity = u_material.opacity * color_alpha * aa_alpha;
     var color_out = vec4<f32>(color, opacity);
 
     // Debug
