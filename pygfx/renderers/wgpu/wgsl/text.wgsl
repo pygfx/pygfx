@@ -210,22 +210,27 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
 
     // Convert to a more useful measure, where the edge is at 0.0, and the inside is negative.
     // The maximum value at which we can still detect the edge is just below 0.5.
-    let distance = (0.5 - atlas_value);
+    var distance = (0.5 - atlas_value);
 
     // Load thickness factors
     let weight_offset = clamp(varyings.weight_offset + u_material.weight_offset, -400.0, 1600.0);
     let weight_thickness = weight_offset * 0.00031;  // empirically derived factor
     let outline_thickness = u_material.outline_thickness;
 
-    // The relative size of the text, more or less it's size on screen in logical pixels.
-    // When this value reaches about 10, the text becomes readable.
-    let relative_size = varyings.atlas_pixel_scale * f32(REF_GLYPH_SIZE);
-    let text_is_readable = smoothstep(1.0, 10.0, relative_size);
+    // The relative size of the text, more or less it's size on screen in physical pixels.
+    // Text looked at from an angle (thus getting very scewed) has a low relative_size too.
+    let relative_size = varyings.atlas_pixel_scale * f32(REF_GLYPH_SIZE) * l2p;
+
+    // When the relative_size reaches about 10, the text becomes readable.
+    // We render unreadable text as little blobs, which reduces aliasing/flicker a bit.
+    let text_is_readable = smoothstep(4.0, 8.0, relative_size);
+    let alt_distance = length(varyings.glyph_coord - 0.5) * 2.0 - 0.5;
+    distance = mix(alt_distance, distance, text_is_readable);
 
     // The softness defines the width of the aa fall-off region. How much "distance" is used to make this text appear smooth.
     // It is calculated from the scale of one atlas-pixel in screen space, so that the aa is consistent over different text sizes.
-    let max_softness = 0.4;
-    let softness = clamp(2.0 / (relative_size * l2p), 0.0, max_softness);
+    let max_softness = 0.4; // max sdf-distance used to make it soft, if using too much, there's no more room for the outline.
+    let softness = clamp(2.0 / relative_size, 0.0, max_softness);
 
     // Similarly, a smooth transition from front to outline
     let outline_softness = min(softness, 0.5 * outline_thickness);
@@ -255,7 +260,6 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
 
     // Init opacity value to get the shape of the glyph
     var aa_alpha = 1.0;
-    var readable_alpha = 1.0;
     var outline = 0.0;
 
     $$ if aa
@@ -264,7 +268,6 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
         aa_alpha = (1.0 - outside_ness);
         outline = smoothstep(inner_cutoff - outline_softness, inner_cutoff + outline_softness, distance);
         // Less readable text is made more transparent
-        readable_alpha = 0.2 + 0.8 * text_is_readable;
     $$ else
         // Do a hard transition
         aa_alpha = select(0.0, 1.0, distance < outer_cutoff);
@@ -284,7 +287,7 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     let color_alpha = mix(base_srgb.a, outline_srgb.a, outline);
 
     // Compose total opacity and the output color
-    let opacity = u_material.opacity * color_alpha * aa_alpha * readable_alpha;
+    let opacity = u_material.opacity * color_alpha * aa_alpha;
     var color_out = vec4<f32>(color, opacity);
 
     // Debug
