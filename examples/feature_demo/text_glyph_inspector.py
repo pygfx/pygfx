@@ -25,7 +25,7 @@ args = parser.parse_args()
 
 text_to_display = " ".join(args.text)
 if not text_to_display:
-    text_to_display = "Hello World"
+    text_to_display = "Hello Pygfx"
 
 
 canvas_size = 800, 800
