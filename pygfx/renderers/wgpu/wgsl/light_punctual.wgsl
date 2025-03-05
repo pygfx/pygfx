@@ -15,7 +15,6 @@ $$ endif
 
 $$ if num_spot_lights > 0
     for ( var i = 0; i < {{num_spot_lights}}; i ++ ) {
-        if (i >= {{ num_spot_lights }}) { break; }
         let spot_light = u_spot_lights[i];
         var punctual_light = getSpotLightInfo(spot_light, geometry);
         if (! punctual_light.visible) { continue; }
@@ -32,7 +31,6 @@ $$ endif
 
 $$ if num_dir_lights > 0
     for ( var i = 0; i < {{num_dir_lights}}; i ++ ) {
-        if (i >= {{ num_dir_lights }}) { break; }
         let dir_light = u_directional_lights[i];
         var punctual_light = getDirectionalLightInfo(dir_light, geometry);
         if (! punctual_light.visible) { continue; }
