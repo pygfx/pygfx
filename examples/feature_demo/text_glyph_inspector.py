@@ -20,10 +20,13 @@ import pygfx as gfx
 # Add argparse to take in the input text to inspect
 
 parser = argparse.ArgumentParser(description="Inspect the glyphs of a font")
-parser.add_argument("text", type=str, help="The text to inspect")
+parser.add_argument("text", nargs="*", type=str, help="The text to inspect")
 args = parser.parse_args()
 
-text_to_display = args.text
+text_to_display = " ".join(args.text)
+if not text_to_display:
+    text_to_display = "Hello World"
+
 
 canvas_size = 800, 800
 
