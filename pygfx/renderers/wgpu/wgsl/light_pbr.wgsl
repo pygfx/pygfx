@@ -152,7 +152,7 @@ $$ endif
     return scatter;
 }
 
-fn RE_IndirectSpecular_Physical(radiance: vec3<f32>, irradiance: vec3<f32>, clearcoat_radiance: vec3<f32>,
+fn RE_IndirectSpecular(radiance: vec3<f32>, irradiance: vec3<f32>, clearcoat_radiance: vec3<f32>,
         geometry: GeometricContext, material: PhysicalMaterial, reflected_light: ptr<function, ReflectedLight>){
         
     $$ if USE_CLEARCOAT is defined
@@ -172,11 +172,16 @@ fn RE_IndirectSpecular_Physical(radiance: vec3<f32>, irradiance: vec3<f32>, clea
     (*reflected_light).indirect_diffuse += diffuse * cosineWeightedIrradiance;
 }
 
-fn RE_IndirectDiffuse_Physical(irradiance: vec3<f32>, geometry: GeometricContext, material: PhysicalMaterial, reflected_light: ptr<function, ReflectedLight>) {
+fn RE_IndirectDiffuse(irradiance: vec3<f32>, geometry: GeometricContext, material: PhysicalMaterial, reflected_light: ptr<function, ReflectedLight>) {
     (*reflected_light).indirect_diffuse += irradiance * BRDF_Lambert( material.diffuse_color );
 }
 
-fn RE_Direct_Physical(direct_light: IncidentLight, geometry: GeometricContext, material: PhysicalMaterial, reflected_light: ptr<function, ReflectedLight>) {
+fn RE_Direct(
+    direct_light: IncidentLight, 
+    geometry: GeometricContext, 
+    material: PhysicalMaterial, 
+    reflected_light: ptr<function, ReflectedLight>
+) {
     let dot_nl = saturate( dot( geometry.normal, direct_light.direction ));
     let irradiance = dot_nl * direct_light.color;
 
@@ -187,84 +192,11 @@ fn RE_Direct_Physical(direct_light: IncidentLight, geometry: GeometricContext, m
     $$ endif
 
     (*reflected_light).direct_specular += irradiance * BRDF_GGX( direct_light.direction, geometry.view_dir, geometry.normal, material.specular_color, material.specular_f90, material.roughness, material );
-    (*reflected_light).indirect_diffuse += irradiance * BRDF_Lambert( material.diffuse_color );
+    (*reflected_light).direct_diffuse += irradiance * BRDF_Lambert( material.diffuse_color );
 }
 
-fn RE_AmbientOcclusion_Physical(ambientOcclusion: f32, geometry: GeometricContext, material: PhysicalMaterial, reflected_light: ptr<function, ReflectedLight>) {
-    let dot_nv = saturate( dot( geometry.normal, geometry.view_dir ) );
-    let ao_nv = dot_nv + ambientOcclusion;
-    let ao_exp = exp2( -16.0 * material.roughness - 1.0 );
-    let ao = saturate( pow(ao_nv, ao_exp) - 1.0 + ambientOcclusion, );
-    (*reflected_light).indirect_diffuse *= ambientOcclusion;
-    (*reflected_light).indirect_specular *= ao;
-}
-
-
-fn lighting_pbr(
-    reflected_light: ptr<function, ReflectedLight>,
-    geometry: GeometricContext,
-    material: PhysicalMaterial,
-)  {
-    // Direct light from light sources
-    var i = 0;
-    $$ if num_point_lights > 0
-        i = 0;
-        loop {
-            if (i >= {{ num_point_lights }}) { break; }
-            let point_light = u_point_lights[i];
-            var light = getPointLightInfo(point_light, geometry);
-            if (! light.visible) { continue; }
-            $$ if receive_shadow
-            if (point_light.cast_shadow != 0){
-                let shadow = get_cube_shadow(u_shadow_map_point_light, u_shadow_sampler, i, point_light.light_view_proj_matrix, geometry.position, light.direction, point_light.shadow_bias);
-                light.color *= shadow;
-            }
-            $$ endif
-            RE_Direct_Physical( light, geometry, material, reflected_light );
-            continuing {
-                i += 1;
-            }
-        }
-    $$ endif
-    $$ if num_spot_lights > 0
-        i = 0;
-        loop {
-            if (i >= {{ num_spot_lights }}) { break; }
-            let spot_light = u_spot_lights[i];
-            var light = getSpotLightInfo(spot_light, geometry);
-            if (! light.visible) { continue; }
-            $$ if receive_shadow
-            if (spot_light.cast_shadow != 0){
-                let coords = spot_light.light_view_proj_matrix * vec4<f32>(geometry.position,1.0);
-                let shadow = get_shadow(u_shadow_map_spot_light, u_shadow_sampler, i, coords, spot_light.shadow_bias);
-                light.color *= shadow;
-            }
-            $$ endif
-            RE_Direct_Physical( light, geometry, material, reflected_light );
-            continuing {
-                i += 1;
-            }
-        }
-    $$ endif
-    $$ if num_dir_lights > 0
-        i = 0;
-        loop {
-            if (i >= {{ num_dir_lights }}) { break; }
-            let dir_light = u_directional_lights[i];
-            var light = getDirectionalLightInfo(dir_light, geometry);
-            if (! light.visible) { continue; }
-            $$ if receive_shadow
-            if (dir_light.cast_shadow != 0) {
-                let coords = dir_light.light_view_proj_matrix * vec4<f32>(geometry.position,1.0);
-                let shadow = get_shadow(u_shadow_map_dir_light, u_shadow_sampler, i, coords, dir_light.shadow_bias);
-                light.color *= shadow;
-            }
-            $$ endif
-            RE_Direct_Physical( light, geometry, material, reflected_light );
-            continuing {
-                i += 1;
-            }
-        }
-    $$ endif
-
+fn computeSpecularOcclusion(dot_nv: f32, ambient_occlusion: f32, roughness: f32) -> f32 {
+    let ao_nv = dot_nv + ambient_occlusion;
+    let ao_exp = exp2( -16.0 * roughness - 1.0 );
+    return saturate( pow(ao_nv, ao_exp) - 1.0 + ambient_occlusion );
 }
