@@ -181,7 +181,10 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     // We do that here in the fragment shader, to prevent the interpolaton of the varyings to give
     // a slightly different result depending on where in the atlas the glyph is stored.
     let bitmap_rect = vec4<f32>(varyings.bitmap_rect);
-    let texcoord_in_pixels = bitmap_rect.xy + bitmap_rect.zw * varyings.glyph_coord;
+    // let texcoord_in_pixels = bitmap_rect.xy + bitmap_rect.zw * varyings.glyph_coord;
+
+    let half_pixel_in_tex_coords = 0.5 / bitmap_rect.zw;
+    let glyph_texcoord = clamp(varyings.glyph_coord, half_pixel_in_tex_coords, 1.0 - half_pixel_in_tex_coords);
 
     //  _______     Imagine this being the leftmost pixel in the patch for this glyph.
     // |       |
@@ -194,19 +197,19 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     //              we clamp the texcoord_in_pixels.
 
     // Basically address_mode is CLAMP, but local to this patch.
-    let texcoord_in_pixels_clamped = clamp(texcoord_in_pixels, bitmap_rect.xy + 0.5, bitmap_rect.xy + bitmap_rect.zw - 0.5);
+    // let texcoord_in_pixels_clamped = clamp(texcoord_in_pixels, bitmap_rect.xy + 0.5, bitmap_rect.xy + bitmap_rect.zw - 0.5);
 
     // The pixels at the edge of the SDF may not always be zero (i.e. the furthest distance).
     // But we can assume that the value at A must be zero, and we can make it so.
-    let close_to_edge = 2.0 * abs(texcoord_in_pixels_clamped - texcoord_in_pixels); // 0..1
+    let close_to_edge = abs(glyph_texcoord - varyings.glyph_coord) / half_pixel_in_tex_coords; // 0..1
     let atlas_value_multiplier = 1.0 - max(close_to_edge.x, close_to_edge.y);
 
     // Convert to normalized texcoords.
-    let texcoord = texcoord_in_pixels_clamped  / vec2<f32>(textureDimensions(t_atlas));
+    let texcoord = (bitmap_rect.xy + bitmap_rect.zw * glyph_texcoord) / vec2<f32>(textureDimensions(t_atlas));
 
     // Sample the distance. A value of 0.5 represents the edge of the glyph,
     // with positive values representing the inside.
-    let atlas_value = f32(textureSample(t_atlas, s_atlas, texcoord).r);// * atlas_value_multiplier;
+    let atlas_value = f32(textureSample(t_atlas, s_atlas, texcoord).r) * atlas_value_multiplier;
 
     // Convert to a more useful measure, where the edge is at 0.0, and the inside is negative.
     // The maximum value at which we can still detect the edge is just below 0.5.
