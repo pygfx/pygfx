@@ -9,7 +9,6 @@ Render Points
 # sphinx_gallery_pygfx_docs = 'screenshot'
 # sphinx_gallery_pygfx_test = 'run'
 
-
 import numpy as np
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx

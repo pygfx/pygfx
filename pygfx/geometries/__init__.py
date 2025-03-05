@@ -48,7 +48,8 @@ The standardized names are:
     :template: ../_templates/custom_layout.rst
 
     TextGeometry
-    TextItem
+    MultiTextGeometry
+    TextBlock
 
 .. rubric:: Other/Special Geometry
 .. autosummary::
@@ -65,11 +66,11 @@ The standardized names are:
 
 """
 
-# flake8: noqa
+# ruff: noqa: F401
 
 from ._base import Geometry
 from ._box import box_geometry
-from ._compat import geometry_from_trimesh
+from ._compat import geometry_from_trimesh, geometry_from_open3d
 from ._cylinder import cylinder_geometry, cone_geometry
 from ._sphere import sphere_geometry
 from ._plane import plane_geometry, mobius_strip_geometry
@@ -80,7 +81,7 @@ from ._polyhedron import (
     tetrahedron_geometry,
 )
 from ._toroidal import torus_knot_geometry, klein_bottle_geometry
-from ._text import TextGeometry, TextItem
+from ._text import TextGeometry, MultiTextGeometry, TextBlock
 
 # Define __all__ for e.g. Sphinx
 __all__ = [
@@ -92,5 +93,5 @@ __all__ = [
 __all__.sort()
 __all__.remove("Geometry")
 __all__.insert(0, "Geometry")
-__all__.insert(__all__.index("TextGeometry") + 1, "TextItem")
+__all__.insert(__all__.index("MultiTextGeometry") + 1, "TextBlock")
 __all__.append("geometry_from_trimesh")

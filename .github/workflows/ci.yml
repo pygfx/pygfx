@@ -22,18 +22,21 @@ jobs:
     strategy:
       fail-fast: false
     steps:
-    - uses: actions/checkout@v3
-    - name: Set up Python 3.9
-      uses: actions/setup-python@v4
+    - uses: actions/checkout@v4
+    - name: Set up Python
+      uses: actions/setup-python@v5
       with:
-        python-version: 3.9
-    - name: Install dev dependencies
+        python-version: 3.12
+    - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip
-        pip install -U black flake8 flake8-black pep8-naming
-    - name: Flake8
+          python -m pip install --upgrade pip
+          pip install ruff
+    - name: Ruff lint
       run: |
-        flake8 .
+          ruff check --output-format=github .
+    - name: Ruff format
+      run: |
+          ruff format --check .
 
   docs-build:
     name: Docs
@@ -41,19 +44,19 @@ jobs:
     strategy:
       fail-fast: false
     steps:
-    - uses: actions/checkout@v3
-    - name: Set up Python 3.9
-      uses: actions/setup-python@v4
+    - uses: actions/checkout@v4
+    - name: Set up Python
+      uses: actions/setup-python@v5
       with:
-        python-version: 3.9
+        python-version: 3.12
     - name: Install llvmpipe and lavapipe for offscreen canvas
       run: |
         sudo apt-get update -y -qq
-        sudo apt-get install --no-install-recommends -y libegl1-mesa libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers
+        sudo apt-get install -y libegl1-mesa-dev libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers
     - name: Install dev dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -U -e .[examples,docs]
+        pip install -U -e .[docs]
     - name: Build docs
       run: |
         cd docs
@@ -66,9 +69,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: Test py38
-            os: ubuntu-latest
-            pyversion: '3.8'
           - name: Test py39
             os: ubuntu-latest
             pyversion: '3.9'
@@ -78,21 +78,27 @@ jobs:
           - name: Test py311
             os: ubuntu-latest
             pyversion: '3.11'
+          - name: Test py312
+            os: ubuntu-latest
+            pyversion: '3.12'
+          - name: Test py313
+            os: ubuntu-latest
+            pyversion: '3.13'
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Set up Python ${{ matrix.pyversion }}
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.pyversion }}
     - name: Install llvmpipe and lavapipe for offscreen canvas
       if: matrix.os == 'ubuntu-latest'
       run: |
         sudo apt-get update -y -qq
-        sudo apt install -y libegl1-mesa libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers
+        sudo apt install -y libegl1-mesa-dev libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers
     - name: Install package and dev dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install .[dev]
+        pip install .[tests]
         rm -r pygfx
     - name: Unit tests
       run: |
@@ -102,50 +108,59 @@ jobs:
     name: Test pyinstaller
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
-    - name: Set up Python 3.9
-      uses: actions/setup-python@v4
+    - uses: actions/checkout@v4
+    - name: Set up Python
+      uses: actions/setup-python@v5
       with:
-        python-version: 3.9
+        python-version: 3.12
     - name: Install package and dev dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install .[dev]
+        pip install -U .
+        pip install pytest psutil pyinstaller
     - name: Unit tests
       run: |
-        pytest -v pygfx/__pyinstaller
+        pushd $HOME
+        pytest -v --pyargs pygfx.__pyinstaller
 
   test-examples-build:
-    name: Test examples
-    runs-on: ubuntu-latest
+    name: Test examples ${{ matrix.pyversion }}
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            pyversion: '3.9'
+          - os: ubuntu-latest
+            pyversion: '3.12'
     steps:
-    - uses: actions/checkout@v3
-    - name: Set up Python 3.9
-      uses: actions/setup-python@v4
+    - uses: actions/checkout@v4
+    - name: Set up Python
+      uses: actions/setup-python@v5
       with:
-        python-version: '3.9'
+        python-version: 3.12
     - name: Install llvmpipe and lavapipe for offscreen canvas
       run: |
         sudo apt-get update -y -qq
-        sudo apt-get install --no-install-recommends -y libegl1-mesa libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers
+        sudo apt-get install -y libegl1-mesa-dev libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers
     - name: Install dev dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -e .[dev,examples]
+        pip install -e .[examples]
     - name: Show wgpu backend
       run: |
-        python -c "from examples.tests.testutils import wgpu_backend; print(wgpu_backend)"
+        python -c "import pygfx; print(pygfx.__version__)"
+        python -c "from examples.tests.testutils import adapter; print(adapter.info)"
     - name: Test examples
       env:
         PYGFX_EXPECT_LAVAPIPE: true
       run: |
         pytest -v examples
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       if: ${{ failure() }}
       with:
-        name: screenshot-diffs
+        name: screenshot-diffs-py${{ matrix.pyversion }}
         path: examples/screenshots/diffs
 
   release-build:
@@ -154,26 +169,28 @@ jobs:
     strategy:
       fail-fast: false
     steps:
-      - uses: actions/checkout@v3
-      - name: Set up Python 3.9
-        uses: actions/setup-python@v4
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.9'
+          python-version: 3.12
       - name: Install dev dependencies
         run: |
-          python -m pip install --upgrade pip wheel setuptools twine
+          python -m pip install --upgrade pip
+          pip install -U flit build twine
       - name: Create source distribution
         run: |
-          python setup.py sdist
-      - name: Build wheels
+          python -m build -n -s
+      - name: Build wheel
         run: |
-          pip wheel --no-deps -w dist .
+          python -m build -n -w
       - name: Test sdist
         shell: bash
         run: |
           rm -rf ./pygfx
           pushd $HOME
           pip install $GITHUB_WORKSPACE/dist/*.tar.gz
+          python -c "import pygfx; print(pygfx.__version__)"
           popd
           # don't run tests, we just want to know if the sdist can be installed
           pip uninstall -y pygfx
@@ -182,7 +199,7 @@ jobs:
         run: |
           twine check dist/*
       - name: Upload distributions
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           path: dist
           name: dist
@@ -193,23 +210,25 @@ jobs:
     needs: [test-builds, release-build]
     if: success() && startsWith(github.ref, 'refs/tags/v')
     steps:
-    - uses: actions/checkout@v3
-    - name: Set up Python 3.9
-      uses: actions/setup-python@v4
+    - uses: actions/checkout@v4
+    - name: Set up Python
+      uses: actions/setup-python@v5
       with:
-        python-version: '3.9'
+        python-version: 3.12
     - name: Download assets
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: dist
         path: dist
     - name: Release
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v2
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
         files: |
           dist/*.tar.gz
           dist/*.whl
+        draft: true
+        prerelease: false
     - name: Publish to PyPI
       uses: pypa/gh-action-pypi-publish@release/v1
       with:

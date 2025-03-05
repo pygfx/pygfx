@@ -52,7 +52,7 @@ waiting_objects = set()
 
 text_material = gfx.TextMaterial(color="#06E")
 
-for i in range(100):
+for _i in range(100):
     obj = gfx.Text(
         gfx.TextGeometry(" ", font_size=18, screen_space=True),
         text_material,
@@ -79,8 +79,9 @@ def animate():
             if garbage_collect:
                 all_indices = set()
                 for x in live_objects:
-                    all_indices.update(int(index) for index in x.geometry.indices.data)
-                for index in obj.geometry.indices.data:
+                    atlas_indices = x.geometry.glyph_data.data["atlas_index"]
+                    all_indices.update(int(index) for index in atlas_indices)
+                for index in obj.geometry.glyph_data.data["atlas_index"]:
                     index = int(index)
                     if index not in all_indices:
                         glyph_atlas.free_region(index)

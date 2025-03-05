@@ -1,5 +1,5 @@
 """
-Utility functions for pygfx.
+Utility functions for Pygfx.
 
 .. currentmodule:: pygfx.utils
 
@@ -36,7 +36,9 @@ completeness and you will likely never have to instantiate them directly.
 """
 
 import os
+import types
 import logging
+import inspect
 
 import numpy as np
 
@@ -182,3 +184,38 @@ def normals_from_vertices(rr, tris):
     size[size == 0] = 1.0  # prevent ugly divide-by-zero
     nn /= size[:, np.newaxis]
     return nn.astype(np.float32)
+
+
+def assert_type(name, value, *classes):
+    allow_none = False
+    if classes[0] is None:
+        if value is None:
+            return
+        allow_none = True
+        classes = classes[1:]
+
+    if not isinstance(value, classes):
+        # Get traceback object to point of the frame of interest
+        f = inspect.currentframe()
+        f = f.f_back
+        if name:
+            # Step back to calling code
+            f = f.f_back
+            # If this is a constructor that has name as a (kw) argument, take another step back
+            if f.f_code.co_name == "__init__" and name in f.f_code.co_varnames:
+                f = f.f_back
+        tb = types.TracebackType(None, f, f.f_lasti, f.f_lineno)
+
+        # Build error message
+        msg = "Expected"
+        if name:
+            msg += f" '{name}' to be"
+        class_strings = [cls.__name__ for cls in classes]
+        msg += f" an instance of {' | '.join(class_strings)}"
+        if allow_none:
+            msg += " or None"
+        valuestr = value.__class__.__name__
+        msg += f", but got {valuestr} object."
+
+        # Raise message with alt traceback
+        raise TypeError(msg).with_traceback(tb) from None

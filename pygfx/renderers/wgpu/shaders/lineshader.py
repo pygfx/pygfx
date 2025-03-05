@@ -1,5 +1,4 @@
-""" pygfx line shader. See line.wgsl for details.
-"""
+"""pygfx line shader. See line.wgsl for details."""
 
 import wgpu  # only for flags/enums
 import numpy as np
@@ -71,12 +70,12 @@ class LineShader(BaseShader):
                 raise ValueError(f"Geometry.colors needs 1-4 columns, not {nchannels}")
         elif color_mode == "vertex_map":
             if material.map is None:
-                raise ValueError(f"Cannot apply colormap is no material.map is set.")
+                raise ValueError("Cannot apply colormap is no material.map is set.")
             self["color_mode"] = "vertex_map"
             self["color_buffer_channels"] = 0
         elif color_mode == "face_map":
             if material.map is None:
-                raise ValueError(f"Cannot apply colormap is no material.map is set.")
+                raise ValueError("Cannot apply colormap is no material.map is set.")
             self["color_mode"] = "face_map"
             self["color_buffer_channels"] = 0
         else:
@@ -184,7 +183,9 @@ class LineShader(BaseShader):
                 "For rendering (thick) lines, the geometry.positions must be Nx3."
             )
 
-        uniform_buffer = Buffer(array_from_shadertype(renderer_uniform_type))
+        uniform_buffer = Buffer(
+            array_from_shadertype(renderer_uniform_type), force_contiguous=True
+        )
         uniform_buffer.data["last_i"] = positions1.nitems - 1
 
         rbuffer = "buffer/read_only_storage"
@@ -200,11 +201,10 @@ class LineShader(BaseShader):
         if self["color_mode"] in ("vertex", "face"):
             bindings.append(Binding("s_colors", rbuffer, geometry.colors, "VERTEX"))
         elif self["color_mode"] in ("vertex_map", "face_map"):
-            bindings.extend(
-                self.define_texcoords_and_colormap(
-                    material.map, geometry.texcoords, material.map_interpolation
-                )
+            bindings.append(
+                Binding("s_texcoords", rbuffer, geometry.texcoords, "VERTEX")
             )
+            bindings.extend(self.define_colormap(material.map, geometry.texcoords))
 
         # Need a buffer for the cumdist?
         if hasattr(self, "line_distance_buffer"):
@@ -331,11 +331,10 @@ class ThinLineShader(LineShader):
         if self["color_mode"] == "vertex":
             bindings.append(Binding("s_colors", rbuffer, geometry.colors, "VERTEX"))
         elif self["color_mode"] == "vertex_map":
-            bindings.extend(
-                self.define_texcoords_and_colormap(
-                    material.map, geometry.texcoords, material.map_interpolation
-                )
+            bindings.append(
+                Binding("s_texcoords", rbuffer, geometry.texcoords, "VERTEX")
             )
+            bindings.extend(self.define_colormap(material.map, geometry.texcoords))
 
         bindings = {i: b for i, b in enumerate(bindings)}
         self.define_bindings(0, bindings)
@@ -445,7 +444,7 @@ class ThinLineShader(LineShader):
             let out_color = vec4<f32>(physical_color, opacity);
 
             apply_clipping_planes(varyings.world_pos);
-            return get_fragment_output(varyings.position.z, out_color);
+            return get_fragment_output(varyings.position, out_color);
         }
         """
 

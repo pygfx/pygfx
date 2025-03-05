@@ -22,6 +22,7 @@
 
 const PI = 3.141592653589793;
 const RECIPROCAL_PI = 0.3183098861837907;
+const SQRT_2 = 1.4142135623730951;
 
 const ALPHA_COMPARE_EPSILON : f32 = 1e-6;
 const EPSILON = 1e-6;
@@ -40,6 +41,46 @@ fn refract( light : vec3<f32>, normal : vec3<f32>, eta : f32 ) -> vec3<f32> {
     return rOutPerp + rOutParallel;
 }
 
+fn hashu(val: u32 ) -> u32 {
+    // https://stackoverflow.com/questions/4200224/random-noise-functions-for-glsl
+    // http://amindforeverprogramming.blogspot.com/2013/07/random-floats-in-glsl-330.html
+    // Bob Jenkins' OAT algorithm.
+    var x: u32 = val;
+    x += ( x << 10u );
+    x ^= ( x >>  6u );
+    x += ( x <<  3u );
+    x ^= ( x >> 11u );
+    x += ( x << 15u );
+    return x;
+}
+fn hashf(val: f32 ) -> u32 {
+   return hashu(bitcast<u32>(val));
+}
+fn hashi(val: i32 ) -> u32 {
+   return hashu(bitcast<u32>(val));
+}
+
+fn hash_to_f32(h: u32) -> f32 {
+    let mantissaMask: u32 = 0x007FFFFFu;
+    let one: u32          = 0x3F800000u;
+    var x: u32 = h;
+    x &= mantissaMask;
+    x |= one;
+    return bitcast<f32>(x) - 1.0;
+}
+fn random(f: f32) -> f32 {
+    // Produces a number between 0 and 1 (halfopen range). The result is deterministic based on the seed.
+    return hash_to_f32( hashf(f) );
+}
+fn random2(f: vec2<f32>) -> f32 {
+    return hash_to_f32( hashf(f.x) ^ hashf(f.y) );
+}
+fn random3(f: vec3<f32>) -> f32 {
+    return hash_to_f32( hashf(f.x) ^ hashf(f.y) ^ hashf(f.z) );
+}
+fn random4(f: vec4<f32>) -> f32 {
+    return hash_to_f32( hashf(f.x) ^ hashf(f.y) ^ hashf(f.z) ^ hashf(f.w) );
+}
 
 // ----- Transformations
 
@@ -77,22 +118,35 @@ fn srgb2physical(color: vec3<f32>) -> vec3<f32> {
 
 
 // ----- Clipping planes
-
+// Use SDF for clipping planes
+// Negative means inside the volume, 0 is on the surface, positive is outside.
 $$ if not n_clipping_planes
-    fn check_clipping_planes(world_pos: vec3<f32>) -> bool { return true; }
+    fn check_clipping_planes(world_pos: vec3<f32>) -> f32 { return -0.5; }
     fn apply_clipping_planes(world_pos: vec3<f32>) { }
 $$ else
-    fn check_clipping_planes(world_pos: vec3<f32>) -> bool {
-        var clipped: bool = {{ 'false' if clipping_mode == 'ANY' else 'true' }};
+    fn check_clipping_planes(world_pos: vec3<f32>) -> f32 {
+        // var clipped: bool = {{ 'false' if clipping_mode == 'ANY' else 'true' }};
+        $$ if clipping_mode == 'ANY'
+        // float max
+        // https://github.com/gpuweb/gpuweb/issues/3431#issuecomment-1252519246
+        var clip : f32 = 3.40282e+38;
         for (var i=0; i<{{ n_clipping_planes }}; i=i+1) {
             let plane = u_material.clipping_planes[i];
-            let plane_clipped = dot( world_pos, plane.xyz ) < plane.w;
-            clipped = clipped {{ '||' if clipping_mode == 'ANY' else '&&' }} plane_clipped;
+            clip = min(clip, dot(vec4(world_pos, -1.), plane));
         }
-        return !clipped;
+        $$ else
+        var clip : f32 = -3.40282e+38;
+        for (var i=0; i<{{ n_clipping_planes }}; i=i+1) {
+            let plane = u_material.clipping_planes[i];
+            clip = max(clip, dot(vec4(world_pos, -1.), plane));
+        }
+        $$ endif
+        // Use SDF convention
+        // Negative means inside the volume, 0 is on the surface, positive is outside.
+        return -clip;
     }
     fn apply_clipping_planes(world_pos: vec3<f32>) {
-        if (!(check_clipping_planes(world_pos))) { discard; }
+        if (check_clipping_planes(world_pos) > 0) { discard; }
     }
 $$ endif
 

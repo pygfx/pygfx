@@ -41,29 +41,48 @@ def shape_text(text, font_filename, direction=None):
 class TemporalCache:
     """A simple cache that drops old items based on time."""
 
-    def __init__(self, lifetime):
+    def __init__(self, lifetime, *, getter, minimum_items=0):
         self._ref_lifetime = lifetime
+        self._minimum_items = minimum_items
         self._cache = {}
         self._lifetimes = {}
+        self._getter = getter
+        self._last_key = None
+        self._last_val = None
 
-    def get(self, key):
-        """Gets the object corresponding to the given key, or None.
-        A successful get resets the item's lifetime.
+    def __getitem__(self, key):
+        """Gets the object corresponding to the given key.
+
+        Will reset the item's lifetime.
         Getting triggers the lifetimes of all items to be checked.
         """
+        # Make subsequent calls *really* fast
+        if key == self._last_key:
+            self._lifetimes[key] = time.time()
+            return self._last_val
+
+        # Get result
         try:
             res = self._cache[key]
         except KeyError:
-            res = None
-        else:
-            self._lifetimes[key] = time.time()
-        self.check_lifetimes()
+            res = self._getter(key)
+            self._cache[key] = res
+
+        self._last_key = key
+        self._last_val = res
+
+        # Update cache
+        self._lifetimes[key] = time.time()
+        if len(self._cache) > self._minimum_items:
+            self.check_lifetimes()
+
         return res
 
-    def set(self, key, val):
-        """Store an item in the cache."""
-        self._cache[key] = val
-        self._lifetimes[key] = time.time()
+    def __contains__(self, key):
+        return key in self._cache
+
+    def __len__(self):
+        return len(self._cache)
 
     def check_lifetimes(self):
         """Check the lifetimes of all objects."""
@@ -73,8 +92,13 @@ class TemporalCache:
         # it slower already for 100 items, which is way more realistic
         # font count. So let's keep things simple :)
         pretty_old = time.time() - self._ref_lifetime
-        to_remove = {key for key, lt in self._lifetimes.items() if lt < pretty_old}
-        for key in to_remove:
+        old_items = sorted(
+            ((key, lt) for key, lt in self._lifetimes.items() if lt < pretty_old),
+            key=lambda x: x[1],
+        )
+        max_items_to_remove = max(len(self._cache) - self._minimum_items, 0)
+
+        for key, _lt in old_items[:max_items_to_remove]:
             self._lifetimes.pop(key, None)
             self._cache.pop(key, None)
 
@@ -85,8 +109,47 @@ class TemporalCache:
 # a regular dict would probably be fine. But for FT the font can take
 # substantial memory (e.g. a Chinese font can take close to 1MB). This
 # is why we use a temporal cache, that drops unused items after 10s.
-CACHE_HB = TemporalCache(10)
-CACHE_FT = TemporalCache(10)
+
+# However, in many cases, users are probably only using a small
+# subset of fonts so if there are fewer than say 5 fonts,
+# we don't want to continuously evict them.
+# PyGFX uses the vendored Noto fonts (up to 5 ttf files)
+# And the user application may use their own 5 in a basic usecase.
+# So we allow them to load approximately 20 font files without eviction
+
+
+def get_hb_font(font_filename):
+    ref_size = REF_GLYPH_SIZE
+
+    blob = uharfbuzz.Blob.from_file_path(font_filename)
+    face = uharfbuzz.Face(blob)
+    font = uharfbuzz.Font(face)
+    font.scale = ref_size, ref_size
+
+    return blob, face, font
+
+
+CACHE_HB = TemporalCache(
+    lifetime=10,
+    getter=get_hb_font,
+    minimum_items=20,
+)
+
+
+def get_ft_face(font_filename):
+    ref_size = REF_GLYPH_SIZE
+
+    face = freetype.Face(font_filename)
+    face.set_pixel_sizes(ref_size, ref_size)
+
+    return face
+
+
+CACHE_FT = TemporalCache(
+    lifetime=10,
+    getter=get_ft_face,
+    minimum_items=20,
+)
 
 
 def shape_text_hb(text, font_filename, direction=None):
@@ -104,16 +167,8 @@ def shape_text_hb(text, font_filename, direction=None):
         buf.direction = direction
         is_horizontal = direction in ("ltr", "rtl")
 
-    # Load font
-    cached = CACHE_HB.get(font_filename)
-    if cached:
-        blob, face, font = cached
-    else:  # Cache miss
-        blob = uharfbuzz.Blob.from_file_path(font_filename)
-        face = uharfbuzz.Face(blob)
-        font = uharfbuzz.Font(face)
-        font.scale = ref_size, ref_size
-        CACHE_HB.set(font_filename, (blob, face, font))
+    # Load font, maybe from the cache
+    _blob, _face, font = CACHE_HB[font_filename]
 
     # Shape!
     uharfbuzz.shape(font, buf)
@@ -124,8 +179,8 @@ def shape_text_hb(text, font_filename, direction=None):
 
     # Get glyph indices (these can be different from the text's Unicode
     # code points) and convert advances to positions.
-    glyph_indices = np.zeros((n_glyphs,), np.uint32)
-    positions = np.zeros((n_glyphs, 2), np.float32)
+    glyph_indices = np.empty((n_glyphs,), "u4")
+    positions = np.empty((n_glyphs, 2), "f4")
     pen_x = pen_y = 0
     for i in range(n_glyphs):
         glyph_indices[i] = glyph_infos[i].codepoint
@@ -141,7 +196,7 @@ def shape_text_hb(text, font_filename, direction=None):
     font_ext = font.get_font_extents(buf.direction)
 
     meta = {
-        "extent": (pen_x if is_horizontal else pen_y) / ref_size,
+        "extent": abs(pen_x if is_horizontal else pen_y) / ref_size,
         "ascender": font_ext.ascender / ref_size,
         "descender": font_ext.descender / ref_size,
         "direction": buf.direction,
@@ -165,11 +220,7 @@ def shape_text_ft(text, font_filename, direction=None):
     ref_size = REF_GLYPH_SIZE
 
     # Load font face
-    face = CACHE_FT.get(font_filename)
-    if face is None:
-        face = freetype.Face(font_filename)
-        face.set_pixel_sizes(ref_size, ref_size)
-        CACHE_FT.set(font_filename, face)
+    face = CACHE_FT[font_filename]
 
     # With Freetype we simply replace each char for a glyph.
     n_glyphs = len(text)
@@ -182,7 +233,7 @@ def shape_text_ft(text, font_filename, direction=None):
     advances = [(x / 65536 if x > 65536 * 10 else x) for x in advances]
 
     # Convert advances to positions
-    positions = np.zeros((n_glyphs, 2), np.float32)
+    positions = np.empty((n_glyphs, 2), "f4")
     pen_x = 0
     prev = " "
     for i in range(n_glyphs):

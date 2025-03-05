@@ -1,6 +1,10 @@
+from importlib.util import find_spec
+
+import numpy as np
+
 from ._mesh import MeshStandardMaterial, MeshPhongMaterial
-from ..utils.color import Color
 from ..resources import Texture
+from ..utils.color import Color
 
 
 def texture_from_pillow_image(image, dim=2, **kwargs):
@@ -26,7 +30,7 @@ def texture_from_pillow_image(image, dim=2, **kwargs):
 
     """
 
-    from PIL.Image import Image  # noqa
+    from PIL.Image import Image
 
     if not isinstance(image, Image):
         raise NotImplementedError()
@@ -38,7 +42,7 @@ def texture_from_pillow_image(image, dim=2, **kwargs):
     m = memoryview(image.tobytes())
 
     im_channels = len(image.getbands())
-    buffer_shape = image.size + (im_channels,)
+    buffer_shape = (*image.size, im_channels)
 
     m = m.cast(m.format, shape=buffer_shape)
     return Texture(m, dim=dim, **kwargs)
@@ -59,9 +63,9 @@ def material_from_trimesh(x):
         The converted material.
 
     """
-    import trimesh  # noqa
-    from trimesh.visual.material import PBRMaterial, SimpleMaterial  # noqa
-    from trimesh.visual import ColorVisuals  # noqa
+    import trimesh
+    from trimesh.visual.material import PBRMaterial, SimpleMaterial
+    from trimesh.visual import ColorVisuals
 
     # If this is a trimesh object, extract the visual
     if isinstance(x, trimesh.Trimesh):
@@ -107,13 +111,13 @@ def material_from_trimesh(x):
 
         if material.normalTexture is not None:
             gfx_material.normal_map = texture_from_pillow_image(material.normalTexture)
-            # See: https://github.com/KhronosGroup/glTF-Sample-Models/tree/master/2.0/NormalTangentTest#problem-flipped-y-axis-or-flipped-green-channel
+            # See: https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/NormalTangentTest#problem-flipped-y-axis-or-flipped-green-channel
             gfx_material.normal_scale = (1.0, -1.0)
 
         if material.occlusionTexture is not None:
             gfx_material.ao_map = texture_from_pillow_image(material.occlusionTexture)
 
-        gfx_material.side = "FRONT"
+        gfx_material.side = "front"
     elif isinstance(x, SimpleMaterial):
         material = x
         gfx_material = MeshPhongMaterial(color=material.ambient / 255)
@@ -125,16 +129,19 @@ def material_from_trimesh(x):
         if getattr(material, "image", None):
             gfx_material.map = texture_from_pillow_image(material.image)
 
-        gfx_material.side = "FRONT"
+        gfx_material.side = "front"
     elif isinstance(x, ColorVisuals):
         # ColorVisuals are typically used for vertex or face colors but they can be
         # also be undefined in which case it's just a default material
         gfx_material = MeshPhongMaterial(color=x.main_color / 255)
 
-        gfx_material.shininess = x.defaults["material_shine"]
-        gfx_material.specular = Color(*(x.defaults["material_specular"] / 255))
+        default_mat = getattr(trimesh.visual.color, "DEFAULT_MAT", None)
+        if default_mat is None:
+            default_mat = x.defaults  # trimesh < 4.6.3
+        gfx_material.shininess = default_mat["material_shine"]
+        gfx_material.specular = Color(*(default_mat["material_specular"] / 255))
 
-        gfx_material.side = "FRONT"
+        gfx_material.side = "front"
 
         if x.kind == "vertex":
             gfx_material.color_mode = "vertex"
@@ -142,5 +149,91 @@ def material_from_trimesh(x):
             gfx_material.color_mode = "face"
     else:
         raise NotImplementedError(f"Conversion of {type(x)} is not supported.")
+
+    return gfx_material
+
+
+def material_from_open3d(x):
+    """Convert an Open3D MaterialRecord object into a pygfx material.
+
+    Parameters
+    ----------
+    x : open3d.visualization.rendering.MaterialRecord | open3d.geometry.Geometry3D
+        Either the actual Open3D MaterialRecord or an object containing
+        a material (e.g., geometry).
+
+    Returns
+    -------
+    converted : Material
+        The converted pygfx material.
+
+    """
+    if not find_spec("open3d"):
+        raise ImportError(
+            "The `open3d` library is required for this function: pip install open3d"
+        )
+
+    import open3d as o3d
+
+    # Ensure the input is a MaterialRecord
+    if not isinstance(x, o3d.visualization.rendering.MaterialRecord):
+        raise NotImplementedError("Input must be an Open3D MaterialRecord")
+
+    # Determine which pygfx material to create based on shader type
+    if x.shader in ["defaultLit", "litPBR"]:
+        gfx_material = MeshStandardMaterial()
+
+        # Set base metallic and roughness values
+        gfx_material.metalness = getattr(x, "base_metallic", 1.0)
+        gfx_material.roughness = getattr(x, "base_roughness", 1.0)
+
+        # Set albedo color if available
+        if x.base_color is not None:
+            albedo_color = (
+                np.array(x.base_color[:3]) / 255
+            )  # Convert to normalized values
+            gfx_material.color = Color(*albedo_color)
+
+        # Handle textures if available
+        if x.albedo_img is not None:
+            gfx_material.map = Texture(np.ascontiguousarray(x.albedo_img), dim=2)
+
+        if x.normal_img is not None:
+            gfx_material.normal_map = Texture(np.ascontiguousarray(x.normal_img), dim=2)
+            gfx_material.normal_scale = (1.0, -1.0)
+
+        if x.ao_img is not None:
+            gfx_material.ao_map = Texture(np.ascontiguousarray(x.ao_img), dim=2)
+
+        if x.metallic_img is not None:
+            gfx_material.metalness_map = Texture(
+                np.ascontiguousarray(x.metallic_img), dim=2
+            )
+
+        if x.roughness_img is not None:
+            gfx_material.roughness_map = Texture(
+                np.ascontiguousarray(x.roughness_img), dim=2
+            )
+
+        gfx_material.side = "front"
+
+    elif x.shader == "unlit":
+        gfx_material = MeshPhongMaterial()
+        if x.base_color is not None:
+            base_color = (
+                np.array(x.base_color[:3]) / 255
+            )  # Convert to normalized values
+            gfx_material.color = Color(*base_color)
+
+        gfx_material.shininess = getattr(x, "base_reflectance", 0.5)
+        gfx_material.specular = Color(1, 1, 1)  # Default specular color
+
+        if x.albedo_img is not None:
+            gfx_material.map = Texture(np.ascontiguousarray(x.albedo_img), dim=2)
+
+        gfx_material.side = "front"
+
+    else:
+        raise NotImplementedError(f"Shader type {x.shader} is not supported.")
 
     return gfx_material

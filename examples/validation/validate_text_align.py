@@ -1,6 +1,6 @@
 """
-Text justification
-==================
+Text alignment
+==============
 
 Example demonstrating the capabilities of text to be aligned and justified
 according to the user's decision.
@@ -11,7 +11,6 @@ justification of text anchored to the center of the screen.
 
 # sphinx_gallery_pygfx_docs = 'screenshot'
 # sphinx_gallery_pygfx_test = 'compare'
-
 
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
@@ -47,7 +46,7 @@ text_top_right = gfx.Text(
         text=text,
         font_size=font_size,
         screen_space=True,
-        text_align="right",
+        text_align="end",
         anchor="top-right",
     ),
     gfx.TextMaterial(color="#FFA99D", outline_color="#000", outline_thickness=0.15),
@@ -58,7 +57,7 @@ text_bottom_left = gfx.Text(
         text=text,
         font_size=font_size,
         screen_space=True,
-        text_align="left",
+        text_align="start",
         anchor="bottom-left",
     ),
     gfx.TextMaterial(color="#C2FF9D", outline_color="#000", outline_thickness=0.15),

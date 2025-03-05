@@ -1,6 +1,6 @@
-from ..resources import Texture
+from ..resources import Texture, TextureMap
 from ._base import Material
-from ..utils import Color
+from ..utils import Color, assert_type
 
 
 class BackgroundMaterial(Material):
@@ -75,7 +75,7 @@ class BackgroundMaterial(Material):
     @color_bottom_left.setter
     def color_bottom_left(self, color):
         self.uniform_buffer.data["color_bottom_left"] = Color(color)
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
     @property
     def color_bottom_right(self):
@@ -85,7 +85,7 @@ class BackgroundMaterial(Material):
     @color_bottom_right.setter
     def color_bottom_right(self, color):
         self.uniform_buffer.data["color_bottom_right"] = Color(color)
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
     @property
     def color_top_left(self):
@@ -95,7 +95,7 @@ class BackgroundMaterial(Material):
     @color_top_left.setter
     def color_top_left(self, color):
         self.uniform_buffer.data["color_top_left"] = Color(color)
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
     @property
     def color_top_right(self):
@@ -105,7 +105,7 @@ class BackgroundMaterial(Material):
     @color_top_right.setter
     def color_top_right(self, color):
         self.uniform_buffer.data["color_top_right"] = Color(color)
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
 
 class BackgroundImageMaterial(BackgroundMaterial):
@@ -137,7 +137,9 @@ class BackgroundImageMaterial(BackgroundMaterial):
 
     @map.setter
     def map(self, map):
-        assert map is None or isinstance(map, Texture)
+        assert_type("map", map, None, Texture, TextureMap)
+        if isinstance(map, Texture):
+            map = TextureMap(map)
         self._store.map = map
 
 

@@ -1,7 +1,7 @@
 from ._base import Material
-from ..resources import Texture
-from ..utils import unpack_bitfield, Color
-from ..utils.enums import ColorMode, SizeMode, CoordSpace, MarkerShape
+from ..resources import Texture, TextureMap
+from ..utils import unpack_bitfield, Color, assert_type
+from ..utils.enums import EdgeMode, ColorMode, SizeMode, CoordSpace, MarkerShape
 
 
 class PointsMaterial(Material):
@@ -21,10 +21,10 @@ class PointsMaterial(Material):
         The uniform color of the points (used depending on the ``color_mode``).
     color_mode : str | ColorMode
         The mode by which the points are coloured. Default 'auto'.
-    map : Texture
+    edge_mode : str | EdgeMode
+        The mode by which the points are edged. Default 'centered'.
+    map : TextureMap | Texture
         The texture map specifying the color for each texture coordinate.
-    map_interpolation: str
-        The method to interpolate the color map. Either 'nearest' or 'linear'. Default 'linear'.
     aa : bool
         Whether or not the points are anti-aliased in the shader. Default True.
     kwargs : Any
@@ -47,8 +47,8 @@ class PointsMaterial(Material):
         *,
         color=(1, 1, 1, 1),
         color_mode="auto",
+        edge_mode="centered",
         map=None,
-        map_interpolation="linear",
         aa=True,
         **kwargs,
     ):
@@ -59,8 +59,8 @@ class PointsMaterial(Material):
         self.size_mode = size_mode
         self.color = color
         self.color_mode = color_mode
+        self.edge_mode = edge_mode
         self.map = map
-        self.map_interpolation = map_interpolation
         self.aa = aa
 
     def _wgpu_get_pick_info(self, pick_value):
@@ -80,7 +80,7 @@ class PointsMaterial(Material):
     def color(self, color):
         color = Color(color)
         self.uniform_buffer.data["color"] = color
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
         self._store.color_is_transparent = color.a < 1
 
     @property
@@ -113,7 +113,7 @@ class PointsMaterial(Material):
 
     @property
     def color_mode(self):
-        """The way that color is applied to the mesh.
+        """The way that color is applied to the points.
 
         See :obj:`pygfx.utils.enums.ColorMode`:
         """
@@ -124,13 +124,28 @@ class PointsMaterial(Material):
         value = value or "auto"
         if value not in ColorMode:
             raise ValueError(
-                f"PointsMaterial.color_mode must be a string in {ColorMode}, not {repr(value)}"
+                f"PointsMaterial.color_mode must be a string in {ColorMode}, not {value!r}"
             )
         if value in ["face", "face_map"]:
-            raise ValueError(
-                f"PointsMaterial.color_mode does not support {repr(value)}"
-            )
+            raise ValueError(f"PointsMaterial.color_mode does not support {value!r}")
         self._store.color_mode = value
+
+    @property
+    def edge_mode(self):
+        """The way that edges are applied to the mesh.
+
+        See :obj:`pygfx.utils.enums.EdgeMode`:
+        """
+        return self._store.edge_mode
+
+    @edge_mode.setter
+    def edge_mode(self, value):
+        value = value or "centered"
+        if value not in EdgeMode:
+            raise ValueError(
+                f"PointsMaterial.edge_mode must be a string in {EdgeMode}, not {value!r}"
+            )
+        self._store.edge_mode = value
 
     @property
     def vertex_colors(self):
@@ -150,7 +165,7 @@ class PointsMaterial(Material):
     @size.setter
     def size(self, size):
         self.uniform_buffer.data["size"] = size
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
     @property
     def size_space(self):
@@ -165,7 +180,7 @@ class PointsMaterial(Material):
         value = value or "screen"
         if value not in CoordSpace:
             raise ValueError(
-                f"PointsMaterial.size_space must be a string in {CoordSpace}, not {repr(value)}"
+                f"PointsMaterial.size_space must be a string in {CoordSpace}, not {value!r}"
             )
         self._store.size_space = value
 
@@ -182,7 +197,7 @@ class PointsMaterial(Material):
         value = value or "uniform"
         if value not in SizeMode:
             raise ValueError(
-                f"PointsMaterial.size_mode must be a string in {SizeMode}, not {repr(value)}"
+                f"PointsMaterial.size_mode must be a string in {SizeMode}, not {value!r}"
             )
         self._store.size_mode = value
 
@@ -196,18 +211,10 @@ class PointsMaterial(Material):
 
     @map.setter
     def map(self, map):
-        assert map is None or isinstance(map, Texture)
+        assert_type("map", map, None, Texture, TextureMap)
+        if isinstance(map, Texture):
+            map = TextureMap(map)
         self._store.map = map
-
-    @property
-    def map_interpolation(self):
-        """The method to interpolate the colormap. Either 'nearest' or 'linear'."""
-        return self._store.map_interpolation
-
-    @map_interpolation.setter
-    def map_interpolation(self, value):
-        assert value in ("nearest", "linear")
-        self._store.map_interpolation = value
 
     # todo: sizeAttenuation
 
@@ -244,11 +251,22 @@ class PointsMarkerMaterial(PointsMaterial):
         edge_width="f4",
     )
 
-    def __init__(self, *, marker="circle", edge_width=1, edge_color="black", **kwargs):
+    def __init__(
+        self,
+        *,
+        marker="circle",
+        edge_width=1,
+        edge_color="black",
+        custom_sdf=None,
+        edge_color_mode="auto",
+        **kwargs,
+    ):
         super().__init__(**kwargs)
         self.marker = marker
         self.edge_width = edge_width
         self.edge_color = edge_color
+        self.edge_color_mode = edge_color_mode
+        self.custom_sdf = custom_sdf
 
     @property
     def edge_color(self):
@@ -259,7 +277,7 @@ class PointsMarkerMaterial(PointsMaterial):
     def edge_color(self, edge_color):
         edge_color = Color(edge_color)
         self.uniform_buffer.data["edge_color"] = edge_color
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
         self._store.edge_color_is_transparent = edge_color.a < 1
 
     @property
@@ -275,7 +293,7 @@ class PointsMarkerMaterial(PointsMaterial):
     @edge_width.setter
     def edge_width(self, edge_width):
         self.uniform_buffer.data["edge_width"] = float(edge_width)
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
     @property
     def marker(self):
@@ -287,7 +305,8 @@ class PointsMarkerMaterial(PointsMaterial):
         * Matplotlib compatible characters: "osD+x^v<>".
         * Unicode symbols: "●○■♦♥♠♣✳▲▼◀▶".
         * Emojis: "❤️♠️♣️♦️💎💍✳️📍".
-
+        * A string containing the value "custom". In this case, the WGSL
+          code defined by ``custom_sdf`` will be used.
         """
         # TODO: is marker a good name?
         # Note: MPL calls this 'marker', Plotly calls this 'symbol'
@@ -338,9 +357,55 @@ class PointsMarkerMaterial(PointsMaterial):
         resolved_name = alt_names.get(name, name).lower()
         if resolved_name not in MarkerShape:
             raise ValueError(
-                f"PointsMarkerMaterial.marker must be a string in {SizeMode}, or a supported characted, not {repr(name)}"
+                f"PointsMarkerMaterial.marker must be a string in {SizeMode}, or a supported characted, not {name!r}"
             )
         self._store.marker = resolved_name
+
+    @property
+    def edge_color_mode(self):
+        """The way that color is applied to the points.
+
+        Only "uniform", "auto", and "vertex" are supported.
+
+        For `edge_color_mode`, "auto" is an alias for "uniform".
+
+        See :obj:`pygfx.utils.enums.ColorMode`:
+        """
+        return self._store.edge_color_mode
+
+    @edge_color_mode.setter
+    def edge_color_mode(self, value):
+        value = value or "auto"
+        if value not in ColorMode:
+            raise ValueError(
+                f"PointsMaterial.edge_color_mode must be a string in {ColorMode}, not {value!r}"
+            )
+        if value in ["face", "face_map", "vertex_map"]:
+            raise ValueError(
+                f"PointsMaterial.edge_color_mode does not support {value!r}"
+            )
+        self._store.edge_color_mode = value
+
+    @property
+    def custom_sdf(self):
+        """The SDF code for the marker shape when the marker is set to custom.
+
+        Negative values are inside the shape, positive values are outside the
+        shape.
+
+        The SDF's takes in two parameters `coords: vec2<f32>` and `size: f32`.
+        The first is a WGSL coordinate and `size` is the overall size of
+        the texture. The returned value should be the signed distance from
+        any edge of the shape. Distances (positive and negative) that are
+        less than half the `edge_width` in absolute terms will be colored
+        with the `edge_color`. Other negative distances will be colored by
+        `color`.
+        """
+        return self._store.custom_sdf
+
+    @custom_sdf.setter
+    def custom_sdf(self, code):
+        self._store.custom_sdf = code
 
 
 class PointsSpriteMaterial(PointsMaterial):

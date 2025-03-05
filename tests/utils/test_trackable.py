@@ -2,7 +2,9 @@ import gc
 import time
 import weakref
 
-from pygfx.utils.trackable import Trackable, RootTrackable
+from pygfx.utils.trackable import Trackable, PropTracker
+
+# ruff: noqa: B018 - in these tests we access values for their side-effect
 
 
 class Mixin:
@@ -43,26 +45,30 @@ class Mixin:
         self._store.sub3 = value
 
 
-class MyRootTrackable(Mixin, RootTrackable):
+class MyRootTrackable(Mixin, Trackable):
+    def __init__(self):
+        super().__init__()
+        self._tracker = PropTracker()
+
     @property
     def tracker(self):
-        return self._root_tracker
+        return self._tracker
 
     def track_usage(self, label):
-        return self._root_tracker.track_usage(label)
+        return self._tracker.track_usage(label)
 
     def pop_changed(self):
-        return self._root_tracker.pop_changed()
+        return self._tracker.pop_changed()
 
     @property
     def all_known_store_ids(self):
-        return set(s["_trackable_id"] for s in self._root_tracker._stores.keys())
+        return set(s["_trackable_id"] for s in self._tracker._stores.keys())
 
 
 class MyTrackable(Mixin, Trackable):
     @property
-    def known_roots(self):
-        return set(self._store["_trackable_roots"])
+    def known_trackers(self):
+        return set(self._store["_trackable_trackers"])
 
 
 class MyTrackable2(MyTrackable):
@@ -133,89 +139,15 @@ def test_changes_on_sub_sub_sub():
     make_changes_on_sub(root, root.sub2.sub1, t1, t2)
 
 
-def test_list_values():
-    rt = MyRootTrackable()
+def test_changes_on_sub_external_root():
+    # Test basic stuff on a trackable object, with a separate root
 
-    v1 = [1, 2]
-    v2 = [3, 4]
-    v3 = [1, 2]
+    root = MyRootTrackable()
+    parent = MyTrackable()
+    t1 = MyTrackable()
+    t2 = MyTrackable()
 
-    with rt.track_usage("foo"):
-        rt.foo
-    assert rt.pop_changed() == set()
-
-    # Changing the value marks a change
-    rt.foo = v1
-    assert rt.pop_changed() == {"foo"}
-    rt.foo = v2
-    assert rt.pop_changed() == {"foo"}
-
-    # Even if the value is the same - it tracks the object!
-    rt.foo = v1
-    assert rt.pop_changed() == {"foo"}
-    rt.foo = v3
-    assert rt.pop_changed() == {"foo"}
-
-    # This means that ...
-    v3.append(8)
-    assert rt.foo == v3  # changed in-place
-    rt.foo = v3  # so this does not do much
-    assert rt.pop_changed() == set()
-
-    # It can even mean that the second assert below fails, because when
-    # that last list is allocated, it may use the memory previously
-    # occupied by [0, 1], so it has the same id ... This is hard to
-    # test reliably, but it *can* happen.
-    rt.foo = [0, 1]
-    assert rt.pop_changed() == {"foo"}
-    rt.foo = [0, 2]  # on this line, the previous list is freed
-    rt.foo = [0, 3]  # a new list object is allocated
-    # assert rt.pop_changed() == {"foo"}
-
-
-def test_tuple_values():
-    rt = MyRootTrackable()
-
-    offset = 0
-
-    v1 = (1, offset + 2)
-    v2 = (3, offset + 4)
-    v3 = (1, offset + 2)
-
-    assert v1 is not v3
-
-    with rt.track_usage("foo"):
-        rt.foo
-    assert rt.pop_changed() == set()
-
-    # Changing the value marks a change
-    rt.foo = v1
-    assert rt.pop_changed() == {"foo"}
-    rt.foo = v2
-    assert rt.pop_changed() == {"foo"}
-
-    # If the object is different, but the value is the same, it checks the value!
-    rt.foo = v1
-    assert rt.pop_changed() == {"foo"}
-    rt.foo = v3
-    assert rt.pop_changed() == set()
-
-    # This means that everything works as expected
-    v3 += (8,)
-    assert rt.foo != v3
-    rt.foo = v3
-    assert rt.pop_changed() == {"foo"}
-
-    # So does this
-    rt.foo = (0, offset + 1)
-    assert rt.pop_changed() == {"foo"}
-    rt.foo = (0, offset + 2)
-    rt.foo = (0, 0 + 3)
-    assert rt.pop_changed() == {"foo"}
-    rt.foo = (0, offset + 4)
-    rt.foo = (0, offset + 2)
-    rt.foo = (0, offset + 3)
-    assert rt.pop_changed() == set()
+    make_changes_on_sub(root, parent, t1, t2)
 
 
 def make_changes_on_sub(root, parent, t1, t2):
@@ -248,6 +180,10 @@ def make_changes_on_sub(root, parent, t1, t2):
     t1.foo = 43
     t1.foo = 42
     assert not root.pop_changed()
+
+    # None is a valid value
+    t1.foo = None
+    assert root.pop_changed() == {"L1"}
 
     # -- Removing the sub
 
@@ -312,8 +248,93 @@ def make_changes_on_sub(root, parent, t1, t2):
     assert root.pop_changed() == {"L1"}
 
 
+def test_tuple_values():
+    rt = MyRootTrackable()
+
+    offset = 0
+
+    v1 = (1, offset + 2)
+    v2 = (3, offset + 4)
+    v3 = (1, offset + 2)
+
+    assert v1 is not v3
+
+    with rt.track_usage("foo"):
+        rt.foo
+    assert rt.pop_changed() == set()
+
+    # Changing the value marks a change
+    rt.foo = v1
+    assert rt.pop_changed() == {"foo"}
+    rt.foo = v2
+    assert rt.pop_changed() == {"foo"}
+
+    # If the object is different, but the value is the same, it checks the value!
+    rt.foo = v1
+    assert rt.pop_changed() == {"foo"}
+    rt.foo = v3
+    assert rt.pop_changed() == set()
+
+    # This means that everything works as expected
+    v3 += (8,)
+    assert rt.foo != v3
+    rt.foo = v3
+    assert rt.pop_changed() == {"foo"}
+
+    # So does this
+    rt.foo = (0, offset + 1)
+    assert rt.pop_changed() == {"foo"}
+    rt.foo = (0, offset + 2)
+    rt.foo = (0, 0 + 3)
+    assert rt.pop_changed() == {"foo"}
+    rt.foo = (0, offset + 4)
+    rt.foo = (0, offset + 2)
+    rt.foo = (0, offset + 3)
+    assert rt.pop_changed() == set()
+
+
+def test_list_values():
+    rt = MyRootTrackable()
+
+    v1 = [1, 2]
+    v2 = [3, 4]
+    v3 = [1, 2]
+
+    with rt.track_usage("foo"):
+        rt.foo
+    assert rt.pop_changed() == set()
+
+    # Changing the value marks a change
+    rt.foo = v1
+    assert rt.pop_changed() == {"foo"}
+    rt.foo = v2
+    assert rt.pop_changed() == {"foo"}
+
+    # Even if the value is the same - it tracks the object!
+    rt.foo = v1
+    assert rt.pop_changed() == {"foo"}
+    rt.foo = v3
+    assert rt.pop_changed() == {"foo"}
+
+    # This means that ...
+    v3.append(8)
+    assert rt.foo == v3  # changed in-place
+    rt.foo = v3  # so this does not do much
+    assert rt.pop_changed() == set()
+
+    # It can even mean that the second assert below fails, because when
+    # that last list is allocated, it may use the memory previously
+    # occupied by [0, 1], so it has the same id ... This is hard to
+    # test reliably, but it *can* happen.
+    rt.foo = [0, 1]
+    assert rt.pop_changed() == {"foo"}
+    rt.foo = [0, 2]  # on this line, the previous list is freed
+    rt.foo = [0, 3]  # a new list object is allocated
+    # assert rt.pop_changed() == {"foo"}
+
+
 def test_whole_tree_get_removed():
-    # When a branch is removed, check that the rest of that branch stos tracking too.
+    # When a branch is removed, check that the rest of that branch stops tracking too.
 
     root = MyRootTrackable()
     t1 = MyTrackable()
@@ -515,8 +536,38 @@ def test_multiple_labels2():
     assert root.pop_changed() == {"foo", "bar"}
 
 
+def test_track_trackables0():
+    # This represents tracking the resource objects themselves - without "!"
+
+    root = MyRootTrackable()
+    t1 = MyTrackable()
+    t2 = MyTrackable()
+
+    t1.foo = t2.foo = 42
+
+    root.sub1 = t1
+
+    with root.track_usage("format"):
+        root.sub1.foo
+
+    with root.track_usage("resources"):
+        root.sub1
+
+    t1.foo = 43
+    assert root.pop_changed() == {"format"}
+
+    root.sub1 = t2
+    assert root.pop_changed() == {"format"}  # no resources
+
+    t2.foo = 43
+    assert root.pop_changed() == {"format"}
+
+    root.sub1 = t1
+    assert root.pop_changed() == set()  # no resources
+
+
 def test_track_trackables1():
-    # This represents tracking the resource objects themselves
+    # This represents tracking the resource objects themselves - with "!"
 
     root = MyRootTrackable()
     t1 = MyTrackable()
@@ -546,7 +597,7 @@ def test_track_trackables1():
 
 
 def test_track_trackables2():
-    # This represents tracking the resource objects themselves, but deeper
+    # This represents tracking the resource objects themselves - deeper
 
     root = MyRootTrackable()
     tree1 = MyTrackable()
@@ -582,7 +633,7 @@ def test_track_trackables_typing1():
 
     root = MyRootTrackable()
     t1 = MyTrackable()
-    t2 = MyTrackable2()
+    t2 = MyTrackable2()  # different type
 
     t1.foo = t2.foo = 42
 
@@ -605,7 +656,7 @@ def test_track_trackables_typing2():
     tree1 = MyTrackable()
     tree2 = MyTrackable()
     tree1.sub1 = MyTrackable()
-    tree2.sub1 = MyTrackable2()
+    tree2.sub1 = MyTrackable2()  # different type
 
     tree1.sub1.foo = tree2.sub1.foo = 42
 
@@ -707,8 +758,8 @@ def test_cleanup4():
     assert id1 not in root.all_known_store_ids
     assert id2 not in root.all_known_store_ids
 
-    assert root not in ext.known_roots
-    assert root not in ext.sub1.known_roots
+    assert root not in ext.known_trackers
+    assert root not in ext.sub1.known_trackers
 
     # Listen to stuff in ext
 
@@ -719,8 +770,8 @@ def test_cleanup4():
     assert id1 in root.all_known_store_ids
     assert id2 in root.all_known_store_ids
 
-    assert root.tracker in ext.known_roots
-    assert root.tracker in ext.sub1.known_roots
+    assert root.tracker in ext.known_trackers
+    assert root.tracker in ext.sub1.known_trackers
 
     # Now listen to stuff in root's tree
 
@@ -731,8 +782,8 @@ def test_cleanup4():
     assert id1 not in root.all_known_store_ids
     assert id2 not in root.all_known_store_ids
 
-    assert root.tracker not in ext.known_roots
-    assert root.tracker not in ext.sub1.known_roots
+    assert root.tracker not in ext.known_trackers
+    assert root.tracker not in ext.sub1.known_trackers
 
     ext.sub1.foo = 42
     assert not root.pop_changed()
@@ -790,7 +841,7 @@ def profile_runner():
 
     t0 = time.perf_counter()
     # Do a buch of work
-    for ob in range(n_objects):
+    for _ob in range(n_objects):
         for i in range(n_access):
             setattr(root.sub1._store, f"attr_0_{i}", i // 2)
     t1 = time.perf_counter()

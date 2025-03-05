@@ -45,7 +45,7 @@ class Stats(Group):
             quad_geometry,
             MeshBasicMaterial(
                 color=background,
-                side="BOTH",
+                side="both",
                 opacity=0.9,
             ),
         )

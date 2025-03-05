@@ -5,7 +5,7 @@ Sponza Scene
 This example shows how to load the Sponza scene. To run it, you have
 to have access to the sponza demo scene, which you can get using::
 
-    git clone https://github.com/KhronosGroup/glTF-Sample-Models
+    git clone https://github.com/KhronosGroup/glTF-Sample-Assets
 
 The current implementation assumes that you cloned that repo
 in this directory, or *any* of its parent directories.
@@ -21,21 +21,15 @@ from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 
 
-# Note: __file__ is the relative path from cwd when called as "__main__". Hence,
-# we need to resolve() to allow calling from anywhere in the repo.
-# Note: if we want a better way to find that repo, let's use an env var ...
-path = Path(__file__).resolve().parent
-while True:
-    gltf_samples_repo = path / "glTF-Sample-Models"
-    if gltf_samples_repo.is_dir():
+# Find assets directory
+for path in Path(__file__).resolve().parents:
+    gltf_samples_dir = path / "glTF-Sample-Assets"
+    if gltf_samples_dir.is_dir():
         break
-    try:
-        path = path.parents[0]
-    except IndexError:
-        raise RuntimeError("Could not find 'glTF-Sample-Models' directory.")
+else:
+    raise RuntimeError("Could not find 'glTF-Sample-Assets' directory.")
 
-
-gltf_path = gltf_samples_repo / "2.0" / "Sponza" / "glTF" / "Sponza.gltf"
+gltf_path = gltf_samples_dir / "Models" / "Sponza" / "glTF" / "Sponza.gltf"
 
 # Init
 canvas = WgpuCanvas(size=(640, 480), title="gltf viewer")
@@ -67,7 +61,6 @@ sunlight.local.position = -14.5, 31, 4.5
 sunlight.target.local.position = 5.3, -1.4, -2.5
 sunlight.cast_shadow = True
 sunlight.shadow.camera.depth_range = (0, 250)
-sunlight.shadow.camera.update_projection_matrix()
 scene.add(sunlight)
 
 # Add torches
@@ -81,7 +74,6 @@ for pos in [
     torch.local.position = pos
     torch.cast_shadow = True
     torch.shadow.camera.depth_range = (0.01, 200)
-    torch.shadow.camera.update_projection_matrix()
     torch.shadow.cull_mode = "none"
     torch.shadow.bias = 0.001
     # torch.add(gfx.PointLightHelper(size=0.01))

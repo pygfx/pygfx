@@ -5,6 +5,8 @@ Fly controller
 Fly through a cloud of cololoured points. This example demonstrates the fly
 controller, as well as the GaussianBlob point material, with size_space set to
 'world'.
+
+Tip: try using different blend modes.
 """
 
 # sphinx_gallery_pygfx_docs = 'screenshot'
@@ -16,9 +18,24 @@ import numpy as np
 
 
 canvas = WgpuCanvas()
-renderer = gfx.renderers.WgpuRenderer(canvas)
+renderer = gfx.renderers.WgpuRenderer(canvas, blend_mode="weighted")
 scene = gfx.Scene()
 scene.add(gfx.Background.from_color("#000"))
+
+grid = gfx.Grid(
+    None,
+    gfx.GridMaterial(
+        major_step=100,
+        minor_step=10,
+        thickness_space="world",
+        major_thickness=2,
+        minor_thickness=0.1,
+        infinite=True,
+    ),
+    orientation="xz",
+)
+grid.local.y = -120
+scene.add(grid)
 
 # Create a bunch of points
 n = 1000

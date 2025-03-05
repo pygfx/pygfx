@@ -6,9 +6,12 @@ manages the rendering process.
 import time
 import weakref
 
+from warnings import warn
 import numpy as np
 import wgpu
 import pylinalg as la
+from rendercanvas import BaseRenderCanvas
+from wgpu.gui import WgpuCanvasBase
 
 from ....objects._base import id_provider
 from ....objects import (
@@ -19,21 +22,30 @@ from ....objects import (
     WindowEvent,
     WorldObject,
 )
+from ....objects._lights import (
+    Light,
+    PointLight,
+    DirectionalLight,
+    SpotLight,
+    AmbientLight,
+)
 from ....cameras import Camera
 from ....resources import Texture
 from ....resources._base import resource_update_registry
 from ....utils import Color
 
 from ... import Renderer
-from . import blender as blender_module
 from .flusher import RenderFlusher
 from .pipeline import get_pipeline_container_group
 from .update import update_resource, ensure_wgpu_object
 from .shared import get_shared
-from .environment import get_environment
+from .renderstate import get_renderstate
 from .shadowutil import render_shadow_maps
 from .mipmapsutil import generate_texture_mipmaps
 from .utils import GfxTextureView
+
+
+AnyBaseCanvas = BaseRenderCanvas, WgpuCanvasBase
 
 
 def _get_sort_function(camera: Camera):
@@ -53,6 +65,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
     transparency is handled during the rendering process. The following modes exist:
 
         * "default" or None: Select the default: currently this is "ordered2".
+        * "additive": single-pass approach that adds fragments together.
         * "opaque": single-pass approach that ignores transparency.
         * "ordered1": single-pass approach that blends fragments (using alpha
           blending). Can only produce correct results if fragments are drawn
@@ -77,15 +90,9 @@ class WgpuRenderer(RootEventHandler, Renderer):
         The target to render to. It is also used to determine the size of the
         render buffer.
     pixel_ratio : float, optional
-        The ratio between the number of pixels in the render buffer versus the
-        number of pixels in the display buffer. If None, this will be 1 for
-        high-res canvases and 2 otherwise. If greater than 1, SSAA
-        (supersampling anti-aliasing) is applied while converting a render
-        buffer to a display buffer. If smaller than 1, pixels from the render
-        buffer are replicated while converting to a display buffer. This has
-        positive performance implications.
+        The ratio between the number of internal pixels versus the logical pixels on the canvas.
     pixel_filter : float, optional
-        The strength of the filter when copying the result to the target/canvas.
+        The relative strength of the filter when copying the result to the target/canvas.
     show_fps : bool
         Whether to display the frames per second. Beware that
         depending on the GUI toolkit, the canvas may impose a frame rate limit.
@@ -110,6 +117,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
     """
 
+    _blenders_available = {}
     _wobject_pipelines_collection = weakref.WeakValueDictionary()
 
     def __init__(
@@ -128,7 +136,11 @@ class WgpuRenderer(RootEventHandler, Renderer):
         super().__init__(*args, **kwargs)
 
         # Check and normalize inputs
-        if not isinstance(target, (Texture, GfxTextureView, wgpu.gui.WgpuCanvasBase)):
+        # if isinstance(target, WgpuCanvasBase):
+        #     raise RuntimeError("wgpu.gui.x.WgpuCanvas has been replaced with rendercanvas.x.RenderCanvas")
+        if not isinstance(
+            target, (Texture, GfxTextureView, WgpuCanvasBase, BaseRenderCanvas)
+        ):
             raise TypeError(
                 f"Render target must be a Canvas or Texture, not a {target.__class__.__name__}"
             )
@@ -143,11 +155,14 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # Init counter to auto-clear
         self._renders_since_last_flush = 0
 
+        # Cache renderstate objects for n draws
+        self._renderstates_per_flush = []
+
         # Get target format
         self.gamma_correction = gamma_correction
         self._gamma_correction_srgb = 1.0
-        if isinstance(target, wgpu.gui.WgpuCanvasBase):
-            self._canvas_context = self._target.get_context()
+        if isinstance(target, AnyBaseCanvas):
+            self._canvas_context = self._target.get_context("wgpu")
             # Select output format. We currently don't have a way of knowing
             # what formats are available, so if not srgb, we gamma-correct in shader.
             target_format = self._canvas_context.get_preferred_format(
@@ -216,7 +231,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         """
         if self._pixel_ratio is not None:
             return self._pixel_ratio
-        elif isinstance(self._target, wgpu.gui.WgpuCanvasBase):
+        elif isinstance(self._target, AnyBaseCanvas):
             target_pixel_ratio = self._target.get_pixel_ratio()
             if target_pixel_ratio > 1.0:
                 return target_pixel_ratio
@@ -238,17 +253,18 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
     @property
     def pixel_filter(self):
-        """The strength of the filter applied to the final pixels.
+        """The relative strength of the filter applied to the final pixels.
 
         The renderer renders everything to an internal texture, which,
-        depending on the `pixel_ratio`, may have a differens size than
+        depending on the ``pixel_ratio``, may have a different physical size than
         the target (i.e. canvas). In the process of rendering the result
         to the target, a filter is applied, resulting in SSAA if the
-        size was larger, and a smoothing effect otherwise.
+        target size is smaller. The filter is a Gaussian kernel with sigma equal to
+        half the pixel ratio.
 
-        When the `pixel_filter` is 1.0, the default optimal filter is
-        used. Higher values result in more blur. Can be set to 0 to
-        disable the filter.
+        The value of ``pixel_filter`` multiplies the filter sigma (i.e. filter strength).
+        So using 1.0 uses the default, higher values result in more blur, and 0
+        disables the filter.
         """
         return self._pixel_filter
 
@@ -261,13 +277,13 @@ class WgpuRenderer(RootEventHandler, Renderer):
     @property
     def rect(self):
         """The rectangular viewport for the renderer area."""
-        return (0, 0) + self.logical_size
+        return (0, 0, *self.logical_size)
 
     @property
     def logical_size(self):
         """The size of the render target in logical pixels."""
         target = self._target
-        if isinstance(target, wgpu.gui.WgpuCanvasBase):
+        if isinstance(target, AnyBaseCanvas):
             return target.get_logical_size()
         elif isinstance(target, Texture):
             return target.size[:2]  # assuming pixel-ratio 1
@@ -283,10 +299,13 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
     @property
     def blend_mode(self):
-        """The method for handling transparency:
+        """The method for blending fragments bases on their alpha values:
 
         * "default" or None: Select the default: currently this is "ordered2".
+        * "additive": single-pass approach that adds fragments together.
         * "opaque": single-pass approach that consider every fragment opaque.
+        * "dither": single-pass approach that uses dithering to handle transparency.
+          Also known as stochastic transparency. All visible fragments are opaque.
         * "ordered1": single-pass approach that blends fragments (using alpha blending).
           Can only produce correct results if fragments are drawn from back to front.
         * "ordered2": two-pass approach that first processes all opaque fragments and then
@@ -303,34 +322,55 @@ class WgpuRenderer(RootEventHandler, Renderer):
         """
         return self._blend_mode
 
+    @staticmethod
+    def _register_blend_mode(blender_class=None):
+        """Register a new blender for usage with rendering pipelines.
+
+        Note that Blender classes are highly experimental and their inteface
+        is expected to change rapidly from pygfx version 0.7.0 to
+        version 1.0.0.
+        The permenant existance of this function is not guaranteed.
+
+        Use carefully (i.e. at your own risk) as you help us
+        test and validate PyGFX's more advanced features.
+        """
+
+        name = blender_class.name
+        if name in WgpuRenderer._blenders_available:
+            warn(
+                f"Blend mode '{name}' is already registered. "
+                f"Overwritting {name} with {blender_class}.",
+                stacklevel=2,
+            )
+        WgpuRenderer._blenders_available[name] = blender_class
+        return blender_class
+
     @blend_mode.setter
     def blend_mode(self, value):
+        # Without importing our standard blender module, the
+        # blenders will not be registered and available.
+        # since they import the renderer module
+        # we cannot have this import at the top level otherwise it
+        # creates a circular import
+        # https://github.com/pygfx/pygfx/pull/966
+        from . import blender as _blender_module  # noqa F401
+
         # Massage and check the input
         if value is None:
             value = "default"
         value = value.lower()
         if value == "default":
             value = "ordered2"
-        # Map string input to a class
-        m = {
-            "opaque": blender_module.OpaqueFragmentBlender,
-            "ordered1": blender_module.Ordered1FragmentBlender,
-            "ordered2": blender_module.Ordered2FragmentBlender,
-            "weighted": blender_module.WeightedFragmentBlender,
-            "weighted_depth": blender_module.WeightedDepthFragmentBlender,
-            "weighted_plus": blender_module.WeightedPlusFragmentBlender,
-        }
-        if value not in m:
-            raise ValueError(
-                f"Unknown blend_mode '{value}', use any of {set(m.keys())}"
-            )
+
+        blender = self._blenders_available.get(value)
+        if blender is None:
+            available = list(self._blenders_available.keys())
+            raise ValueError(f"Unknown blend_mode '{value}', use any of {available}.")
         # Set blender object
         self._blend_mode = value
-        self._blender = m[value]()
-        # If the blend mode has changed, we may need a new _wobject_pipelines
-        self._set_wobject_pipelines()
+        self._blender = blender()
         # If our target is a canvas, request a new draw
-        if isinstance(self._target, wgpu.gui.WgpuCanvasBase):
+        if isinstance(self._target, AnyBaseCanvas):
             self._target.request_draw()
 
     @property
@@ -357,37 +397,66 @@ class WgpuRenderer(RootEventHandler, Renderer):
     @gamma_correction.setter
     def gamma_correction(self, value):
         self._gamma_correction = 1.0 if value is None else float(value)
-        if isinstance(self._target, wgpu.gui.WgpuCanvasBase):
+        if isinstance(self._target, AnyBaseCanvas):
             self._target.request_draw()
 
-    def _set_wobject_pipelines(self):
-        # Each WorldObject has associated with it a wobject_pipeline:
-        # a dict that contains the wgpu pipeline objects. This
-        # wobject_pipeline is also associated with the blend_mode,
-        # because the blend mode affects the pipelines.
-        #
-        # Each renderer has ._wobject_pipelines, a dict that maps
-        # wobject -> wobject_pipeline. This dict is a WeakKeyDictionary -
-        # when the wobject is destroyed, the associated pipeline is
-        # collected as well.
-        #
-        # Renderers with the same blend mode can safely share these
-        # wobject_pipeline dicts. Therefore, we make use of a global
-        # collection. Since this global collection is a
-        # WeakValueDictionary, if all renderers stop using a certain
-        # blend mode, the associated pipelines are removed as well.
-        #
-        # In a diagram:
-        #
-        # _wobject_pipelines_collection -> _wobject_pipelines -> wobject_pipeline
-        #        global                         renderer              wobject
-        #   WeakValueDictionary              WeakKeyDictionary         dict
+    def _get_flat_scene(self, scene, camera):
+        """Traverse the scene graph to get a flat representation of the scene,
+        and during this traversal, do syncs and updates and collect various information.
 
-        # Below we set this renderer's _wobject_pipelines. Note that if the
-        # blending has changed, we automatically invalidate all "our" pipelines.
-        self._wobject_pipelines = WgpuRenderer._wobject_pipelines_collection.setdefault(
-            self.blend_mode, weakref.WeakKeyDictionary()
-        )
+        The idea is to do this as much as possible in a single traversal to reduce the overhead
+        of iterating over a large number of objects.
+        """
+
+        class Flat:
+            def __init__(self):
+                self.wobjects = []
+                self.lights = {
+                    "point_lights": [],
+                    "directional_lights": [],
+                    "spot_lights": [],
+                    "ambient_color": [0, 0, 0],
+                }
+
+        flat = Flat()
+
+        def visit_wobject(ob):
+            # Add to semi-flat data structure
+            wobject_dict.setdefault(ob.render_order, []).append(ob)
+
+            # Update things like transform and uniform buffers
+            ob._update_object()
+
+            if isinstance(ob, Light):
+                if isinstance(ob, PointLight):
+                    flat.lights["point_lights"].append(ob)
+                elif isinstance(ob, DirectionalLight):
+                    flat.lights["directional_lights"].append(ob)
+                elif isinstance(ob, SpotLight):
+                    flat.lights["spot_lights"].append(ob)
+                elif isinstance(ob, AmbientLight):
+                    r, g, b = ob.color.to_physical()
+                    ambient_color = flat.lights["ambient_color"]
+                    ambient_color[0] += r * ob.intensity
+                    ambient_color[1] += g * ob.intensity
+                    ambient_color[2] += b * ob.intensity
+
+        # Flatten the scenegraph, categorised by render_order
+        wobject_dict = {}
+        scene.traverse(visit_wobject, True)
+
+        # Produce a sorted list of world objects
+        if self._sort_objects:
+            depth_sort_func = _get_sort_function(camera)
+            for render_order in sorted(wobject_dict.keys()):
+                wobjects = wobject_dict[render_order]
+                wobjects.sort(key=depth_sort_func)
+                flat.wobjects.extend(wobjects)
+        else:
+            for render_order in sorted(wobject_dict.keys()):
+                flat.wobjects.extend(wobject_dict[render_order])
+
+        return flat
 
     def render(
         self,
@@ -413,6 +482,11 @@ class WgpuRenderer(RootEventHandler, Renderer):
             flush (bool, optional): Whether to flush the rendered result into
                 the target (texture or canvas). Default True.
         """
+
+        # Manage stored renderstate objects. Each renderstate object used will be stored at least a few draws.
+        if self._renders_since_last_flush == 0:
+            self._renderstates_per_flush.insert(0, [])
+            self._renderstates_per_flush[16:] = []
 
         # Define whether to clear color.
         if clear_color is None:
@@ -446,12 +520,21 @@ class WgpuRenderer(RootEventHandler, Renderer):
         elif len(rect) == 4:
             scene_lsize = rect[2], rect[3]
             physical_viewport = [int(i * pixel_ratio + 0.4999) for i in rect]
-            physical_viewport = tuple(physical_viewport) + (0, 1)
+            physical_viewport = (*physical_viewport, 0, 1)
             scene_psize = physical_viewport[2], physical_viewport[3]
         else:
             raise ValueError(
                 "The viewport rect must be None or 4 elements (x, y, w, h)."
             )
+
+        # Apply the camera's native size (do this before we change scene_lsize based on view_offset)
+        camera.set_view_size(*scene_lsize)
+
+        # Camera view_offset overrides logical size
+        ndc_offset = (1.0, 1.0, 0.0, 0.0)  # (ax ay bx by)  virtual_ndc = a * ndc + b
+        if camera._view_offset is not None:
+            scene_lsize = camera._view_offset["width"], camera._view_offset["height"]
+            ndc_offset = camera._view_offset["ndc_offset"]
 
         # Allow objects to prepare just in time. When doing multiple
         # render calls, we don't want to spam. The clear_color flag is
@@ -467,44 +550,26 @@ class WgpuRenderer(RootEventHandler, Renderer):
             )
             self.dispatch_event(ev)
 
-        # Ensure that matrices are up-to-date
-        camera.set_view_size(*scene_lsize)
-        camera.update_projection_matrix()
+        flat = self._get_flat_scene(scene, camera)
 
         # Prepare the shared object
         self._shared.pre_render_hook()
 
         # Update stdinfo uniform buffer object that we'll use during this render call
-        self._update_stdinfo_buffer(camera, scene_psize, scene_lsize)
+        self._update_stdinfo_buffer(camera, scene_psize, scene_lsize, ndc_offset)
 
-        # Get environment
-        environment = get_environment(self, scene)
-
-        # Flatten the scenegraph, categorised by render_order
-        wobject_dict = {}
-        scene.traverse(
-            lambda ob: wobject_dict.setdefault(ob.render_order, []).append(ob), True
-        )
-
-        # Produce a sorted list of world objects
-        wobject_list = []
-        if self._sort_objects:
-            depth_sort_func = _get_sort_function(camera)
-            for render_order in sorted(wobject_dict.keys()):
-                wobjects = wobject_dict[render_order]
-                wobjects.sort(key=depth_sort_func)
-                wobject_list.extend(wobjects)
-        else:
-            for render_order in sorted(wobject_dict.keys()):
-                wobject_list.extend(wobject_dict[render_order])
+        # Get renderstate object
+        renderstate = get_renderstate(flat.lights, self._blender)
+        self._renderstates_per_flush[0].append(renderstate)
 
         # Collect all pipeline container objects
+        # todo: can we get this into _get_flat_scene?
         compute_pipeline_containers = []
         render_pipeline_containers = []
-        for wobject in wobject_list:
+        for wobject in flat.wobjects:
             if not wobject.material:
                 continue
-            container_group = get_pipeline_container_group(wobject, environment)
+            container_group = get_pipeline_container_group(wobject, renderstate)
             compute_pipeline_containers.extend(container_group.compute_containers)
             render_pipeline_containers.extend(container_group.render_containers)
             # Enable pipelines to update data on the CPU. This usually includes
@@ -525,8 +590,8 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # Record the rendering of all world objects, or re-use previous recording
         command_buffers = []
         command_buffers += self._render_recording(
-            environment,
-            wobject_list,
+            renderstate,
+            flat.wobjects,
             compute_pipeline_containers,
             render_pipeline_containers,
             physical_viewport,
@@ -546,10 +611,10 @@ class WgpuRenderer(RootEventHandler, Renderer):
         """
 
         # Print FPS
-        now = time.perf_counter()  # noqa
+        now = time.perf_counter()
         if self._show_fps:
             if self._fps["count"] == 0:
-                print(f"Time to first draw: {now-self._fps['start']:0.2f}")
+                print(f"Time to first draw: {now - self._fps['start']:0.2f}")
                 self._fps["start"] = now
                 self._fps["count"] = 1
             elif now > self._fps["start"] + 1:
@@ -565,7 +630,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
             target = self._target
 
         # Get the wgpu texture view.
-        if isinstance(target, wgpu.gui.WgpuCanvasBase):
+        if isinstance(target, AnyBaseCanvas):
             wgpu_tex_view = self._canvas_context.get_current_texture().create_view()
         elif isinstance(target, Texture):
             need_mipmaps = target.generate_mipmaps
@@ -596,7 +661,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
     def _render_recording(
         self,
-        environment,
+        renderstate,
         wobject_list,
         compute_pipeline_containers,
         render_pipeline_containers,
@@ -621,7 +686,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         compute_pass = command_encoder.begin_compute_pass()
 
         for compute_pipeline_container in compute_pipeline_containers:
-            compute_pipeline_container.dispatch(compute_pass, environment)
+            compute_pipeline_container.dispatch(compute_pass)
 
         compute_pass.end()
 
@@ -629,9 +694,9 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
         # -- process shadow maps
         lights = (
-            environment.lights["point_lights"]
-            + environment.lights["spot_lights"]
-            + environment.lights["directional_lights"]
+            renderstate.lights["point_lights"]
+            + renderstate.lights["spot_lights"]
+            + renderstate.lights["directional_lights"]
         )
         render_shadow_maps(lights, wobject_list, command_encoder)
 
@@ -651,25 +716,28 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
             for render_pipeline_container in render_pipeline_containers:
                 render_pipeline_container.draw(
-                    render_pass, environment, pass_index, render_mask
+                    render_pass, renderstate, pass_index, render_mask
                 )
 
             render_pass.end()
 
         return [command_encoder.finish()]
 
-    def _update_stdinfo_buffer(self, camera: Camera, physical_size, logical_size):
+    def _update_stdinfo_buffer(
+        self, camera: Camera, physical_size, logical_size, ndc_offset
+    ):
         # Update the stdinfo buffer's data
         stdinfo_data = self._shared.uniform_buffer.data
         stdinfo_data["cam_transform"] = camera.world.inverse_matrix.T
         stdinfo_data["cam_transform_inv"] = camera.world.matrix.T
         stdinfo_data["projection_transform"] = camera.projection_matrix.T
         stdinfo_data["projection_transform_inv"] = camera.projection_matrix_inverse.T
-        # stdinfo_data["ndc_to_world"].flat = np.linalg.inv(stdinfo_data["cam_transform"] @ stdinfo_data["projection_transform"])
+        # stdinfo_data["ndc_to_world"].flat = la.mat_inverse(stdinfo_data["cam_transform"] @ stdinfo_data["projection_transform"])
+        stdinfo_data["ndc_offset"] = ndc_offset
         stdinfo_data["physical_size"] = physical_size
         stdinfo_data["logical_size"] = logical_size
         # Upload to GPU
-        self._shared.uniform_buffer.update_range(0, 1)
+        self._shared.uniform_buffer.update_full()
 
     # Picking
 
@@ -706,13 +774,13 @@ class WgpuRenderer(RootEventHandler, Renderer):
         self._device.queue.submit([encoder.finish()])
 
         # Collect data from the buffer
-        self._pixel_info_buffer.map("read")
+        self._pixel_info_buffer.map_sync("read")
         try:
             data = self._pixel_info_buffer.read_mapped()
         finally:
             self._pixel_info_buffer.unmap()
         color = Color(x / 255 for x in tuple(data[0:4].cast("B")))
-        pick_value = tuple(data[8:16].cast("Q"))[0]
+        pick_value = tuple(data[8:16].cast("Q"))[0]  # noqa: RUF015
         wobject_id = pick_value & 1048575  # 2**20-1
         wobject = id_provider.get_object_from_id(wobject_id)
         # Note: the position in world coordinates is not included because

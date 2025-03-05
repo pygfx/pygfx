@@ -52,7 +52,7 @@ class Light(WorldObject):
 
     """
 
-    # Note that for lights and shadows, the uniform data is stored on the environment.
+    # Note that for lights and shadows, the uniform data is stored on the renderstate.
     # We can use the uniform_buffer as usual though. We'll just copy it over.
 
     _FORWARD_IS_MINUS_Z = True
@@ -92,7 +92,7 @@ class Light(WorldObject):
     @color.setter
     def color(self, color):
         self.uniform_buffer.data["color"] = Color(color)
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
     @property
     def intensity(self):
@@ -113,7 +113,7 @@ class Light(WorldObject):
     @intensity.setter
     def intensity(self, value):
         self.uniform_buffer.data["intensity"] = float(value)
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
     @property
     def cast_shadow(self):
@@ -226,7 +226,7 @@ class PointLight(Light):
     @distance.setter
     def distance(self, value):
         self.uniform_buffer.data["distance"] = value
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
     @property
     def decay(self):
@@ -239,7 +239,7 @@ class PointLight(Light):
     @decay.setter
     def decay(self, value):
         self.uniform_buffer.data["decay"] = value
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
 
 class DirectionalLight(Light):
@@ -434,7 +434,7 @@ class SpotLight(Light):
     @distance.setter
     def distance(self, value):
         self.uniform_buffer.data["distance"] = value
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
     @property
     def angle(self):
@@ -450,7 +450,7 @@ class SpotLight(Light):
         self.uniform_buffer.data["cone_cos"] = cone_cos
         penumbra_cos = math.cos(self.angle * (1 - self.penumbra))
         self.uniform_buffer.data["penumbra_cos"] = penumbra_cos
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
     @property
     def penumbra(self):
@@ -464,7 +464,7 @@ class SpotLight(Light):
         self._penumbra = value
         penumbra_cos = math.cos(self.angle * (1 - self.penumbra))
         self.uniform_buffer.data["penumbra_cos"] = penumbra_cos
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
     @property
     def decay(self):
@@ -477,7 +477,7 @@ class SpotLight(Light):
     @decay.setter
     def decay(self, value):
         self.uniform_buffer.data["decay"] = value
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
 
 # shadows
@@ -514,8 +514,10 @@ class LightShadow:
 
         # TODO: move bias and cull_mode to Light so they can be reactive?
         self.bias = 0
-        self.cull_mode = "FRONT"
-        self._gfx_matrix_buffer = Buffer(array_from_shadertype(shadow_uniform_type))
+        self.cull_mode = "front"
+        self._gfx_matrix_buffer = Buffer(
+            array_from_shadertype(shadow_uniform_type), force_contiguous=True
+        )
 
     @property
     def camera(self):
@@ -542,8 +544,8 @@ class LightShadow:
 
     @cull_mode.setter
     def cull_mode(self, value):
-        value = str(value).upper()
-        if value in ("FRONT", "BACK", "NONE"):
+        value = str(value).lower()
+        if value in ("front", "back", "none"):
             self._cull_mode = value
         else:
             raise ValueError(f"invalid cull_mode: '{value}'")
@@ -551,7 +553,7 @@ class LightShadow:
     def _gfx_update_uniform_buffer(self, light: Light):
         light.uniform_buffer.data["shadow_bias"] = self._bias
         self._update_matrix(light)
-        light.uniform_buffer.update_range(0, 1)
+        light.uniform_buffer.update_full()
 
     def _update_matrix(self, light: Light) -> None:
         shadow_camera = self.camera
@@ -562,11 +564,10 @@ class LightShadow:
         self._gfx_matrix_buffer.data["light_view_proj_matrix"] = (
             shadow_camera.camera_matrix.T
         )
-        self._gfx_matrix_buffer.update_range(0, 1)
+        self._gfx_matrix_buffer.update_full()
 
-        light.uniform_buffer.data["light_view_proj_matrix"] = (
-            shadow_camera.camera_matrix.T
-        )
+        m = shadow_camera.camera_matrix.T
+        light.uniform_buffer.data["light_view_proj_matrix"] = m
 
 
 class DirectionalLightShadow(LightShadow):
@@ -577,8 +578,6 @@ class DirectionalLightShadow(LightShadow):
         super().__init__(OrthographicCamera(1000, 1000, depth_range=(-500, 500)))
 
     def _update_matrix(self, light):
-        camera = self.camera
-        camera.update_projection_matrix()
         super()._update_matrix(light)
 
 
@@ -601,7 +600,6 @@ class SpotLightShadow(LightShadow):
             camera.fov = fov
             camera.aspect = aspect
             camera.depth_range = far / 1000000, far
-            camera.update_projection_matrix()
 
         super()._update_matrix(light)
 
@@ -627,7 +625,9 @@ class PointLightShadow(LightShadow):
         self._gfx_matrix_buffer = []
 
         for _ in range(6):
-            buffer = Buffer(array_from_shadertype(shadow_uniform_type))
+            buffer = Buffer(
+                array_from_shadertype(shadow_uniform_type), force_contiguous=True
+            )
             self._gfx_matrix_buffer.append(buffer)
 
     def _update_matrix(self, light: Light) -> None:
@@ -639,18 +639,14 @@ class PointLightShadow(LightShadow):
 
         if far != camera.far:
             camera.depth_range = far / 1000000, far
-            camera.update_projection_matrix()
 
         for i in range(6):
             # Note: the direction may align with `up`, but we have logic in
             # `look_at` to catch and handle this special case.
             camera.look_at(directions[i])
 
-            light.uniform_buffer.data["light_view_proj_matrix"][
-                i
-            ] = camera.camera_matrix.T
-            self._gfx_matrix_buffer[i].data[
-                "light_view_proj_matrix"
-            ] = camera.camera_matrix.T
-            self._gfx_matrix_buffer[i].update_range(0, 1)
-        light.uniform_buffer.update_range(0, 1)
+            m = camera.camera_matrix.T
+            light.uniform_buffer.data["light_view_proj_matrix"][i] = m
+            self._gfx_matrix_buffer[i].data["light_view_proj_matrix"] = m
+            self._gfx_matrix_buffer[i].update_full()
+        light.uniform_buffer.update_full()

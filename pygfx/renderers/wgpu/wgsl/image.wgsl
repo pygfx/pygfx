@@ -42,7 +42,7 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     let color = sampled_value_to_color(value);
 
     // Move to physical colorspace (linear photon count) so we can do math
-    $$ if colorspace == 'srgb'
+    $$ if colorspace == 'srgb' or colorspace.startswith('yuv')
         let physical_color = srgb2physical(color.rgb);
     $$ else
         let physical_color = color.rgb;
@@ -52,7 +52,7 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
 
     // Wrap up
     apply_clipping_planes(varyings.world_pos);
-    var out = get_fragment_output(varyings.position.z, out_color);
+    var out = get_fragment_output(varyings.position, out_color);
 
     $$ if write_pick
     // The wobject-id must be 20 bits. In total it must not exceed 64 bits.

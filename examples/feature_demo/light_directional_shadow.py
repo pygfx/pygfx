@@ -41,7 +41,6 @@ light.cast_shadow = True
 
 light.shadow.camera.width = 100
 light.shadow.camera.height = 100
-light.shadow.camera.update_projection_matrix()
 
 scene.add(light.add(gfx.DirectionalLightHelper(30, show_shadow_extent=True)))
 

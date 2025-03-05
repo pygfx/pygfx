@@ -36,7 +36,7 @@ def register_wgpu_render_function(wobject_cls, material_cls):
 
 
 def nchannels_from_format(format):
-    """Return the number of channels from a buffer format.
+    """Return the number of channels from a vertex-buffer format.
 
     Channels as in elements per item. I.e. will be 1 and 4 for a grayscale and
     rgba color buffer, respectively.
@@ -44,11 +44,9 @@ def nchannels_from_format(format):
     return int(to_vertex_format(format).partition("x")[2] or "1")
 
 
-def to_vertex_format(format):
-    """Convert pygfx' own format to the wgpu format."""
-    if format in wgpu.VertexFormat:
-        return format
-    elif format in wgpu.IndexFormat:
+def to_index_format(format):
+    """Convert any pygfx-allowed buffer format to the wgpu.IndexFormat."""
+    if format in wgpu.IndexFormat:
         return format
 
     # Get primitive type
@@ -64,20 +62,51 @@ def to_vertex_format(format):
     }
     primitive = primitives[format[-2:]]
 
+    # Ignore dimensions; consider flattened array (indices is commonly Nx3).
+    # Also ignore the sign, providing a signed array is fine as long as it does not contain negative numbers.
+    fmt = primitive.replace("s", "u")
+
+    if fmt in wgpu.IndexFormat:
+        return fmt
+    else:
+        raise ValueError(f"Unexpected index format '{format}'")
+
+
+def to_vertex_format(format):
+    """Convert any pygfx-allowed buffer format to the wgpu.VertexFormat."""
+    if format in wgpu.VertexFormat:
+        return format
+
+    # Get primitive type
+    primitives = {
+        "i1": "sint8",
+        "u1": "uint8",
+        "i2": "sint16",
+        "u2": "uint16",
+        "i4": "sint32",
+        "u4": "uint32",
+        "f2": "float16",
+        "f4": "float32",
+    }
+    primitive = primitives[format[-2:]]
+
+    fmt = ""
     if len(format) == 2:
-        return primitive
+        fmt = primitive
     elif len(format) == 4 and format[1] == "x":  # e.g. 3xf4
         if format[0] == "1":
-            return primitive
+            fmt = primitive
         elif format[0] in "234":
-            return primitive + "x" + str(format[0])
-        raise ValueError(f"Unexpected tuple size in index/vertex format '{format}'")
+            fmt = primitive + "x" + str(format[0])
+
+    if fmt in wgpu.VertexFormat:
+        return fmt
     else:
-        raise ValueError(f"Unexpected length of index/vertex format '{format}'")
+        raise ValueError(f"Unexpected vertex format '{format}'")
 
 
 def to_texture_format(format):
-    """Convert pygfx' own format to the wgpu format."""
+    """Convert any pygfx-allowed texture format to the wgpu.TextureFormat."""
     if format in wgpu.TextureFormat:
         return format
 
@@ -95,43 +124,29 @@ def to_texture_format(format):
     }
     primitive = primitives[format[-2:]]
 
+    fmt = ""
     if len(format) == 2:
-        return "r" + primitive
+        fmt = "r" + primitive
     elif len(format) == 4 and format[1] == "x":  # e.g. 3xf4
         if format[0] == "1":
-            return "r" + primitive
+            fmt = "r" + primitive
         elif format[0] == "2":
-            return "rg" + primitive
+            fmt = "rg" + primitive
         elif format[0] == "3":
-            return "rgb" + primitive
+            fmt = "rgb" + primitive
         elif format[0] == "4":
-            return "rgba" + primitive
-        else:
-            raise ValueError(f"Unexpected tuple size in texture format '{format}'")
+            fmt = "rgba" + primitive
+
+    if fmt in wgpu.TextureFormat:
+        return fmt
+    elif fmt.replace("rgb", "rgba") in wgpu.TextureFormat:
+        return fmt  # We support rgb by wrapping in rgba textures, see renderers.wgpu/engine/update.py
     else:
-        raise ValueError(f"Unexpected length of texture format '{format}'")
-
-
-def to_wgsl_vertex_type(format):
-    primitives = {
-        "i1": "i8",
-        "u1": "u8",
-        "i2": "i16",
-        "u2": "u16",
-        "i4": "i32",
-        "u4": "u32",
-        "f2": "f16",
-        "f4": "f32",
-    }
-
-    primitive = primitives[format[-2:]]
-    if len(format) == 2:
-        return primitive
-    elif len(format) == 4 and format[1] == "x":  # e.g. 3xf4
-        return f"vec{format[0]}<{primitive}>"
+        raise ValueError(f"Unexpected texture format '{format}'")
 
 
 def generate_uniform_struct(dtype_struct, structname):
+    """Generate wgsl code from a uniform struct defined with a numpy dtype."""
     code = f"""
         struct {structname} {{
     """.rstrip()
@@ -324,6 +339,8 @@ class GfxTextureView:
         default_view_dim = f"{texture.dim}d"
         if view_dim is None:
             view_dim = default_view_dim
+            if texture.dim == 2 and texture.size[2] > 1:
+                view_dim = "2d-array"
         elif isinstance(view_dim, int):
             view_dim = f"{view_dim}d"
 

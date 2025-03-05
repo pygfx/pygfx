@@ -7,8 +7,8 @@ Pytorch Integration
 
 Pygfx Integration with PyTorch Lightning and PyTorch Geometric: A Practical Example.
 
-This code example demonstrates the integration of pygfx with PyTorch Lightning and PyTorch Geometric for training a
-graph neural network on a 3D mesh and simultaneously rendering the results in real-time using pygfx.
+This code example demonstrates the integration of Pygfx with PyTorch Lightning and PyTorch Geometric for training a
+graph neural network on a 3D mesh and simultaneously rendering the results in real-time using Pygfx.
 
 ARCHITECTURE:
 The code example follows a modular architecture, separating the concerns of data loading, model definition, training,
@@ -32,7 +32,7 @@ and rendering. The main components of the architecture are:
    - Configures the optimizer for training.
 
 4. Rendering (SceneHandler):
-   - Handles the creation and rendering of the pygfx scene.
+   - Handles the creation and rendering of the Pygfx scene.
    - Creates two viewports: one for the ground truth mesh and another for the predicted mesh.
    - Receives mesh data messages from the training process via a multiprocessing queue.
    - Updates the meshes in the scene based on the received mesh data.
@@ -40,9 +40,9 @@ and rendering. The main components of the architecture are:
 
 5. Callback (PyGfxCallback):
    - Facilitates communication between the training process and the rendering process.
-   - Creates a separate process for pygfx rendering.
+   - Creates a separate process for Pygfx rendering.
    - Sends mesh data messages to the rendering process via a multiprocessing queue.
-   - Updates the meshes in the pygfx scene based on the training progress and results.
+   - Updates the meshes in the Pygfx scene based on the training progress and results.
 
 INTERACTION:
 The interaction between the different components of the code example is as follows:
@@ -59,19 +59,19 @@ The interaction between the different components of the code example is as follo
 4. During training, the PyTorch Lightning Trainer uses the ExampleDataModule to load the data and the ExampleModule to
    define the model and training process.
 
-5. The PyGfxCallback, registered as a callback with the Trainer, creates a separate process for pygfx rendering using
+5. The PyGfxCallback, registered as a callback with the Trainer, creates a separate process for Pygfx rendering using
    the SceneHandler.
 
 6. After each training or validation batch, the PyGfxCallback sends the mesh data (vertices, faces, ground truth
    curvature, and predicted curvature) to the rendering process via a multiprocessing queue.
 
 7. The SceneHandler, running in a separate process, receives the mesh data messages from the queue and updates the
-   meshes in the pygfx scene accordingly. It colors the meshes based on the Gaussian curvature values.
+   meshes in the Pygfx scene accordingly. It colors the meshes based on the Gaussian curvature values.
 
-8. The pygfx rendering process continuously renders the scene, displaying the ground truth and predicted meshes in
+8. The Pygfx rendering process continuously renders the scene, displaying the ground truth and predicted meshes in
    real-time as the training progresses.
 
-This architecture allows for seamless integration of pygfx with PyTorch Lightning and PyTorch Geometric, enabling
+This architecture allows for seamless integration of Pygfx with PyTorch Lightning and PyTorch Geometric, enabling
 real-time visualization of the training progress and results on a 3D mesh. The modular design separates the concerns
 of data loading, model definition, training, and rendering, making the code more maintainable and extensible.
 
@@ -166,8 +166,8 @@ class SceneState:
         first_data (bool): A flag indicating if it's the first data received by the scene. Used to determine if the meshes need to be created or updated.
     """
 
-    gt_group: gfx.Group = gfx.Group()
-    pred_group: gfx.Group = gfx.Group()
+    gt_group: gfx.Group = gfx.Group()  # noqa: RUF009
+    pred_group: gfx.Group = gfx.Group()  # noqa: RUF009
     gt_mesh: gfx.WorldObject = None
     pred_mesh: gfx.WorldObject = None
     first_data: bool = True
@@ -253,7 +253,7 @@ def create_gnn(
 ) -> torch_geometric.nn.Sequential:
     activation = activations[activation]
     layers_list = []
-    for i, convolution in enumerate(convolutions):
+    for _i, convolution in enumerate(convolutions):
         layers_list.append((convolution, "x, edge_index -> x"))
         if batch_norm:
             layers_list.append(torch.nn.BatchNorm1d(convolution.out_channels))
@@ -551,7 +551,7 @@ class SceneHandler:
             else:
                 c_pred = SceneHandler._get_vertex_colors_from_k(k=mesh_data.pred_k)
                 SceneHandler._scene_state.pred_mesh.geometry.colors.data[:] = c_pred
-                SceneHandler._scene_state.pred_mesh.geometry.colors.update_range()
+                SceneHandler._scene_state.pred_mesh.geometry.colors.update_full()
         except queue.Empty:
             pass
 
@@ -582,10 +582,10 @@ class SceneHandler:
     @staticmethod
     def start(
         in_queue: Queue,
-        light_color: gfx.Color = gfx.Color("#ffffff"),
-        background_color: gfx.Color = gfx.Color("#ffffff"),
-        scene_background_top_color: gfx.Color = gfx.Color("#bbbbbb"),
-        scene_background_bottom_color: gfx.Color = gfx.Color("#666666"),
+        light_color: gfx.Color = "#ffffff",
+        background_color: gfx.Color = "#ffffff",
+        scene_background_top_color: gfx.Color = "#bbbbbb",
+        scene_background_bottom_color: gfx.Color = "#666666",
     ):
         border_size = 5.0
         text_position = np.array([10, 10, 0])
@@ -720,7 +720,7 @@ class PyGfxCallback(Callback):
         self._queue.put(obj=mesh_data)
 
         # print current loss
-        print(f'Loss: {outputs["loss"]}')
+        print(f"Loss: {outputs['loss']}")
 
     def on_train_batch_end(self, *args, **kwargs) -> None:
         self._on_batch_end(*args)

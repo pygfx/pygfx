@@ -205,16 +205,22 @@ class BaseShader(ShaderInterface):
 
     # ----- Colormap stuff
 
-    def define_texcoords_and_colormap(self, texture, texcoords, interpolation="linear"):
+    def define_colormap(self, map, texcoords):
         """Define the given texture as the colormap to be used to
         lookup the final color from the (per-vertex or per-face) texcoords.
         In the WGSL the colormap can be sampled using ``sample_colormap()``.
         Returns a list of bindings.
         """
 
-        self["colormap_interpolation"] = interpolation
-        sampler = GfxSampler(interpolation, "repeat")
-        texture_view = self._define_colormap_texture(texture)
+        self["colormap_interpolation"] = (
+            map.mag_filter
+        )  # todo: remove colormap_interpolation?
+
+        filter_mode = f"{map.mag_filter}, {map.min_filter}, {map.mipmap_filter}"
+        address_mode = f"{map.wrap_s}, {map.wrap_t}"
+
+        sampler = GfxSampler(filter_mode, address_mode)
+        texture_view = self._define_colormap_texture(map.texture)
 
         # Check that texture dim matches texcoords
         if not isinstance(texcoords, Buffer):
@@ -231,19 +237,24 @@ class BaseShader(ShaderInterface):
         return [
             Binding("s_colormap", "sampler/filtering", sampler, "FRAGMENT"),
             Binding("t_colormap", "texture/auto", texture_view, "FRAGMENT"),
-            Binding("s_texcoords", "buffer/read_only_storage", texcoords, "VERTEX"),
         ]
 
-    def define_img_colormap(self, texture, interpolation="linear"):
+    def define_img_colormap(self, map):
         """Define the given texture view as the colormap to be used to
         lookup the final color from the image data.
         In the WGSL the colormap can be sampled using ``sample_colormap()``.
         Returns a list of bindings.
         """
 
-        self["colormap_interpolation"] = interpolation
-        sampler = GfxSampler(interpolation, "clamp")
-        texture_view = self._define_colormap_texture(texture)
+        self["colormap_interpolation"] = (
+            map.mag_filter
+        )  # todo: remove colormap_interpolation?
+
+        filter_mode = f"{map.mag_filter}, {map.min_filter}, {map.mipmap_filter}"
+        address_mode = f"{map.wrap_s}, {map.wrap_t}"
+
+        sampler = GfxSampler(filter_mode, address_mode)
+        texture_view = self._define_colormap_texture(map.texture)
 
         # Check that texture dim matches image channels
         if int(texture_view.view_dim[0]) != self["img_nchannels"]:

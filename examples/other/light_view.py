@@ -48,7 +48,7 @@ class LightViewer(QtWidgets.QWidget):
             "Back Side",
             None,
             None,
-            lambda c: setattr(self.mesh.material, "side", "BACK" if c else "FRONT"),
+            lambda c: setattr(self.mesh.material, "side", "back" if c else "front"),
         )
 
         self.mesh_rotate_checkbox = self.create_checkbox("Auto Rotate")
@@ -176,10 +176,11 @@ class LightViewer(QtWidgets.QWidget):
         return color_btn
 
     def create_checkbox(
-        self, name, target=None, property=None, callback=None, toggle=[], index=None
+        self, name, target=None, property=None, callback=None, toggle=None, index=None
     ):
         checkbox = QtWidgets.QCheckBox(name)
-
+        if not toggle:
+            toggle = []
         if target and property:
             checkbox.setChecked(bool(getattr(target, property)))
 
@@ -301,8 +302,8 @@ class LightViewer(QtWidgets.QWidget):
 
         def animate():
             if self.mesh_rotate_checkbox.isChecked():
-                rot = la.Quaternion().set_from_euler(la.Euler(0.01, 0.02))
-                self.mesh.rotation.multiply(rot)
+                rot = la.quat_from_euler((0.01, 0.02, 0.0))
+                self.mesh.local.rotation = la.quat_mul(rot, self.mesh.local.rotation)
 
             nonlocal t1, t2, scale
 
@@ -317,10 +318,6 @@ class LightViewer(QtWidgets.QWidget):
                 point_light2.world.x = math.sin(t2 - math.pi / 3) * scale
                 point_light2.world.y = math.sin(t2 + 2) * 5 + 15
                 point_light2.world.z = math.cos(t2 - math.pi / 3) * scale
-
-            # light1.world.x = math.cos(t) * math.cos(3*t) * scale
-            # light1.world.y = math.cos(3*t) * math.sin(t) * scale
-            # light1.world.z = math.sin(3*t) * scale
 
             renderer.render(scene, camera)
             renderer.request_draw()

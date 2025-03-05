@@ -1,25 +1,26 @@
 ===============
-The pygfx guide
+The Pygfx guide
 ===============
 
 
 Installation
 ------------
 
-To install use pip:
+To install use your favourite package manager, e.g.:
 
 .. code-block::
 
     pip install -U pygfx
 
-or install the bleeding edge from Github:
+For Pygfx to work, the appropriate GPU drivers should be installed.
 
-.. code-block::
+* Windows: On Windows 10 and up, you should be ok. If your machine has a dedicated GPU, consider updating your (Nvidia or AMD) drivers.
+* MacOS: Need at least 10.13 (High Sierra) to use Metal (Apple's GPU driver).
+* Linux: On a modern Linux desktop you should be fine. Maybe ``apt install mesa-vulkan-drivers``.
+  For details see https://wgpu-py.readthedocs.io/en/stable/start.html#linux.
 
-    pip install -U https://github.com/pygfx/pygfx/archive/main.zip
 
-
-What is pygfx?
+What is Pygfx?
 --------------
 
 Pygfx is a render engine. It renders objects that are organized in a scene, and
@@ -31,7 +32,7 @@ The `WGPU <https://github.com/pygfx/wgpu-py>`_ library provides the low level AP
 communicate with the hardware. WGPU is itself based on Vulkan, Metal and DX12.
 
 
-How to use pygfx?
+How to use Pygfx?
 -----------------
 
 Before jumping into the details, here is a minimal example of how to use the
@@ -50,7 +51,7 @@ library::
 .. image:: _static/guide_hello_world.png
 
 And with that we rendered our first scene using wgpu! Simple, right? At the same
-time, this is just scratching the surface of what we can do with pygfx and next
+time, this is just scratching the surface of what we can do with Pygfx and next
 up we will have a look at the three main building blocks involved in creating
 more complex rendering setups: (1) `Scenes`, (2) `Canvases`, and (3)
 `Renderers`.
@@ -109,14 +110,14 @@ exactly what you've created and potentially spot any problems.
 
 The second main building block is the `Canvas`. A `Canvas` provides the surface
 onto which the scene should be rendered, and to use it we directly import it
-from wgpu-py (on top of which pygfx is built). Wgpu-py has several canvases that
+from wgpu-py (on top of which Pygfx is built). Wgpu-py has several canvases that
 we can choose from, but for starters the most important one is ``auto``, which
 automatically selects an appropriate backend to create a window on your screen::
 
     import pygfx as gfx
-    from wgpu.gui.auto import WgpuCanvas
+    from rendercanvas.auto import RenderCanvas
 
-    canvas = WgpuCanvas(size=(200, 200), title="A cube!")
+    canvas = RenderCanvas(size=(200, 200), title="A cube!")
     cube = gfx.Mesh(
         gfx.box_geometry(200, 200, 200),
         gfx.MeshPhongMaterial(color="#336699"),
@@ -129,7 +130,7 @@ automatically selects an appropriate backend to create a window on your screen::
 
 Like before, ``gfx.show`` will automatically create a canvas if we don't provide
 one explicitly. This works fine for quick visualizations where the render can
-appear as a standalone window. However, if we want to have more fine-graned
+appear as a standalone window. However, if we want to have more fine-grained
 control over the target, e.g., because we want to change the window size or
 title, we need specify the canvas explicitly. Another common use-case for an
 explicit canvas is because we are creating a larger GUI and we want the render
@@ -144,9 +145,9 @@ any good artist, a `Renderer` is never seen without its `Canvas`, so to create a
 `Renderer` we also need to create a `Canvas`::
 
     import pygfx as gfx
-    from wgpu.gui.auto import WgpuCanvas
+    from rendercanvas.auto import RenderCanvas
 
-    canvas = WgpuCanvas()
+    canvas = RenderCanvas()
     renderer = gfx.renderers.WgpuRenderer(canvas)
 
     cube = gfx.Mesh(
@@ -197,6 +198,20 @@ the scene as desired::
 .. image:: _static/guide_rotating_cube.gif
 
 
+Buffers and textures
+--------------------
+
+Buffers and textures represent data that lives on the GPU. They are used to e.g.
+represent positions, normals, images, colormaps, and all other "arrays" that the GPU need to do the work.
+These low-level objects are attached to geometries and materials (discussed below).
+
+A :class:`~pygfx.resources.Buffer` represents a one dimensional array and is used to contain e.g. positions and per-point colors.
+A :class:`~pygfx.resources.Texture` represents a 1D, 2D or 3D array and is used to contain e.g. image data and colormaps.
+
+The data of a buffer or tetxure can be updated and re-synced with the GPU, making it possible
+to change the visualization in real time, for eample in animations and user interactions.
+
+
 World objects
 -------------
 
@@ -229,6 +244,11 @@ different material classes, e.g. for meshes you have a
 Materials also have properties to tune things like color,
 line thickness, colormap, etc. Multiple world objects may share the same material
 object, so their appearance can be changed simultaneously.
+
+Performance tip: changing the material on a world object incurs some
+overhead for creating the low-level wgpu objects. However, switching
+to a material that was already used (with that object) has zero
+overhead.
 
 
 Cameras and controllers
@@ -514,7 +534,7 @@ both direct and colormapped colors can be 1-4 values.
 Colorspaces
 ===========
 
-All colors in pygfx are interpreted as sRGB by default. This is the same
+All colors in Pygfx are interpreted as sRGB by default. This is the same
 how webbrowsers interpret colors. Internally, all calculations are performed
 in the physical colorspace (sometimes called Linear sRGB) so that these
 calculations are physically correct.
@@ -526,6 +546,21 @@ argument to "physical".
 Similarly you can use ``Color.from_physical()`` to convert a physical color to sRGB.
 
 
+Antialiasing
+------------
+
+Pygfx supports two forms of anti-aliasing. Firstly, the whole scene is rendered to a larger texture,
+and the rendered result is smoothed as it is copied to the final texture (i.e. the screen). This
+is known as super-sampling anti-aliasing (SSAA), or full-scene anti-aliasing (FSAA).
+To turn it off, set the renderer's ``pixel_ratio`` to one and its ``pixel_filter`` to zero.
+
+Secondly, some objects produce semi-transparent fragments to soften their edges (i.e. remove jagggies).
+Objects that do this include lines and points. Note that the introduction of the semi-transparent fragments
+can have side-effects, depending on the renderer's ``blend_mode``. To turn it off, set the material's ``aa`` to False.
+
+Multisample anti-aliasing (MSAA), a common method intended mostly for mesh objects, is currently not implemented.
+
+
 Using Pygfx in Jupyter
 ----------------------
 
@@ -534,9 +569,9 @@ use the Jupyter canvas provided by WGPU, and use that canvas as the cell output.
 
 .. code-block:: python
 
-    from wgpu.gui.jupyter import WgpuCanvas
+    from rendercanvas.jupyter import RenderCanvas
 
-    canvas = WgpuCanvas()
+    canvas = RenderCanvas()
     renderer = gfx.renderers.WgpuRenderer(canvas)
 
     ...

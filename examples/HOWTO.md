@@ -1,15 +1,15 @@
 # How to contribute examples
 
-This folder contain the pygfx example scripts.
+This folder contain the Pygfx example scripts.
 
 
 ## Purpose
 
 Examples can serve a few purposes:
 
-* They demonstrate the capabilities of pygfx.
+* They demonstrate the capabilities of Pygfx.
 * They explain how a particular visualization is performed (i.e. documentation).
-* They help make sure that pygfx does what it promises (i.e. testing).
+* They help make sure that Pygfx does what it promises (i.e. testing).
 
 When creating / modifying an example, keep in mind how they're used.
 

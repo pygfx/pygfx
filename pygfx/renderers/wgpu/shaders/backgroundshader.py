@@ -2,7 +2,7 @@ import wgpu  # only for flags/enums
 
 from ....objects import Background
 from ....materials import BackgroundMaterial, BackgroundImageMaterial
-from ....resources import Texture
+from ....resources import TextureMap
 
 from .. import (
     register_wgpu_render_function,
@@ -31,15 +31,16 @@ class BackgroundShader(BaseShader):
         bindings[2] = Binding("u_material", "buffer/uniform", material.uniform_buffer)
 
         if isinstance(material, BackgroundImageMaterial) and material.map is not None:
-            if not isinstance(material.map, Texture):
-                raise TypeError("material.map must be a Texture")
+            if not isinstance(material.map, TextureMap):
+                raise TypeError("material.map must be a TextureMap.")
             sampler = GfxSampler("linear", "repeat")
             # Select texture dimension
-            if material.map.size[2] == 1:
-                tex_view = GfxTextureView(material.map, view_dim="2d")
+            texture = material.map.texture
+            if texture.size[2] == 1:
+                tex_view = GfxTextureView(texture, view_dim="2d")
                 self["texture_dim"] = "2d"
-            elif material.map.size[2] == 6:
-                tex_view = GfxTextureView(material.map, view_dim="cube")
+            elif texture.size[2] == 6:
+                tex_view = GfxTextureView(texture, view_dim="cube")
                 self["texture_dim"] = "cube"
             else:
                 raise ValueError(
@@ -48,7 +49,7 @@ class BackgroundShader(BaseShader):
             bindings[3] = Binding("r_sampler", "sampler/filtering", sampler, "FRAGMENT")
             bindings[4] = Binding("r_tex", "texture/auto", tex_view, "FRAGMENT")
             # Channels
-            fmt = to_texture_format(material.map.format)
+            fmt = to_texture_format(texture.format)
             self["texture_nchannels"] = len(fmt) - len(fmt.lstrip("rgba"))
         else:
             self["texture_dim"] = ""

@@ -57,14 +57,13 @@ Currently, the best way to ask for help from the maintainers is to start a
 
 ## Coding Style
 
-The pygfx project uses `black` to automatically format the code. Additionally
-`flake8` is used to ensure "clean code". Use these commands:
+The Pygfx project uses `ruff` to format and lint the code:
 
 ```bash
-# Run black to auto-format all code in the current directory
-black .
-# Run flake8 to check the code quality
-flake8 .
+# Reformat the code if necessary
+ruff format .
+# Check for linting errors.
+ruff check .
 ```
 
 
@@ -80,5 +79,5 @@ We distinguish four kinds of attributes:
 
 * Public attributes for the user: should in most cases be ``@property``'s.
 * Private attributes: prefixed with "_" as usual.
-* Attributes used by other parts of pygfx but not intended for the user: prefixed with "_gfx_".
+* Attributes used by other parts of Pygfx but not intended for the user: prefixed with "_gfx_".
 * Attributes to store WgpuRenderer-specific data on a WorldObject or Material (the objects themselves are unaware): prefixed with "_wgpu_".

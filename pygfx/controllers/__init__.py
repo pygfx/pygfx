@@ -1,4 +1,4 @@
-""" Objects to control cameras.
+"""Objects to control cameras.
 
 .. currentmodule:: pygfx.controllers
 
@@ -17,7 +17,7 @@ independent of any GUI toolkits.
 
 """
 
-# flake8: noqa
+# ruff: noqa: F401
 
 from ._base import Controller
 from ._panzoom import PanZoomController
@@ -28,8 +28,8 @@ from ._fly import FlyController
 
 __all__ = [
     "Controller",
-    "PanZoomController",
-    "OrbitController",
-    "TrackballController",
     "FlyController",
+    "OrbitController",
+    "PanZoomController",
+    "TrackballController",
 ]

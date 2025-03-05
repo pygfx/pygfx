@@ -53,7 +53,7 @@ class FontProps:
             try:
                 style = style_dict[style.lower()]
             except KeyError:
-                raise TypeError(f"Style string not known: '{style}'")
+                raise TypeError(f"Style string not known: '{style}'") from None
         else:
             cls = type(style).__name__
             raise TypeError("Font style must be str, not '{cls}'")
@@ -65,7 +65,7 @@ class FontProps:
             try:
                 weight = weight_dict[weight.lower()]
             except KeyError:
-                raise TypeError(f"Weight string not known: '{weight}'")
+                raise TypeError(f"Weight string not known: '{weight}'") from None
         elif isinstance(weight, int):
             weight = min(900, max(100, weight))
         else:
@@ -270,6 +270,9 @@ class FontManager:
                 last_i = i = 0
                 for i in range(1, len(text)):
                     codepoint = ord(text[i])
+                    # Quick continue for default font
+                    if len(fonts) == 1 and fonts[0].has_codepoint(codepoint):
+                        continue
                     new_fonts = [ff for ff in fonts if ff.has_codepoint(codepoint)]
                     if new_fonts:
                         # Our selection of fonts is still nonzero
@@ -287,7 +290,10 @@ class FontManager:
                         text_pieces2.append((text[last_i:i], last_font))
                         last_i = i
                 last_font = fonts[0] if fonts else fallback_font
-                text_pieces2.append((text[last_i : i + 1], last_font))
+                if last_i == 0:
+                    text_pieces2.append((text, last_font))
+                else:
+                    text_pieces2.append((text[last_i : i + 1], last_font))
 
         # Did we encounter characters that we cannot render?
         failed_texts = [text for text, font in text_pieces2 if font is fallback_font]

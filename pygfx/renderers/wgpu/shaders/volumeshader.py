@@ -19,29 +19,20 @@ vertex_and_fragment = wgpu.ShaderStage.VERTEX | wgpu.ShaderStage.FRAGMENT
 
 
 class BaseVolumeShader(BaseShader):
-    def get_bindings(self, wobject, shared):
+    def __init__(self, wobject):
+        super().__init__(wobject)
+        material = wobject.material
         geometry = wobject.geometry
-        material = wobject.material  # noqa
 
-        bindings = [
-            Binding("u_stdinfo", "buffer/uniform", shared.uniform_buffer),
-            Binding("u_wobject", "buffer/uniform", wobject.uniform_buffer),
-            Binding("u_material", "buffer/uniform", material.uniform_buffer),
-        ]
-
-        # Collect texture and sampler
+        # Check grid
         if geometry.grid is None:
             raise ValueError("Volume.geometry must have a grid (texture).")
-        if not isinstance(geometry.grid, Texture):
+        elif not isinstance(geometry.grid, Texture):
             raise TypeError("Volume.geometry.grid must be a Texture")
-        if geometry.grid.dim != 3:
+        elif geometry.grid.dim != 3:
             raise TypeError("Volume.geometry.grid must a 3D texture (view)")
 
-        tex_view = GfxTextureView(geometry.grid)
-        sampler = GfxSampler(material.interpolation, "clamp")
-        self["colorspace"] = geometry.grid.colorspace
-
-        # Sampling type
+        # Set image format
         self["climcorrection"] = ""
         fmt = to_texture_format(geometry.grid.format)
         if "norm" in fmt or "float" in fmt:
@@ -55,18 +46,34 @@ class BaseVolumeShader(BaseShader):
         else:
             self["img_format"] = "i32"
 
+        # Set gamma
+        self["gamma"] = material.gamma
+
         # Channels
         self["img_nchannels"] = len(fmt) - len(fmt.lstrip("rgba"))
 
+        # Colorspace
+        self["colorspace"] = geometry.grid.colorspace
+        if material.map is not None:
+            self["colorspace"] = material.map.texture.colorspace
+
+    def get_bindings(self, wobject, shared):
+        geometry = wobject.geometry
+        material = wobject.material
+
+        bindings = [
+            Binding("u_stdinfo", "buffer/uniform", shared.uniform_buffer),
+            Binding("u_wobject", "buffer/uniform", wobject.uniform_buffer),
+            Binding("u_material", "buffer/uniform", material.uniform_buffer),
+        ]
+
+        tex_view = GfxTextureView(geometry.grid)
+        sampler = GfxSampler(material.interpolation, "clamp")
         bindings.append(Binding("s_img", "sampler/filtering", sampler, "FRAGMENT"))
         bindings.append(Binding("t_img", "texture/auto", tex_view, vertex_and_fragment))
 
-        # If a colormap is applied ...
         if material.map is not None:
-            bindings.extend(
-                self.define_img_colormap(material.map, material.map_interpolation)
-            )
-            self["colorspace"] = material.map.colorspace
+            bindings.extend(self.define_img_colormap(material.map))
 
         bindings = {i: b for i, b in enumerate(bindings)}
         self.define_bindings(0, bindings)

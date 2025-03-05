@@ -2,7 +2,7 @@ import numpy as np
 import freetype
 
 from ._atlas import glyph_atlas
-from ._shaper import CACHE_FT, REF_GLYPH_SIZE
+from ._shaper import CACHE_FT
 
 
 # A little cache so we can assign numbers to fonts
@@ -38,13 +38,9 @@ def generate_glyph(glyph_indices, font_filename):
     # Get the face object. We will not need it if all glyphs are already
     # in the atlas, but because of the cache it is fast, and this way
     # we keep the face alive in the cache.
-    face = CACHE_FT.get(font_filename)
-    if not face:
-        face = freetype.Face(font_filename)
-        face.set_pixel_sizes(REF_GLYPH_SIZE, REF_GLYPH_SIZE)
-        CACHE_FT.set(font_filename, face)
+    face = CACHE_FT[font_filename]
 
-    atlas_indices = np.zeros((len(glyph_indices),), np.uint32)
+    atlas_indices = np.empty((len(glyph_indices),), "u4")
     for i in range(len(glyph_indices)):
         glyph_index = int(glyph_indices[i])
         glyph_hash = (font_index, glyph_index)

@@ -248,9 +248,9 @@ def test_pointer_event_copy():
         if not attr.startswith("_") and not callable(getattr(other, attr))
     ]:
         if attr not in ["type", "clicks"]:
-            assert getattr(other, attr) == getattr(
-                event, attr
-            ), f"'{attr}' attribute not equal"
+            assert getattr(other, attr) == getattr(event, attr), (
+                f"'{attr}' attribute not equal"
+            )
 
     assert other.type != event.type
     assert other.type == "click"

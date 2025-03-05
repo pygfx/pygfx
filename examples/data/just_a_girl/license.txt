@@ -1,0 +1,11 @@
+Model Information:
+* title:	Just a girl
+* source:	https://sketchfab.com/3d-models/just-a-girl-b2359160a4f54e76b5ae427a55d9594d
+* author:	腱鞘炎の人 (https://sketchfab.com/Kensyouen)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Just a girl" (https://sketchfab.com/3d-models/just-a-girl-b2359160a4f54e76b5ae427a55d9594d) by 腱鞘炎の人 (https://sketchfab.com/Kensyouen) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

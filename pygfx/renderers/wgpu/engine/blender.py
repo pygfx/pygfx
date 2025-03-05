@@ -1,13 +1,15 @@
 """
 Defines the classes for the different render passes and the blender
-objects that contain them. A blender becomes part of the environment
+objects that contain them. A blender becomes part of the renderstate
 object.
 """
 
 import wgpu  # only for flags/enums
 
+from ....utils.enums import RenderMask
 from .flusher import create_full_quad_pipeline
 from .shared import get_shared
+from .renderer import WgpuRenderer
 
 # Notes:
 # - The user code provides color as-is in rgba.
@@ -23,13 +25,21 @@ standard_texture_des = {
 }
 
 
+def blend_dict(src_factor, dst_factor, operation):
+    return {
+        "operation": operation,
+        "src_factor": src_factor,
+        "dst_factor": dst_factor,
+    }
+
+
 # %%%%%%%%%%  Define passes
 
 
 class BasePass:
     """The base pass class, defining and documenting the API that a pass must provide."""
 
-    render_mask = 3  # opaque end transparent
+    render_mask = RenderMask.opaque | RenderMask.transparent
     write_pick = True
 
     def get_color_descriptors(self, blender, material_write_pick):
@@ -74,7 +84,7 @@ class OpaquePass(BasePass):
     in all multi-pass blenders.
     """
 
-    render_mask = 1  # opaque only
+    render_mask = RenderMask.opaque
     write_pick = True
 
     def get_color_descriptors(self, blender, material_write_pick):
@@ -83,8 +93,8 @@ class OpaquePass(BasePass):
             {
                 "format": blender.color_format,
                 "blend": {
-                    "alpha": (bf.one, bf.zero, bo.add),
-                    "color": (bf.one, bf.zero, bo.add),
+                    "alpha": blend_dict(bf.one, bf.zero, bo.add),
+                    "color": blend_dict(bf.one, bf.zero, bo.add),
                 },
                 "write_mask": wgpu.ColorWrite.ALL,
             },
@@ -146,7 +156,7 @@ class OpaquePass(BasePass):
             @location(0) color: vec4<f32>,
             @location(1) pick: vec4<u32>,
         };
-        fn get_fragment_output(depth: f32, color: vec4<f32>) -> FragmentOutput {
+        fn get_fragment_output(position: vec4<f32>, color: vec4<f32>) -> FragmentOutput {
             if (color.a < 1.0 - ALPHA_COMPARE_EPSILON ) { discard; }
             var out : FragmentOutput;
             out.color = vec4<f32>(color.rgb, 1.0);
@@ -158,7 +168,7 @@ class OpaquePass(BasePass):
 class FullOpaquePass(OpaquePass):
     """A pass that considers all fragments opaque."""
 
-    render_mask = 3  # opaque end transparent
+    render_mask = RenderMask.opaque | RenderMask.transparent
     write_pick = True
 
     def get_shader_code(self, blender):
@@ -167,9 +177,45 @@ class FullOpaquePass(OpaquePass):
             @location(0) color: vec4<f32>,
             @location(1) pick: vec4<u32>,
         };
-        fn get_fragment_output(depth: f32, color: vec4<f32>) -> FragmentOutput {
+       fn get_fragment_output(position: vec4<f32>, color: vec4<f32>) -> FragmentOutput {
             var out : FragmentOutput;
-            out.color = vec4<f32>(color.rgb, 1.0);  // always opaque
+            out.color = vec4<f32>(color.rgb, 1.0);  // make every fragment opaque
+            return out;
+        }
+        """
+
+
+class DitherPass(OpaquePass):
+    """A pass that uses dithering based on alpha (stochastic transparency)."""
+
+    render_mask = RenderMask.opaque | RenderMask.transparent
+    write_pick = True
+
+    def get_shader_code(self, blender):
+        return """
+
+        struct FragmentOutput {
+            @location(0) color: vec4<f32>,
+            @location(1) pick: vec4<u32>,
+        };
+        fn get_fragment_output(position: vec4<f32>, color: vec4<f32>) -> FragmentOutput {
+            // We want the seed for the ramdon function to be such that the result is
+            // deterministic, so that rendered images can be visually compared. This
+            // is why the object-id should not be used. Using the xy ndc coord is a
+            // no-brainer seed. Using only these will give an effect often observed
+            // in games, where the pattern is "stuck to the screen". We also seed with
+            // the depth, since this covers *a lot* of cases, e.g. different objects
+            // behind each-other, as well as the same object having different parts
+            // at the same screen pixel. This only does not cover cases where objects
+            // are exactly on top of each other. Therefore we use rgba as another seed.
+            // So the only case where the same pattern may be used for different
+            // fragments if an object is at the same depth and has the same color.
+            var out : FragmentOutput;
+            let seed1 = position.x * position.y * position.z;
+            let seed2 = color.r * 0.12 + color.g * 0.34 + color.b * 0.56 + color.a * 0.78;
+            let rand = random2(vec2<f32>(seed1, seed2));
+            if ( color.a < 1.0 - ALPHA_COMPARE_EPSILON && color.a < rand ) { discard; }
+            out.color = vec4<f32>(color.rgb, 1.0);  // fragments that pass through are opaque
             return out;
         }
         """
@@ -178,7 +224,7 @@ class FullOpaquePass(OpaquePass):
 class SimpleSinglePass(OpaquePass):
     """A pass that blends opaque and transparent fragments in a single pass."""
 
-    render_mask = 3  # opaque end transparent
+    render_mask = RenderMask.opaque | RenderMask.transparent
     write_pick = True
 
     def get_color_descriptors(self, blender, material_write_pick):
@@ -187,8 +233,8 @@ class SimpleSinglePass(OpaquePass):
             {
                 "format": blender.color_format,
                 "blend": {
-                    "alpha": (bf.one, bf.one_minus_src_alpha, bo.add),
-                    "color": (bf.one, bf.one_minus_src_alpha, bo.add),
+                    "alpha": blend_dict(bf.one, bf.one_minus_src_alpha, bo.add),
+                    "color": blend_dict(bf.one, bf.one_minus_src_alpha, bo.add),
                 },
                 "write_mask": wgpu.ColorWrite.ALL,
             },
@@ -206,7 +252,7 @@ class SimpleSinglePass(OpaquePass):
             @location(0) color: vec4<f32>,
             @location(1) pick: vec4<u32>,
         };
-        fn get_fragment_output(depth: f32, color: vec4<f32>) -> FragmentOutput {
+        fn get_fragment_output(position: vec4<f32>, color: vec4<f32>) -> FragmentOutput {
             var out : FragmentOutput;
             out.color = vec4<f32>(color.rgb * color.a, color.a);
             return out;
@@ -220,7 +266,7 @@ class SimpleTransparencyPass(BasePass):
     operator).
     """
 
-    render_mask = 2  # transparent only
+    render_mask = RenderMask.transparent
     write_pick = False
 
     def get_color_descriptors(self, blender, material_write_pick):
@@ -229,8 +275,8 @@ class SimpleTransparencyPass(BasePass):
             {
                 "format": blender.color_format,
                 "blend": {
-                    "alpha": (bf.one, bf.one_minus_src_alpha, bo.add),
-                    "color": (bf.one, bf.one_minus_src_alpha, bo.add),
+                    "alpha": blend_dict(bf.one, bf.one_minus_src_alpha, bo.add),
+                    "color": blend_dict(bf.one, bf.one_minus_src_alpha, bo.add),
                 },
                 "write_mask": wgpu.ColorWrite.ALL,
             },
@@ -265,6 +311,7 @@ class SimpleTransparencyPass(BasePass):
             depth_load_op = wgpu.LoadOp.clear
         return {
             "view": blender.depth_view,
+            "depth_clear_value": 1.0,
             "depth_load_op": depth_load_op,
             "depth_store_op": wgpu.StoreOp.store,
         }
@@ -274,7 +321,7 @@ class SimpleTransparencyPass(BasePass):
         struct FragmentOutput {
             @location(0) color: vec4<f32>,
         };
-        fn get_fragment_output(depth: f32, color: vec4<f32>) -> FragmentOutput {
+        fn get_fragment_output(position: vec4<f32>, color: vec4<f32>) -> FragmentOutput {
             if (color.a <= ALPHA_COMPARE_EPSILON) { discard; }
             var out : FragmentOutput;
             out.color = vec4<f32>(color.rgb * color.a, color.a);
@@ -289,7 +336,7 @@ class WeightedTransparencyPass(BasePass):
     Multiple weight functions are supported.
     """
 
-    render_mask = 2  # transparent only
+    render_mask = RenderMask.transparent
     write_pick = False
 
     def __init__(self, weight_func):
@@ -318,16 +365,16 @@ class WeightedTransparencyPass(BasePass):
             {
                 "format": blender.accum_format,
                 "blend": {
-                    "alpha": (bf.one, bf.one, bo.add),
-                    "color": (bf.one, bf.one, bo.add),
+                    "alpha": blend_dict(bf.one, bf.one, bo.add),
+                    "color": blend_dict(bf.one, bf.one, bo.add),
                 },
                 "write_mask": wgpu.ColorWrite.ALL,
             },
             {
                 "format": blender.reveal_format,
                 "blend": {
-                    "alpha": (bf.zero, bf.one_minus_src_alpha, bo.add),
-                    "color": (bf.zero, bf.one_minus_src, bo.add),
+                    "alpha": blend_dict(bf.zero, bf.one_minus_src_alpha, bo.add),
+                    "color": blend_dict(bf.zero, bf.one_minus_src, bo.add),
                 },
                 "write_mask": wgpu.ColorWrite.ALL,
             },
@@ -364,20 +411,20 @@ class WeightedTransparencyPass(BasePass):
 
     def get_depth_attachment(self, blender):
         # We never clear the depth buffer in this pass
-        depth_load_op = wgpu.LoadOp.load
         return {
             "view": blender.depth_view,
-            "depth_load_op": depth_load_op,
+            "depth_load_op": wgpu.LoadOp.load,
             "depth_store_op": wgpu.StoreOp.store,
         }
 
     def get_shader_code(self, blender):
-        return """
+        code = """
         struct FragmentOutput {
             @location(0) accum: vec4<f32>,
             @location(1) reveal: f32,
         };
-        fn get_fragment_output(depth: f32, color: vec4<f32>) -> FragmentOutput {
+        fn get_fragment_output(position: vec4<f32>, color: vec4<f32>) -> FragmentOutput {
+            let depth = position.z;
             let alpha = color.a;
             if (alpha <= ALPHA_COMPARE_EPSILON) { discard; }
             let premultiplied = color.rgb * alpha;
@@ -393,9 +440,8 @@ class WeightedTransparencyPass(BasePass):
             //    out.accum = - out.accum;
             //    out.reveal = 1.0 - 1.0 / (1.0 - alpha);
         }
-        """.replace(
-            "WEIGHT_CODE", self._weight_code
-        )
+        """
+        return code.replace("WEIGHT_CODE", self._weight_code)
 
 
 class FrontmostTransparencyPass(BasePass):
@@ -411,8 +457,8 @@ class FrontmostTransparencyPass(BasePass):
             {
                 "format": blender.frontcolor_format,
                 "blend": {
-                    "alpha": (bf.one, bf.zero, bo.add),
-                    "color": (bf.one, bf.zero, bo.add),
+                    "alpha": blend_dict(bf.one, bf.zero, bo.add),
+                    "color": blend_dict(bf.one, bf.zero, bo.add),
                 },
                 "write_mask": wgpu.ColorWrite.ALL,
             },
@@ -473,7 +519,7 @@ class FrontmostTransparencyPass(BasePass):
             @location(0) color: vec4<f32>,
             @location(1) pick: vec4<u32>,
         };
-        fn get_fragment_output(depth: f32, color: vec4<f32>) -> FragmentOutput {
+        fn get_fragment_output(position: vec4<f32>, color: vec4<f32>) -> FragmentOutput {
             if (color.a <= ALPHA_COMPARE_EPSILON || color.a >= 1.0 - ALPHA_COMPARE_EPSILON) { discard; }
             var out : FragmentOutput;
             out.color = vec4<f32>(color.rgb * color.a, color.a);
@@ -490,6 +536,9 @@ class BaseFragmentBlender:
     Each renderer has one blender object.
     """
 
+    # Each blender should define a unique name so that it may be
+    # correctly registered in the renderer.
+    name = None
     passes = []
 
     def __init__(self):
@@ -552,7 +601,7 @@ class BaseFragmentBlender:
 
         # Set new size
         self.size = size
-        tex_size = size + (1,)
+        tex_size = (*size, 1)
 
         # Any bind group is now invalid because they include source textures.
         self._combine_pass_bind_group = None
@@ -589,12 +638,9 @@ class BaseFragmentBlender:
         }
 
     def get_depth_attachment(self, pass_index):
-        return {
-            **self.passes[pass_index].get_depth_attachment(self),
-            "stencil_read_only": True,
-            "stencil_load_op": wgpu.LoadOp.clear,
-            "stencil_store_op": wgpu.StoreOp.discard,
-        }
+        return self.passes[pass_index].get_depth_attachment(self)
+        # We don't use the stencil yet, but when we do, we will also have to specify
+        # "stencil_read_only", "stencil_load_op", and "stencil_store_op"
 
     def get_shader_kwargs(self, pass_index):
         return {
@@ -648,14 +694,29 @@ class BaseFragmentBlender:
         return None
 
 
+@WgpuRenderer._register_blend_mode
 class OpaqueFragmentBlender(BaseFragmentBlender):
     """A fragment blender that pretends that all surfaces are opaque,
     even if they're not.
     """
 
+    name = "opaque"
+
     passes = [FullOpaquePass()]
 
 
+@WgpuRenderer._register_blend_mode
+class DitherFragmentBlender(BaseFragmentBlender):
+    """A fragment blender that pretends that all surfaces are opaque,
+    even if they're not.
+    """
+
+    name = "dither"
+
+    passes = [DitherPass()]
+
+
+@WgpuRenderer._register_blend_mode
 class Ordered1FragmentBlender(BaseFragmentBlender):
     """A minimal fragment blender that uses the classic alpha blending
     equation, without differentiating between opaque and transparent
@@ -663,9 +724,12 @@ class Ordered1FragmentBlender(BaseFragmentBlender):
     pass. Order dependent.
     """
 
+    name = "ordered1"
+
     passes = [SimpleSinglePass()]
 
 
+@WgpuRenderer._register_blend_mode
 class Ordered2FragmentBlender(BaseFragmentBlender):
     """A first step towards better blending: separating the opaque from
     the transparent fragments, and blending the latter using the alpha
@@ -673,9 +737,12 @@ class Ordered2FragmentBlender(BaseFragmentBlender):
     depth-writing. Order dependent.
     """
 
+    name = "ordered2"
+
     passes = [OpaquePass(), SimpleTransparencyPass()]
 
 
+@WgpuRenderer._register_blend_mode
 class WeightedFragmentBlender(BaseFragmentBlender):
     """Weighted blended order independent transparency (McGuire 2013),
     using a weight function based only on alpha.
@@ -685,6 +752,8 @@ class WeightedFragmentBlender(BaseFragmentBlender):
     weights the fragments. These are combined in the combine-pass,
     realizing order independent blending.
     """
+
+    name = "weighted"
 
     passes = [OpaquePass(), WeightedTransparencyPass("alpha")]
 
@@ -731,8 +800,8 @@ class WeightedFragmentBlender(BaseFragmentBlender):
             {
                 "format": self.color_format,
                 "blend": {
-                    "alpha": (bf.one, bf.one_minus_src_alpha, bo.add),
-                    "color": (bf.one, bf.one_minus_src_alpha, bo.add),
+                    "alpha": blend_dict(bf.one, bf.one_minus_src_alpha, bo.add),
+                    "color": blend_dict(bf.one, bf.one_minus_src_alpha, bo.add),
                 },
             },
         ]
@@ -763,8 +832,6 @@ class WeightedFragmentBlender(BaseFragmentBlender):
             targets, binding_layout, bindings_code, fragment_code
         )
 
-        return
-
     def _create_combination_bind_group(self, bind_group_layout):
         # This must match the binding_layout above
         bind_group_entries = [
@@ -776,14 +843,18 @@ class WeightedFragmentBlender(BaseFragmentBlender):
         )
 
 
+@WgpuRenderer._register_blend_mode
 class WeightedDepthFragmentBlender(WeightedFragmentBlender):
     """Weighted blended order independent transparency (McGuire 2013),
     using a general purpose depth weight function.
     """
 
+    name = "weighted_depth"
+
     passes = [OpaquePass(), WeightedTransparencyPass("depth")]
 
 
+@WgpuRenderer._register_blend_mode
 class WeightedPlusFragmentBlender(WeightedFragmentBlender):
     """Three-pass weighted blended order independent transparency (McGuire 2013),
     using a weight function based on alpha, and in which the top-most
@@ -797,6 +868,8 @@ class WeightedPlusFragmentBlender(WeightedFragmentBlender):
     behind it follow McGuire's approach. This looks a bit like a
     single-layer depth peeling.
     """
+
+    name = "weighted_plus"
 
     # Since the front-most transparency pass also writes to the depth
     # buffer, we want to do the opaque pass first. And the weighed pass
@@ -855,8 +928,8 @@ class WeightedPlusFragmentBlender(WeightedFragmentBlender):
             {
                 "format": self.color_format,
                 "blend": {
-                    "alpha": (bf.one, bf.one_minus_src_alpha, bo.add),
-                    "color": (bf.one, bf.one_minus_src_alpha, bo.add),
+                    "alpha": blend_dict(bf.one, bf.one_minus_src_alpha, bo.add),
+                    "color": blend_dict(bf.one, bf.one_minus_src_alpha, bo.add),
                 },
             },
         ]
@@ -911,3 +984,79 @@ class WeightedPlusFragmentBlender(WeightedFragmentBlender):
         return self.device.create_bind_group(
             layout=bind_group_layout, entries=bind_group_entries
         )
+
+
+class AdditivePass(BasePass):
+    """A pass that renders fragments with additive blending."""
+
+    render_mask = RenderMask.opaque | RenderMask.transparent
+    write_pick = False
+
+    def get_color_descriptors(self, blender, material_write_pick):
+        bf, bo = wgpu.BlendFactor, wgpu.BlendOperation
+        return [
+            {
+                "format": blender.color_format,
+                "blend": {
+                    "alpha": blend_dict(bf.one, bf.one, bo.add),
+                    "color": blend_dict(bf.one, bf.one, bo.add),
+                },
+                "write_mask": wgpu.ColorWrite.ALL,
+            },
+        ]
+
+    def get_color_attachments(self, blender):
+        color_load_op = wgpu.LoadOp.load
+        if blender.color_clear:
+            blender.color_clear = False
+            color_load_op = wgpu.LoadOp.clear
+
+        return [
+            {
+                "view": blender.color_view,
+                "resolve_target": None,
+                "load_op": color_load_op,
+                "store_op": wgpu.StoreOp.store,
+            },
+        ]
+
+    def get_depth_descriptor(self, blender):
+        return {
+            "format": blender.depth_format,
+            "depth_write_enabled": False,
+            "depth_compare": wgpu.CompareFunction.always,
+        }
+
+    def get_depth_attachment(self, blender):
+        depth_load_op = wgpu.LoadOp.load
+        if blender.depth_clear:
+            blender.depth_clear = False
+            depth_load_op = wgpu.LoadOp.clear
+        return {
+            "view": blender.depth_view,
+            "depth_clear_value": 1.0,
+            "depth_load_op": depth_load_op,
+            "depth_store_op": wgpu.StoreOp.store,
+        }
+
+    def get_shader_code(self, blender):
+        return """
+        struct FragmentOutput {
+            @location(0) color: vec4<f32>,
+        };
+        fn get_fragment_output(position: vec4<f32>, color: vec4<f32>) -> FragmentOutput {
+            let depth = position.z;
+            var out : FragmentOutput;
+            out.color = color;
+            return out;
+        }
+        """
+
+
+@WgpuRenderer._register_blend_mode
+class AdditiveFragmentBlender(BaseFragmentBlender):
+    """A fragment blender that uses additive blending for all fragments."""
+
+    name = "additive"
+
+    passes = [AdditivePass()]

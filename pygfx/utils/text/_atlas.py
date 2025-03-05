@@ -400,7 +400,7 @@ class PygfxGlyphAtlas(GlyphAtlas):
         super()._set_new_glyphs_array(*args)
         # Create resource object if needed
         if self._array is not array:
-            self._texture = Texture(self._array, dim=2)
+            self._texture = Texture(self._array, dim=2, force_contiguous=True)
         # Schedule an update. Note that the infos array is updated due to repacking.
         w, h = self._array.shape[1], self._array.shape[0]
         self._texture.update_range((0, 0, 0), (w, h, 1))
@@ -412,7 +412,7 @@ class PygfxGlyphAtlas(GlyphAtlas):
         super()._set_new_infos_array(*args)
         # Create resource object if needed
         if self._infos is not infos:
-            self._infos_buffer = Buffer(self._infos)
+            self._infos_buffer = Buffer(self._infos, force_contiguous=True)
         # Schedule an update
         self._infos_buffer.update_range(0, self._infos.shape[0])
 

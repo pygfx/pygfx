@@ -33,7 +33,7 @@ scene = gfx.Scene()
 material = gfx.LineMaterial(thickness=80.0, color=(0.8, 0.7, 0.0, 1.0))
 
 for line in [line1, line2, line3, line4]:
-    line = [pos + [0] for pos in line]  # Make the positions vec3
+    line = [(*pos, 0) for pos in line]  # Make the positions vec3
     geometry = gfx.Geometry(positions=line)
     line = gfx.Line(geometry, material)
     scene.add(line)

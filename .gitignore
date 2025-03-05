@@ -1,14 +1,15 @@
 Pipfile
 Pipfile.lock
 .vscode
-pyproject.toml
 poetry.lock
 .DS_Store
 examples/screenshots/diffs
 examples/offscreen.png
+examples/data/sam2*.pt
 offscreen.png
 docs/sg_execution_times.rst
 nogit/
+*.profile
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -125,6 +126,7 @@ venv.bak/
 .mypy_cache/
 
 glTF-Sample-Models
+glTF-Sample-Assets
 reactive_rendering_state.pkl
 
 # jetbrains idea

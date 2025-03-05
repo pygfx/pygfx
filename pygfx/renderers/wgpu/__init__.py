@@ -12,6 +12,7 @@ General functions and classes to operate more closely with the wgpu backend.
     select_power_preference
     select_adapter
     enable_wgpu_features
+    set_wgpu_limits
     WgpuRenderer
     register_wgpu_render_function
     get_shared
@@ -40,18 +41,20 @@ Lower level functions that may or may not be needed in custom shaders:
     :template: ../_templates/custom_layout.rst
 
     nchannels_from_format
+    to_index_format
     to_vertex_format
     to_texture_format
 
 """
 
-# flake8: noqa
+# ruff: noqa: F401
 
 # Import stuff that people need who create custom shaders, so they can import from pygfx.renderers.wgpu
 from ...utils.enums import RenderMask
 from .engine.utils import (
     register_wgpu_render_function,
     nchannels_from_format,
+    to_index_format,
     to_vertex_format,
     to_texture_format,
     GfxSampler,
@@ -64,6 +67,7 @@ from .engine.shared import (
     select_power_preference,
     select_adapter,
     enable_wgpu_features,
+    set_wgpu_limits,
 )
 from .engine.renderer import WgpuRenderer
 from .engine.pipeline import Binding

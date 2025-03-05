@@ -645,7 +645,6 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
     }
 
     // Calculate the distance to the stroke's edge. Negative means inside, positive means outside. Just like SDF.
-    let dist_to_center_p = length(segment_coord_p);
     var dist_to_stroke_p = length(segment_coord_p) - half_thickness_p;
 
     $$ if dashing
@@ -792,8 +791,13 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
         if (half_thickness_p > 0.5) {
             alpha = clamp(0.5 - dist_to_stroke_p, 0.0, 1.0);
         } else {
-            // Thin lines, factor based on dist_to_center_p, scaled by the size (with a max)
-            alpha = (1.0 - dist_to_center_p) * max(0.01, half_thickness_p * 2.0);
+            // Thin lines stay one physical pixel wide, but scale alpha as they get thinner
+            let alpha_base = (1.0 - length(segment_coord_p));
+            let thickness_scale = max(0.01, half_thickness_p * 2.0);
+            alpha = alpha_base * thickness_scale;
+            $$ if dashing
+                alpha = alpha * clamp(0.5 - dist_to_stroke_dash_p, 0.0, 1.0);
+            $$ endif
         }
         alpha = sqrt(alpha);  // this prevents aa lines from looking thinner
         if (alpha <= 0.0) { discard; }
@@ -835,7 +839,7 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
 
     // Wrap up
     apply_clipping_planes(varyings.world_pos);
-    var out = get_fragment_output(varyings.position.z, out_color);
+    var out = get_fragment_output(varyings.position, out_color);
 
     // Set picking info.
     $$ if write_pick

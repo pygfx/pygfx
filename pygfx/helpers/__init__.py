@@ -17,10 +17,11 @@ when debugging a scene or to create reference points within a scene.
     DirectionalLightHelper
     SpotLightHelper
     Stats
+    SkeletonHelper
 
 """
 
-# flake8: noqa
+# ruff: noqa: F401
 
 from ._axes import AxesHelper
 from ._grid import GridHelper
@@ -33,3 +34,4 @@ from ._lights import (
     SpotLightHelper,
 )
 from ._stats import Stats
+from ._skeleton import SkeletonHelper

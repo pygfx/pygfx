@@ -1,22 +1,27 @@
+from __future__ import annotations
+
 import random
 import weakref
 import threading
-from typing import List, Tuple
+from typing import TYPE_CHECKING, Any, Callable, ClassVar, Iterator, List, Tuple
 import pylinalg as la
+from time import perf_counter_ns
 
 import numpy as np
 
 from ..resources import Buffer
 from ..utils import array_from_shadertype, logger
-from ..utils.trackable import RootTrackable
+from ..utils.trackable import Trackable
 from ._events import EventTarget
 from ..utils.transform import (
-    AffineBase,
     AffineTransform,
     RecursiveTransform,
-    callback,
 )
 from ..utils.enums import RenderMask
+
+if TYPE_CHECKING:
+    from ..geometries import Geometry
+    from ..materials import Material
 
 
 class IdProvider:
@@ -27,7 +32,7 @@ class IdProvider:
         self._map = weakref.WeakValueDictionary()
         self._lock = threading.RLock()
 
-    def claim_id(self, wobject):
+    def claim_id(self, wobject: WorldObject) -> int:
         """Used by wobjects to claim an id."""
         # We don't simply count up, but keep a pool of ids. This is
         # because an application *could* create and discard objects at
@@ -60,14 +65,14 @@ class IdProvider:
 
         return id
 
-    def release_id(self, wobject, id):
+    def release_id(self, wobject: WorldObject, id: int) -> None:
         """Release an id associated with a wobject."""
         if id > 0:
             with self._lock:
                 self._ids_in_use.discard(id)
                 self._map.pop(id, None)
 
-    def get_object_from_id(self, id):
+    def get_object_from_id(self, id: int) -> WorldObject | None:
         """Return the wobject associated with an id, or None."""
         return self._map.get(id)
 
@@ -75,7 +80,7 @@ class IdProvider:
 id_provider = IdProvider()
 
 
-class WorldObject(EventTarget, RootTrackable):
+class WorldObject(EventTarget, Trackable):
     """Base class for objects.
 
     This class represents objects in the world, i.e., the scene graph.Each
@@ -126,7 +131,7 @@ class WorldObject(EventTarget, RootTrackable):
     # align at power-of-two only, so e.g. vec3 needs padding.
     # todo: rename uniform to info or something?
 
-    uniform_type = dict(
+    uniform_type: ClassVar[dict[str, str]] = dict(
         world_transform="4x4xf4",
         world_transform_inv="4x4xf4",
         id="i4",
@@ -134,16 +139,16 @@ class WorldObject(EventTarget, RootTrackable):
 
     def __init__(
         self,
-        geometry=None,
-        material=None,
+        geometry: Geometry | None = None,
+        material: Material | None = None,
         *,
-        visible=True,
-        render_order=0,
-        render_mask="auto",
-        name="",
-    ):
+        visible: bool = True,
+        render_order: float = 0,
+        render_mask: str | int = "auto",
+        name: str = "",
+    ) -> None:
         super().__init__()
-        self._parent: weakref.ReferenceType[WorldObject] = None
+        self._parent: weakref.ReferenceType[WorldObject] | None = None
 
         #: Subtrees of the scene graph that depend on this object.
         self._children: List[WorldObject] = []
@@ -154,9 +159,11 @@ class WorldObject(EventTarget, RootTrackable):
         self.name = name
 
         # Compose complete uniform type
-        buffer = Buffer(array_from_shadertype(self.uniform_type))
+        buffer = Buffer(array_from_shadertype(self.uniform_type), force_contiguous=True)
         buffer.data["world_transform"] = np.eye(4)
         buffer.data["world_transform_inv"] = np.eye(4)
+
+        self._world_last_modified = perf_counter_ns()
 
         #: The object's transform expressed in parent space.
         self.local = AffineTransform(is_camera_space=self._FORWARD_IS_MINUS_Z)
@@ -164,7 +171,6 @@ class WorldObject(EventTarget, RootTrackable):
         self.world = RecursiveTransform(
             self.local, is_camera_space=self._FORWARD_IS_MINUS_Z, reference_up=(0, 1, 0)
         )
-        self.world.on_update(self._update_uniform_buffers)
 
         # Set id
         self._id = id_provider.claim_id(self)
@@ -180,20 +186,34 @@ class WorldObject(EventTarget, RootTrackable):
         self.cast_shadow = False
         self.receive_shadow = False
 
-    @callback
-    def _update_uniform_buffers(self, transform: AffineBase):
-        self.uniform_buffer.data["world_transform"] = transform.matrix.T
-        self.uniform_buffer.data["world_transform_inv"] = transform.inverse_matrix.T
-        self.uniform_buffer.update_range()
+        self.name = name
+
+    def _update_object(self):
+        """This gets called (by the renderer) right before being drawn. Good time for lazy updates."""
+        world_last_modified = self.world.last_modified
+        if world_last_modified > self._world_last_modified:
+            self._world_last_modified = world_last_modified
+            self._update_world_transform()
+
+    def _update_world_transform(self):
+        """This gets called right before being drawn, when the world transform has changed."""
+        orig_err_setting = np.seterr(under="ignore")
+        self.uniform_buffer.data["world_transform"] = self.world.matrix.T
+        self.uniform_buffer.data["world_transform_inv"] = self.world.inverse_matrix.T
+        self.uniform_buffer.update_full()
+        np.seterr(**orig_err_setting)
 
     def __repr__(self):
         return f"<pygfx.{self.__class__.__name__} {self.name} at {hex(id(self))}>"
 
     def __del__(self):
         id_provider.release_id(self, self.id)
+        self.local._set_wrapper(
+            None
+        )  # break the circular reference so GC has it a little easier
 
     @property
-    def up(self):
+    def up(self) -> np.ndarray:
         """
         Relic of old WorldObjects that aliases with the new ``transform.up``
         direction. Prefer `obj.world.reference_up` instead.
@@ -207,7 +227,7 @@ class WorldObject(EventTarget, RootTrackable):
         return self.world.reference_up
 
     @up.setter
-    def up(self, value):
+    def up(self, value: np.ndarray) -> None:
         logger.warning(
             "`WorldObject.up` is deprecated. Use `WorldObject.world.reference_up` instead.",
         )
@@ -215,25 +235,21 @@ class WorldObject(EventTarget, RootTrackable):
         self.world.reference_up = np.asarray(value)
 
     @property
-    def id(self):
+    def id(self) -> int:
         """An integer id smaller than 2**31 (read-only)."""
         return self._id
 
     @property
-    def tracker(self):
-        return self._root_tracker
-
-    @property
-    def visible(self):
+    def visible(self) -> bool:
         """Whether is object is rendered or not. Default True."""
         return self._store.visible
 
     @visible.setter
-    def visible(self, visible):
+    def visible(self, visible: bool) -> None:
         self._store.visible = bool(visible)
 
     @property
-    def render_order(self):
+    def render_order(self) -> float:
         """A number that helps control the order in which objects are rendered.
         Objects with higher ``render_order`` get rendered later.
         Default 0. Also see ``Renderer.sort_objects``.
@@ -241,11 +257,11 @@ class WorldObject(EventTarget, RootTrackable):
         return self._store.render_order
 
     @render_order.setter
-    def render_order(self, value):
+    def render_order(self, value: float) -> None:
         self._store.render_order = float(value)
 
     @property
-    def render_mask(self):
+    def render_mask(self) -> int:
         """Indicates in what render passes to render this object:
 
         See :obj:`pygfx.utils.enums.RenderMask`:
@@ -269,7 +285,7 @@ class WorldObject(EventTarget, RootTrackable):
         return self._store.render_mask
 
     @render_mask.setter
-    def render_mask(self, value):
+    def render_mask(self, value: int | str) -> None:
         if value is None:
             value = 0
         if isinstance(value, int):
@@ -287,44 +303,47 @@ class WorldObject(EventTarget, RootTrackable):
         self._store.render_mask = value
 
     @property
-    def geometry(self):
+    def geometry(self) -> Geometry | None:
         """The object's geometry, the data that defines (the shape of) this object."""
         return self._store.geometry
 
     @geometry.setter
-    def geometry(self, geometry):
+    def geometry(self, geometry: Geometry | None):
         self._store.geometry = geometry
 
     @property
-    def material(self):
-        """Whether is object is rendered or not. Default True."""
-        return self._store.material
+    def material(self) -> Material | None:
+        """The object's material, the data that defines the appearance of this object."""
+        # In contrast to the geometry, the material is not stored on self._store,
+        # because it should not be tracked, because pipeline-containers are unique
+        # for each combi of (wobject, material, renderstate).
+        return self._material
 
     @material.setter
-    def material(self, material):
-        self._store.material = material
+    def material(self, material: Material | None) -> None:
+        self._material = material
 
     @property
-    def cast_shadow(self):
+    def cast_shadow(self) -> bool:
         """Whether this object casts shadows, i.e. whether it is rendered into
         a shadow map. Default False."""
         return self._cast_shadow  # does not affect any shaders
 
     @cast_shadow.setter
-    def cast_shadow(self, value):
+    def cast_shadow(self, value: bool) -> None:
         self._cast_shadow = bool(value)
 
     @property
-    def receive_shadow(self):
+    def receive_shadow(self) -> bool:
         """Whether this object receives shadows. Default False."""
         return self._store.receive_shadow
 
     @receive_shadow.setter
-    def receive_shadow(self, value):
+    def receive_shadow(self, value: bool) -> None:
         self._store.receive_shadow = bool(value)
 
     @property
-    def parent(self) -> "WorldObject":
+    def parent(self) -> WorldObject | None:
         """Object's parent in the scene graph (read-only).
         An object can have at most one parent.
         """
@@ -334,11 +353,16 @@ class WorldObject(EventTarget, RootTrackable):
             return self._parent()
 
     @property
-    def children(self) -> Tuple["WorldObject"]:
+    def children(self) -> Tuple[WorldObject, ...]:
         """tuple of children of this object. (read-only)"""
         return tuple(self._children)
 
-    def add(self, *objects, before=None, keep_world_matrix=False) -> "WorldObject":
+    def add(
+        self,
+        *objects: WorldObject,
+        before: WorldObject | None = None,
+        keep_world_matrix: bool = False,
+    ) -> WorldObject:
         """Add child objects.
 
         Any number of objects may be added. Any current parent on an object
@@ -358,8 +382,6 @@ class WorldObject(EventTarget, RootTrackable):
             the child will keep it's parent transform.
 
         """
-
-        obj: WorldObject
         for obj in objects:
             if obj.parent is not None:
                 obj.parent.remove(obj, keep_world_matrix=keep_world_matrix)
@@ -375,32 +397,33 @@ class WorldObject(EventTarget, RootTrackable):
             obj._parent = weakref.ref(self)
             obj.world.parent = self.world
             self._children.insert(idx, obj)
+            self.world.children.insert(idx, obj.world)
 
             if keep_world_matrix:
                 obj.world.matrix = transform_matrix
 
         return self
 
-    def remove(self, *objects, keep_world_matrix=False):
+    def remove(self, *objects: WorldObject, keep_world_matrix: bool = False) -> None:
         """Removes object as child of this object. Any number of objects may be removed."""
-
-        obj: WorldObject
         for obj in objects:
             try:
                 self._children.remove(obj)
+                self.world.children.remove(obj.world)
             except ValueError:
                 logger.warning("Attempting to remove object that was not a child.")
                 continue
             else:
                 obj._reset_parent(keep_world_matrix=keep_world_matrix)
 
-    def clear(self, *, keep_world_matrix=False):
+    def clear(self, *, keep_world_matrix: bool = False) -> None:
         """Removes all children."""
 
         for child in self._children:
             child._reset_parent(keep_world_matrix=keep_world_matrix)
 
         self._children.clear()
+        self.world.children.clear()
 
     def _reset_parent(self, *, keep_world_matrix=False):
         """Sets the parent to None.
@@ -417,7 +440,9 @@ class WorldObject(EventTarget, RootTrackable):
         if keep_world_matrix:
             self.world.matrix = transform_matrix
 
-    def traverse(self, callback, skip_invisible=False):
+    def traverse(
+        self, callback: Callable[[WorldObject], Any], skip_invisible: bool = False
+    ):
         """Executes the callback on this object and all descendants.
 
         If ``skip_invisible`` is given and True, objects whose
@@ -429,7 +454,11 @@ class WorldObject(EventTarget, RootTrackable):
         for child in self.iter(skip_invisible=skip_invisible):
             callback(child)
 
-    def iter(self, filter_fn=None, skip_invisible=False):
+    def iter(
+        self,
+        filter_fn: Callable[[WorldObject], bool] | None = None,
+        skip_invisible: bool = False,
+    ) -> Iterator[WorldObject]:
         """Create a generator that iterates over this objects and its children.
         If ``filter_fn`` is given, only objects for which it returns ``True``
         are included.
@@ -445,7 +474,7 @@ class WorldObject(EventTarget, RootTrackable):
         for child in self._children:
             yield from child.iter(filter_fn, skip_invisible)
 
-    def get_bounding_box(self):
+    def get_bounding_box(self) -> np.ndarray | None:
         """Axis-aligned bounding box in parent space.
 
         Returns
@@ -456,20 +485,20 @@ class WorldObject(EventTarget, RootTrackable):
         """
 
         # Collect bounding boxes
-        aabbs = []
+        _aabbs = []
         for child in self._children:
             aabb = child.get_bounding_box()
             if aabb is not None:
                 trafo = child.local.matrix
-                aabbs.append(la.aabb_transform(aabb, trafo))
+                _aabbs.append(la.aabb_transform(aabb, trafo))
         if self.geometry is not None:
             aabb = self.geometry.get_bounding_box()
             if aabb is not None:
-                aabbs.append(aabb)
+                _aabbs.append(aabb)
 
         # Combine
-        if aabbs:
-            aabbs = np.stack(aabbs)
+        if _aabbs:
+            aabbs = np.stack(_aabbs)
             final_aabb = np.zeros((2, 3), dtype=float)
             final_aabb[0] = np.min(aabbs[:, 0, :], axis=0)
             final_aabb[1] = np.max(aabbs[:, 1, :], axis=0)
@@ -478,7 +507,7 @@ class WorldObject(EventTarget, RootTrackable):
 
         return final_aabb
 
-    def get_bounding_sphere(self):
+    def get_bounding_sphere(self) -> np.ndarray | None:
         """Bounding Sphere in parent space.
 
         Returns
@@ -491,7 +520,7 @@ class WorldObject(EventTarget, RootTrackable):
         aabb = self.get_bounding_box()
         return None if aabb is None else la.aabb_to_sphere(aabb)
 
-    def get_world_bounding_box(self):
+    def get_world_bounding_box(self) -> np.ndarray | None:
         """Axis aligned bounding box in world space.
 
         Returns
@@ -504,7 +533,7 @@ class WorldObject(EventTarget, RootTrackable):
         aabb = self.get_bounding_box()
         return None if aabb is None else la.aabb_transform(aabb, self.world.matrix)
 
-    def get_world_bounding_sphere(self):
+    def get_world_bounding_sphere(self) -> np.ndarray | None:
         """Bounding Sphere in world space.
 
         Returns
@@ -521,7 +550,7 @@ class WorldObject(EventTarget, RootTrackable):
         # In most cases the material handles this.
         return self.material._wgpu_get_pick_info(pick_value)
 
-    def look_at(self, target) -> None:
+    def look_at(self, target: WorldObject) -> None:
         """Orient the object so it looks at the given position.
 
         This sets the object's rotation such that its ``forward`` direction

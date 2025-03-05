@@ -12,9 +12,9 @@ object, and the pipeline update mechanics.
 
 import numpy as np
 import pygfx as gfx
-from wgpu.gui.offscreen import WgpuCanvas
+from rendercanvas.offscreen import RenderCanvas
 from pygfx.renderers.wgpu.engine.pipeline import get_pipeline_container_group
-from pygfx.renderers.wgpu.engine.environment import get_environment
+from pygfx.renderers.wgpu.engine.renderstate import get_renderstate
 
 from ..testutils import can_use_wgpu_lib
 import pytest
@@ -28,11 +28,11 @@ class PipelineSnapshotter:
     def __init__(self, renderer, scene, world_object):
         self.world_object = world_object
         self.renderer = renderer
-        self.env = get_environment(renderer, scene)
+        flat = renderer._get_flat_scene(scene, None)
+        self.env = get_renderstate(flat.lights, renderer._blender)
         self._snapshot()
 
     def get_shaders_pipelines_bindings(self):
-
         # Prime the blender
         self.renderer._blender.ensure_target_size((100, 100))
 
@@ -44,16 +44,11 @@ class PipelineSnapshotter:
         )
         pipeline_container = pipeline_container_group.render_containers[0]
 
-        # Assume a single environment is in use, get its hash.
-        env_hashes = list(pipeline_container.wgpu_shaders.keys())
-        assert len(env_hashes) == 1
-        env_hash = env_hashes[0]
-
         # Store shaders
-        shaders = pipeline_container.wgpu_pipelines[env_hash].copy()
+        shaders = pipeline_container.wgpu_pipelines.copy()
 
         # Store pipelines
-        pipelines = pipeline_container.wgpu_pipelines[env_hash].copy()
+        pipelines = pipeline_container.wgpu_pipelines.copy()
 
         # Store bindings:  bind group -> binding id -> Binding
         bindings = {k: v.copy() for k, v in pipeline_container.bindings_dicts.items()}
@@ -107,8 +102,7 @@ def get_bindings(world_object):
 
 
 def test_updating_image_material_map():
-
-    renderer = gfx.renderers.WgpuRenderer(WgpuCanvas(), blend_mode="ordered2")
+    renderer = gfx.renderers.WgpuRenderer(RenderCanvas(), blend_mode="ordered2")
     scene = gfx.Scene()
 
     # Create an image
@@ -128,8 +122,7 @@ def test_updating_image_material_map():
 
 
 def test_updating_mesh_material_color():
-
-    renderer = gfx.renderers.WgpuRenderer(WgpuCanvas(), blend_mode="ordered2")
+    renderer = gfx.renderers.WgpuRenderer(RenderCanvas(), blend_mode="ordered2")
     scene = gfx.Scene()
 
     # Create a mesh
@@ -162,8 +155,7 @@ def test_updating_mesh_material_color():
 
 
 def test_updating_mesh_material_opacity():
-
-    renderer = gfx.renderers.WgpuRenderer(WgpuCanvas(), blend_mode="ordered2")
+    renderer = gfx.renderers.WgpuRenderer(RenderCanvas(), blend_mode="ordered2")
     scene = gfx.Scene()
 
     # Create a mesh
@@ -188,8 +180,7 @@ def test_updating_mesh_material_opacity():
 
 
 def test_updating_mesh_geometry_color():
-
-    renderer = gfx.renderers.WgpuRenderer(WgpuCanvas(), blend_mode="ordered2")
+    renderer = gfx.renderers.WgpuRenderer(RenderCanvas(), blend_mode="ordered2")
     scene = gfx.Scene()
 
     # Create a mesh

@@ -26,17 +26,13 @@ struct IncidentLight {
     direction: vec3<f32>,
 };
 
-struct ReflectedLight {
-    direct_diffuse: vec3<f32>,
-    direct_specular: vec3<f32>,
-    indirect_diffuse: vec3<f32>,
-    indirect_specular: vec3<f32>,
-};
-
 struct GeometricContext {
     position: vec3<f32>,
     normal: vec3<f32>,
     view_dir: vec3<f32>,
+    $$ if USE_CLEARCOAT is defined
+    clearcoat_normal: vec3<f32>,
+    $$ endif
 };
 
 $$ if num_dir_lights > 0
@@ -95,3 +91,28 @@ fn F_Schlick(f0: vec3<f32>, f90: f32, dot_vh: f32,) -> vec3<f32> {
     let fresnel = exp2( ( - 5.55473 * dot_vh - 6.98316 ) * dot_vh );
     return f0 * ( 1.0 - fresnel ) + ( f90 * fresnel );
 }
+
+fn F_Schlick_f(f0: f32, f90: f32, dot_vh: f32,) -> f32 {
+    // Optimized variant (presented by Epic at SIGGRAPH '13)
+    // https://cdn2.unrealengine.com/Resources/files/2013SiggraphPresentationsNotes-26915738.pdf
+    let fresnel = exp2( ( - 5.55473 * dot_vh - 6.98316 ) * dot_vh );
+    return f0 * ( 1.0 - fresnel ) + ( f90 * fresnel );
+}
+
+$$ if use_normal_map is defined or use_clearcoat_normal_map is defined
+fn perturbNormal2Arb( eye_pos: vec3<f32>, surf_norm: vec3<f32>, mapN: vec3<f32>, uv: vec2<f32>, is_front: bool) -> vec3<f32> {
+    let q0 = dpdx( eye_pos.xyz );
+    let q1 = dpdy( eye_pos.xyz );
+    let st0 = dpdx( uv.xy );
+    let st1 = dpdy( uv.xy );
+    let N = surf_norm; //  normalized
+    let q1perp = cross( q1, N );
+    let q0perp = cross( N, q0 );
+    let T = q1perp * st0.x + q0perp * st1.x;
+    let B = q1perp * st0.y + q0perp * st1.y;
+    let det = max( dot( T, T ), dot( B, B ) );
+    let faceDirection = f32(is_front) * 2.0 - 1.0;
+    let scale = faceDirection * inverseSqrt(det);
+    return normalize(T * mapN.x * scale + B * mapN.y * scale + N * mapN.z);
+}
+$$ endif

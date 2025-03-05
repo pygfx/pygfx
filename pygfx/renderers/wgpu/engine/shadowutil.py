@@ -2,7 +2,7 @@ import wgpu
 
 from .... import objects
 from .update import ensure_wgpu_object, update_resource
-from .utils import to_vertex_format, GpuCache
+from .utils import to_index_format, to_vertex_format, GpuCache
 from .shared import get_shared
 
 
@@ -119,9 +119,10 @@ def render_shadow_map(
             "depth_clear_value": 1.0,
             "depth_load_op": wgpu.LoadOp.clear,
             "depth_store_op": wgpu.StoreOp.store,
-            "stencil_read_only": True,
-            "stencil_load_op": wgpu.LoadOp.clear,
-            "stencil_store_op": wgpu.StoreOp.discard,
+            # The used texture does not have a stencil component
+            # "stencil_read_only": True,
+            # "stencil_load_op": wgpu.LoadOp.clear,
+            # "stencil_store_op": wgpu.StoreOp.discard,
         },
     )
 
@@ -162,9 +163,9 @@ def render_wobject_shadow(device, light, wobject, shadow_pass):
 
     if ibuffer is not None:
         n = wobject.geometry.indices.data.size
-        index_format = to_vertex_format(ibuffer.format)
-        index_format = index_format.split("x")[0].replace("s", "u")
-        shadow_pass.set_index_buffer(ensure_wgpu_object(ibuffer), index_format)
+        shadow_pass.set_index_buffer(
+            ensure_wgpu_object(ibuffer), to_index_format(ibuffer.format)
+        )
         shadow_pass.draw_indexed(n, n_instance)
     else:
         n = wobject.geometry.positions.nitems
@@ -227,8 +228,21 @@ def get_shadow_pipeline(device, wobject, cull_mode):
     is_instanced = isinstance(wobject, objects.InstancedMesh)
 
     key = (stride, format, topology, cull_mode, is_instanced)
+    wobject_attr_name = f"_gfx_shadow_pipeline_{cull_mode}"
 
-    pipeline = SHADOW_CACHE.get(key)
+    # Try getting the pipeline from the wobject
+    try:
+        current_key, pipeline = getattr(wobject, wobject_attr_name)
+    except AttributeError:
+        current_key, pipeline = None, None
+    if current_key != key:
+        pipeline = None
+
+    # If not existing or compatible, try getting from caache (i.e. re-use from other object)
+    if pipeline is None:
+        pipeline = SHADOW_CACHE.get(key)
+
+    # If still nothing, create the pipeline and make available for re-use.
     if pipeline is None:
         # Create pipeline and store in the cache (with a weakref).
         pipeline = create_shadow_pipeline(
@@ -237,7 +251,7 @@ def get_shadow_pipeline(device, wobject, cull_mode):
         SHADOW_CACHE.set(key, pipeline)
 
     # Store on the wobject to bind it to its lifetime, but per shadow-cull-mode
-    setattr(wobject, f"_gfx_shadow_pipeline_{cull_mode}", pipeline)
+    setattr(wobject, wobject_attr_name, (key, pipeline))
     return pipeline
 
 

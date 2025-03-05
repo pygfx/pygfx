@@ -10,7 +10,7 @@ from pathlib import Path
 import imageio.v3 as iio
 from sphinx_gallery.scrapers import figure_rst
 from sphinx_gallery.py_source_parser import extract_file_config
-from wgpu.gui import WgpuCanvasBase
+from rendercanvas import BaseRenderCanvas
 
 from ..renderers import Renderer
 
@@ -125,7 +125,6 @@ def pygfx_scraper(block, block_vars, gallery_conf, **kwargs):
     config_parts = config.split()
 
     if config_parts[0] == "screenshot":
-
         # Configure
         config = {
             "lossless": True,
@@ -136,7 +135,6 @@ def pygfx_scraper(block, block_vars, gallery_conf, **kwargs):
         render_screenshot(canvas, namespace, img_filename, **config)
 
     elif config_parts[0] == "animate":
-
         # Configure
         config = {
             "duration": 3.0,  # total duration of the animation, in seconds
@@ -181,14 +179,19 @@ def select_canvas(fname, namespace):
         elif isinstance(target, Renderer):
             canvas = target.target
             break
-        elif isinstance(target, WgpuCanvasBase):
+        elif isinstance(target, BaseRenderCanvas):
+            canvas = target
+            break
+        elif target.__class__.__name__.endswith("WgpuCanvas"):
             canvas = target
             break
     # Try getting from proxy objects
     if canvas is None:
         for target_name in ["display", "disp", "plot", "figure"]:
             target = namespace.get(target_name, None)
-            if hasattr(target, "canvas") and isinstance(target.canvas, WgpuCanvasBase):
+            if hasattr(target, "canvas") and isinstance(
+                target.canvas, BaseRenderCanvas
+            ):
                 canvas = target.canvas
                 break
     # Found?
@@ -217,14 +220,16 @@ def render_movie(canvas, namespace, filename, *, duration, fps, loop, lossless):
     frames = []
     n_frames = int(duration * fps)
     t0 = time.perf_counter()
+    i = 0
     for i in range(n_frames):
-        namespace["perf_counter"] = lambda: t0 + i / fps
+        # In below lambda, the i is not bound, but thats ok
+        namespace["perf_counter"] = lambda: t0 + i / fps  # noqa: B023
         frames.append(canvas.draw())
     # Write the video
     iio.imwrite(
         filename,
         frames,
-        duration=1 / fps,
+        duration=round((1 / fps) * 1000),
         loop=loop,
         lossless=lossless,
     )

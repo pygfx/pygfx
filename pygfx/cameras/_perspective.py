@@ -4,6 +4,7 @@ import numpy as np
 import pylinalg as la
 
 from ..objects._base import WorldObject
+from ..utils.transform import cached
 from ._base import Camera
 
 
@@ -79,7 +80,6 @@ class PerspectiveCamera(Camera):
         self.depth_range = depth_range
 
         self.set_view_size(1, 1)
-        self.update_projection_matrix()
 
     @property
     def fov(self):
@@ -95,6 +95,7 @@ class PerspectiveCamera(Camera):
         if 0 < fov < 1:
             fov = 1
         self._fov = fov
+        self.flag_update()
 
     @property
     def width(self):
@@ -106,6 +107,7 @@ class PerspectiveCamera(Camera):
     @width.setter
     def width(self, value):
         self._width = float(value)
+        self.flag_update()
 
     @property
     def height(self):
@@ -117,6 +119,7 @@ class PerspectiveCamera(Camera):
     @height.setter
     def height(self, value):
         self._height = float(value)
+        self.flag_update()
 
     @property
     def aspect(self):
@@ -133,6 +136,7 @@ class PerspectiveCamera(Camera):
         extent = 0.5 * (self._width + self._height)
         self._height = 2 * extent / (1 + aspect)
         self._width = self._height * aspect
+        self.flag_update()
 
     def _set_extent(self, extent):
         """Set the mean of width and height while maintaining aspect."""
@@ -142,6 +146,7 @@ class PerspectiveCamera(Camera):
         aspect = self.aspect
         self._height = 2 * extent / (1 + aspect)
         self._width = self._height * aspect
+        self.flag_update()
 
     @property
     def zoom(self):
@@ -151,6 +156,7 @@ class PerspectiveCamera(Camera):
     @zoom.setter
     def zoom(self, value):
         self._zoom = float(value)
+        self.flag_update()
 
     @property
     def maintain_aspect(self):
@@ -163,6 +169,7 @@ class PerspectiveCamera(Camera):
     @maintain_aspect.setter
     def maintain_aspect(self, value):
         self._maintain_aspect = bool(value)
+        self.flag_update()
 
     @property
     def depth_range(self):
@@ -179,6 +186,7 @@ class PerspectiveCamera(Camera):
             self._depth_range = float(value[0]), float(value[1])
         else:
             raise TypeError("depth_range must be None or a 2-tuple.")
+        self.flag_update()
 
     def _get_near_and_far_plane(self):
         # Dept range explicitly given?
@@ -213,6 +221,15 @@ class PerspectiveCamera(Camera):
         return far
 
     def get_state(self):
+        """Get the state of the camera as a dict.
+
+        The fields contain "position", "rotation", "scale", and
+        "reference_up", representing the camera's transform. The scale
+        is typically not used, but included for completeness. Further,
+        the following properties are included: "fov", "width", "height",
+        "zoom", "maintain_aspect", and "depth_range".
+
+        """
         return {
             "position": self.local.position,
             "rotation": self.local.rotation,
@@ -227,27 +244,48 @@ class PerspectiveCamera(Camera):
         }
 
     def set_state(self, state):
+        """Set the state of the camera from a dict.
+
+        Accepted fields are the same as in ``get_state()``. In addition,
+        the fields ``x``, ``y``, and ``z`` are also accepted to set the
+        position along a singular dimension.
+
+        """
         # Set the more complex props
-        if "position" in state:
-            self.local.position = state["position"]
-        if "rotation" in state:
-            self.local.rotation = state["rotation"]
-        if "scale" in state:
-            self.local.scale = state["scale"]
-        if "reference_up" in state:
-            self.world.reference_up = state["reference_up"]
+        for key, value in state.items():
+            if key == "position":
+                self.local.position = value
+            if key in ("x", "y", "z"):
+                setattr(self.local, key, value)
+            elif key == "scale":
+                self.local.scale = value
+            elif key == "rotation":
+                self.local.rotation = value
+            elif key == "reference_up":
+                self.world.reference_up = value
+            elif key in (
+                "fov",
+                "width",
+                "height",
+                "zoom",
+                "maintain_aspect",
+                "depth_range",
+            ):
+                # Simple props
+                setattr(self, key, value)
+        self.flag_update()
 
-        # Set simple props
-        for key in ("fov", "width", "height", "zoom", "maintain_aspect", "depth_range"):
-            if key in state:
-                setattr(self, key, state[key])
-
-    def set_view_size(self, width, height):
-        self._view_aspect = width / height
-
-    def update_projection_matrix(self):
+    def _update_projection_matrix(self):
         zoom_factor = self._zoom
         near, far = self._get_near_and_far_plane()
+
+        view_aspect = self._view_size[0] / self._view_size[1]
+
+        if self._view_offset is not None:
+            # The view_offset should override the aspect, via its full (virtual) size
+            view_aspect = (
+                self._view_offset["full_width"] / self._view_offset["full_height"]
+            )
 
         if self.fov > 0:
             # Get the reference width / height
@@ -258,20 +296,19 @@ class PerspectiveCamera(Camera):
             # Increase either the width or height, depending on the view size
             if not self._maintain_aspect:
                 pass
-            elif self.aspect < self._view_aspect:
-                width *= self._view_aspect / self.aspect
+            elif self.aspect < view_aspect:
+                width *= view_aspect / self.aspect
             else:
-                height *= self.aspect / self._view_aspect
+                height *= self.aspect / view_aspect
             # Calculate bounds
             top = +0.5 * height
             bottom = -0.5 * height
             left = -0.5 * width
             right = +0.5 * width
             # Set matrices
-            self.projection_matrix = la.mat_perspective(
+            projection_matrix = la.mat_perspective(
                 left, right, top, bottom, near, far, depth_range=(0, 1)
             )
-            self.projection_matrix_inverse = np.linalg.inv(self.projection_matrix)
 
         else:
             # The reference view plane is scaled with the zoom factor
@@ -281,22 +318,22 @@ class PerspectiveCamera(Camera):
             aspect = width / height
             if not self._maintain_aspect:
                 pass
-            elif aspect < self._view_aspect:
-                width *= self._view_aspect / aspect
+            elif aspect < view_aspect:
+                width *= view_aspect / aspect
             else:
-                height *= aspect / self._view_aspect
-
+                height *= aspect / view_aspect
+            # Calculate bounds
             bottom = -0.5 * height
             top = +0.5 * height
             left = -0.5 * width
             right = +0.5 * width
             # Set matrices
-            proj = la.mat_orthographic(
+            projection_matrix = la.mat_orthographic(
                 left, right, top, bottom, near, far, depth_range=(0, 1)
             )
-            proj_i = np.linalg.inv(proj)
-            self.projection_matrix = proj
-            self.projection_matrix_inverse = proj_i
+
+        projection_matrix.flags.writeable = False
+        return projection_matrix
 
     def show_pos(self, target, *, up=None):
         """Look at the given position or object.
@@ -456,7 +493,7 @@ class PerspectiveCamera(Camera):
         new_position = position + la.vec_transform_quat(offset, rotation)
         self.world.position = new_position
 
-    @property
+    @cached
     def frustum(self):
         """Corner positions of the viewing frustum in world space.
 
@@ -469,13 +506,13 @@ class PerspectiveCamera(Camera):
             and the third to the world position of that corner.
 
         """
-
-        projection_matrix = self.projection_matrix
-
         ndc_corners = np.array([(-1, -1), (1, -1), (1, 1), (-1, 1)])
         depths = np.array((0, 1))[:, None]
-        local_corners = la.vec_unproject(ndc_corners, projection_matrix, depth=depths)
+        local_corners = la.vec_unproject(
+            ndc_corners, self.projection_matrix, depth=depths
+        )
         world_corners = la.vec_transform(local_corners, self.world.matrix)
+        world_corners.flags.writeable = False
         return world_corners
 
 
