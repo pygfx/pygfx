@@ -175,6 +175,9 @@ fn vs_main(in: VertexInput) -> Varyings {
 @fragment
 fn fs_main(varyings: Varyings) -> FragmentOutput {
 
+    // clipping planes
+    {$ include 'pygfx.clipping_planes.wgsl' $}
+
     let l2p:f32 = u_stdinfo.physical_size.x / u_stdinfo.logical_size.x;
 
     let bitmap_rect = vec4<f32>(varyings.bitmap_rect);
@@ -295,8 +298,6 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     // Debug
     //color_out = vec4<f32>(atlas_value, 0.0, 0.0, 1.0);
 
-    // Wrap up
-    apply_clipping_planes(varyings.world_pos);
     var out = get_fragment_output(varyings.position, color_out);
 
     // Move text closer to camera, since its often overlaid on something.

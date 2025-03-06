@@ -320,6 +320,8 @@ struct ReflectedLight {
 
 @fragment
 fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> FragmentOutput {
+    // clipping planes
+    {$ include 'pygfx.clipping_planes.wgsl' $}
 
     // Get the surface normal from the geometry.
     // This is the unflipped normal, because thet NormalMaterial needs that.
@@ -566,9 +568,6 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
 
     let out_color = vec4<f32>(physical_color, diffuse_color.a);
 
-    // Wrap up
-
-    apply_clipping_planes(varyings.world_pos);
     var out = get_fragment_output(varyings.position, out_color);
 
     $$ if write_pick

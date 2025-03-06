@@ -37,6 +37,9 @@ fn vs_main(in: VertexInput) -> Varyings {
 
 @fragment
 fn fs_main(varyings: Varyings) -> FragmentOutput {
+    // clipping planes
+    {$ include 'pygfx.clipping_planes.wgsl' $}
+
     let sizef = vec2<f32>(textureDimensions(t_img));
     let value = sample_im(varyings.texcoord.xy, sizef);
     let color = sampled_value_to_color(value);
@@ -50,8 +53,6 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     let opacity = color.a * u_material.opacity;
     let out_color = vec4<f32>(physical_color, opacity);
 
-    // Wrap up
-    apply_clipping_planes(varyings.world_pos);
     var out = get_fragment_output(varyings.position, out_color);
 
     $$ if write_pick
