@@ -125,6 +125,7 @@ def test_atlas_alloc_resize_with_freeing():
     for _i in range(4):
         atlas.free_region(get_index_in_use())
     assert atlas.allocated_area == 5 * 64
+    assert len(atlas._free_indices) == 4
 
     # Allocate another
     atlas.allocate_region(8, 8)
@@ -133,6 +134,9 @@ def test_atlas_alloc_resize_with_freeing():
     assert atlas.total_area == 576
     assert atlas.region_count == 6
     assert atlas.allocated_area == 6 * 64
+
+    # The free indices (into the infos array) are still there
+    assert len(atlas._free_indices) == 3  # one it taken by the allocation
 
     # Not only is the atlas not resized, the array is also still the
     # same object. This is important, because this means that the
@@ -149,6 +153,9 @@ def test_atlas_alloc_resize_with_freeing():
     assert atlas.total_area == 1024
     assert atlas.allocated_area == 12 * 64
     assert atlas._array is not prev_array
+
+    # The free indices (into the infos array) are still there
+    assert len(atlas._free_indices) == 0  # because we used all the free region
 
     # Now we free some regions
     for _i in range(6):
@@ -167,6 +174,7 @@ def test_atlas_alloc_resize_with_freeing():
     assert atlas.region_count == 3
     assert atlas.total_area == 576
     assert atlas.allocated_area == 3 * 64
+    assert len(atlas._free_indices) == 9
 
     # Free all we have
     for _i in range(3):
@@ -222,6 +230,26 @@ def test_atlas_alloc1():
 
     # Sanity check
     assert len(indices) == len(set(indices))
+
+
+def test_atlas_alloc_empty():
+    # Allocate empty regions (zero size)
+    # This is not even such a special case; it just works.
+
+    atlas = GlyphAtlas(16, 16)
+
+    i1 = atlas.allocate_region(5, 5)
+    i2 = atlas.allocate_region(0, 0)
+    i3 = atlas.allocate_region(0, 0)
+    i4 = atlas.allocate_region(5, 5)
+
+    # Unique indices
+    assert len({i1, i2, i3, i4}) == 4
+
+    assert atlas.get_region(i1).size == 25
+    assert atlas.get_region(i2).size == 0
+    assert atlas.get_region(i3).size == 0
+    assert atlas.get_region(i4).size == 25
 
 
 def test_atlas_alloc2():
