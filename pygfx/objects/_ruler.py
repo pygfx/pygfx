@@ -441,13 +441,7 @@ class Ruler(WorldObject):
         # Get number of positions that we need
         n_positions = len(ticks) + 2
 
-        # Get the geometry to provide us with enough slots. Keep sizes array in sync
         geometry = self._text.geometry
-        geometry.set_text_block_count(n_positions)
-        if geometry.sizes.nitems != geometry.positions.nitems:
-            geometry.sizes = Buffer(np.zeros(geometry.positions.nitems, "f4"))
-        geometry.positions.update_full()
-        geometry.sizes.update_full()
 
         # Apply anchor props
         if geometry._anchor != self._text_anchor:
@@ -455,9 +449,18 @@ class Ruler(WorldObject):
         if geometry._anchor_offset != self._text_anchor_offset:
             geometry.anchor_offset = self._text_anchor_offset
 
+        # Get the geometry to provide us with enough slots. Keep sizes array in sync
+        geometry.set_text_block_count(n_positions)
+        positions_buffer = geometry.positions
+        sizes_buffer = geometry.sizes
+        if sizes_buffer.nitems != positions_buffer.nitems:
+            sizes_buffer = geometry.sizes = Buffer(
+                np.zeros(positions_buffer.nitems, "f4")
+            )
+
         # Get arrays / list that we can write to
-        positions = self.points.geometry.positions.data[:n_positions]
-        sizes = self.points.geometry.sizes.data[:n_positions]
+        positions = positions_buffer.data
+        sizes = sizes_buffer.data
         text_blocks = geometry._text_blocks
 
         # Apply start point
@@ -495,6 +498,15 @@ class Ruler(WorldObject):
                 text_blocks[1].set_text("")
             if abs(tick_values[-1] - end_value) < 0.5 * tick_auto_step:
                 text_blocks[index - 1].set_text("")
+
+        # Make sure that the subset is drawn, and that the buffers are synced
+        positions[n_positions:] = (
+            np.nan
+        )  # prevent a partial join to be drawn in the line
+        if positions_buffer.draw_range[1] != n_positions:
+            positions_buffer.draw_range = 0, n_positions
+        positions_buffer.update_full()
+        sizes_buffer.update_full()
 
 
 # ---- Helper functions
