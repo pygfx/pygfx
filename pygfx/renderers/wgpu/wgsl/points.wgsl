@@ -218,6 +218,9 @@ fn vs_main(in: VertexInput) -> Varyings {
 @fragment
 fn fs_main(varyings: Varyings) -> FragmentOutput {
 
+    // clipping planes
+    {$ include 'pygfx.clipping_planes.wgsl' $}
+
     let l2p:f32 = u_stdinfo.physical_size.x / u_stdinfo.logical_size.x;
 
     let half_size_p: f32 = 0.5 * varyings.size_p;
@@ -349,8 +352,6 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
         let out_color = vec4<f32>(srgb2physical(the_color.rgb), the_color.a * u_material.opacity);
     $$ endif
 
-    // Wrap up
-    apply_clipping_planes(varyings.world_pos);
     var out = get_fragment_output(varyings.position, out_color);
 
     $$ if write_pick

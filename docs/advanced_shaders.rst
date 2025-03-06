@@ -263,10 +263,9 @@ to unpack the picking info. See e.g. the picking of a mesh:
 Clipping planes
 ---------------
 
-For common features that apply to all/most objects, wgsl convenience functions
-are available. Take clipping planes. One can call ``apply_clipping_planes()`` to
-discard the fragment if it's outside of the clipping planes. Or use
-``check_clipping_planes()`` to get a boolean.
+For common features that apply to all/most objects, wgsl convenience shader chunks are provided.
+included in the shader code using the ``include`` directive. For example, to use clipping planes,
+you can include the wgsl code for clipping planes in your shader like this:
 
 .. code-block:: python
 
@@ -278,7 +277,9 @@ discard the fragment if it's outside of the clipping planes. Or use
             fn fs_main(varyings: Varyings) -> FragmentOutput {
                 ...
 
-                apply_clipping_planes(varyings.world_pos);
+                // clipping planes
+                {$ include 'pygfx.clipping_planes.wgsl' $}
+
                 var out = get_fragment_output(varyings.position, color);
                 ...
                 return out;

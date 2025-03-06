@@ -603,6 +603,9 @@ $$ endif
 @fragment
 fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> FragmentOutput {
 
+    // clipping planes
+    {$ include 'pygfx.clipping_planes.wgsl' $}
+    
     // Get the half-thickness in physical coordinates. This is the reference thickness.
     // If aa is used, the line is actually a bit thicker, leaving space to do aa.
     let half_thickness_p = 0.5 * varyings.thickness_pw / varyings.w;
@@ -837,8 +840,6 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
     let opacity = min(1.0, color.a) * alpha * u_material.opacity;
     let out_color = vec4<f32>(physical_color, opacity);
 
-    // Wrap up
-    apply_clipping_planes(varyings.world_pos);
     var out = get_fragment_output(varyings.position, out_color);
 
     // Set picking info.
