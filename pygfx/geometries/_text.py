@@ -638,6 +638,8 @@ class TextGeometry(Geometry):
                 block = self._text_blocks.pop(-1)
                 block._clear(self)
 
+        # Also set the draw_range of the positions. The text rendering does not need/use this,
+        # but it simplifies scenarios where the positions buffer is used to e.g. draw points, as the Ruler does,
         self.positions.draw_range = 0, n
 
     def _allocate_block_buffers(self, n):
