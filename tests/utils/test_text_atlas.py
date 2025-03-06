@@ -232,6 +232,26 @@ def test_atlas_alloc1():
     assert len(indices) == len(set(indices))
 
 
+def test_atlas_alloc_empty():
+    # Allocate empty regions (zero size)
+    # This is not even such a special case; it just works.
+
+    atlas = GlyphAtlas(16, 16)
+
+    i1 = atlas.allocate_region(5, 5)
+    i2 = atlas.allocate_region(0, 0)
+    i3 = atlas.allocate_region(0, 0)
+    i4 = atlas.allocate_region(5, 5)
+
+    # Unique indices
+    assert len({i1, i2, i3, i4}) == 4
+
+    assert atlas.get_region(i1).size == 25
+    assert atlas.get_region(i2).size == 0
+    assert atlas.get_region(i3).size == 0
+    assert atlas.get_region(i4).size == 25
+
+
 def test_atlas_alloc2():
     # Now with de-allocations
 
