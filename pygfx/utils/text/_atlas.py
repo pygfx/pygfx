@@ -235,7 +235,7 @@ class GlyphAtlas(RectPacker):
             # character 32, a non-printable character.
             # has a glyph that is empty, but it should still
             # take space and have an index in our atlas.
-            if index in self._free_indices:
+            if w1 == 0 and index in self._free_indices:
                 # freed region
                 continue
             x2, y2, w2, h2 = self._select_region(w1, h1)
