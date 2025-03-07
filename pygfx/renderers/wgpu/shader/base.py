@@ -82,7 +82,11 @@ class ShaderInterface:
 class BaseShader(ShaderInterface):
     """Base shader object to compose and template shaders using jinja2.
 
-    Templating variables can be set (and get) as attributes, or passed as kwargs to ``generate_wgsl()``.
+    Templating variables can be passed kwargs, set(and get) as attributes, or passed as kwargs to ``generate_wgsl()``.
+    They should only be set in __init__() and get_bindings_info().
+
+    The template variables affect the hash. After `pipeline.py` calls get_bindings_info(), it checks
+    the hash to see if the shader has changed, and recompiles the wgsl if it has.
     """
 
     type = "render"  # must be "compute" or "render"
@@ -170,9 +174,11 @@ class BaseShader(ShaderInterface):
         # which means that we can handle the _template_vars_current here.
         self._template_vars_current = self._template_vars_bindings
 
-        # Clear the binding-based template variables, so that when get_bindings()
+        # Clear the binding-based template variables, and the binding definitions, so that when get_bindings()
         # not-sets a variable (which was previously set), this affects the hash and is detected.
         self._template_vars_bindings.clear()
+        self._binding_definitions.clear()
+
         try:
             return self.get_bindings(wobject, shared)
         finally:
@@ -180,6 +186,7 @@ class BaseShader(ShaderInterface):
             self._hash = None  # template vars my have changed, so force a recalculation
 
     def get_bindings(self, wobject, shared):
+        # Default implementation returns zero bindings
         return {0: {}}
 
     def get_code(self):
@@ -220,6 +227,9 @@ class BaseShader(ShaderInterface):
 
     def define_bindings(self, bindgroup, bindings_dict):
         """Define a collection of bindings organized in a dict."""
+        if self._template_vars_current is not self._template_vars_bindings:
+            raise RuntimeError("define_bindings can only be used from get_bindings")
+
         for index, binding in bindings_dict.items():
             self._binding_definitions.define_binding(bindgroup, index, binding)
 
@@ -229,6 +239,9 @@ class BaseShader(ShaderInterface):
         The binding must be a Binding object. The code that defines the binding
         will be inserted in ``pygfx.std.wgsl``.
         """
+        if self._template_vars_current is not self._template_vars_bindings:
+            raise RuntimeError("define_bindings can only be used from get_bindings")
+
         self._binding_definitions.define_binding(bindgroup, index, binding)
 
     # ----- Colormap stuff
