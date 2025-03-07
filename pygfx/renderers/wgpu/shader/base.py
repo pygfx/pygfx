@@ -239,10 +239,6 @@ class BaseShader(ShaderInterface):
         Returns a list of bindings.
         """
 
-        self["colormap_interpolation"] = (
-            map.mag_filter
-        )  # todo: remove colormap_interpolation?
-
         filter_mode = f"{map.mag_filter}, {map.min_filter}, {map.mipmap_filter}"
         address_mode = f"{map.wrap_s}, {map.wrap_t}"
 
@@ -272,10 +268,6 @@ class BaseShader(ShaderInterface):
         In the WGSL the colormap can be sampled using ``sample_colormap()``.
         Returns a list of bindings.
         """
-
-        self["colormap_interpolation"] = (
-            map.mag_filter
-        )  # todo: remove colormap_interpolation?
 
         filter_mode = f"{map.mag_filter}, {map.min_filter}, {map.mipmap_filter}"
         address_mode = f"{map.wrap_s}, {map.wrap_t}"
