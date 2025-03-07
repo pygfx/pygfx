@@ -88,11 +88,12 @@ class BaseShader(ShaderInterface):
     type = "render"  # must be "compute" or "render"
     needs_bake_function = False
 
-    def __init__(self, wobject):
+    def __init__(self, wobject, **template_vars):
         super().__init__()
 
         # The shader templating variables
         self._template_vars_init = {}
+        self._template_vars_init.update(template_vars)
         self._template_vars_bindings = {}
 
         # Start off with the current dict set. This is reset when get_bindings_info() gets called.
