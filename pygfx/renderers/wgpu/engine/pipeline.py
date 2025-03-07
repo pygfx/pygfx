@@ -216,6 +216,7 @@ class PipelineContainerGroup:
         # Get what has changed
         tracker = self.tracker
         changed = tracker.pop_changed()
+
         if not self.initialized:
             self.initialized = True
             changed.add("create")
@@ -356,10 +357,10 @@ class PipelineContainer:
             self.wgpu_shaders = {}
 
         if "bindings" in changed:
-            self.shader.unlock_hash()
             with tracker.track_usage("!bindings"):
-                self.bindings_dicts = self.shader.get_bindings(wobject, self.shared)
-            self.shader.lock_hash()
+                self.bindings_dicts = self.shader.get_bindings_info(
+                    wobject, self.shared
+                )
             self._check_bindings()
             self.update_shader_hash()
             self.update_bind_groups()
