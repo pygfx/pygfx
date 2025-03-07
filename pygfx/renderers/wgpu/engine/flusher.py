@@ -143,6 +143,7 @@ class RenderFlusher:
         dst_color_tex,
         gamma=1.0,
         filter_strength=1.0,
+        time_measurer=None,
     ):
         """Render the (internal) result of the renderer to a texture view."""
 
@@ -166,7 +167,7 @@ class RenderFlusher:
 
         # Ready to go!
         self._update_uniforms(src_color_tex, dst_color_tex, gamma, filter_strength)
-        return self._render(dst_color_tex)
+        return self._render(dst_color_tex, time_measurer)
 
     def _update_uniforms(self, src_color_tex, dst_color_tex, gamma, filter_strength):
         # Get factor between texture sizes
@@ -194,8 +195,13 @@ class RenderFlusher:
             self._uniform_buffer, 0, self._uniform_data, 0, self._uniform_data.nbytes
         )
 
-    def _render(self, dst_color_tex):
+    def _render(self, dst_color_tex, time_measurer):
         command_encoder = self._device.create_command_encoder()
+
+        timestamp_writes = None
+        if time_measurer:
+            time_group = time_measurer.create_group(self._device, "flush", 1)
+            timestamp_writes = time_group.get_timestamp_writes(0)
 
         render_pass = command_encoder.begin_render_pass(
             color_attachments=[
@@ -208,11 +214,15 @@ class RenderFlusher:
                 }
             ],
             depth_stencil_attachment=None,
+            timestamp_writes=timestamp_writes,
         )
         render_pass.set_pipeline(self._render_pipeline)
         render_pass.set_bind_group(0, self._bind_group, [], 0, 99)
         render_pass.draw(4, 1)
         render_pass.end()
+
+        if time_measurer:
+            time_group.resolve(command_encoder)
 
         return [command_encoder.finish()]
 
