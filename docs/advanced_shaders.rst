@@ -33,7 +33,24 @@ The shader must implement a few methods. A typical shader is shown below:
 
         type = "render"  # must be "render" or "compute"
 
+        def ___init__(self, wobject):
+            super().__init__(wobject)
+
+            # The __init__ is a good place to examine the material and geometry and set any template-variables that
+            # affect the final wgsl. By accessing `material.has_some_value` here, the value is tracked, so that when
+            # `material.has_some_value` changes later, the shader is re-compiled.
+            if material.has_some_value:
+                self["some_template_variable"] = True
+
         def get_bindings(self, wobject, shared):
+
+            # You can also set template-variables here. Again, when things that are used here change later, this
+            # is detected, and this method will be called again. When a binding has changed (e.g. a colormap is replaced
+            # with another) while the formats etc. match, the shader code is not re-composed / re-compiled, making
+            # such actions very efficient.
+            if getattr(geometry, "colors"):
+                self["use_color_buffer"] = True
+
             # Collect bindings. We must return a dict mapping slot
             # indices to Binding objects. But it's sometimes easier to
             # collect bindings in a list and then convert to a dict.
@@ -263,10 +280,9 @@ to unpack the picking info. See e.g. the picking of a mesh:
 Clipping planes
 ---------------
 
-For common features that apply to all/most objects, wgsl convenience functions
-are available. Take clipping planes. One can call ``apply_clipping_planes()`` to
-discard the fragment if it's outside of the clipping planes. Or use
-``check_clipping_planes()`` to get a boolean.
+For common features that apply to all/most objects, wgsl convenience shader chunks are provided.
+included in the shader code using the ``include`` directive. For example, to use clipping planes,
+you can include the wgsl code for clipping planes in your shader like this:
 
 .. code-block:: python
 
@@ -278,7 +294,9 @@ discard the fragment if it's outside of the clipping planes. Or use
             fn fs_main(varyings: Varyings) -> FragmentOutput {
                 ...
 
-                apply_clipping_planes(varyings.world_pos);
+                // clipping planes
+                {$ include 'pygfx.clipping_planes.wgsl' $}
+
                 var out = get_fragment_output(varyings.position, color);
                 ...
                 return out;

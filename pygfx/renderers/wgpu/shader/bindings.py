@@ -18,6 +18,11 @@ class BindingDefinitions:
         self._binding_codes = {}
         self._uniform_struct_names = {}  # dtype -> name
 
+    def clear(self):
+        self._typedefs.clear()
+        self._binding_codes.clear()
+        self._uniform_struct_names.clear()
+
     def get_code(self):
         """Get the wgsl source code for the collected bindings."""
         code = ""

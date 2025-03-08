@@ -9,7 +9,7 @@ examples/data/sam2*.pt
 offscreen.png
 docs/sg_execution_times.rst
 nogit/
-*.txt
+*.profile
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

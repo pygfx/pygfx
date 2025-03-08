@@ -322,6 +322,8 @@ struct ReflectedLight {
 
 @fragment
 fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> FragmentOutput {
+    // clipping planes
+    {$ include 'pygfx.clipping_planes.wgsl' $}
 
     // Get the surface normal from the geometry.
     // This is the unflipped normal, because thet NormalMaterial needs that.
@@ -447,8 +449,8 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
 
         // Do the math
 
-        // Direct light
-        lighting_{{ lighting }}(&reflected_light, geometry, material);
+        // Punctual light
+        {$ include 'pygfx.light_punctual.wgsl' $}
 
         // Indirect Diffuse Light
         let ambient_color = u_ambient_light.color.rgb;  // the one exception that is already physical
@@ -458,15 +460,9 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
             let light_map_color = srgb2physical( textureSample( t_light_map, s_light_map, varyings.texcoord{{light_map_uv or ''}} ).rgb );
             irradiance += light_map_color * u_material.light_map_intensity;
         $$ endif
+
         // Process irradiance
-        // todo: Rename to RE_IndirectDiffuse_$${lighting} or just RE_IndirectDiffuse？
-        $$ if lighting == 'phong'
-            RE_IndirectDiffuse_BlinnPhong( irradiance, geometry, material, &reflected_light );
-        $$ elif lighting == 'pbr'
-            RE_IndirectDiffuse_Physical( irradiance, geometry, material, &reflected_light );
-        $$ elif lighting == 'toon'
-            RE_IndirectDiffuse_Toon( irradiance, geometry, material, &reflected_light );
-        $$ endif
+        RE_IndirectDiffuse( irradiance, geometry, material, &reflected_light );
 
         // Indirect Specular Light
         // IBL (srgb2physical and intensity is handled in the getter functions)
@@ -496,7 +492,7 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
 
             let mip_level_i = getMipLevel(u_material.env_map_max_mip_level, 1.0);
             let ibl_irradiance = getIBLIrradiance( geometry.normal, t_env_map, s_env_map, mip_level_i );
-            RE_IndirectSpecular_Physical(ibl_radiance, ibl_irradiance, clearcoat_ibl_radiance, geometry, material, &reflected_light);
+            RE_IndirectSpecular(ibl_radiance, ibl_irradiance, clearcoat_ibl_radiance, geometry, material, &reflected_light);
         $$ endif
 
     $$ else
@@ -516,16 +512,16 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
     $$ if use_ao_map is defined
         let ao_map_intensity = u_material.ao_map_intensity;
         let ambient_occlusion = ( textureSample( t_ao_map, s_ao_map, varyings.texcoord{{ao_map_uv or ''}} ).r - 1.0 ) * ao_map_intensity + 1.0;
-        
+
+        reflected_light.indirect_diffuse *= ambient_occlusion;
+
         $$ if USE_CLEARCOAT is defined
             clearcoat_specular_indirect *= ambient_occlusion;
         $$ endif
 
-        // todo: Rename to RE_AmbientOcclusion or use a macro
-        $$ if lighting == 'pbr'
-            RE_AmbientOcclusion_Physical(ambient_occlusion, geometry, material, &reflected_light);
-        $$ else
-            reflected_light.indirect_diffuse *= ambient_occlusion;
+        $$ if lighting == 'pbr' and use_IBL is defined
+            let dot_nv = saturate( dot( geometry.normal, geometry.view_dir ) );
+            reflected_light.indirect_specular *= computeSpecularOcclusion( dot_nv, ambient_occlusion, material.roughness );
         $$ endif
     $$ endif
 
@@ -580,9 +576,6 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
 
     let out_color = vec4<f32>(physical_color, diffuse_color.a);
 
-    // Wrap up
-
-    apply_clipping_planes(varyings.world_pos);
     var out = get_fragment_output(varyings.position, out_color);
 
     $$ if write_pick

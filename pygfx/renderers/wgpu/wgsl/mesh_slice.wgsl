@@ -201,6 +201,9 @@ fn vs_main(in: VertexInput) -> Varyings {
 
 @fragment
 fn fs_main(varyings: Varyings) -> FragmentOutput {
+    // clipping planes
+    {$ include 'pygfx.clipping_planes.wgsl' $}
+
     // Discart fragments that are too far from the centerline. This makes round caps.
     // Note that we operate in physical pixels here.
     let distx = max(0.0, abs(varyings.dist2center.x) - 0.5 * varyings.segment_length);
@@ -228,8 +231,6 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     let opacity = min(1.0, color_value.a) * alpha;
     let out_color = vec4<f32>(physical_color, opacity);
 
-    // Wrap up
-    apply_clipping_planes(varyings.world_pos);
     var out = get_fragment_output(varyings.position, out_color);
     $$ if write_pick
     // The wobject-id must be 20 bits. In total it must not exceed 64 bits.

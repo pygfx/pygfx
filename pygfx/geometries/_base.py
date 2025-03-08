@@ -135,11 +135,11 @@ class Geometry(Trackable):
                     # Construct aabb
                     pos_finite = pos[finite_mask]
                     aabb = np.array(
-                        [pos_finite.min(axis=0), pos_finite.max(axis=0)], np.float32
+                        [pos_finite.min(axis=0), pos_finite.max(axis=0)], "f4"
                     )
                     # If positions contains xy, but not z, assume z=0
                     if aabb.shape[1] == 2:
-                        aabb = np.column_stack([aabb, np.zeros((2, 1), np.float32)])
+                        aabb = np.column_stack([aabb, np.zeros((2, 1), "f4")])
             self._aabb = aabb
             self._aabb_rev = self.positions.rev
             return self._aabb
@@ -200,12 +200,10 @@ class Geometry(Trackable):
                     distances = np.linalg.norm(pos_finite - center, axis=0)
                     radius = float(distances.max())
                     if len(center) == 2:
-                        bsphere = np.array(
-                            [center[0], center[1], 0.0, radius], np.float32
-                        )
+                        bsphere = np.array([center[0], center[1], 0.0, radius], "f4")
                     else:
                         bsphere = np.array(
-                            [center[0], center[1], center[2], radius], np.float32
+                            [center[0], center[1], center[2], radius], "f4"
                         )
             self._bsphere = bsphere
             self._bsphere_rev = positions.rev

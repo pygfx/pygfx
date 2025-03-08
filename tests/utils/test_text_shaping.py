@@ -25,6 +25,7 @@ def test_cache():
     assert c["bar"] == hash("bar")
     assert "foo" in c
     assert "bar" in c
+    assert c["spam"]  # make "bar" not the last lookup
 
     # Wait again, now get a previously nonexistent item to trigger removing foo
     time.sleep(0.11)
