@@ -422,6 +422,7 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
 
     $$ if use_specular_map is defined
         let specular_map = textureSample( t_specular_map, s_specular_map, specular_map_uv );
+        let specular_strength = specular_map.r;
     $$ else
         let specular_strength = 1.0;
     $$ endif
