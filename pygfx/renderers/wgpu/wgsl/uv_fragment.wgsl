@@ -1,6 +1,6 @@
 // todo: now, to prevent byte align issue, we use mat3x4f as map_transform, but it should be mat3x3f.
 // We should avoid do conversion in shader, to improve performance and simplify code.
-$$ if use_map is defined
+$$ if map_uv is defined
     let map_transform = mat3x3<f32>(u_map.transform[0].xyz, u_map.transform[1].xyz, u_map.transform[2].xyz);
     let map_uv = (map_transform * vec3<f32>(varyings.texcoord{{map_uv or ''}}, 1.0)).xy;
 $$ endif
