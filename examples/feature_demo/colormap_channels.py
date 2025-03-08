@@ -23,7 +23,7 @@ camera = gfx.OrthographicCamera(16, 3)
 
 
 def create_object(tex, xpos):
-    material = gfx.MeshColormapMaterial(map=tex)
+    material = gfx.MeshPhongMaterial(map=tex)
     obj = gfx.Mesh(geometry, material)
     obj.local.x = xpos
     group.add(obj)

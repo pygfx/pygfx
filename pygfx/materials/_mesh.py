@@ -804,18 +804,6 @@ class MeshSliceMaterial(MeshAbstractMaterial):
         self.uniform_buffer.update_full()
 
 
-class MeshColormapMaterial(MeshPhongMaterial):
-    """A material that maps a colormap to the mesh.
-
-    The colormap is usually used to present scientific data
-    (which stores in geometry's texcoords) in a visual way.
-    It can be 1D, 2D or 3D, but should match the number of columns in the geometry's texcoords.
-    """
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-
-
 class MeshStandardMaterial(MeshBasicMaterial):
     """PBR shaded material.
 

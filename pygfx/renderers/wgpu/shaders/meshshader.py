@@ -13,7 +13,6 @@ from ....materials import (
     MeshNormalMaterial,
     MeshNormalLinesMaterial,
     MeshSliceMaterial,
-    MeshColormapMaterial,
     MeshStandardMaterial,
     MeshPhysicalMaterial,
 )
@@ -172,8 +171,13 @@ class MeshShader(BaseShader):
             bindings.append(Binding("s_colors", rbuffer, geometry.colors, "VERTEX"))
 
         if self["use_map"]:
-            if "use_color_map" in self.kwargs:
-                # special for color_map
+            map = material.map
+            map_fmt, map_dim = to_texture_format(map.texture.format), map.texture.dim
+            is_standard_map = map_dim == 2 and ("norm" in map_fmt or "float" in map_fmt)
+
+            if not is_standard_map:
+                # It's a colormap
+                self["use_colormap"] = True
                 bindings.extend(self.define_colormap(material.map, geometry.texcoords))
                 if 0 not in self["used_uv"]:
                     texcoords = getattr(geometry, "texcoords", None)
@@ -844,12 +848,3 @@ class MeshSliceShader(BaseShader):
 
     def get_code(self):
         return load_wgsl("mesh_slice.wgsl")
-
-
-@register_wgpu_render_function(Mesh, MeshColormapMaterial)
-class MeshColormapShader(MeshPhongShader):
-    def __init__(self, wobject):
-        super().__init__(wobject)
-
-        if wobject.material.map is not None:
-            self["use_color_map"] = True

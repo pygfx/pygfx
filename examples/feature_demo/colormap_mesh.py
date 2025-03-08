@@ -40,7 +40,7 @@ def WobjectClass(geometry, material):  # noqa
 
 
 def MaterialClass(**kwargs):  # noqa
-    return gfx.MeshColormapMaterial(**kwargs)
+    return gfx.MeshPhongMaterial(**kwargs)
     # return gfx.PointsMaterial(size=10, **kwargs)
     # return gfx.LineArrowMaterial(thickness=5, **kwargs)
 

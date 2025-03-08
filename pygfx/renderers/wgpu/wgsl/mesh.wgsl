@@ -4,7 +4,7 @@
 {# Includes #}
 {$ include 'pygfx.std.wgsl' $}
 
-$$ if use_color_map is defined
+$$ if use_colormap is defined
     {$ include 'pygfx.colormap.wgsl' $}
 $$ endif
 
@@ -351,8 +351,8 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
 
         $$ if color_mode != 'uniform'
             $$ if use_map
-                $$ if use_color_map is defined
-                    // special case for colormap material
+                $$ if use_colormap is defined
+                    // special case for colormap
                     var diffuse_map = sample_colormap(varyings.texcoord);
                 $$ else
                     var diffuse_map = textureSample(t_map, s_map, varyings.texcoord{{map_uv or ''}});
