@@ -176,7 +176,7 @@ class MeshShader(BaseShader):
             is_standard_map = (
                 map_dim == 2
                 and ("norm" in map_fmt or "float" in map_fmt)
-                and ("rgb" in map_fmt)
+                and ("rgb" in map_fmt)  # note: we assume r*, rg* maps are colormap
             )
 
             if not is_standard_map:
