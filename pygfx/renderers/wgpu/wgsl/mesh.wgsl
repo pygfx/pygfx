@@ -357,7 +357,7 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
                     // special case for colormap
                     var diffuse_map = sample_colormap(varyings.texcoord);
                 $$ else
-                    var diffuse_map = textureSample(t_map, s_map, varyings.texcoord{{map_uv or ''}});
+                    var diffuse_map = textureSample(t_map, s_map, map_uv);
                 $$ endif
 
                 $$ if colorspace == 'srgb'
