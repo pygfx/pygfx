@@ -3,6 +3,11 @@
 
 {# Includes #}
 {$ include 'pygfx.std.wgsl' $}
+
+$$ if use_colormap is defined
+    {$ include 'pygfx.colormap.wgsl' $}
+$$ endif
+
 $$ if receive_shadow
     {$ include 'pygfx.light_shadow.wgsl' $}
 $$ endif
@@ -347,8 +352,14 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
         $$ endif
 
         $$ if color_mode != 'uniform'
-            $$ if use_map is defined
-                var diffuse_map = textureSample(t_map, s_map, map_uv);
+            $$ if use_map
+                $$ if use_colormap is defined
+                    // special case for colormap
+                    var diffuse_map = sample_colormap(varyings.texcoord);
+                $$ else
+                    var diffuse_map = textureSample(t_map, s_map, varyings.texcoord{{map_uv or ''}});
+                $$ endif
+
                 $$ if colorspace == 'srgb'
                     diffuse_map = vec4f(srgb2physical(diffuse_map.rgb), diffuse_map.a);
                 $$ endif
