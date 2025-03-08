@@ -173,7 +173,7 @@ class MeshShader(BaseShader):
         if self["use_map"]:
             map = material.map
             map_fmt, map_dim = to_texture_format(map.texture.format), map.texture.dim
-            is_standard_map = map_dim == 2 and ("norm" in map_fmt or "float" in map_fmt)
+            is_standard_map = map_dim == 2 and ("norm" in map_fmt or "float" in map_fmt) and ("rgb" in map_fmt)
 
             if not is_standard_map:
                 # It's a colormap
