@@ -231,8 +231,13 @@ class GlyphAtlas(RectPacker):
             info = self._infos[index]
             x1, y1 = info["origin"]
             w1, h1 = info["size"]
-            if not w1 or not h1:
-                continue  # freed region
+            # An index can have 0 size, for example the
+            # character 32, a non-printable character.
+            # has a glyph that is empty, but it should still
+            # take space and have an index in our atlas.
+            if w1 == 0 and index in self._free_indices:
+                # freed region
+                continue
             x2, y2, w2, h2 = self._select_region(w1, h1)
             info["origin"] = x2, y2
             array2[y2 : y2 + h2, x2 : x2 + w2] = array1[y1 : y1 + h1, x1 : x1 + w1]
@@ -242,7 +247,6 @@ class GlyphAtlas(RectPacker):
 
         self._free_area = 0
         self._allocated_area = allocated_area
-        self._free_indices.clear()
 
     def allocate_region(self, w, h):
         """Allocate a region of the given size. Returns the index for

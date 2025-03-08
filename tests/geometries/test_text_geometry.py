@@ -23,21 +23,21 @@ def test_text_geometry_text():
     assert len(geo._text_blocks) == 0
     assert geo._glyph_count == 0
     assert geo.positions.nitems == min_blocks
-    assert geo.glyph_atlas_indices.nitems == min_glyphs
+    assert geo.glyph_data.nitems == min_glyphs
 
     # Only a newline
     geo = TextGeometry("\n")  # also test that text is a positional arg
     assert len(geo._text_blocks) == 1
     assert geo._glyph_count == 0
     assert geo.positions.nitems == min_blocks
-    assert geo.glyph_atlas_indices.nitems == min_glyphs
+    assert geo.glyph_data.nitems == min_glyphs
 
     # Only a space
     geo = TextGeometry(" ")  # also test that text is a positional arg
     assert len(geo._text_blocks) == 1
     assert geo._glyph_count == 0
     assert geo.positions.nitems == min_blocks
-    assert geo.glyph_atlas_indices.nitems == min_glyphs
+    assert geo.glyph_data.nitems == min_glyphs
 
     # One char
     geo = TextGeometry(text="a")
@@ -45,7 +45,7 @@ def test_text_geometry_text():
     assert len(geo._text_blocks[0]._text_items) == 1
     assert geo._glyph_count == 1
     assert geo.positions.nitems == min_blocks
-    assert geo.glyph_atlas_indices.nitems == min_glyphs
+    assert geo.glyph_data.nitems == min_glyphs
 
     # Two words with 3 chars in total
     geo = TextGeometry(text="a bc")
@@ -53,31 +53,31 @@ def test_text_geometry_text():
     assert len(geo._text_blocks[0]._text_items) == 2
     assert geo._glyph_count == 3
     assert geo.positions.nitems == min_blocks
-    assert geo.glyph_atlas_indices.nitems == min_glyphs
+    assert geo.glyph_data.nitems == min_glyphs
 
     # Can set new text, buffers are recreated
     geo.set_text("foo\nbar")
     assert len(geo._text_blocks) == 2
     assert geo._glyph_count == 6
     assert geo.positions.nitems == min_blocks
-    assert geo.glyph_atlas_indices.nitems == min_glyphs
+    assert geo.glyph_data.nitems == min_glyphs
 
     # Mo text
     geo.set_text("foo bar spam eggs\naap noot mies")
     assert len(geo._text_blocks) == 2
     assert geo._glyph_count == 25
     assert geo.positions.nitems == min_blocks
-    assert geo.glyph_atlas_indices.nitems == 32
+    assert geo.glyph_data.nitems == 32
 
     # If setting smaller text, buffer size is oversized
     geo.set_text("x")
     assert len(geo._text_blocks) == 1
     assert geo._glyph_count == 1
     assert geo.positions.nitems == min_blocks
-    assert geo.glyph_atlas_indices.nitems == 32
+    assert geo.glyph_data.nitems == 32
 
     # Sizes are used to invalidate unused slots
-    assert np.all(geo.glyph_sizes.data[1:] == 0)
+    assert np.all(geo.glyph_data.data["size"][1:] == 0)
 
 
 def test_text_geometry_blocks():
@@ -116,20 +116,53 @@ def test_text_geometry_blocks():
 
 
 def test_text_geometry_blocks_buffer():
-    geo = MultiTextGeometry()
+    class MyTextGeometry(MultiTextGeometry):
+        allocation_count = 0
+
+        def _allocate_block_buffers(self, n):
+            super()._allocate_block_buffers(n)
+            self.allocation_count += 1
+
+    geo = MyTextGeometry()
+
     assert geo.positions.nitems == 8
+    assert geo.allocation_count == 0
+
+    # Note that the minimum is 8
+
+    geo.set_text_block_count(1)
+    assert geo.positions.nitems == 8
+    assert geo.allocation_count == 0
+
+    geo.set_text_block_count(1)
+    assert geo.positions.nitems == 8
+    assert geo.allocation_count == 0
+
+    geo.set_text_block_count(2)
+    assert geo.positions.nitems == 8
+    assert geo.allocation_count == 0
 
     geo.set_text_block_count(8)
     assert geo.positions.nitems == 8
+    assert geo.allocation_count == 0
+
+    # Now we bump
 
     geo.set_text_block_count(9)
     assert geo.positions.nitems == 16
+    assert geo.allocation_count == 1
+
+    geo.set_text_block_count(9)
+    assert geo.positions.nitems == 16
+    assert geo.allocation_count == 1
 
     geo.set_text_block_count(16)
     assert geo.positions.nitems == 16
+    assert geo.allocation_count == 1
 
     geo.set_text_block_count(17)
     assert geo.positions.nitems == 32
+    assert geo.allocation_count == 2
 
     geo.set_text_block_count(33)
     assert geo.positions.nitems == 64
@@ -192,10 +225,10 @@ def test_text_geometry_whitespace():
     t3 = TextGeometry(text=" abc def", anchor="baseline-left")
     t4 = TextGeometry(text="abc def ", anchor="baseline-left")
 
-    x1 = t1.glyph_positions.data[t1._glyph_count - 1, 0]
-    x2 = t2.glyph_positions.data[t2._glyph_count - 1, 0]
-    x3 = t3.glyph_positions.data[t3._glyph_count - 1, 0]
-    x4 = t4.glyph_positions.data[t4._glyph_count - 1, 0]
+    x1 = t1.glyph_data.data["pos"][t1._glyph_count - 1, 0]
+    x2 = t2.glyph_data.data["pos"][t2._glyph_count - 1, 0]
+    x3 = t3.glyph_data.data["pos"][t3._glyph_count - 1, 0]
+    x4 = t4.glyph_data.data["pos"][t4._glyph_count - 1, 0]
 
     assert x2 > x1  # Extra spaces in between words are preserved
     assert x3 > x1  # Extra space at the start is also preserved
@@ -208,10 +241,10 @@ def test_text_geometry_whitespace():
     t3 = TextGeometry(text=" abc def", anchor="baseline-right")
     t4 = TextGeometry(text="abc def ", anchor="baseline-right")
 
-    x1 = t1.glyph_positions.data[0, 0]
-    x2 = t2.glyph_positions.data[0, 0]
-    x3 = t3.glyph_positions.data[0, 0]
-    x4 = t4.glyph_positions.data[0, 0]
+    x1 = t1.glyph_data.data["pos"][0, 0]
+    x2 = t2.glyph_data.data["pos"][0, 0]
+    x3 = t3.glyph_data.data["pos"][0, 0]
+    x4 = t4.glyph_data.data["pos"][0, 0]
 
     x1 += t1.positions.data[0, 0]
     x2 += t2.positions.data[0, 0]
@@ -269,11 +302,11 @@ def test_text_geometry_anchor():
 
 def test_text_geometry_direction_ttb():
     t1 = TextGeometry("abc def", direction="ltr")
-    x1, y1 = t1.glyph_positions.data[:, 0], t1.glyph_positions.data[:, 1]
+    x1, y1 = t1.glyph_data.data["pos"][:, 0], t1.glyph_data.data["pos"][:, 1]
     assert (x1.max() - x1.min()) > (y1.max() - y1.min())
 
     t2 = TextGeometry("abc def", direction="ttb")
-    x2, y2 = t2.glyph_positions.data[:, 0], t2.glyph_positions.data[:, 1]
+    x2, y2 = t2.glyph_data.data["pos"][:, 0], t2.glyph_data.data["pos"][:, 1]
     assert (x2.max() - x2.min()) < (y2.max() - y2.min())
 
 
@@ -374,10 +407,10 @@ def test_geometry_text_align_1():
     text = [ref_text]
 
     def xpos(geo, block_i, glyph_i):
-        return geo.positions.data[block_i, 0] + geo.glyph_positions.data[glyph_i, 0]
+        return geo.positions.data[block_i, 0] + geo.glyph_data.data["pos"][glyph_i, 0]
 
     def ypos(geo, block_i, glyph_i):
-        return geo.positions.data[block_i, 1] + geo.glyph_positions.data[glyph_i, 1]
+        return geo.positions.data[block_i, 1] + geo.glyph_data.data["pos"][glyph_i, 1]
 
     # Setting text to list of text, to make sure to use a single block.
     geometry_left = TextGeometry(
@@ -457,10 +490,10 @@ def test_geometry_text_align_2():
     text = ref_text
 
     def xpos(geo, block_i, glyph_i):
-        return geo.positions.data[block_i, 0] + geo.glyph_positions.data[glyph_i, 0]
+        return geo.positions.data[block_i, 0] + geo.glyph_data.data["pos"][glyph_i, 0]
 
     def ypos(geo, block_i, glyph_i):
-        return geo.positions.data[block_i, 1] + geo.glyph_positions.data[glyph_i, 1]
+        return geo.positions.data[block_i, 1] + geo.glyph_data.data["pos"][glyph_i, 1]
 
     # Setting text to list of text, to make sure to use a single block.
     geometry_left = TextGeometry(
@@ -550,7 +583,7 @@ def test_geometry_text_with_new_lines():
     )
 
     def ypos(geo, block_i, glyph_i):
-        return geo.positions.data[block_i, 1] + geo.glyph_positions.data[glyph_i, 1]
+        return geo.positions.data[block_i, 1] + geo.glyph_data.data["pos"][glyph_i, 1]
 
     assert ypos(geo1, 0, 0) == ypos(geo2, 0, 0)
     assert ypos(geo1, 0, 9) > ypos(geo2, 0, 9)
@@ -574,14 +607,14 @@ def test_alignment_with_spaces():
     i1 = 0
     i2 = 10
     i3 = 20
-    assert geo.glyph_positions.data[i1, 0] < geo.glyph_positions.data[i2, 0]
-    assert geo.glyph_positions.data[i1, 0] == geo.glyph_positions.data[i3, 0]
+    assert geo.glyph_data.data["pos"][i1, 0] < geo.glyph_data.data["pos"][i2, 0]
+    assert geo.glyph_data.data["pos"][i1, 0] == geo.glyph_data.data["pos"][i3, 0]
 
     geo.text_align = "right"
     geo._on_update_object()
 
-    assert geo.glyph_positions.data[i1, 0] > geo.glyph_positions.data[i3, 0]
-    assert geo.glyph_positions.data[i1, 0] == geo.glyph_positions.data[i2, 0]
+    assert geo.glyph_data.data["pos"][i1, 0] > geo.glyph_data.data["pos"][i3, 0]
+    assert geo.glyph_data.data["pos"][i1, 0] == geo.glyph_data.data["pos"][i2, 0]
 
 
 def test_geometry_text_align_last():
@@ -611,21 +644,21 @@ def test_geometry_text_align_last():
     )
     i = geometry_default._glyph_count - 1
     assert (
-        geometry_default.glyph_positions.data[i, 0]
-        == geometry_left.glyph_positions.data[i, 0]
+        geometry_default.glyph_data.data["pos"][i, 0]
+        == geometry_left.glyph_data.data["pos"][i, 0]
     )
     assert (
-        geometry_left.glyph_positions.data[i, 0]
-        < geometry_center.glyph_positions.data[i, 0]
+        geometry_left.glyph_data.data["pos"][i, 0]
+        < geometry_center.glyph_data.data["pos"][i, 0]
     )
     assert (
-        geometry_center.glyph_positions.data[i, 0]
-        < geometry_right.glyph_positions.data[i, 0]
+        geometry_center.glyph_data.data["pos"][i, 0]
+        < geometry_right.glyph_data.data["pos"][i, 0]
     )
     # unless you specify justify-all
     assert (
-        geometry_right.glyph_positions.data[i, 0]
-        == geometry_justify.glyph_positions.data[i, 0]
+        geometry_right.glyph_data.data["pos"][i, 0]
+        == geometry_justify.glyph_data.data["pos"][i, 0]
     )
 
 
@@ -635,12 +668,12 @@ def test_text_geometry_leading_spaces():
     with_3whitespace = TextGeometry([" \n   hello"], anchor="top-left")
     # The spaces should not be stripped at the front
     assert (
-        basic_text.glyph_positions.data[0, 0]
-        < with_1whitespace.glyph_positions.data[0, 0]
+        basic_text.glyph_data.data["pos"][0, 0]
+        < with_1whitespace.glyph_data.data["pos"][0, 0]
     )
     assert (
-        with_1whitespace.glyph_positions.data[0, 0]
-        < with_3whitespace.glyph_positions.data[0, 0]
+        with_1whitespace.glyph_data.data["pos"][0, 0]
+        < with_3whitespace.glyph_data.data["pos"][0, 0]
     )
 
 
