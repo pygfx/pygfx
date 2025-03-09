@@ -27,6 +27,10 @@ class PointsMaterial(Material):
         The texture map specifying the color for each texture coordinate.
     aa : bool
         Whether or not the points are anti-aliased in the shader. Default True.
+    rotation : float
+        The rotation of the point marker in radians. Default 0.
+    rotation_mode : str | RotationMode
+        The mode by which the points are rotated. Default 'uniform'.
     kwargs : Any
         Additional kwargs will be passed to the :class:`material base class
         <pygfx.Material>`.
