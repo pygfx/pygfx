@@ -79,6 +79,10 @@ class SizeMode(Enum):
     vertex = None  #: Use a per-vertex size specified on the geometry.
 
 
+class RotationMode(Enum):
+    uniform = None  #: Use a uniform rotation.
+    vertex = None  #: Use a per-vertex rotation specified on the geometry.
+
 class CoordSpace(Enum):
     """The CoordSpace enum specifies a coordinate space."""
 

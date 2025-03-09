@@ -1,7 +1,7 @@
 from ._base import Material
 from ..resources import Texture, TextureMap
 from ..utils import unpack_bitfield, Color, assert_type
-from ..utils.enums import EdgeMode, ColorMode, SizeMode, CoordSpace, MarkerShape
+from ..utils.enums import EdgeMode, ColorMode, SizeMode, CoordSpace, MarkerShape, RotationMode
 
 
 class PointsMaterial(Material):
@@ -238,9 +238,11 @@ class PointsMaterial(Material):
 
     @rotation_mode.setter
     def rotation_mode(self, value):
-        value = value or "auto"
-        if value not in ["auto", "uniform", "vertex"]:
-            raise ValueError(f"PointsMaterial.rotation_mode does not support {value!r}")
+        value = value or "uniform"
+        if value not in RotationMode:
+            raise ValueError(
+                f"PointsMaterial.rotation_mode must be a string in {RotationMode}, not {value!r}"
+            )
 
         self._store.rotation_mode = value
 
