@@ -37,6 +37,7 @@ class PointsMaterial(Material):
         Material.uniform_type,
         color="4xf4",
         size="f4",
+        rotation="f4",
     )
 
     def __init__(
@@ -50,6 +51,8 @@ class PointsMaterial(Material):
         edge_mode="centered",
         map=None,
         aa=True,
+        rotation=0,
+        rotation_mode="uniform",
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -62,6 +65,8 @@ class PointsMaterial(Material):
         self.edge_mode = edge_mode
         self.map = map
         self.aa = aa
+        self.rotation = rotation
+        self.rotation_mode = rotation_mode
 
     def _wgpu_get_pick_info(self, pick_value):
         # This should match with the shader
@@ -215,6 +220,29 @@ class PointsMaterial(Material):
         if isinstance(map, Texture):
             map = TextureMap(map)
         self._store.map = map
+
+    @property
+    def rotation(self):
+        """The rotation of the marker in radians."""
+        return float(self.uniform_buffer.data["rotation"])
+
+    @rotation.setter
+    def rotation(self, rotation):
+        self.uniform_buffer.data["rotation"] = rotation
+        self.uniform_buffer.update_full()
+
+    @property
+    def rotation_mode(self):
+        """The way that rotation is applied to the markers."""
+        return self._store.rotation_mode
+
+    @rotation_mode.setter
+    def rotation_mode(self, value):
+        value = value or "auto"
+        if value not in ["auto", "uniform", "vertex"]:
+            raise ValueError(f"PointsMaterial.rotation_mode does not support {value!r}")
+
+        self._store.rotation_mode = value
 
     # todo: sizeAttenuation
 
