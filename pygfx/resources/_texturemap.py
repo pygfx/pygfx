@@ -66,8 +66,6 @@ class TextureMap(Trackable):
         self._scale = (1, 1)
         self._rotation = 0
 
-        # self._matrix = np.eye(3)
-
         self._store.uniform_buffer = Buffer(
             array_from_shadertype(self.uniform_type), force_contiguous=True
         )
@@ -138,7 +136,10 @@ class TextureMap(Trackable):
 
     @property
     def offset(self):
-        """The offset of the texture map."""
+        """The offset of the texture map.
+
+        Note: You should call `update_matrix` after changing this value to update the matrix.
+        """
         return self._offset
 
     @offset.setter
@@ -147,7 +148,10 @@ class TextureMap(Trackable):
 
     @property
     def scale(self):
-        """The scale of the texture map."""
+        """The scale of the texture map.
+
+        Note: You should call `update_matrix` after changing this value to update the matrix.
+        """
         return self._scale
 
     @scale.setter
@@ -156,13 +160,42 @@ class TextureMap(Trackable):
 
     @property
     def rotation(self):
-        """The rotation of the texture map."""
+        """The rotation of the texture map.
+
+        Note: You should call `update_matrix` after changing this value to update the matrix.
+        """
         return self._rotation
 
     @rotation.setter
     def rotation(self, value):
         self._rotation = value
 
+    def update_matrix_components(self, offset=None, scale=None, rotation=None):
+        """Update the texture map's matrix with the given offset, scale and rotation.
+
+        Parameters
+        ----------
+        offset : tuple of float, optional
+            The offset of the texture map.
+        scale : tuple of float, optional
+            The scale of the texture map.
+        rotation : float, optional
+            The rotation of the texture map.
+        """
+
+        if offset is not None:
+            self._offset = offset
+
+        if scale is not None:
+            self._scale = scale
+
+        if rotation is not None:
+            self._rotation = rotation
+
+        self.update_matrix()
+
+    # Currently, we let users to manage the matrix update timing themselves.
+    # todo: auto update matrix when offset, scale, rotation are changed before the next draw call.
     def update_matrix(self):
         """Update the matrix of the texture map."""
 
