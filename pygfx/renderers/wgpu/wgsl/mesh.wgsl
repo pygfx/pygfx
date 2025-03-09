@@ -340,14 +340,14 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
     $$ endif
 
 
+    {$ include 'pygfx.uv_fragment.wgsl' $}
+
     $$ if color_mode == 'normal'
         var diffuse_color = vec4<f32>((normalize(surface_normal) * 0.5 + 0.5), 1.0);
     $$ else
         // to support color modes
         var diffuse_color = u_material.color;
-        $$ if colorspace == 'srgb'
-            diffuse_color = vec4f(srgb2physical(diffuse_color.rgb), diffuse_color.a);
-        $$ endif
+        diffuse_color = vec4f(srgb2physical(diffuse_color.rgb), diffuse_color.a);
 
         $$ if color_mode != 'uniform'
             $$ if use_map
@@ -355,7 +355,7 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
                     // special case for colormap
                     var diffuse_map = sample_colormap(varyings.texcoord);
                 $$ else
-                    var diffuse_map = textureSample(t_map, s_map, varyings.texcoord{{map_uv or ''}});
+                    var diffuse_map = textureSample(t_map, s_map, map_uv);
                 $$ endif
 
                 $$ if colorspace == 'srgb'
@@ -403,7 +403,7 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
 
         var normal = surface_normal;
         $$ if use_normal_map is defined
-            let normal_map = textureSample( t_normal_map, s_normal_map, varyings.texcoord{{normal_map_uv or ''}} ) * 2.0 - 1.0;
+            let normal_map = textureSample( t_normal_map, s_normal_map, normal_map_uv ) * 2.0 - 1.0;
             let normal_map_scale = vec3<f32>( normal_map.xy * u_material.normal_scale, normal_map.z );
             normal = perturbNormal2Arb(view, normal, normal_map_scale, varyings.texcoord, is_front);
         $$ endif
@@ -411,7 +411,7 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
         $$ if USE_CLEARCOAT is defined
             var clearcoat_normal = surface_normal;
             $$ if use_clearcoat_normal_map is defined
-                let clearcoat_normal_map = textureSample( t_clearcoat_normal_map, s_clearcoat_normal_map, varyings.texcoord{{clearcoat_normal_map_uv or ''}} ) * 2.0 - 1.0;
+                let clearcoat_normal_map = textureSample( t_clearcoat_normal_map, s_clearcoat_normal_map, clearcoat_normal_map_uv ) * 2.0 - 1.0;
                 let clearcoat_normal_map_scale = vec3<f32>( clearcoat_normal_map.xy * u_material.clearcoat_normal_scale, clearcoat_normal_map.z );
                 clearcoat_normal = perturbNormal2Arb(view, clearcoat_normal, clearcoat_normal_map_scale, varyings.texcoord, is_front);
             $$ endif
@@ -419,7 +419,7 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
     $$ endif
 
     $$ if use_specular_map is defined
-        let specular_map = textureSample( t_specular_map, s_specular_map, varyings.texcoord{{specular_map_uv or ''}} );
+        let specular_map = textureSample( t_specular_map, s_specular_map, specular_map_uv );
         let specular_strength = specular_map.r;
     $$ else
         let specular_strength = 1.0;
@@ -457,7 +457,7 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
         var irradiance = getAmbientLightIrradiance( ambient_color );
         // Light map (pre-baked lighting)
         $$ if use_light_map is defined
-            let light_map_color = srgb2physical( textureSample( t_light_map, s_light_map, varyings.texcoord{{light_map_uv or ''}} ).rgb );
+            let light_map_color = srgb2physical( textureSample( t_light_map, s_light_map, light_map_uv ).rgb );
             irradiance += light_map_color * u_material.light_map_intensity;
         $$ endif
 
@@ -499,7 +499,7 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
         // for basic material
         // Light map (pre-baked lighting)
         $$ if use_light_map is defined
-            let light_map_color = srgb2physical( textureSample( t_light_map, s_light_map, varyings.texcoord{{light_map_uv or ''}} ).rgb );
+            let light_map_color = srgb2physical( textureSample( t_light_map, s_light_map, light_map_uv ).rgb );
             reflected_light.indirect_diffuse += light_map_color * u_material.light_map_intensity * RECIPROCAL_PI;
         $$ else
             reflected_light.indirect_diffuse += vec3<f32>(1.0);
@@ -511,7 +511,7 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
     // Ambient occlusion
     $$ if use_ao_map is defined
         let ao_map_intensity = u_material.ao_map_intensity;
-        let ambient_occlusion = ( textureSample( t_ao_map, s_ao_map, varyings.texcoord{{ao_map_uv or ''}} ).r - 1.0 ) * ao_map_intensity + 1.0;
+        let ambient_occlusion = ( textureSample( t_ao_map, s_ao_map, ao_map_uv ).r - 1.0 ) * ao_map_intensity + 1.0;
 
         reflected_light.indirect_diffuse *= ambient_occlusion;
 
@@ -533,7 +533,7 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
     $$ if lighting
         var emissive_color = srgb2physical(u_material.emissive_color.rgb) * u_material.emissive_intensity;
         $$ if use_emissive_map is defined
-        emissive_color *= srgb2physical(textureSample(t_emissive_map, s_emissive_map, varyings.texcoord{{emissive_map_uv or ''}}).rgb);
+            emissive_color *= srgb2physical(textureSample(t_emissive_map, s_emissive_map, emissive_map_uv).rgb);
         $$ endif
         physical_color += emissive_color;
     $$ endif
