@@ -200,7 +200,9 @@ for i, marker in enumerate(gfx.MarkerShape):
             marker=marker,
             edge_width=0.1 if not marker == "custom" else 0.033333,
             edge_mode="outer",
-            rotation=i * np.pi / 12,
+            # We use the pin to validate the rotation since it looks like an
+            # arrow
+            rotation=i * np.pi / 12 if marker != "pin" else np.pi / 4,
             # If your heart is broken, it won't be upright!!!!
             rotation_mode="uniform" if marker != "heart" else "vertex",
             custom_sdf=pygfx_sdf if marker == "custom" else None,
