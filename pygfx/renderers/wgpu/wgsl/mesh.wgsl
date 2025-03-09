@@ -347,9 +347,7 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
     $$ else
         // to support color modes
         var diffuse_color = u_material.color;
-        $$ if colorspace == 'srgb'
-            diffuse_color = vec4f(srgb2physical(diffuse_color.rgb), diffuse_color.a);
-        $$ endif
+        diffuse_color = vec4f(srgb2physical(diffuse_color.rgb), diffuse_color.a);
 
         $$ if color_mode != 'uniform'
             $$ if use_map
