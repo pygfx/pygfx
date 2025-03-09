@@ -1,7 +1,14 @@
 from ._base import Material
 from ..resources import Texture, TextureMap
 from ..utils import unpack_bitfield, Color, assert_type
-from ..utils.enums import EdgeMode, ColorMode, SizeMode, CoordSpace, MarkerShape, RotationMode
+from ..utils.enums import (
+    EdgeMode,
+    ColorMode,
+    SizeMode,
+    CoordSpace,
+    MarkerShape,
+    RotationMode,
+)
 
 
 class PointsMaterial(Material):

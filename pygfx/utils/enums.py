@@ -88,6 +88,7 @@ class RotationMode(Enum):
     uniform = None  #: Use a uniform rotation.
     vertex = None  #: Use a per-vertex rotation specified on the geometry.
 
+
 class CoordSpace(Enum):
     """The CoordSpace enum specifies a coordinate space."""
 
