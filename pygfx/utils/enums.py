@@ -80,6 +80,11 @@ class SizeMode(Enum):
 
 
 class RotationMode(Enum):
+    """The RotationMode enum specifies how an object's rotation is established.
+
+    Currently only used for PointsMaterial.
+    """
+
     uniform = None  #: Use a uniform rotation.
     vertex = None  #: Use a per-vertex rotation specified on the geometry.
 
