@@ -154,6 +154,9 @@ fn vs_main(in: VertexInput) -> Varyings {
     $$ endif
     let cos_rotation = cos(rotation);
     let sin_rotation = sin(rotation);
+    // We follow the convention that positive rotations
+    // should be counter clockwise
+    // https://github.com/pygfx/pygfx/pull/1027#issuecomment-2709030569
     let rot: mat2x2<f32> = mat2x2<f32>(
         cos_rotation, sin_rotation,
         -sin_rotation, cos_rotation
