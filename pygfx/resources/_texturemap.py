@@ -139,6 +139,7 @@ class TextureMap(Trackable):
         """The offset of the texture map.
 
         Note: You should call `update_matrix` after changing this value to update the matrix.
+        For now, it is only affective for 2D textures in Mesh Rendering.
         """
         return self._offset
 
@@ -151,6 +152,7 @@ class TextureMap(Trackable):
         """The scale of the texture map.
 
         Note: You should call `update_matrix` after changing this value to update the matrix.
+        For now, it is only affective for 2D textures in Mesh Rendering.
         """
         return self._scale
 
@@ -163,6 +165,7 @@ class TextureMap(Trackable):
         """The rotation of the texture map.
 
         Note: You should call `update_matrix` after changing this value to update the matrix.
+        For now, it is only affective for 2D textures in Mesh Rendering.
         """
         return self._rotation
 
