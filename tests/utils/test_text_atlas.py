@@ -344,8 +344,9 @@ def test_against_glyph_bleeding():
 
     def render_text():
         text = gfx.Text(
-            gfx.TextGeometry(text=big_tex, max_width=300),
-            gfx.TextMaterial(color="#fff", outline_thickness=5),
+            text=big_tex,
+            max_width=300,
+            material=gfx.TextMaterial(color="#fff", outline_thickness=5),
         )
         scene = gfx.Scene().add(gfx.Background.from_color("#fff"), text)
         renderer.render(scene, camera)
@@ -357,7 +358,7 @@ def test_against_glyph_bleeding():
     # Reset and shuffle the atlas
     global_atlas.__init__()
     random.shuffle(chars)
-    gfx.TextGeometry(text="".join(chars))
+    gfx.Text(text="".join(chars))
 
     # Render the text again, glyphs are now in a different spot in the atlas
     im2 = render_text()
