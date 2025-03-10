@@ -114,7 +114,9 @@ class PointsShader(BaseShader):
             bindings.append(
                 Binding("s_texcoords", rbuffer, geometry.texcoords, "VERTEX")
             )
-            bindings.extend(self.define_colormap(material.map, geometry.texcoords))
+            bindings.extend(
+                self.define_generic_colormap(material.map, geometry.texcoords)
+            )
 
         if self["edge_color_mode"] == "vertex":
             bindings.append(

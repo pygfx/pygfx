@@ -216,7 +216,7 @@ fn vs_main(in: VertexInput) -> Varyings {
     let tex_coord_index = i0;
     $$ endif
 
- 
+
     // used_uv
     $$ for uv, ndim in used_uv.items()
     $$ if ndim == 1
@@ -352,7 +352,7 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
         $$ if color_mode != 'uniform'
             $$ if use_map
                 $$ if use_colormap is defined
-                    // special case for colormap
+                    // special case for 'generic' colormap
                     var diffuse_map = sample_colormap(varyings.texcoord);
                 $$ else
                     var diffuse_map = textureSample(t_map, s_map, varyings.texcoord{{map_uv or ''}});
@@ -361,10 +361,10 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
                 $$ if colorspace == 'srgb'
                     diffuse_map = vec4f(srgb2physical(diffuse_map.rgb), diffuse_map.a);
                 $$ endif
-        
+
                 $$ if color_mode == 'vertex_map' or color_mode == 'face_map'
                     diffuse_color = diffuse_map;
-                $$ else  
+                $$ else
                     // default mode
                     diffuse_color *= diffuse_map;
                 $$ endif
@@ -381,7 +381,7 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
             $$ endif
 
         // uniform
-        $$ endif 
+        $$ endif
 
 
     $$ endif
