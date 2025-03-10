@@ -1150,6 +1150,7 @@ class MeshPhysicalMaterial(MeshStandardMaterial):
         self.specular_map = specular_map
         self.specular_intensity = specular_intensity
         self.specular_intensity_map = specular_intensity_map
+
         self.clearcoat = clearcoat
         self.clearcoat_map = clearcoat_map
         self.clearcoat_normal_map = clearcoat_normal_map
