@@ -307,9 +307,9 @@ class WorldObject(EventTarget, Trackable):
 
     @geometry.setter
     def geometry(self, geometry: Geometry | None):
-        if not isinstance(geometry, Geometry):
+        if not (geometry is None or isinstance(geometry, Geometry)):
             raise TypeError(
-                f"WorldObject.geometry must be a Geometry object, not {geometry!r}"
+                f"WorldObject.geometry must be a Geometry object or None, not {geometry!r}"
             )
         self._store.geometry = geometry
 
@@ -323,9 +323,9 @@ class WorldObject(EventTarget, Trackable):
 
     @material.setter
     def material(self, material: Material | None) -> None:
-        if not isinstance(material, Material):
+        if not (material is None or isinstance(material, Material)):
             raise TypeError(
-                f"WorldObject.geometry must be a Geometry object, not {material!r}"
+                f"WorldObject.geometry must be a Geometry object or None, not {material!r}"
             )
         self._material = material
 
