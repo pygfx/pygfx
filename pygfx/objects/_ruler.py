@@ -4,9 +4,8 @@ import numpy as np
 
 from ._base import WorldObject
 from ._more import Line, Points
-from ._text import Text
+from ._text import MultiText
 from ..resources import Buffer
-from ..geometries import MultiTextGeometry
 from ..materials import LineMaterial, PointsMaterial, TextMaterial
 from ..utils.compgeo import get_visible_part_of_line_ndc
 
@@ -47,11 +46,11 @@ class Ruler(WorldObject):
         self.ticks_at_end_points = ticks_at_end_points
 
         # Create a line and points object, with a shared geometry
-        geometry = MultiTextGeometry(screen_space=True)
+        self._text = MultiText(material=TextMaterial(), screen_space=True)
+        geometry = self._text.geometry  # has .positions buffer
         geometry.sizes = Buffer(np.zeros(geometry.positions.nitems, "f4"))
         self._line = Line(geometry, LineMaterial(color="w", thickness=2))
         self._points = Points(geometry, PointsMaterial(color="w", size_mode="vertex"))
-        self._text = Text(geometry, TextMaterial())
 
         self.add(self._line, self._points, self._text)
 
@@ -441,27 +440,25 @@ class Ruler(WorldObject):
         # Get number of positions that we need
         n_positions = len(ticks) + 2
 
-        geometry = self._text.geometry
-
         # Apply anchor props
-        if geometry._anchor != self._text_anchor:
-            geometry.anchor = self._text_anchor
-        if geometry._anchor_offset != self._text_anchor_offset:
-            geometry.anchor_offset = self._text_anchor_offset
+        if self._text._anchor != self._text_anchor:
+            self._text.anchor = self._text_anchor
+        if self._text._anchor_offset != self._text_anchor_offset:
+            self._text.anchor_offset = self._text_anchor_offset
 
         # Get the geometry to provide us with enough slots. Keep sizes array in sync
-        geometry.set_text_block_count(n_positions)
-        positions_buffer = geometry.positions
-        sizes_buffer = geometry.sizes
+        self._text.set_text_block_count(n_positions)
+        positions_buffer = self._text.geometry.positions
+        sizes_buffer = self._text.geometry.sizes
         if sizes_buffer.nitems != positions_buffer.nitems:
-            sizes_buffer = geometry.sizes = Buffer(
+            sizes_buffer = self._text.geometry.sizes = Buffer(
                 np.zeros(positions_buffer.nitems, "f4")
             )
 
         # Get arrays / list that we can write to
         positions = positions_buffer.data
         sizes = sizes_buffer.data
-        text_blocks = geometry._text_blocks
+        text_blocks = self._text._text_blocks
 
         # Apply start point
         index = 0

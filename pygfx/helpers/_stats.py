@@ -4,7 +4,6 @@ from .. import (
     plane_geometry,
     Mesh,
     Group,
-    TextGeometry,
     Text,
     TextMaterial,
     ScreenCoordsCamera,
@@ -52,13 +51,11 @@ class Stats(Group):
         # refactor once text bounding boxes are available
         self.bg.local.scale = (90, self._line_height * 2.1, 1)
         self.stats_text = Text(
-            TextGeometry(
-                text="",
-                screen_space=True,
-                font_size=font_size,
-                anchor="topleft",
-            ),
-            text_material,
+            material=text_material,
+            text="",
+            screen_space=True,
+            font_size=font_size,
+            anchor="topleft",
         )
         self.add(self.bg, self.stats_text)
 
