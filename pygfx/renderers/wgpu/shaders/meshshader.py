@@ -180,9 +180,11 @@ class MeshShader(BaseShader):
             )
 
             if not is_standard_map:
-                # It's a colormap
+                # It's a 'generic' colormap
                 self["use_colormap"] = True
-                bindings.extend(self.define_colormap(material.map, geometry.texcoords))
+                bindings.extend(
+                    self.define_generic_colormap(material.map, geometry.texcoords)
+                )
                 if 0 not in self["used_uv"]:
                     texcoords = getattr(geometry, "texcoords", None)
                     bindings.append(
@@ -193,6 +195,7 @@ class MeshShader(BaseShader):
                     else:
                         self["used_uv"][0] = texcoords.data.shape[-1]
             else:
+                # It's a classic mesh map
                 bindings.extend(self._define_texture_map(geometry, material.map, "map"))
 
             self["colorspace"] = material.map.texture.colorspace
@@ -797,7 +800,9 @@ class MeshSliceShader(BaseShader):
         if self["color_mode"] in ("vertex", "face"):
             bindings.append(Binding("s_colors", rbuffer, geometry.colors, "VERTEX"))
         elif self["color_mode"] in ("vertex_map", "face_map"):
-            bindings.extend(self.define_colormap(material.map, geometry.texcoords))
+            bindings.extend(
+                self.define_generic_colormap(material.map, geometry.texcoords)
+            )
 
         # Let the shader generate code for our bindings
         bindings = {i: binding for i, binding in enumerate(bindings)}

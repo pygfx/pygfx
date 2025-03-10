@@ -246,11 +246,14 @@ class BaseShader(ShaderInterface):
 
     # ----- Colormap stuff
 
-    def define_colormap(self, map, texcoords):
+    def define_generic_colormap(self, map, texcoords):
         """Define the given texture as the colormap to be used to
-        lookup the final color from the (per-vertex or per-face) texcoords.
-        In the WGSL the colormap can be sampled using ``sample_colormap()``.
+        lookup the final color from the (per-vertex or per-face) texcoords. In
+        the WGSL the colormap can be sampled using ``sample_colormap()``.
         Returns a list of bindings.
+
+        For colormaps in mesh, line, points. Supports 1D/2D/3D
+        textures, different texture formats.
         """
 
         filter_mode = f"{map.mag_filter}, {map.min_filter}, {map.mipmap_filter}"

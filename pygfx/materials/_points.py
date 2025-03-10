@@ -1,7 +1,14 @@
 from ._base import Material
 from ..resources import Texture, TextureMap
 from ..utils import unpack_bitfield, Color, assert_type
-from ..utils.enums import EdgeMode, ColorMode, SizeMode, CoordSpace, MarkerShape
+from ..utils.enums import (
+    EdgeMode,
+    ColorMode,
+    SizeMode,
+    CoordSpace,
+    MarkerShape,
+    RotationMode,
+)
 
 
 class PointsMaterial(Material):
@@ -27,6 +34,10 @@ class PointsMaterial(Material):
         The texture map specifying the color for each texture coordinate.
     aa : bool
         Whether or not the points are anti-aliased in the shader. Default True.
+    rotation : float
+        The rotation of the point marker in radians. Default 0.
+    rotation_mode : str | RotationMode
+        The mode by which the points are rotated. Default 'uniform'.
     kwargs : Any
         Additional kwargs will be passed to the :class:`material base class
         <pygfx.Material>`.
@@ -37,6 +48,7 @@ class PointsMaterial(Material):
         Material.uniform_type,
         color="4xf4",
         size="f4",
+        rotation="f4",
     )
 
     def __init__(
@@ -50,6 +62,8 @@ class PointsMaterial(Material):
         edge_mode="centered",
         map=None,
         aa=True,
+        rotation=0,
+        rotation_mode="uniform",
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -62,6 +76,8 @@ class PointsMaterial(Material):
         self.edge_mode = edge_mode
         self.map = map
         self.aa = aa
+        self.rotation = rotation
+        self.rotation_mode = rotation_mode
 
     def _wgpu_get_pick_info(self, pick_value):
         # This should match with the shader
@@ -215,6 +231,31 @@ class PointsMaterial(Material):
         if isinstance(map, Texture):
             map = TextureMap(map)
         self._store.map = map
+
+    @property
+    def rotation(self):
+        """The rotation of the marker in radians."""
+        return float(self.uniform_buffer.data["rotation"])
+
+    @rotation.setter
+    def rotation(self, rotation):
+        self.uniform_buffer.data["rotation"] = rotation
+        self.uniform_buffer.update_full()
+
+    @property
+    def rotation_mode(self):
+        """The way that rotation is applied to the markers."""
+        return self._store.rotation_mode
+
+    @rotation_mode.setter
+    def rotation_mode(self, value):
+        value = value or "uniform"
+        if value not in RotationMode:
+            raise ValueError(
+                f"PointsMaterial.rotation_mode must be a string in {RotationMode}, not {value!r}"
+            )
+
+        self._store.rotation_mode = value
 
     # todo: sizeAttenuation
 
