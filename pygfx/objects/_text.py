@@ -138,7 +138,8 @@ class Text(WorldObject):
     ----------
     geometry : Geometry
         An empty geometry where the ``Text`` will store the data to render the text.
-        Can be omitted.
+        Can be omitted. For backwards compatibility, this can also be a string, as an alias
+        for the `text` arg.
     material : TextMaterial
         The text material to use. Can be omitted.
     text : str | list[str]
@@ -188,6 +189,7 @@ class Text(WorldObject):
 
     def __init__(
         self,
+        geometry=None,
         material=None,
         *,
         text=None,
@@ -203,9 +205,11 @@ class Text(WorldObject):
         paragraph_spacing=0,
         text_align="start",
         text_align_last="auto",
-        geometry=None,
     ):
         # Init as a world object
+        if isinstance(geometry, (str, list)):
+            text = text or geometry
+            geometry = None
         if geometry is None:
             geometry = Geometry()
         if material is None:
