@@ -527,7 +527,6 @@ class _GLTF:
             node_obj = gfx.WorldObject()
 
         if node.extensions:
-            # check if any plugin can extend the material
             for extension in node.extensions:
                 if extension in self._plugins:
                     plugin = self._plugins[extension]
