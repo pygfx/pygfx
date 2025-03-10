@@ -353,7 +353,7 @@ def test_bounding_box():
     # Add a point, we've got a bbox with no volume
     ob = gfx.Points(
         gfx.Geometry(positions=np.array([(0, 0, 0)], np.float32)),
-        gfx.PointsMaterial,
+        gfx.PointsMaterial(),
     )
     scene.add(ob)
     assert scene.get_bounding_box().tolist() == [[0, 0, 0], [0, 0, 0]]
@@ -361,7 +361,7 @@ def test_bounding_box():
     # Add another point to get a larger bbox
     ob = gfx.Points(
         gfx.Geometry(positions=np.array([(0, 3, 1)], np.float32)),
-        gfx.PointsMaterial,
+        gfx.PointsMaterial(),
     )
     scene.add(ob)
     assert scene.get_bounding_box().tolist() == [[0, 0, 0], [0, 3, 1]]
@@ -369,7 +369,7 @@ def test_bounding_box():
     # Adding a point with no valid positions ... has no effect
     ob = gfx.Points(
         gfx.Geometry(positions=np.array([(99, np.nan, 99)], np.float32)),
-        gfx.PointsMaterial,
+        gfx.PointsMaterial(),
     )
     scene.add(ob)
     assert ob.get_bounding_box() is None
@@ -379,7 +379,7 @@ def test_bounding_box():
     # Add a point that is transformed, to make sure that is taken into account
     ob = gfx.Points(
         gfx.Geometry(positions=np.array([(-1, 0, 2)], np.float32)),
-        gfx.PointsMaterial,
+        gfx.PointsMaterial(),
     )
     ob.local.scale = 3, 3, 3
     ob.local.x = -2
@@ -389,7 +389,7 @@ def test_bounding_box():
     # Create a point with all of the above ... to make sure the own geo is taken into account
     point_with_children = gfx.Points(
         gfx.Geometry(positions=np.array([(9, 1, 0)], np.float32)),
-        gfx.PointsMaterial,
+        gfx.PointsMaterial(),
     )
     point_with_children.add(scene)
     assert point_with_children.get_bounding_box().tolist() == [[-5, 0, 0], [9, 3, 6]]
