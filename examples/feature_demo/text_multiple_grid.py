@@ -2,7 +2,7 @@
 Text multiple grid
 ==================
 
-This example demonstrate how to use MultiTextGeometry to show a grid of text blocks.
+This example demonstrate how to use MultiText to show a grid of text blocks.
 """
 
 # sphinx_gallery_pygfx_docs = 'screenshot'
@@ -18,11 +18,12 @@ scene = gfx.Scene()
 scene.add(gfx.Background.from_color("#000"))
 
 # Create text object
-text = gfx.Text(
-    gfx.MultiTextGeometry(
-        anchor="top-left", anchor_offset=0.5, screen_space=False, font_size=3
-    ),
-    gfx.TextMaterial(color="#fff", outline_thickness=0.2),
+text = gfx.MultiText(
+    anchor="top-left",
+    anchor_offset=0.5,
+    screen_space=False,
+    font_size=3,
+    material=gfx.TextMaterial(color="#fff", outline_thickness=0.2),
 )
 scene.add(text)
 
@@ -49,7 +50,7 @@ for iy in range(10):
         ob.local.y = y - 4
         scene.add(ob)
 
-        block = text.geometry.create_text_block()
+        block = text.create_text_block()
         block.set_text(str(count))
         block.set_position(x, y)
 

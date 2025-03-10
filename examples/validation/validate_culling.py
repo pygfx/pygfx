@@ -45,9 +45,7 @@ def create_scene(title):
     obj1.local.rotation = la.quat_mul(rot, obj1.local.rotation)
     obj2.local.rotation = la.quat_mul(rot, obj2.local.rotation)
 
-    t = gfx.Text(
-        gfx.TextGeometry(title, screen_space=True, font_size=20), gfx.TextMaterial()
-    )
+    t = gfx.Text(text=title, screen_space=True, font_size=20)
     t.local.position = (0, 4, 0)
     camera = gfx.OrthographicCamera(4.2, 6)
 

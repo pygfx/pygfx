@@ -73,18 +73,18 @@ else:
 print(f"========= Text =========\n{text}\n========================")
 
 text = gfx.Text(
-    gfx.TextGeometry(
-        text=text,
-        font_size=28,
-        screen_space=True,
-        text_align="center",
-        anchor="middle-center",
-        direction=direction,
-        max_width=380,
-        line_height=1.1,
-        paragraph_spacing=0.2,
+    material=gfx.TextMaterial(
+        color="#B4F8C8", outline_color="#000", outline_thickness=0.15
     ),
-    gfx.TextMaterial(color="#B4F8C8", outline_color="#000", outline_thickness=0.15),
+    text=text,
+    font_size=28,
+    screen_space=True,
+    text_align="center",
+    anchor="middle-center",
+    direction=direction,
+    max_width=380,
+    line_height=1.1,
+    paragraph_spacing=0.2,
 )
 text.local.position = (0, 0, 0)
 

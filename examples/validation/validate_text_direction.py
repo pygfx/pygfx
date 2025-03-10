@@ -37,53 +37,45 @@ material = gfx.TextMaterial(color="#000")
 
 
 text1 = gfx.Text(
-    gfx.TextGeometry(
-        text=text,
-        direction="ltr",
-        font_size=1,
-        max_width=10,
-        text_align="right",
-        anchor="bottom-right",
-        anchor_offset=0.5,
-    ),
-    material,
+    text=text,
+    direction="ltr",
+    font_size=1,
+    max_width=10,
+    text_align="right",
+    anchor="bottom-right",
+    anchor_offset=0.5,
+    material=material,
 )
 
 text2 = gfx.Text(
-    gfx.TextGeometry(
-        text=text,
-        direction="rtl",
-        font_size=1,
-        max_width=10,
-        text_align="right",
-        anchor="top-right",
-        anchor_offset=0.5,
-    ),
-    material,
+    text=text,
+    direction="rtl",
+    font_size=1,
+    max_width=10,
+    text_align="right",
+    anchor="top-right",
+    anchor_offset=0.5,
+    material=material,
 )
 
 text3 = gfx.Text(
-    gfx.TextGeometry(
-        text=text,
-        direction="btt",
-        font_size=0.6,
-        max_width=8,
-        anchor="bottom-left",
-        anchor_offset=0.5,
-    ),
-    material,
+    text=text,
+    direction="btt",
+    font_size=0.6,
+    max_width=8,
+    anchor="bottom-left",
+    anchor_offset=0.5,
+    material=material,
 )
 
 text4 = gfx.Text(
-    gfx.TextGeometry(
-        text=text,
-        direction="ttb",
-        font_size=0.6,
-        max_width=8,
-        anchor="top-left",
-        anchor_offset=0.5,
-    ),
-    material,
+    text=text,
+    direction="ttb",
+    font_size=0.6,
+    max_width=8,
+    anchor="top-left",
+    anchor_offset=0.5,
+    material=material,
 )
 
 

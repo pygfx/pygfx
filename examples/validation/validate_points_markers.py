@@ -124,24 +124,30 @@ pygfx_sdf = """
 
 y = 0
 text = gfx.Text(
-    gfx.TextGeometry("centered", anchor="middle-center", font_size=1),
-    gfx.TextMaterial("#000"),
+    text="centered",
+    anchor="middle-center",
+    font_size=1,
+    material=gfx.TextMaterial("#000"),
 )
 text.local.y = y
 text.local.x = npoints
 scene.add(text)
 
 text = gfx.Text(
-    gfx.TextGeometry("inner", anchor="middle-center", font_size=1),
-    gfx.TextMaterial("#000"),
+    text="inner",
+    anchor="middle-center",
+    font_size=1,
+    material=gfx.TextMaterial("#000"),
 )
 text.local.y = y
 text.local.x = 2 * npoints + npoints
 scene.add(text)
 
 text = gfx.Text(
-    gfx.TextGeometry("outer", anchor="middle-center", font_size=1),
-    gfx.TextMaterial("#000"),
+    text="outer",
+    anchor="middle-center",
+    font_size=1,
+    material=gfx.TextMaterial("#000"),
 )
 text.local.y = y
 text.local.x = 4 * npoints + npoints
@@ -216,8 +222,10 @@ for i, marker in enumerate(gfx.MarkerShape):
     all_lines.append(line_outer)
 
     text = gfx.Text(
-        gfx.TextGeometry(marker, anchor="middle-right", font_size=1),
-        gfx.TextMaterial("#000"),
+        text=marker,
+        anchor="middle-right",
+        font_size=1,
+        material=gfx.TextMaterial("#000"),
     )
     text.local.y = -y
     text.local.x = 0

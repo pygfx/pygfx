@@ -9,7 +9,7 @@ The six stages of text rendering (also see the README in this subpackage):
 * Rendering
 
 This namespace contains a function for the three central stages.
-Itemisation and layout are implemented in the TextGeometry.
+Itemisation and layout are implemented in the Text class.
 Rendering is implemented in the TextShader.
 """
 
