@@ -181,6 +181,7 @@ class _GLTF:
         self.scene = None
         self.scenes = []
         self.cameras = []
+        self.lights = []
         self.animations = None
 
         self._plugins = {}
@@ -192,6 +193,7 @@ class _GLTF:
         self._register_plugin(GLTFMaterialsIridescenceExtension)
         self._register_plugin(GLTFMaterialsEmissiveStrengthExtension)
         self._register_plugin(GLTFMaterialsUnlitExtension)
+        self._register_plugin(GLTFLightsExtension)
         self._register_plugin(GLTFTextureTransformExtension)
 
     def _register_plugin(self, plugin_class):
@@ -513,6 +515,9 @@ class _GLTF:
             # Do not use mesh cache here, we need to create a new mesh object for each node.
             mesh_info = self._gltf.model.meshes[node.mesh]
             meshes = self._load_gltf_mesh_by_info(mesh_info, node.skin)
+            if node.weights:
+                for gfx_mesh in meshes:
+                    gfx_mesh.morph_target_influences = node.weights
             if len(meshes) == 1:
                 node_obj = meshes[0]
             else:
@@ -521,6 +526,15 @@ class _GLTF:
                     node_obj.add(mesh)
         else:
             node_obj = gfx.WorldObject()
+
+        if node.extensions:
+            for extension in node.extensions:
+                if extension in self._plugins:
+                    plugin = self._plugins[extension]
+                    if hasattr(plugin, "create_node_attachment"):
+                        node_attachment = plugin.create_node_attachment(node_index)
+                        if node_attachment is not None:
+                            node_obj.add(node_attachment)
 
         node_obj.local.matrix = matrix
         node_obj.name = node.name
@@ -1288,6 +1302,75 @@ class GLTFMaterialsUnlitExtension(GLTFBaseMaterialsExtension):
                 material.map = self.parser._load_gltf_texture_map(
                     pbr_metallic_roughness.baseColorTexture
                 )
+
+
+class GLTFLightsExtension(GLTFExtension):
+    EXTENSION_NAME = "KHR_lights_punctual"
+
+    def create_node_attachment(self, node_index):
+        """
+        Create a light object and attach it to the node.
+        """
+        gltf = self.parser._gltf
+        node = gltf.model.nodes[node_index]
+        if node.extensions and self.EXTENSION_NAME in node.extensions:
+            extension = node.extensions[self.EXTENSION_NAME]
+            light_index = extension["light"]
+
+            light = self._load_light(light_index)
+
+            if light is not None:
+                self.parser.lights.append(light)
+
+            return light
+
+    @lru_cache(maxsize=None)
+    def _load_light(self, light_index):
+        gltf = self.parser._gltf
+
+        extensions = (gltf.model.extensions and gltf.model.extensions[self.name]) or {}
+        light_defs = extensions.get("lights", None)
+
+        if light_defs:
+            if light_index >= len(light_defs):
+                return None
+
+            light_info = light_defs[light_index]
+
+            color = light_info.get("color", [1, 1, 1])
+            light_color = gfx.Color.from_physical(*color)
+            light_range = light_info.get("range", 0)
+            intensity = light_info.get("intensity", 1.0)
+
+            light_type = light_info["type"]
+
+            if light_type == "directional":
+                light = gfx.DirectionalLight(color=light_color, intensity=intensity)
+                light.target.local.position = (0, 0, -1)
+                light.add(light.target)
+            elif light_type == "point":
+                light = gfx.PointLight(color=light_color, intensity=intensity)
+                light.distance = light_range
+            elif light_type == "spot":
+                light = gfx.SpotLight(color=light_color, intensity=intensity)
+                light.distance = light_range
+
+                if "spot" in light_info:
+                    spot = light_info["spot"]
+                    inner_cone_angle = spot.get("innerConeAngle", 0)
+                    outer_cone_angle = spot.get("innerConeAngle", np.pi / 4)
+                    light.angle = outer_cone_angle
+                    light.penumbra = 1.0 - (inner_cone_angle / outer_cone_angle)
+                    light.target.local.position = (0, 0, -1)
+                    light.add(light.target)
+
+            else:
+                raise ValueError(f"Unsupported light type: {light_info.type}")
+
+            light.local.position = (0, 0, 0)
+            light.name = light_info.get("name", f"light_{light_index}")
+
+            return light
 
 
 class GLTFTextureTransformExtension(GLTFExtension):
