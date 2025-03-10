@@ -80,13 +80,11 @@ while alpha <= 1.0:
 
 def add_label(text, pos):
     text = gfx.Text(
-        gfx.TextGeometry(
-            text=text,
-            font_size=20,
-            text_align="center",
-            anchor="middle-center",
-        ),
-        gfx.TextMaterial(outline_color="#000", outline_thickness=0.5),
+        text=text,
+        font_size=20,
+        text_align="center",
+        anchor="middle-center",
+        material=gfx.TextMaterial(outline_color="#000", outline_thickness=0.5),
     )
     text.local.position = pos
     scene.add(text)

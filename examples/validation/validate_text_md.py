@@ -32,17 +32,17 @@ also partial**bold**wordpart
 
 material = gfx.TextMaterial(color="#000")
 
-text1 = gfx.Text(gfx.TextGeometry(anchor="top-left"), material)
-text2 = gfx.Text(gfx.TextGeometry(anchor="top-left"), material)
-text3 = gfx.Text(gfx.TextGeometry(anchor="top-left"), material)
-text4 = gfx.Text(gfx.TextGeometry(anchor="top-left"), material)
+text1 = gfx.Text(anchor="top-left", material=material)
+text2 = gfx.Text(anchor="top-left", material=material)
+text3 = gfx.Text(anchor="top-left", material=material)
+text4 = gfx.Text(anchor="top-left", material=material)
 
 # Set the markdown as markdown or as text. Also use the variation where
 # it results in a single TextBlock, which should result in the same result.
-text1.geometry.set_markdown("# md multi-block\n" + md)
-text2.geometry.set_markdown(["# md single-block", md])
-text3.geometry.set_text("--- text multi-block:\n" + md)
-text4.geometry.set_text(["--- text single-block:", md])
+text1.set_markdown("# md multi-block\n" + md)
+text2.set_markdown(["# md single-block", md])
+text3.set_text("--- text multi-block:\n" + md)
+text4.set_text(["--- text single-block:", md])
 
 text1.local.position = (0, 0, 0)
 text2.local.position = (250, 0, 0)

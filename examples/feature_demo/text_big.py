@@ -45,9 +45,12 @@ Elit curabitur condimentum eros faucibus rhoncus faucibus taciti. Congue enim co
 Eleifend imperdiet primis quam conubia sapien lacus nec sagittis curabitur. Dapibus ante laoreet integer euismod sit ad nulla ultricies. Aenean neque libero lacus ut mollis mus? Cubilia nascetur tempus ultrices vel cursus ipsum egestas vivamus varius. Tellus nostra tristique quis ante felis. Per maximus odio eget nisl ornare; faucibus risus natoque. Curae dapibus interdum finibus adipiscing dui duis convallis eleifend. Ligula ornare himenaeos dictumst felis nam tempor tempor. Curae penatibus tortor vel adipiscing quam nec penatibus himenaeos.
 """
 
-material = gfx.TextMaterial(color="#000")
 
-tob = gfx.Text(gfx.TextGeometry(text=text, max_width=1000), material)
+tob = gfx.Text(
+    text=text,
+    max_width=1000,
+    material=gfx.TextMaterial(color="#000"),
+)
 scene.add(tob)
 
 camera = gfx.OrthographicCamera(900, 900)

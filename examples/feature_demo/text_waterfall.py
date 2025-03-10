@@ -53,10 +53,7 @@ waiting_objects = set()
 text_material = gfx.TextMaterial(color="#06E")
 
 for _i in range(100):
-    obj = gfx.Text(
-        gfx.TextGeometry(" ", font_size=18, screen_space=True),
-        text_material,
-    )
+    obj = gfx.Text(text=" ", font_size=18, screen_space=True, material=text_material)
     scene.add(obj)
     waiting_objects.add(obj)
     obj.local.y = -999
@@ -92,7 +89,7 @@ def animate():
         live_objects.add(obj)
         obj.local.y = 50
         obj.local.x = np.random.uniform(0, 100)
-        obj.geometry.set_text(next(chargen))
+        obj.set_text(next(chargen))
         obj.fall_speed = np.random.uniform(1, 4)
 
     # Update the image

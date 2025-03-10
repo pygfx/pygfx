@@ -28,10 +28,11 @@ scene = gfx.Scene()
 # Create the text
 s = "Lorem **ipsum** dolor sit amet, consectetur *adipiscing* elit, sed do eiusmod tempor ..."
 text1 = gfx.Text(
-    gfx.TextGeometry(
-        markdown=s.split(), font_size=10, direction="ltr-ltr", paragraph_spacing=0.3
-    ),
-    gfx.TextMaterial(color="#fff", pick_write=True),
+    markdown=s.split(),
+    font_size=10,
+    direction="ltr-ltr",
+    paragraph_spacing=0.3,
+    material=gfx.TextMaterial(color="#fff", pick_write=True),
 )
 scene.add(text1)
 

@@ -41,8 +41,9 @@ scene.add(camera.add(gfx.DirectionalLight()))
 
 scene_overlay = gfx.Scene()
 blend_mode_text = gfx.Text(
-    gfx.TextGeometry(f"Blend mode: {renderer.blend_mode}", anchor="bottom-left"),
-    gfx.TextMaterial(outline_thickness=0.3),
+    text=f"Blend mode: {renderer.blend_mode}",
+    anchor="bottom-left",
+    material=gfx.TextMaterial(outline_thickness=0.3),
 )
 scene_overlay.add(blend_mode_text)
 
@@ -75,7 +76,7 @@ def handle_event(event):
         mode = m[int(event.key)]
         renderer.blend_mode = mode
         print("Selecting blend_mode", mode)
-        blend_mode_text.geometry.set_text(f"Blend mode: {mode}")
+        blend_mode_text.set_text(f"Blend mode: {mode}")
 
 
 def animate():
