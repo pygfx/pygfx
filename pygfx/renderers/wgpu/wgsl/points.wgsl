@@ -137,6 +137,7 @@ fn vs_main(in: VertexInput) -> Varyings {
         vec2<f32>( 1.0, -1.0),
         vec2<f32>( 1.0,  1.0),
     );
+
     var the_delta_s = deltas[vertex_index] * half_size;
 
     // Make a degenerate quad for non-finite positions
@@ -145,7 +146,24 @@ fn vs_main(in: VertexInput) -> Varyings {
     }
 
     // Calculate the current virtual vertex position
-    let the_pos_s = pos_s + the_delta_s;
+
+    $$ if rotation_mode == 'vertex'
+    let rotation = load_s_rotations(node_index);
+    $$ else
+    let rotation = u_material.rotation;
+    $$ endif
+    let cos_rotation = cos(rotation);
+    let sin_rotation = sin(rotation);
+    // We follow the convention that positive rotations
+    // should be counter clockwise
+    // https://github.com/pygfx/pygfx/pull/1027#issuecomment-2709030569
+    let rot: mat2x2<f32> = mat2x2<f32>(
+        cos_rotation, sin_rotation,
+        -sin_rotation, cos_rotation
+    );
+    // We rotate only the position of the vertices, not the
+    // location where measure the SDF
+    let the_pos_s = pos_s + rot * the_delta_s;
     let the_pos_n = vec4<f32>((the_pos_s / screen_factor - 1.0) * pos_n.w, pos_n.z, pos_n.w);
 
     // Build varyings output
