@@ -406,7 +406,9 @@ class Texture(Resource):
 
     def update_full(self):
         """Mark the whole data for upload."""
-        self._chunk_mask.fill(True)
+        if self._chunks_dirt_flag == 2:
+            return
+        # self._chunk_mask.fill(True)  # implicit
         self._chunks_dirt_flag = 2
         Resource._rev += 1
         self._rev = Resource._rev
@@ -419,6 +421,8 @@ class Texture(Resource):
         So they must be equal in length, similar to what ``np.where()`` returns.
         They can also be None, to indicate the full range, like ":" does with slicing.
         """
+        if self._chunks_dirt_flag == 2:
+            return
         full_slice = slice(None, None, None)
         div = self._chunk_size
         indices_x = (
@@ -441,6 +445,8 @@ class Texture(Resource):
         The offset and (sub) size should be (width, height, depth)
         tuples. Numpy users beware that an arrays shape is (height, width)!
         """
+        if self._chunks_dirt_flag == 2:
+            return
         full_size = self.size
         # Check input
         assert isinstance(offset, tuple) and len(offset) == 3
@@ -507,7 +513,7 @@ class Texture(Resource):
                 chunk_descriptions.append((offset, size))
 
         # Reset
-        self._chunks_dirt_flag = False
+        self._chunks_dirt_flag = 0
         self._chunk_mask.fill(False)
 
         return chunk_descriptions
