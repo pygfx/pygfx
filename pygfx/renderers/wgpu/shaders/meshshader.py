@@ -302,7 +302,7 @@ class MeshShader(BaseShader):
             )
 
             if isinstance(material, MeshStandardMaterial):
-                self["use_IBL"] = True
+                self["USE_IBL"] = True
             elif isinstance(material, MeshBasicMaterial):
                 self["use_env_map"] = True
                 self["env_combine_mode"] = getattr(

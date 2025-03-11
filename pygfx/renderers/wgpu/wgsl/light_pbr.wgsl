@@ -100,8 +100,7 @@ fn EnvironmentBRDF(normal: vec3f, view_dir: vec3f, specular_color: vec3f, specul
     return specular_color * fab.x + specular_f90 * fab.y;
 }
 
-
-
+$$ if USE_IBL is defined
 fn getMipLevel(maxMIPLevelScalar: f32, level: f32) -> f32 {
     let sigma = (3.141592653589793 * level * level) / (1.0 + level);
     let desiredMIPLevel = maxMIPLevelScalar + log2(sigma);
@@ -127,6 +126,7 @@ fn getIBLRadiance(view_dir: vec3<f32>, normal: vec3<f32>, roughness: f32) -> vec
     let envMapColor_srgb = textureSampleLevel( t_env_map, s_env_map, vec3<f32>( -reflectVec.x, reflectVec.yz), mip_level );
     return srgb2physical(envMapColor_srgb.rgb) * u_material.env_map_intensity;
 }
+$$ endif
 
 $$ if USE_IRIDESCENCE is defined
 fn computeMultiscatteringIridescence(normal: vec3<f32>, view_dir: vec3<f32>, specular_color: vec3<f32>,
