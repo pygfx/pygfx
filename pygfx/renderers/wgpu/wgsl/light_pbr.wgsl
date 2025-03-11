@@ -1,8 +1,48 @@
 // Provides lighting_pbr()
 
-
 {$ include 'pygfx.light_common.wgsl' $}
 
+struct PhysicalMaterial {
+    diffuse_color: vec3<f32>,
+    roughness: f32,
+    specular_color: vec3<f32>,
+    specular_f90: f32,
+
+    $$ if USE_IOR is defined
+        ior: f32,
+    $$ endif
+
+    $$ if USE_CLEARCOAT is defined
+        clearcoat: f32,
+        clearcoat_roughness: f32,
+        clearcoat_f0: vec3<f32>,
+        clearcoat_f90: f32,
+    $$ endif
+
+    $$ if USE_IRIDESCENCE is defined
+        iridescence: f32,
+        iridescence_ior: f32,
+        iridescence_thickness: f32,
+        iridescence_fresnel: vec3<f32>,
+        iridescence_f0: vec3<f32>,
+    $$ endif
+
+};
+
+struct LightScatter {
+    single_scatter: vec3<f32>,
+    multi_scatter: vec3<f32>,
+};
+
+var<private> clearcoat_specular_direct: vec3f = vec3f(0.0);
+var<private> clearcoat_specular_indirect: vec3f = vec3f(0.0);
+
+fn Schlick_to_F0( f: vec3<f32>, f90: f32, dot_vh: f32 ) -> vec3<f32> {
+    let x = clamp( 1.0 - dot_vh, 0.0, 1.0 );
+    let x2 = x * x;
+    let x5 = clamp( x * x2 * x2, 0.0, 0.9999 );
+    return ( f - vec3<f32>( f90 ) * x5 ) / ( 1.0 - x5 );
+}
 
 fn V_GGX_SmithCorrelated(alpha: f32, dot_nl: f32, dot_nv: f32) -> f32 {
     let a2 = pow(alpha, 2.0);
@@ -66,49 +106,6 @@ fn EnvironmentBRDF(normal: vec3f, view_dir: vec3f, specular_color: vec3f, specul
 }
 
 
-struct PhysicalMaterial {
-    diffuse_color: vec3<f32>,
-    roughness: f32,
-    specular_color: vec3<f32>,
-    specular_f90: f32,
-
-    $$ if USE_IOR is defined
-        ior: f32,
-    $$ endif
-
-    $$ if USE_CLEARCOAT is defined
-        clearcoat: f32,
-        clearcoat_roughness: f32,
-        clearcoat_f0: vec3<f32>,
-        clearcoat_f90: f32,
-    $$ endif
-
-    $$ if USE_IRIDESCENCE is defined
-        iridescence: f32,
-        iridescence_ior: f32,
-        iridescence_thickness: f32,
-        iridescence_fresnel: vec3<f32>,
-        iridescence_f0: vec3<f32>,
-    $$ endif
-
-};
-
-struct LightScatter {
-    single_scatter: vec3<f32>,
-    multi_scatter: vec3<f32>,
-};
-
-var<private> clearcoat_specular_direct: vec3f = vec3f(0.0);
-var<private> clearcoat_specular_indirect: vec3f = vec3f(0.0);
-var<private> sheen_specular_direct: vec3f = vec3f(0.0);
-var<private> sheen_specular_indirect: vec3f = vec3f(0.0);
-
-fn Schlick_to_F0( f: vec3<f32>, f90: f32, dot_vh: f32 ) -> vec3<f32> {
-    let x = clamp( 1.0 - dot_vh, 0.0, 1.0 );
-    let x2 = x * x;
-    let x5 = clamp( x * x2 * x2, 0.0, 0.9999 );
-    return ( f - vec3<f32>( f90 ) * x5 ) / ( 1.0 - x5 );
-}
 
 fn getMipLevel(maxMIPLevelScalar: f32, level: f32) -> f32 {
     let sigma = (3.141592653589793 * level * level) / (1.0 + level);
@@ -117,13 +114,22 @@ fn getMipLevel(maxMIPLevelScalar: f32, level: f32) -> f32 {
     return mip_level;
 }
 
-fn getIBLIrradiance( normal: vec3<f32>, env_map: texture_cube<f32>, env_map_sampler: sampler, mip_level: f32) -> vec3<f32> {
-    let envMapColor_srgb = textureSampleLevel( env_map, env_map_sampler, vec3<f32>( -normal.x, normal.yz), mip_level );
+fn getIBLIrradiance( normal: vec3<f32> ) -> vec3<f32> {
+    let mip_level = getMipLevel(u_material.env_map_max_mip_level, 1.0);
+    let envMapColor_srgb = textureSampleLevel( t_env_map, s_env_map, vec3<f32>( -normal.x, normal.yz), mip_level );
     return srgb2physical(envMapColor_srgb.rgb) * u_material.env_map_intensity * PI;
 }
 
-fn getIBLRadiance( reflectVec: vec3<f32>, env_map: texture_cube<f32>, env_map_sampler: sampler, mip_level: f32 ) -> vec3<f32> {
-    let envMapColor_srgb = textureSampleLevel( env_map, env_map_sampler, vec3<f32>( -reflectVec.x, reflectVec.yz), mip_level );
+fn getIBLRadiance(view_dir: vec3<f32>, normal: vec3<f32>, roughness: f32) -> vec3<f32> {
+    $$ if env_mapping_mode == "CUBE-REFLECTION"
+        var reflectVec = reflect( -view_dir, normal );
+        let mip_level = getMipLevel(u_material.env_map_max_mip_level, roughness);
+    $$ elif env_mapping_mode == "CUBE-REFRACTION"
+        var reflectVec = refract( -view_dir, normal, u_material.refraction_ratio );
+        let mip_level = 1.0;
+    $$ endif
+    reflectVec = normalize(mix(reflectVec, normal, roughness*roughness));
+    let envMapColor_srgb = textureSampleLevel( t_env_map, s_env_map, vec3<f32>( -reflectVec.x, reflectVec.yz), mip_level );
     return srgb2physical(envMapColor_srgb.rgb) * u_material.env_map_intensity;
 }
 

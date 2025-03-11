@@ -467,31 +467,13 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
         // Indirect Specular Light
         // IBL (srgb2physical and intensity is handled in the getter functions)
         $$ if use_IBL is defined
-            $$ if env_mapping_mode == "CUBE-REFLECTION"
-                var reflectVec = reflect( -view, normal );
-                let mip_level_r = getMipLevel(u_material.env_map_max_mip_level, material.roughness);
-            $$ elif env_mapping_mode == "CUBE-REFRACTION"
-                var reflectVec = refract( -view, normal, u_material.refraction_ratio );
-                let mip_level_r = 1.0;
-            $$ endif
-            reflectVec = normalize(mix(reflectVec, normal, material.roughness*material.roughness));
-            let ibl_radiance = getIBLRadiance( reflectVec, t_env_map, s_env_map, mip_level_r );
-
+            let ibl_radiance = getIBLRadiance( view, normal, material.roughness );
             var clearcoat_ibl_radiance = vec3<f32>(0.0);
             $$ if USE_CLEARCOAT is defined
-                $$ if env_mapping_mode == "CUBE-REFLECTION"
-                    var reflectVec_cc = reflect( -view, clearcoat_normal );
-                    let mip_level_r_cc = getMipLevel(u_material.env_map_max_mip_level, material.clearcoat_roughness);
-                $$ elif env_mapping_mode == "CUBE-REFRACTION"
-                    var reflectVec_cc = refract( -view, clearcoat_normal, u_material.refraction_ratio );
-                    let mip_level_r_cc = 1.0;
-                $$ endif
-                reflectVec_cc = normalize(mix(reflectVec_cc, clearcoat_normal, material.clearcoat_roughness*material.clearcoat_roughness));
-                clearcoat_ibl_radiance += getIBLRadiance( reflectVec_cc, t_env_map, s_env_map, mip_level_r_cc );
+                clearcoat_ibl_radiance += getIBLRadiance( view, clearcoat_normal, material.clearcoat_roughness );
             $$ endif
 
-            let mip_level_i = getMipLevel(u_material.env_map_max_mip_level, 1.0);
-            let ibl_irradiance = getIBLIrradiance( geometry.normal, t_env_map, s_env_map, mip_level_i );
+            let ibl_irradiance = getIBLIrradiance( geometry.normal );
             RE_IndirectSpecular(ibl_radiance, ibl_irradiance, clearcoat_ibl_radiance, geometry, material, &reflected_light);
         $$ endif
 
