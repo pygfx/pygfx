@@ -131,10 +131,10 @@ fn getIBLRadiance(view_dir: vec3<f32>, normal: vec3<f32>, roughness: f32) -> vec
 $$ if USE_IRIDESCENCE is defined
 fn computeMultiscatteringIridescence(normal: vec3<f32>, view_dir: vec3<f32>, specular_color: vec3<f32>,
         specular_f90: f32, roughness: f32, iridescence_f0: vec3<f32>, iridescence: f32,
-        single_scatter: ptr<function,vec3f>, multi_scatter: ptr<function,vec3f>) {
+        single_scatter: ptr<function, vec3f>, multi_scatter: ptr<function, vec3f>) {
 $$ else
 fn computeMultiscattering(normal: vec3<f32>, view_dir: vec3<f32>, specular_color: vec3<f32>, specular_f90: f32, roughness: f32, 
-        single_scatter: ptr<function,vec3f>, multi_scatter: ptr<function,vec3f>) {
+        single_scatter: ptr<function, vec3f>, multi_scatter: ptr<function, vec3f>) {
 $$ endif
 
     let fab = DFGApprox( normal, view_dir, roughness );
