@@ -117,6 +117,11 @@ fn vs_main(in: VertexInput) -> Varyings {
     var raw_pos = load_s_positions(i0);
     var raw_normal = load_s_normals(i0);
 
+    $$ if use_tangent is defined
+        let raw_tangent = load_s_tangents(i0);
+        let object_tangent = raw_tangent.xyz;
+    $$ endif
+
     // morph targets
     $$ if use_morph_targets
         let base_influence = u_morph_target_influences[{{morph_targets_count}}];
@@ -162,6 +167,10 @@ fn vs_main(in: VertexInput) -> Varyings {
 
         raw_pos = (skin_matrix * vec4<f32>(raw_pos, 1.0)).xyz;
         raw_normal = (skin_matrix * vec4<f32>(raw_normal, 0.0)).xyz;
+
+        $$ if use_tangent is defined
+            object_tangent = (skin_matrix * vec4f(object_tangent, 0.0)).xyz;
+        $$ endif 
 
     $$ endif
 
@@ -228,11 +237,33 @@ fn vs_main(in: VertexInput) -> Varyings {
     $$ endif
     $$ endfor
 
+
+
     // Set the normal
     // Transform the normal to world space
     // Note that the world transform matrix cannot be directly applied to the normal
+
+    $$ if instanced
+        // this is in lieu of a per-instance normal-matrix
+	    // shear transforms in the instance matrix are not supported
+        let im = mat3x3f( instance_info.transform[0].xyz, instance_info.transform[1].xyz, instance_info.transform[2].xyz );
+        raw_normal /= vec3f(dot(im[0], im[0]), dot(im[1], im[1]), dot(im[2], im[2]));
+        raw_normal = im * raw_normal;
+
+        $$ if use_tangent is defined
+            object_tangent = im * object_tangent;
+        $$ endif
+    $$ endif
+
     let normal_matrix = transpose(u_wobject.world_transform_inv);
     let world_normal = normalize((normal_matrix * vec4<f32>(raw_normal, 0.0)).xyz);
+
+    $$ if use_tangent is defined
+        let v_tangent = normalize(( world_transform * vec4f(object_tangent, 0.0) ).xyz);
+        let v_bitangent = normalize(cross(world_normal, v_tangent) * raw_tangent.w);
+        varyings.v_tangent = vec3<f32>(v_tangent);
+        varyings.v_bitangent = vec3<f32>(v_bitangent);
+    $$ endif
 
     varyings.normal = vec3<f32>(world_normal);
     varyings.geometry_normal = vec3<f32>(raw_normal);
@@ -400,20 +431,40 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
         );
         // Get normal used to calculate lighting
         surface_normal = select(-surface_normal, surface_normal, is_front);
-
         var normal = surface_normal;
+        let face_direction = f32(is_front) * 2.0 - 1.0;
+
         $$ if use_normal_map is defined
+            $$ if use_tangent is defined
+                var tbn = mat3x3f(varyings.v_tangent, varyings.v_bitangent, surface_normal);
+            $$ else
+                var tbn = getTangentFrame(view, normal, varyings.texcoord{{normal_map_uv or ''}} );
+            $$ endif
+
+            tbn.x = tbn.x * face_direction;
+            tbn.y = tbn.y * face_direction;
+
             let normal_map = textureSample( t_normal_map, s_normal_map, varyings.texcoord{{normal_map_uv or ''}} ) * 2.0 - 1.0;
-            let normal_map_scale = vec3<f32>( normal_map.xy * u_material.normal_scale, normal_map.z );
-            normal = perturbNormal2Arb(view, normal, normal_map_scale, varyings.texcoord, is_front);
+            let map_n = vec3f(normal_map.xy * u_material.normal_scale, normal_map.z);
+            normal = normalize(tbn * map_n);
+
         $$ endif
 
         $$ if USE_CLEARCOAT is defined
             var clearcoat_normal = surface_normal;
             $$ if use_clearcoat_normal_map is defined
-                let clearcoat_normal_map = textureSample( t_clearcoat_normal_map, s_clearcoat_normal_map, varyings.texcoord{{clearcoat_normal_map_uv or ''}} ) * 2.0 - 1.0;
-                let clearcoat_normal_map_scale = vec3<f32>( clearcoat_normal_map.xy * u_material.clearcoat_normal_scale, clearcoat_normal_map.z );
-                clearcoat_normal = perturbNormal2Arb(view, clearcoat_normal, clearcoat_normal_map_scale, varyings.texcoord, is_front);
+                $$ if use_tangent is defined
+                    var tbn_cc = mat3x3f(varyings.v_tangent, varyings.v_bitangent, surface_normal);
+                $$ else
+                    var tbn_cc = getTangentFrame(view, normal, varyings.texcoord{{clearcoat_normal_map_uv or ''}} );
+                $$ endif
+
+                tbn_cc.x = tbn_cc.x * face_direction;
+                tbn_cc.y = tbn_cc.y * face_direction;
+
+                var clearcoat_normal_map = textureSample( t_normal_map, s_normal_map, varyings.texcoord{{clearcoat_normal_map_uv or ''}} ) * 2.0 - 1.0;
+                let clearcoat_map_n = vec3f(clearcoat_normal_map.xy * u_material.clearcoat_normal_scale, clearcoat_normal_map.z);
+                clearcoat_normal = normalize(tbn_cc * clearcoat_map_n);
             $$ endif
         $$ endif
     $$ endif

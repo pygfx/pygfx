@@ -170,6 +170,10 @@ class MeshShader(BaseShader):
         if self["use_vertex_color"]:
             bindings.append(Binding("s_colors", rbuffer, geometry.colors, "VERTEX"))
 
+        if getattr(geometry, "tangents", None):
+            bindings.append(Binding("s_tangents", rbuffer, geometry.tangents, "VERTEX"))
+            self["use_tangent"] = True
+
         if self["use_map"]:
             map = material.map
             map_fmt, map_dim = to_texture_format(map.texture.format), map.texture.dim

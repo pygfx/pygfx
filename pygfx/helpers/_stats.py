@@ -122,7 +122,7 @@ class Stats(Group):
         text = f"{delta} ms ({self._tmin}-{self._tmax})"
         if self._fps is not None:
             text += f"\n{self._fps} fps ({self._fmin}-{self._fmax})"
-        self.stats_text.geometry.set_text(text)
+        self.stats_text.set_text(text)
 
     def render(self, flush=True):
         self._viewport.render(self, self.camera, flush=flush)
