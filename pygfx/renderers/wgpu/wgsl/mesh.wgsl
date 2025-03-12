@@ -117,6 +117,11 @@ fn vs_main(in: VertexInput) -> Varyings {
     var raw_pos = load_s_positions(i0);
     var raw_normal = load_s_normals(i0);
 
+    $$ if use_tangent is defined
+        let raw_tangent = load_s_tangents(i0);
+        let object_tangent = raw_tangent.xyz;
+    $$ endif
+
     // morph targets
     $$ if use_morph_targets
         let base_influence = u_morph_target_influences[{{morph_targets_count}}];
@@ -162,6 +167,10 @@ fn vs_main(in: VertexInput) -> Varyings {
 
         raw_pos = (skin_matrix * vec4<f32>(raw_pos, 1.0)).xyz;
         raw_normal = (skin_matrix * vec4<f32>(raw_normal, 0.0)).xyz;
+
+        $$ if use_tangent is defined
+            object_tangent = (skin_matrix * vec4f(object_tangent, 0.0)).xyz;
+        $$ endif 
 
     $$ endif
 
@@ -216,7 +225,7 @@ fn vs_main(in: VertexInput) -> Varyings {
     let tex_coord_index = i0;
     $$ endif
 
- 
+
     // used_uv
     $$ for uv, ndim in used_uv.items()
     $$ if ndim == 1
@@ -228,11 +237,33 @@ fn vs_main(in: VertexInput) -> Varyings {
     $$ endif
     $$ endfor
 
+
+
     // Set the normal
     // Transform the normal to world space
     // Note that the world transform matrix cannot be directly applied to the normal
+
+    $$ if instanced
+        // this is in lieu of a per-instance normal-matrix
+	    // shear transforms in the instance matrix are not supported
+        let im = mat3x3f( instance_info.transform[0].xyz, instance_info.transform[1].xyz, instance_info.transform[2].xyz );
+        raw_normal /= vec3f(dot(im[0], im[0]), dot(im[1], im[1]), dot(im[2], im[2]));
+        raw_normal = im * raw_normal;
+
+        $$ if use_tangent is defined
+            object_tangent = im * object_tangent;
+        $$ endif
+    $$ endif
+
     let normal_matrix = transpose(u_wobject.world_transform_inv);
     let world_normal = normalize((normal_matrix * vec4<f32>(raw_normal, 0.0)).xyz);
+
+    $$ if use_tangent is defined
+        let v_tangent = normalize(( world_transform * vec4f(object_tangent, 0.0) ).xyz);
+        let v_bitangent = normalize(cross(world_normal, v_tangent) * raw_tangent.w);
+        varyings.v_tangent = vec3<f32>(v_tangent);
+        varyings.v_bitangent = vec3<f32>(v_bitangent);
+    $$ endif
 
     varyings.normal = vec3<f32>(world_normal);
     varyings.geometry_normal = vec3<f32>(raw_normal);
@@ -352,7 +383,7 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
         $$ if color_mode != 'uniform'
             $$ if use_map
                 $$ if use_colormap is defined
-                    // special case for colormap
+                    // special case for 'generic' colormap
                     var diffuse_map = sample_colormap(varyings.texcoord);
                 $$ else
                     var diffuse_map = textureSample(t_map, s_map, map_uv);
@@ -361,10 +392,10 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
                 $$ if colorspace == 'srgb'
                     diffuse_map = vec4f(srgb2physical(diffuse_map.rgb), diffuse_map.a);
                 $$ endif
-        
+
                 $$ if color_mode == 'vertex_map' or color_mode == 'face_map'
                     diffuse_color = diffuse_map;
-                $$ else  
+                $$ else
                     // default mode
                     diffuse_color *= diffuse_map;
                 $$ endif
@@ -381,7 +412,7 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
             $$ endif
 
         // uniform
-        $$ endif 
+        $$ endif
 
 
     $$ endif
@@ -400,20 +431,40 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
         );
         // Get normal used to calculate lighting
         surface_normal = select(-surface_normal, surface_normal, is_front);
-
         var normal = surface_normal;
+        let face_direction = f32(is_front) * 2.0 - 1.0;
+
         $$ if use_normal_map is defined
-            let normal_map = textureSample( t_normal_map, s_normal_map, normal_map_uv ) * 2.0 - 1.0;
-            let normal_map_scale = vec3<f32>( normal_map.xy * u_material.normal_scale, normal_map.z );
-            normal = perturbNormal2Arb(view, normal, normal_map_scale, varyings.texcoord, is_front);
+            $$ if use_tangent is defined
+                var tbn = mat3x3f(varyings.v_tangent, varyings.v_bitangent, surface_normal);
+            $$ else
+                var tbn = getTangentFrame(view, normal, varyings.texcoord{{normal_map_uv or ''}} );
+            $$ endif
+
+            tbn.x = tbn.x * face_direction;
+            tbn.y = tbn.y * face_direction;
+
+            let normal_map = textureSample( t_normal_map, s_normal_map, varyings.texcoord{{normal_map_uv or ''}} ) * 2.0 - 1.0;
+            let map_n = vec3f(normal_map.xy * u_material.normal_scale, normal_map.z);
+            normal = normalize(tbn * map_n);
+
         $$ endif
 
         $$ if USE_CLEARCOAT is defined
             var clearcoat_normal = surface_normal;
             $$ if use_clearcoat_normal_map is defined
-                let clearcoat_normal_map = textureSample( t_clearcoat_normal_map, s_clearcoat_normal_map, clearcoat_normal_map_uv ) * 2.0 - 1.0;
-                let clearcoat_normal_map_scale = vec3<f32>( clearcoat_normal_map.xy * u_material.clearcoat_normal_scale, clearcoat_normal_map.z );
-                clearcoat_normal = perturbNormal2Arb(view, clearcoat_normal, clearcoat_normal_map_scale, varyings.texcoord, is_front);
+                $$ if use_tangent is defined
+                    var tbn_cc = mat3x3f(varyings.v_tangent, varyings.v_bitangent, surface_normal);
+                $$ else
+                    var tbn_cc = getTangentFrame(view, normal, varyings.texcoord{{clearcoat_normal_map_uv or ''}} );
+                $$ endif
+
+                tbn_cc.x = tbn_cc.x * face_direction;
+                tbn_cc.y = tbn_cc.y * face_direction;
+
+                var clearcoat_normal_map = textureSample( t_normal_map, s_normal_map, varyings.texcoord{{clearcoat_normal_map_uv or ''}} ) * 2.0 - 1.0;
+                let clearcoat_map_n = vec3f(clearcoat_normal_map.xy * u_material.clearcoat_normal_scale, clearcoat_normal_map.z);
+                clearcoat_normal = normalize(tbn_cc * clearcoat_map_n);
             $$ endif
         $$ endif
     $$ endif
@@ -466,32 +517,14 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
 
         // Indirect Specular Light
         // IBL (srgb2physical and intensity is handled in the getter functions)
-        $$ if use_IBL is defined
-            $$ if env_mapping_mode == "CUBE-REFLECTION"
-                var reflectVec = reflect( -view, normal );
-                let mip_level_r = getMipLevel(u_material.env_map_max_mip_level, material.roughness);
-            $$ elif env_mapping_mode == "CUBE-REFRACTION"
-                var reflectVec = refract( -view, normal, u_material.refraction_ratio );
-                let mip_level_r = 1.0;
-            $$ endif
-            reflectVec = normalize(mix(reflectVec, normal, material.roughness*material.roughness));
-            let ibl_radiance = getIBLRadiance( reflectVec, t_env_map, s_env_map, mip_level_r );
-
+        $$ if USE_IBL is defined
+            let ibl_radiance = getIBLRadiance( view, normal, material.roughness );
             var clearcoat_ibl_radiance = vec3<f32>(0.0);
             $$ if USE_CLEARCOAT is defined
-                $$ if env_mapping_mode == "CUBE-REFLECTION"
-                    var reflectVec_cc = reflect( -view, clearcoat_normal );
-                    let mip_level_r_cc = getMipLevel(u_material.env_map_max_mip_level, material.clearcoat_roughness);
-                $$ elif env_mapping_mode == "CUBE-REFRACTION"
-                    var reflectVec_cc = refract( -view, clearcoat_normal, u_material.refraction_ratio );
-                    let mip_level_r_cc = 1.0;
-                $$ endif
-                reflectVec_cc = normalize(mix(reflectVec_cc, clearcoat_normal, material.clearcoat_roughness*material.clearcoat_roughness));
-                clearcoat_ibl_radiance += getIBLRadiance( reflectVec_cc, t_env_map, s_env_map, mip_level_r_cc );
+                clearcoat_ibl_radiance += getIBLRadiance( view, clearcoat_normal, material.clearcoat_roughness );
             $$ endif
 
-            let mip_level_i = getMipLevel(u_material.env_map_max_mip_level, 1.0);
-            let ibl_irradiance = getIBLIrradiance( geometry.normal, t_env_map, s_env_map, mip_level_i );
+            let ibl_irradiance = getIBLIrradiance( geometry.normal );
             RE_IndirectSpecular(ibl_radiance, ibl_irradiance, clearcoat_ibl_radiance, geometry, material, &reflected_light);
         $$ endif
 
@@ -519,7 +552,7 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
             clearcoat_specular_indirect *= ambient_occlusion;
         $$ endif
 
-        $$ if lighting == 'pbr' and use_IBL is defined
+        $$ if lighting == 'pbr' and USE_IBL is defined
             let dot_nv = saturate( dot( geometry.normal, geometry.view_dir ) );
             reflected_light.indirect_specular *= computeSpecularOcclusion( dot_nv, ambient_occlusion, material.roughness );
         $$ endif

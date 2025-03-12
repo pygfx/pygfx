@@ -335,7 +335,9 @@ class Buffer(Resource):
 
     def update_full(self):
         """Mark the whole data for upload."""
-        self._chunk_mask.fill(True)
+        if self._chunks_dirt_flag == 2:
+            return
+        # self._chunk_mask.fill(True)  # implicit
         self._chunks_dirt_flag = 2
         Resource._rev += 1
         self._rev = Resource._rev
@@ -343,6 +345,8 @@ class Buffer(Resource):
 
     def update_indices(self, indices):
         """Mark specific item indices for upload."""
+        if self._chunks_dirt_flag == 2:
+            return
         indices = np.asarray(indices)
         div = self._chunk_size
         self._chunk_mask[indices // div] = True
@@ -357,6 +361,8 @@ class Buffer(Resource):
         The offset and size are expressed in integer number of items.
         """
         # See ThreeJS BufferAttribute.updateRange
+        if self._chunks_dirt_flag == 2:
+            return
 
         nitems = self.nitems
         # Normalize inputs

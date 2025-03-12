@@ -446,17 +446,17 @@ class SceneHandler:
     def _create_world_object_for_text(
         text_string: str, anchor: str, position: np.ndarray, font_size: int
     ) -> gfx.WorldObject:
-        geometry = gfx.TextGeometry(
-            text=text_string, anchor=anchor, font_size=font_size, screen_space=True
+        text = gfx.Text(
+            text=text_string,
+            anchor=anchor,
+            font_size=font_size,
+            screen_space=True,
+            material=gfx.TextMaterial(
+                color=gfx.Color("#ffffff"),
+                outline_color=gfx.Color("#000000"),
+                outline_thickness=0.5,
+            ),
         )
-
-        material = gfx.TextMaterial(
-            color=gfx.Color("#ffffff"),
-            outline_color=gfx.Color("#000000"),
-            outline_thickness=0.5,
-        )
-
-        text = gfx.Text(geometry=geometry, material=material)
 
         text.local.position = position
         return text

@@ -27,11 +27,12 @@ scene = gfx.Scene()
 scene.add(gfx.Background.from_color("#aab", "#eef"))
 
 # Create text object
-text = gfx.Text(
-    gfx.MultiTextGeometry(
-        anchor="top-left", anchor_offset=2, screen_space=True, font_size=14
-    ),
-    gfx.TextMaterial(color="#000"),
+text = gfx.MultiText(
+    anchor="top-left",
+    anchor_offset=2,
+    screen_space=True,
+    font_size=14,
+    material=gfx.TextMaterial(color="#000"),
 )
 scene.add(text)
 
@@ -40,12 +41,12 @@ scene.add(text)
 positions = np.random.uniform(1, 99, (100, 3)).astype(np.float32)
 
 # Apply them to the geometry
-text.geometry.set_text_block_count(positions.shape[0])
+text.set_text_block_count(positions.shape[0])
 text.geometry.positions = gfx.Buffer(positions)
 
 # Set the text of each text block.
 for i in range(positions.shape[0]):
-    text_block = text.geometry.get_text_block(i)
+    text_block = text.get_text_block(i)
     pos = positions[i]
     s = f"({pos[0]:0.0f}, {pos[1]:0.0f}, {pos[2]:0.0f})"
     if i == 20:

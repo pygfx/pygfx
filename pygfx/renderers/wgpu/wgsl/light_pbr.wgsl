@@ -1,8 +1,43 @@
 // Provides lighting_pbr()
 
-
 {$ include 'pygfx.light_common.wgsl' $}
 
+struct PhysicalMaterial {
+    diffuse_color: vec3<f32>,
+    roughness: f32,
+    specular_color: vec3<f32>,
+    specular_f90: f32,
+
+    $$ if USE_IOR is defined
+        ior: f32,
+    $$ endif
+
+    $$ if USE_CLEARCOAT is defined
+        clearcoat: f32,
+        clearcoat_roughness: f32,
+        clearcoat_f0: vec3<f32>,
+        clearcoat_f90: f32,
+    $$ endif
+
+    $$ if USE_IRIDESCENCE is defined
+        iridescence: f32,
+        iridescence_ior: f32,
+        iridescence_thickness: f32,
+        iridescence_fresnel: vec3<f32>,
+        iridescence_f0: vec3<f32>,
+    $$ endif
+
+};
+
+var<private> clearcoat_specular_direct: vec3f = vec3f(0.0);
+var<private> clearcoat_specular_indirect: vec3f = vec3f(0.0);
+
+fn Schlick_to_F0( f: vec3<f32>, f90: f32, dot_vh: f32 ) -> vec3<f32> {
+    let x = clamp( 1.0 - dot_vh, 0.0, 1.0 );
+    let x2 = x * x;
+    let x5 = clamp( x * x2 * x2, 0.0, 0.9999 );
+    return ( f - vec3<f32>( f90 ) * x5 ) / ( 1.0 - x5 );
+}
 
 fn V_GGX_SmithCorrelated(alpha: f32, dot_nl: f32, dot_nv: f32) -> f32 {
     let a2 = pow(alpha, 2.0);
@@ -65,50 +100,7 @@ fn EnvironmentBRDF(normal: vec3f, view_dir: vec3f, specular_color: vec3f, specul
     return specular_color * fab.x + specular_f90 * fab.y;
 }
 
-
-struct PhysicalMaterial {
-    diffuse_color: vec3<f32>,
-    roughness: f32,
-    specular_color: vec3<f32>,
-    specular_f90: f32,
-
-    $$ if USE_IOR is defined
-        ior: f32,
-    $$ endif
-
-    $$ if USE_CLEARCOAT is defined
-        clearcoat: f32,
-        clearcoat_roughness: f32,
-        clearcoat_f0: vec3<f32>,
-        clearcoat_f90: f32,
-    $$ endif
-
-    $$ if USE_IRIDESCENCE is defined
-        iridescence: f32,
-        iridescence_ior: f32,
-        iridescence_thickness: f32,
-        iridescence_fresnel: vec3<f32>,
-        iridescence_f0: vec3<f32>,
-    $$ endif
-
-};
-
-struct LightScatter {
-    single_scatter: vec3<f32>,
-    multi_scatter: vec3<f32>,
-};
-
-var<private> clearcoat_specular_direct: vec3f = vec3f(0.0);
-var<private> clearcoat_specular_indirect: vec3f = vec3f(0.0);
-var<private> sheen_specular_direct: vec3f = vec3f(0.0);
-var<private> sheen_specular_indirect: vec3f = vec3f(0.0);
-
-fn Schlick_to_F0( f: vec3<f32>, f90: f32, dot_vh: f32 ) -> vec3<f32> {
-    let x = clamp( 1.0 - dot_vh, 0.0, 1.0 );
-    let x2 = x * x;
-    let x5 = clamp( x * x2 * x2, 0.0, 0.9999 );
-    return ( f - vec3<f32>( f90 ) * x5 ) / ( 1.0 - x5 );
-}
+$$ if USE_IBL is defined
 
 fn getMipLevel(maxMIPLevelScalar: f32, level: f32) -> f32 {
     let sigma = (3.141592653589793 * level * level) / (1.0 + level);
@@ -117,20 +109,32 @@ fn getMipLevel(maxMIPLevelScalar: f32, level: f32) -> f32 {
     return mip_level;
 }
 
-fn getIBLIrradiance( normal: vec3<f32>, env_map: texture_cube<f32>, env_map_sampler: sampler, mip_level: f32) -> vec3<f32> {
-    let envMapColor_srgb = textureSampleLevel( env_map, env_map_sampler, vec3<f32>( -normal.x, normal.yz), mip_level );
+fn getIBLIrradiance( normal: vec3<f32> ) -> vec3<f32> {
+    let mip_level = getMipLevel(u_material.env_map_max_mip_level, 1.0);
+    let envMapColor_srgb = textureSampleLevel( t_env_map, s_env_map, vec3<f32>( -normal.x, normal.yz), mip_level );
     return srgb2physical(envMapColor_srgb.rgb) * u_material.env_map_intensity * PI;
 }
 
-fn getIBLRadiance( reflectVec: vec3<f32>, env_map: texture_cube<f32>, env_map_sampler: sampler, mip_level: f32 ) -> vec3<f32> {
-    let envMapColor_srgb = textureSampleLevel( env_map, env_map_sampler, vec3<f32>( -reflectVec.x, reflectVec.yz), mip_level );
+fn getIBLRadiance(view_dir: vec3<f32>, normal: vec3<f32>, roughness: f32) -> vec3<f32> {
+    $$ if env_mapping_mode == "CUBE-REFLECTION"
+        var reflectVec = reflect( -view_dir, normal );
+        let mip_level = getMipLevel(u_material.env_map_max_mip_level, roughness);
+    $$ elif env_mapping_mode == "CUBE-REFRACTION"
+        var reflectVec = refract( -view_dir, normal, u_material.refraction_ratio );
+        let mip_level = 1.0;
+    $$ endif
+    reflectVec = normalize(mix(reflectVec, normal, roughness*roughness));
+    let envMapColor_srgb = textureSampleLevel( t_env_map, s_env_map, vec3<f32>( -reflectVec.x, reflectVec.yz), mip_level );
     return srgb2physical(envMapColor_srgb.rgb) * u_material.env_map_intensity;
 }
 
 $$ if USE_IRIDESCENCE is defined
-fn computeMultiscatteringIridescence(normal: vec3<f32>, view_dir: vec3<f32>, specular_color: vec3<f32>, specular_f90: f32, roughness: f32, iridescence_f0: vec3<f32>, iridescence: f32) -> LightScatter {
+fn computeMultiscatteringIridescence(normal: vec3<f32>, view_dir: vec3<f32>, specular_color: vec3<f32>,
+        specular_f90: f32, roughness: f32, iridescence_f0: vec3<f32>, iridescence: f32,
+        single_scatter: ptr<function, vec3f>, multi_scatter: ptr<function, vec3f>) {
 $$ else
-fn computeMultiscattering(normal: vec3<f32>, view_dir: vec3<f32>, specular_color: vec3<f32>, specular_f90: f32, roughness: f32 ) -> LightScatter {
+fn computeMultiscattering(normal: vec3<f32>, view_dir: vec3<f32>, specular_color: vec3<f32>, specular_f90: f32, roughness: f32, 
+        single_scatter: ptr<function, vec3f>, multi_scatter: ptr<function, vec3f>) {
 $$ endif
 
     let fab = DFGApprox( normal, view_dir, roughness );
@@ -146,10 +150,9 @@ $$ endif
     let Ems: f32 = 1.0 - Ess;
     let Favg = specular_color + ( 1.0 - specular_color ) * 0.047619; // 1/21
     let Fms = FssEss * Favg / ( 1.0 - Ems * Favg );
-    var scatter: LightScatter;
-    scatter.single_scatter = FssEss;
-    scatter.multi_scatter = Fms * Ems;
-    return scatter;
+
+    *single_scatter = FssEss;
+    *multi_scatter = Fms * Ems;
 }
 
 fn RE_IndirectSpecular(radiance: vec3<f32>, irradiance: vec3<f32>, clearcoat_radiance: vec3<f32>,
@@ -158,19 +161,22 @@ fn RE_IndirectSpecular(radiance: vec3<f32>, irradiance: vec3<f32>, clearcoat_rad
     $$ if USE_CLEARCOAT is defined
         clearcoat_specular_indirect += clearcoat_radiance * EnvironmentBRDF( geometry.clearcoat_normal, geometry.view_dir, material.clearcoat_f0, material.clearcoat_f90, material.clearcoat_roughness );
     $$ endif
-    let cosineWeightedIrradiance: vec3<f32> = irradiance * RECIPROCAL_PI;
-
+    let cosine_weighted_irradiance: vec3<f32> = irradiance * RECIPROCAL_PI;
+    var single_scatter: vec3<f32>;
+    var multi_scatter: vec3<f32>;
     $$ if USE_IRIDESCENCE is defined
-        let scatter = computeMultiscatteringIridescence( geometry.normal, geometry.view_dir, material.specular_color, material.specular_f90, material.roughness, material.iridescence_f0, material.iridescence );
+        computeMultiscatteringIridescence( geometry.normal, geometry.view_dir, material.specular_color, material.specular_f90, material.roughness, material.iridescence_f0, material.iridescence, &single_scatter, &multi_scatter );
     $$ else
-        let scatter = computeMultiscattering( geometry.normal, geometry.view_dir, material.specular_color, material.specular_f90, material.roughness);
+        computeMultiscattering( geometry.normal, geometry.view_dir, material.specular_color, material.specular_f90, material.roughness, &single_scatter, &multi_scatter );
     $$ endif
-    let total_scattering = scatter.single_scatter + scatter.multi_scatter;
+    let total_scattering = single_scatter + multi_scatter;
     let diffuse = material.diffuse_color * ( 1.0 - max( max( total_scattering.r, total_scattering.g ), total_scattering.b ) );
-    // let diffuse = material.diffuse_color * ( 1.0 - scatter.single_scatter - scatter.multi_scatter);
-    (*reflected_light).indirect_specular += (radiance * scatter.single_scatter + scatter.multi_scatter * cosineWeightedIrradiance);
-    (*reflected_light).indirect_diffuse += diffuse * cosineWeightedIrradiance;
+    (*reflected_light).indirect_specular += (radiance * single_scatter + multi_scatter * cosine_weighted_irradiance);
+    (*reflected_light).indirect_diffuse += diffuse * cosine_weighted_irradiance;
 }
+
+ //end of USE_IBL
+$$ endif
 
 fn RE_IndirectDiffuse(irradiance: vec3<f32>, geometry: GeometricContext, material: PhysicalMaterial, reflected_light: ptr<function, ReflectedLight>) {
     (*reflected_light).indirect_diffuse += irradiance * BRDF_Lambert( material.diffuse_color );

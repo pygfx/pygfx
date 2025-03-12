@@ -68,15 +68,17 @@ def add_image(img, position, spacing=10):
 
 
 def add_label(x, y, text):
-    geometry = gfx.TextGeometry(
-        text=text, font_size=20, screen_space=True, anchor="top-left"
+    label = gfx.Text(
+        text=text,
+        font_size=20,
+        screen_space=True,
+        anchor="top-left",
+        material=gfx.TextMaterial(
+            color="#FFFFFF",
+            outline_color="#000000",
+            outline_thickness=0.2,
+        ),
     )
-    material = gfx.TextMaterial(
-        color="#FFFFFF",
-        outline_color="#000000",
-        outline_thickness=0.2,
-    )
-    label = gfx.Text(geometry, material)
     labels_group.add(label)
     label.world.x = x
     label.world.y = y

@@ -3,7 +3,7 @@ from __future__ import annotations
 import random
 import weakref
 import threading
-from typing import TYPE_CHECKING, Any, Callable, ClassVar, Iterator, List, Tuple
+from typing import Any, Callable, ClassVar, Iterator, List, Tuple
 import pylinalg as la
 from time import perf_counter_ns
 
@@ -18,10 +18,8 @@ from ..utils.transform import (
     RecursiveTransform,
 )
 from ..utils.enums import RenderMask
-
-if TYPE_CHECKING:
-    from ..geometries import Geometry
-    from ..materials import Material
+from ..geometries import Geometry
+from ..materials import Material
 
 
 class IdProvider:
@@ -309,6 +307,10 @@ class WorldObject(EventTarget, Trackable):
 
     @geometry.setter
     def geometry(self, geometry: Geometry | None):
+        if not (geometry is None or isinstance(geometry, Geometry)):
+            raise TypeError(
+                f"WorldObject.geometry must be a Geometry object or None, not {geometry!r}"
+            )
         self._store.geometry = geometry
 
     @property
@@ -321,6 +323,10 @@ class WorldObject(EventTarget, Trackable):
 
     @material.setter
     def material(self, material: Material | None) -> None:
+        if not (material is None or isinstance(material, Material)):
+            raise TypeError(
+                f"WorldObject.geometry must be a Geometry object or None, not {material!r}"
+            )
         self._material = material
 
     @property

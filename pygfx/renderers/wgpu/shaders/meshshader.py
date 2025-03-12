@@ -171,6 +171,10 @@ class MeshShader(BaseShader):
         if self["use_vertex_color"]:
             bindings.append(Binding("s_colors", rbuffer, geometry.colors, "VERTEX"))
 
+        if getattr(geometry, "tangents", None):
+            bindings.append(Binding("s_tangents", rbuffer, geometry.tangents, "VERTEX"))
+            self["use_tangent"] = True
+
         if self["use_map"]:
             map = material.map
             map_fmt, map_dim = to_texture_format(map.texture.format), map.texture.dim
@@ -181,9 +185,11 @@ class MeshShader(BaseShader):
             )
 
             if not is_standard_map:
-                # It's a colormap
+                # It's a 'generic' colormap
                 self["use_colormap"] = True
-                bindings.extend(self.define_colormap(material.map, geometry.texcoords))
+                bindings.extend(
+                    self.define_generic_colormap(material.map, geometry.texcoords)
+                )
                 if 0 not in self["used_uv"]:
                     texcoords = getattr(geometry, "texcoords", None)
                     bindings.append(
@@ -194,6 +200,7 @@ class MeshShader(BaseShader):
                     else:
                         self["used_uv"][0] = texcoords.data.shape[-1]
             else:
+                # It's a classic mesh map
                 bindings.extend(self._define_texture_map(geometry, material.map, "map"))
 
             self["colorspace"] = material.map.texture.colorspace
@@ -300,7 +307,7 @@ class MeshShader(BaseShader):
             )
 
             if isinstance(material, MeshStandardMaterial):
-                self["use_IBL"] = True
+                self["USE_IBL"] = True
             elif isinstance(material, MeshBasicMaterial):
                 self["use_env_map"] = True
                 self["env_combine_mode"] = getattr(
@@ -798,7 +805,9 @@ class MeshSliceShader(BaseShader):
         if self["color_mode"] in ("vertex", "face"):
             bindings.append(Binding("s_colors", rbuffer, geometry.colors, "VERTEX"))
         elif self["color_mode"] in ("vertex_map", "face_map"):
-            bindings.extend(self.define_colormap(material.map, geometry.texcoords))
+            bindings.extend(
+                self.define_generic_colormap(material.map, geometry.texcoords)
+            )
 
         # Let the shader generate code for our bindings
         bindings = {i: binding for i, binding in enumerate(bindings)}
