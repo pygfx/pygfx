@@ -676,10 +676,7 @@ class _GLTF:
                 if scale_factor is None:
                     scale_factor = 1.0
 
-                # pygfx now assume the normal map is in tangent space, so we need to flip the y-axis.
-                # See: https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/NormalTangentTest#problem-flipped-y-axis-or-flipped-green-channel
-                # TODO: support object space normal map, and flip the y-axis when only in tangent space.(check if the tangent attribute in the mesh primitive)
-                gfx_material.normal_scale = (scale_factor, -scale_factor)
+                gfx_material.normal_scale = (scale_factor, scale_factor)
 
             if material.occlusionTexture is not None:
                 gfx_material.ao_map = self._load_gltf_texture(material.occlusionTexture)
