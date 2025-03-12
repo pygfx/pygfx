@@ -438,13 +438,13 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
             $$ if use_tangent is defined
                 var tbn = mat3x3f(varyings.v_tangent, varyings.v_bitangent, surface_normal);
             $$ else
-                var tbn = getTangentFrame(view, normal, varyings.texcoord{{normal_map_uv or ''}} );
+                var tbn = getTangentFrame(view, normal, normal_map_uv );
             $$ endif
 
             tbn.x = tbn.x * face_direction;
             tbn.y = tbn.y * face_direction;
 
-            let normal_map = textureSample( t_normal_map, s_normal_map, varyings.texcoord{{normal_map_uv or ''}} ) * 2.0 - 1.0;
+            let normal_map = textureSample( t_normal_map, s_normal_map, normal_map_uv ) * 2.0 - 1.0;
             let map_n = vec3f(normal_map.xy * u_material.normal_scale, normal_map.z);
             normal = normalize(tbn * map_n);
 
@@ -456,13 +456,13 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
                 $$ if use_tangent is defined
                     var tbn_cc = mat3x3f(varyings.v_tangent, varyings.v_bitangent, surface_normal);
                 $$ else
-                    var tbn_cc = getTangentFrame(view, normal, varyings.texcoord{{clearcoat_normal_map_uv or ''}} );
+                    var tbn_cc = getTangentFrame(view, clearcoat_normal, clearcoat_normal_map_uv );
                 $$ endif
 
                 tbn_cc.x = tbn_cc.x * face_direction;
                 tbn_cc.y = tbn_cc.y * face_direction;
 
-                var clearcoat_normal_map = textureSample( t_normal_map, s_normal_map, varyings.texcoord{{clearcoat_normal_map_uv or ''}} ) * 2.0 - 1.0;
+                var clearcoat_normal_map = textureSample( t_clearcoat_normal_map, s_clearcoat_normal_map, clearcoat_normal_map_uv ) * 2.0 - 1.0;
                 let clearcoat_map_n = vec3f(clearcoat_normal_map.xy * u_material.clearcoat_normal_scale, clearcoat_normal_map.z);
                 clearcoat_normal = normalize(tbn_cc * clearcoat_map_n);
             $$ endif
