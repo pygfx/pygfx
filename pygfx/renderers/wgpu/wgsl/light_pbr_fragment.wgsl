@@ -114,7 +114,7 @@ $$ endif
 $$ if USE_ANISOTROPY is defined
     let anisotropy_vector = u_material.anisotropy_vector;
     $$ if use_anisotropy_map is defined
-        let anisotropy_polar = textureSample( t_anisotropy_map, s_anisotropy_map, varyings.texcoord{{anisotropy_map_uv or ''}} ).rgb;
+        let anisotropy_polar = textureSample( t_anisotropy_map, s_anisotropy_map, anisotropy_map_uv ).rgb;
         let anisotropy_mat = mat2x2f( anisotropy_vector.x, anisotropy_vector.y, -anisotropy_vector.y, anisotropy_vector.x );
         var anisotropy_v = anisotropy_mat * normalize( 2.0 * anisotropy_polar.rg - vec2f( 1.0 ) ) * anisotropy_polar.b;
     $$ else

@@ -70,4 +70,8 @@ $$ if use_iridescence_thickness_map is defined
     let iridescence_thickness_map_uv = (iridescence_thickness_map_transform * vec3<f32>(varyings.texcoord{{iridescence_thickness_map_uv or ''}}, 1.0)).xy;
 $$ endif
 
+$$ if use_anisotropy_map is defined
+    let anisotropy_map_transform = mat3x3<f32>(u_anisotropy_map.transform[0].xyz, u_anisotropy_map.transform[1].xyz, u_anisotropy_map.transform[2].xyz);
+    let anisotropy_map_uv = (anisotropy_map_transform * vec3<f32>(varyings.texcoord{{anisotropy_map_uv or ''}}, 1.0)).xy;
+$$ endif
 

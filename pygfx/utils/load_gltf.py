@@ -1280,7 +1280,9 @@ class GLTFMaterialsAnisotropyExtension(GLTFBaseMaterialsExtension):
 
         anisotropy_texture = extension.get("anisotropyTexture", None)
         if anisotropy_texture is not None:
-            material.anisotropy_map = self._load_texture(anisotropy_texture)
+            material.anisotropy_map = self.parser._load_gltf_texture_map(
+                anisotropy_texture
+            )
 
 
 class GLTFMaterialsEmissiveStrengthExtension(GLTFBaseMaterialsExtension):
