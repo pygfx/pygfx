@@ -1073,6 +1073,8 @@ class MeshPhysicalMaterial(MeshStandardMaterial):
     - **Iridescence:** Allows to render the effect where hue varies depending on the viewing angle and
     illumination angle. This can be seen on soap bubbles, oil films, or on the wings of many insects.
 
+    - **Anisotropy:** Ability to represent the anisotropic property of materials as observable with brushed metals.
+
 
     Parameters
     ----------
@@ -1098,7 +1100,11 @@ class MeshPhysicalMaterial(MeshStandardMaterial):
         Default is 1.3.
     iridescence_thickness_range : tuple
         The range of thickness for the iridescence effect, in nanometers. Default is (100, 400).
-
+    anisotropy : float
+        The anisotropy strength. Default is 0.0.
+    anisotropy_rotation : float
+        The rotation of the anisotropy in tangent, bitangent space, measured in radians counter-clockwise from the tangent.
+        Default is 0.0.
     kwargs : Any
         Additional kwargs will be passed to the :class:`base class
         <pygfx.MeshStandardMaterial>`.
@@ -1106,7 +1112,6 @@ class MeshPhysicalMaterial(MeshStandardMaterial):
     """
 
     # todo:
-    # - Anisotropy
     # - Physically-based transparency
     # - Sheen
     #
@@ -1122,6 +1127,7 @@ class MeshPhysicalMaterial(MeshStandardMaterial):
         iridescence="f4",
         iridescence_ior="f4",
         iridescence_thickness_range="2xf4",
+        anisotropy_vector="2xf4",
     )
 
     def __init__(
@@ -1142,6 +1148,9 @@ class MeshPhysicalMaterial(MeshStandardMaterial):
         iridescence_ior=1.3,
         iridescence_thickness_range=(100, 400),
         iridescence_thickness_map=None,
+        anisotropy=0.0,
+        anisotropy_map=None,
+        anisotropy_rotation=0.0,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -1150,6 +1159,7 @@ class MeshPhysicalMaterial(MeshStandardMaterial):
         self.specular_map = specular_map
         self.specular_intensity = specular_intensity
         self.specular_intensity_map = specular_intensity_map
+
         self.clearcoat = clearcoat
         self.clearcoat_map = clearcoat_map
         self.clearcoat_normal_map = clearcoat_normal_map
@@ -1162,6 +1172,11 @@ class MeshPhysicalMaterial(MeshStandardMaterial):
         self.iridescence_ior = iridescence_ior
         self.iridescence_thickness_range = iridescence_thickness_range
         self.iridescence_thickness_map = iridescence_thickness_map
+
+        self._anisotropy = anisotropy
+        self._anisotropy_rotation = anisotropy_rotation
+        self._update_anisotropy_vector()
+        self.anisotropy_map = anisotropy_map
 
     @property
     def ior(self):
@@ -1347,3 +1362,46 @@ class MeshPhysicalMaterial(MeshStandardMaterial):
         if isinstance(map, Texture):
             map = TextureMap(map)
         self._store.iridescence_thickness_map = map
+
+    @property
+    def anisotropy(self):
+        """The anisotropy strength of the material. Default is 0.0."""
+        return self._anisotropy
+
+    @anisotropy.setter
+    def anisotropy(self, value):
+        self._anisotropy = value
+        self._update_anisotropy_vector()
+
+    @property
+    def anisotropy_rotation(self):
+        """The rotation of the anisotropy in tangent, bitangent space, measured in radians counter-clockwise from the tangent.
+        Default is 0.0."""
+        return self._anisotropy_rotation
+
+    @anisotropy_rotation.setter
+    def anisotropy_rotation(self, value):
+        self._anisotropy_rotation = value
+        self._update_anisotropy_vector()
+
+    def _update_anisotropy_vector(self):
+        self.uniform_buffer.data["anisotropy_vector"] = (
+            math.cos(self._anisotropy_rotation) * self._anisotropy,
+            math.sin(self._anisotropy_rotation) * self._anisotropy,
+        )
+        self.uniform_buffer.update_full()
+
+    @property
+    def anisotropy_map(self):
+        """The anisotropy map is used to define the anisotropy direction and strength.
+        Red and green channels represent the anisotropy direction in [-1, 1] tangent, bitangent space, to be rotated by `.anisotropy_rotation`.
+        The blue channel contains strength as [0, 1] to be multiplied by `.anisotropy`.
+        """
+        return self._store.anisotropy_map
+
+    @anisotropy_map.setter
+    def anisotropy_map(self, map):
+        assert_type("anisotropy_map", map, None, Texture, TextureMap)
+        if isinstance(map, Texture):
+            map = TextureMap(map)
+        self._store.anisotropy_map = map

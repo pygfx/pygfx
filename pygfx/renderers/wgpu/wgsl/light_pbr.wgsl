@@ -27,6 +27,12 @@ struct PhysicalMaterial {
         iridescence_f0: vec3<f32>,
     $$ endif
 
+    $$ if USE_ANISOTROPY is defined
+        anisotropy: f32,
+        alpha_t: f32,
+        anisotropy_t: vec3<f32>,
+        anisotropy_b: vec3<f32>,
+    $$ endif
 };
 
 var<private> clearcoat_specular_direct: vec3f = vec3f(0.0);
@@ -51,6 +57,25 @@ fn D_GGX(alpha: f32, dot_nh: f32) -> f32 {
     let denom = pow(dot_nh, 2.0) * (a2 - 1.0) + 1.0;
     return RECIPROCAL_PI * a2/pow(denom, 2.0);
 }
+
+$$ if USE_ANISOTROPY is defined
+fn V_GGX_SmithCorrelated_Anisotropic(alpha_t: f32, alpha_b: f32, dot_tv: f32, dot_bv: f32, dot_tl: f32, dot_bl: f32, dot_nv: f32, dot_nl: f32) -> f32 {
+    let gv = dot_nl * length( vec3f(alpha_t * dot_tv, alpha_b * dot_bv, dot_nv) );
+    let gl = dot_nv * length( vec3f(alpha_t * dot_tl, alpha_b * dot_bl, dot_nl) );
+    let v = 0.5 / ( gv + gl );
+
+    return saturate( v );
+}
+
+fn D_GGX_Anisotropic(alpha_t: f32, alpha_b: f32, dot_nh: f32, dot_th: f32, dot_bh: f32) -> f32 {
+    let a2 = alpha_t * alpha_b;
+    let v = vec3f( alpha_b * dot_th, alpha_t * dot_bh, a2 * dot_nh );
+    let v2 = dot(v, v);
+    let w2 = a2 / v2;
+
+    return RECIPROCAL_PI * a2 * pow2(w2);
+}
+$$ endif
 
 $$ if USE_CLEARCOAT is defined
 fn BRDF_GGX_CC(light_dir: vec3<f32>, view_dir: vec3<f32>, normal: vec3<f32>, f0: vec3<f32>, f90: f32, roughness: f32) -> vec3<f32> {
@@ -80,8 +105,21 @@ fn BRDF_GGX(light_dir: vec3<f32>, view_dir: vec3<f32>, normal: vec3<f32>, f0: ve
         F = mix( F, material.iridescence_fresnel, material.iridescence );
     $$ endif
 
-    let V = V_GGX_SmithCorrelated( alpha, dot_nl, dot_nv );
-    let D = D_GGX( alpha, dot_nh );
+    $$ if USE_ANISOTROPY is defined
+        let dot_tl = dot( material.anisotropy_t, light_dir );
+        let dot_tv = dot( material.anisotropy_t, view_dir );
+        let dot_th = dot( material.anisotropy_t, half_dir );
+        let dot_bl = dot( material.anisotropy_b, light_dir );
+        let dot_bv = dot( material.anisotropy_b, view_dir );
+        let dot_bh = dot( material.anisotropy_b, half_dir );
+
+        let V = V_GGX_SmithCorrelated_Anisotropic( material.alpha_t, alpha, dot_tv, dot_bv, dot_tl, dot_bl, dot_nv, dot_nl );
+        let D = D_GGX_Anisotropic( material.alpha_t, alpha, dot_nh, dot_th, dot_bh );
+    $$ else
+        let V = V_GGX_SmithCorrelated( alpha, dot_nl, dot_nv );
+        let D = D_GGX( alpha, dot_nh );
+    $$ endif
+
     return F * ( V * D );
 }
 
@@ -127,6 +165,18 @@ fn getIBLRadiance(view_dir: vec3<f32>, normal: vec3<f32>, roughness: f32) -> vec
     let envMapColor_srgb = textureSampleLevel( t_env_map, s_env_map, vec3<f32>( -reflectVec.x, reflectVec.yz), mip_level );
     return srgb2physical(envMapColor_srgb.rgb) * u_material.env_map_intensity;
 }
+
+
+$$ if USE_ANISOTROPY is defined
+fn getIBLAnisotropyRadiance(view_dir: vec3f, normal: vec3f, roughness: f32, bitangent: vec3f, anisotropy: f32) -> vec3f {
+    var bent_normal = cross( bitangent, view_dir );
+    bent_normal = normalize( cross( bent_normal, bitangent ) );
+    bent_normal = normalize( mix( bent_normal, normal, pow2( pow2( 1.0 - anisotropy * ( 1.0 - roughness ) ) ) ) );
+
+    return getIBLRadiance( view_dir, bent_normal, roughness );
+}
+$$ endif
+
 
 $$ if USE_IRIDESCENCE is defined
 fn computeMultiscatteringIridescence(normal: vec3<f32>, view_dir: vec3<f32>, specular_color: vec3<f32>,

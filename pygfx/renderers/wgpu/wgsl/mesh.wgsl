@@ -434,7 +434,7 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
         var normal = surface_normal;
         let face_direction = f32(is_front) * 2.0 - 1.0;
 
-        $$ if use_normal_map is defined
+        $$ if use_normal_map is defined or USE_ANISOTROPY is defined
             $$ if use_tangent is defined
                 var tbn = mat3x3f(varyings.v_tangent, varyings.v_bitangent, surface_normal);
             $$ else
@@ -443,11 +443,12 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
 
             tbn.x = tbn.x * face_direction;
             tbn.y = tbn.y * face_direction;
+        $$ endif
 
+        $$ if use_normal_map is defined
             let normal_map = textureSample( t_normal_map, s_normal_map, varyings.texcoord{{normal_map_uv or ''}} ) * 2.0 - 1.0;
             let map_n = vec3f(normal_map.xy * u_material.normal_scale, normal_map.z);
             normal = normalize(tbn * map_n);
-
         $$ endif
 
         $$ if USE_CLEARCOAT is defined
@@ -456,13 +457,13 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
                 $$ if use_tangent is defined
                     var tbn_cc = mat3x3f(varyings.v_tangent, varyings.v_bitangent, surface_normal);
                 $$ else
-                    var tbn_cc = getTangentFrame(view, normal, varyings.texcoord{{clearcoat_normal_map_uv or ''}} );
+                    var tbn_cc = getTangentFrame( view, clearcoat_normal, varyings.texcoord{{clearcoat_normal_map_uv or ''}} );
                 $$ endif
 
                 tbn_cc.x = tbn_cc.x * face_direction;
                 tbn_cc.y = tbn_cc.y * face_direction;
 
-                var clearcoat_normal_map = textureSample( t_normal_map, s_normal_map, varyings.texcoord{{clearcoat_normal_map_uv or ''}} ) * 2.0 - 1.0;
+                var clearcoat_normal_map = textureSample( t_clearcoat_normal_map, s_clearcoat_normal_map, varyings.texcoord{{clearcoat_normal_map_uv or ''}} ) * 2.0 - 1.0;
                 let clearcoat_map_n = vec3f(clearcoat_normal_map.xy * u_material.clearcoat_normal_scale, clearcoat_normal_map.z);
                 clearcoat_normal = normalize(tbn_cc * clearcoat_map_n);
             $$ endif
@@ -518,7 +519,13 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
         // Indirect Specular Light
         // IBL (srgb2physical and intensity is handled in the getter functions)
         $$ if USE_IBL is defined
-            let ibl_radiance = getIBLRadiance( view, normal, material.roughness );
+
+            $$ if USE_ANISOTROPY is defined
+                let ibl_radiance = getIBLAnisotropyRadiance( view, normal, material.roughness, material.anisotropy_b, material.anisotropy );
+            $$ else
+                let ibl_radiance = getIBLRadiance( view, normal, material.roughness);
+            $$ endif
+
             var clearcoat_ibl_radiance = vec3<f32>(0.0);
             $$ if USE_CLEARCOAT is defined
                 clearcoat_ibl_radiance += getIBLRadiance( view, clearcoat_normal, material.clearcoat_roughness );

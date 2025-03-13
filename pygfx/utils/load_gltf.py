@@ -192,6 +192,7 @@ class _GLTF:
         self._register_plugin(GLTFMaterialsClearcoatExtension)
         self._register_plugin(GLTFMaterialsIridescenceExtension)
         self._register_plugin(GLTFMaterialsEmissiveStrengthExtension)
+        self._register_plugin(GLTFMaterialsAnisotropyExtension)
         self._register_plugin(GLTFMaterialsUnlitExtension)
         self._register_plugin(GLTFLightsExtension)
 
@@ -1243,6 +1244,31 @@ class GLTFMaterialsIridescenceExtension(GLTFBaseMaterialsExtension):
             material.iridescence_thickness_map = self._load_texture(
                 iridescence_thickness_texture
             )
+
+
+class GLTFMaterialsAnisotropyExtension(GLTFBaseMaterialsExtension):
+    EXTENSION_NAME = "KHR_materials_anisotropy"
+
+    def extend_material(self, material_def, material):
+        if (
+            not material_def.extensions
+            or self.EXTENSION_NAME not in material_def.extensions
+        ):
+            return
+
+        extension = material_def.extensions[self.EXTENSION_NAME]
+
+        anisotropy_factor = extension.get("anisotropyStrength", None)
+        if anisotropy_factor is not None:
+            material.anisotropy = anisotropy_factor
+
+        anisotropy_rotation = extension.get("anisotropyRotation", None)
+        if anisotropy_rotation is not None:
+            material.anisotropy_rotation = anisotropy_rotation
+
+        anisotropy_texture = extension.get("anisotropyTexture", None)
+        if anisotropy_texture is not None:
+            material.anisotropy_map = self._load_texture(anisotropy_texture)
 
 
 class GLTFMaterialsEmissiveStrengthExtension(GLTFBaseMaterialsExtension):
