@@ -109,3 +109,29 @@ $$ if USE_IRIDESCENCE is defined
         material.iridescence_f0 = Schlick_to_F0( material.iridescence_fresnel, 1.0, dot_nvi );
     }
 $$ endif
+
+
+$$ if USE_ANISOTROPY is defined
+    let anisotropy_vector = u_material.anisotropy_vector;
+    $$ if use_anisotropy_map is defined
+        let anisotropy_polar = textureSample( t_anisotropy_map, s_anisotropy_map, varyings.texcoord{{anisotropy_map_uv or ''}} ).rgb;
+        let anisotropy_mat = mat2x2f( anisotropy_vector.x, anisotropy_vector.y, -anisotropy_vector.y, anisotropy_vector.x );
+        var anisotropy_v = anisotropy_mat * normalize( 2.0 * anisotropy_polar.rg - vec2f( 1.0 ) ) * anisotropy_polar.b;
+    $$ else
+        var anisotropy_v = anisotropy_vector;
+    $$ endif
+
+    material.anisotropy = length( anisotropy_v );
+
+    if(material.anisotropy == 0.0) {
+        anisotropy_v = vec2f(1.0, 0.0);
+    }else{
+        anisotropy_v /= material.anisotropy;
+        material.anisotropy = saturate( material.anisotropy );
+    }
+
+    // Roughness along the anisotropy bitangent is the material roughness, while the tangent roughness increases with anisotropy.
+    material.alpha_t = mix( pow2( material.roughness ), 1.0, pow2( material.anisotropy ) );
+    material.anisotropy_t = tbn[0] * anisotropy_v.x + tbn[1] * anisotropy_v.y;
+    material.anisotropy_b = tbn[1] * anisotropy_v.x - tbn[0] * anisotropy_v.y;
+$$ endif

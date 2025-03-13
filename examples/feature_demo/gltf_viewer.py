@@ -27,7 +27,13 @@ renderer = gfx.WgpuRenderer(canvas)
 
 scene = gfx.Scene()
 
-scene.add(gfx.AmbientLight(intensity=0.1))
+
+ambient_light = gfx.AmbientLight(intensity=0.3)
+scene.add(ambient_light)
+directional_light = gfx.DirectionalLight(intensity=2.5)
+directional_light.local.position = (0.5, 0, 0.866)
+scene.add(directional_light)
+
 camera = gfx.PerspectiveCamera(45, 1280 / 720)
 
 gfx.OrbitController(camera, register_events=renderer)
@@ -39,13 +45,11 @@ clock = gfx.Clock()
 gui_renderer = ImguiRenderer(renderer.device, canvas)
 
 state = {
-    "model": True,
-    "skeleton": False,
     "selected_model": 0,
     "animate": True,
     "selected_action": 0,
     "loading": False,
-    "background": False,
+    "ibl": True,
 }
 
 base_url = "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main"
@@ -58,7 +62,7 @@ response.raise_for_status()
 model_list: list = response.json()
 
 # filter out models having "core" in tags
-model_list = [m for m in model_list if "core" in m.get("tags", [])]
+# model_list = [m for m in model_list if "core" in m.get("tags", [])]
 
 mixer = gfx.AnimationMixer()
 
@@ -85,9 +89,9 @@ scene.add(background)
 scene.add(gfx.Background.from_color((0.1, 0.1, 0.1, 1)))
 
 
-def add_env_map(obj):
+def add_env_map(obj, env_map):
     if isinstance(obj, gfx.Mesh) and isinstance(obj.material, gfx.MeshStandardMaterial):
-        obj.material.env_map = env_tex
+        obj.material.env_map = env_map
 
 
 def load_remote_model(model_index):
@@ -124,9 +128,11 @@ def load_model(model_path):
             scene.remove(skeleton_helper)
 
         model_obj = gltf.scene if gltf.scene else gltf.scenes[0]
-        model_obj.traverse(add_env_map)
+        if state["ibl"]:
+            model_obj.traverse(lambda obj: add_env_map(obj, env_tex))
 
         skeleton_helper = gfx.SkeletonHelper(model_obj)
+        skeleton_helper.visible = False
         scene.add(skeleton_helper)
         scene.add(model_obj)
         state["selected_action"] = 0
@@ -188,30 +194,34 @@ def draw_imgui():
                     threading.Thread(target=load_model, args=(files[0],)).start()
                 open_file_dialog = None
 
-        if imgui.collapsing_header("Visibility", imgui.TreeNodeFlags_.default_open):
-            _, state["background"] = imgui.checkbox(
-                "show background", state["background"]
+        if imgui.collapsing_header("Lighting", imgui.TreeNodeFlags_.default_open):
+            _, ambient_light.visible = imgui.checkbox(
+                "Ambient Light", ambient_light.visible
             )
-            if state["background"]:
-                background.visible = True
-            else:
-                background.visible = False
+
+            _, directional_light.visible = imgui.checkbox(
+                "Directional Light", directional_light.visible
+            )
+
+            changed, state["ibl"] = imgui.checkbox("IBL", state["ibl"])
+            if changed:
+                if state["ibl"]:
+                    model_obj.traverse(lambda obj: add_env_map(obj, env_tex))
+                else:
+                    model_obj.traverse(lambda obj: add_env_map(obj, None))
+
+        if imgui.collapsing_header("Visibility", imgui.TreeNodeFlags_.default_open):
+            _, background.visible = imgui.checkbox(
+                "show background", background.visible
+            )
 
             if model_obj:
-                _, state["model"] = imgui.checkbox("show model", state["model"])
-                if state["model"]:
-                    model_obj.visible = True
-                else:
-                    model_obj.visible = False
+                _, model_obj.visible = imgui.checkbox("show model", model_obj.visible)
 
             if skeleton_helper:
-                _, state["skeleton"] = imgui.checkbox(
-                    "show skeleton", state["skeleton"]
+                _, skeleton_helper.visible = imgui.checkbox(
+                    "show skeleton", skeleton_helper.visible
                 )
-                if state["skeleton"]:
-                    skeleton_helper.visible = True
-                else:
-                    skeleton_helper.visible = False
 
         if actions:
             if imgui.collapsing_header("Animations", imgui.TreeNodeFlags_.default_open):

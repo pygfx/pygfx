@@ -695,6 +695,18 @@ class MeshPhysicalShader(MeshStandardShader):
                 )
                 self["use_iridescence_thickness_map"] = True
 
+        # anisotropy
+        if material.anisotropy:
+            self["USE_ANISOTROPY"] = True
+
+            if material.anisotropy_map is not None:
+                bindings.extend(
+                    self._define_texture_map(
+                        geometry, material.anisotropy_map, "anisotropy_map"
+                    )
+                )
+                self["use_anisotropy_map"] = True
+
         # Define shader code for binding
         bindings = {i: binding for i, binding in enumerate(bindings)}
         self.define_bindings(3, bindings)
