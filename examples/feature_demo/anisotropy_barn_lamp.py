@@ -34,7 +34,7 @@ env_tex = gfx.Texture(
 
 gltf_path = "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/AnisotropyBarnLamp/glTF-Binary/AnisotropyBarnLamp.glb"
 
-gltf = gfx.load_gltf(gltf_path)
+gltf = gfx.load_gltf(gltf_path, quiet=True)
 
 # gfx.print_scene_graph(gltf.scene)  # Uncomment to see the tree structure
 scene.add(gltf.scene)
