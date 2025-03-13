@@ -84,7 +84,7 @@ scene.add(pbr_model)
 gui_renderer = ImguiRenderer(renderer.device, canvas)
 
 
-state = {"direct_light": True, "ambient_light": True, "ibl": True}
+state = {"ibl": True}
 
 
 def draw_imgui():
@@ -99,20 +99,16 @@ def draw_imgui():
         flags=imgui.WindowFlags_.no_move | imgui.WindowFlags_.no_resize,
     )
     if is_expand:
-        checked, state["direct_light"] = imgui.checkbox(
-            "Direct Lightt", state["direct_light"]
+        _, direct_light.visible = imgui.checkbox(
+            "Directional Light", direct_light.visible
         )
-        if checked:
-            direct_light.visible = state["direct_light"]
 
-        checked, state["ambient_light"] = imgui.checkbox(
-            "Ambient Lightt", state["ambient_light"]
+        _, ambient_light.visible = imgui.checkbox(
+            "Ambient Light", ambient_light.visible
         )
-        if checked:
-            ambient_light.visible = state["ambient_light"]
 
-        checked, state["ibl"] = imgui.checkbox("IBL", state["ibl"])
-        if checked:
+        changed, state["ibl"] = imgui.checkbox("IBL", state["ibl"])
+        if changed:
             if state["ibl"]:
                 pbr_model.traverse(lambda obj: add_env_map(obj, env_tex))
             else:
