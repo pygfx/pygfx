@@ -1,6 +1,6 @@
 """
-Glam Velvet Sofa
-================
+Sheen Chair
+===========
 
 This example demonstrates the sheen effect in a glTF model.
 """
