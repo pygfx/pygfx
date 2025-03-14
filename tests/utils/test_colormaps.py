@@ -15,8 +15,9 @@ def test_create_colormap_basic():
     data = tm1.texture.data
     assert data.shape == (256, 4)
 
-    assert tuple(data[0]) == (0, 0, 0, 1)
-    assert tuple(data[-1]) == (1, 0.2, 0.3, 1)
+    assert tuple(data[0]) == (0.0, 0.0, 0.0, 1.0)
+    # assert tuple(data[-1]) == (1, 0.2, 0.3, 1)  # 0.2f4 != 0.2f8 ?
+    assert np.allclose(data[-1], (1, 0.2, 0.3, 1))
 
     # In the middle
     assert np.allclose(data[127], (0.5, 0.1, 0.15, 1), atol=0.002)
