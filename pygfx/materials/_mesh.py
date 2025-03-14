@@ -1075,6 +1075,8 @@ class MeshPhysicalMaterial(MeshStandardMaterial):
 
     - **Anisotropy:** Ability to represent the anisotropic property of materials as observable with brushed metals.
 
+    - **Sheen:** A soft, satin-like sheen on the surface, simulating the effect of a thin layer of fabric or a soft coating.
+
 
     Parameters
     ----------
@@ -1105,6 +1107,15 @@ class MeshPhysicalMaterial(MeshStandardMaterial):
     anisotropy_rotation : float
         The rotation of the anisotropy in tangent, bitangent space, measured in radians counter-clockwise from the tangent.
         Default is 0.0.
+    sheen : float
+        The intensity of the sheen layer, simulating a soft, satin-like sheen on the surface.
+        Default is 0.0.
+    sheen_roughness : float
+        The roughness of the sheen layer. from 0.0 to 1.0.
+        Default is 1.0.
+    sheen_color : Color
+        The color of the sheen effect. Default is (0, 0, 0).
+
     kwargs : Any
         Additional kwargs will be passed to the :class:`base class
         <pygfx.MeshStandardMaterial>`.
@@ -1128,6 +1139,9 @@ class MeshPhysicalMaterial(MeshStandardMaterial):
         iridescence_ior="f4",
         iridescence_thickness_range="2xf4",
         anisotropy_vector="2xf4",
+        sheen="f4",
+        sheen_color="4xf4",
+        sheen_roughness="f4",
     )
 
     def __init__(
@@ -1151,6 +1165,11 @@ class MeshPhysicalMaterial(MeshStandardMaterial):
         anisotropy=0.0,
         anisotropy_map=None,
         anisotropy_rotation=0.0,
+        sheen=0.0,
+        sheen_roughness=1.0,
+        sheen_roughness_map=None,
+        sheen_color=(0, 0, 0),
+        sheen_color_map=None,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -1177,6 +1196,12 @@ class MeshPhysicalMaterial(MeshStandardMaterial):
         self._anisotropy_rotation = anisotropy_rotation
         self._update_anisotropy_vector()
         self.anisotropy_map = anisotropy_map
+
+        self.sheen = sheen
+        self.sheen_roughness = sheen_roughness
+        self.sheen_roughness_map = sheen_roughness_map
+        self.sheen_color = sheen_color
+        self.sheen_color_map = sheen_color_map
 
     @property
     def ior(self):
@@ -1405,3 +1430,60 @@ class MeshPhysicalMaterial(MeshStandardMaterial):
         if isinstance(map, Texture):
             map = TextureMap(map)
         self._store.anisotropy_map = map
+
+    @property
+    def sheen(self):
+        """The intensity of the sheen layer, from 0.0 to 1.0. Default is 0.0"""
+        return float(self.uniform_buffer.data["sheen"])
+
+    @sheen.setter
+    def sheen(self, value):
+        self.uniform_buffer.data["sheen"] = value
+        self.uniform_buffer.update_full()
+
+    @property
+    def sheen_roughness(self):
+        """Roughness of the sheen layer, from 0.0 to 1.0. Default is 1.0."""
+        return float(self.uniform_buffer.data["sheen_roughness"])
+
+    @sheen_roughness.setter
+    def sheen_roughness(self, value):
+        self.uniform_buffer.data["sheen_roughness"] = value
+        self.uniform_buffer.update_full()
+
+    @property
+    def sheen_roughness_map(self):
+        """The alpha channel of this texture is multiplied against .sheenRoughness, for per-pixel control over sheen roughness.
+        Default is None."""
+        return self._store.sheen_roughness_map
+
+    @sheen_roughness_map.setter
+    def sheen_roughness_map(self, map):
+        assert_type("sheen_roughness_map", map, None, Texture, TextureMap)
+        if isinstance(map, Texture):
+            map = TextureMap(map)
+        self._store.sheen_roughness_map = map
+
+    @property
+    def sheen_color(self):
+        """The sheen tint. Default is (0, 0, 0), black."""
+        return Color(self.uniform_buffer.data["sheen_color"])
+
+    @sheen_color.setter
+    def sheen_color(self, color):
+        color = Color(color)
+        self.uniform_buffer.data["sheen_color"] = color
+        self.uniform_buffer.update_full()
+
+    @property
+    def sheen_color_map(self):
+        """The RGB channels of this texture are multiplied against .sheenColor, for per-pixel control over sheen tint.
+        Default is None."""
+        return self._store.sheen_color_map
+
+    @sheen_color_map.setter
+    def sheen_color_map(self, map):
+        assert_type("sheen_color_map", map, None, Texture, TextureMap)
+        if isinstance(map, Texture):
+            map = TextureMap(map)
+        self._store.sheen_color_map = map
