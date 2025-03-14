@@ -23,9 +23,15 @@ background = gfx.Background.from_color("#000")
 sphere = gfx.Mesh(gfx.sphere_geometry(10), gfx.MeshPhongMaterial())
 
 geometry = gfx.plane_geometry(50, 50)
-plane1 = gfx.Mesh(geometry, gfx.MeshBasicMaterial(color=(1, 0, 0, 0.3)))
-plane2 = gfx.Mesh(geometry, gfx.MeshBasicMaterial(color=(0, 1, 0, 0.5)))
-plane3 = gfx.Mesh(geometry, gfx.MeshBasicMaterial(color=(0, 0, 1, 0.7)))
+plane1 = gfx.Mesh(
+    geometry, gfx.MeshBasicMaterial(color=(1, 0, 0, 0.3), transparent=True)
+)
+plane2 = gfx.Mesh(
+    geometry, gfx.MeshBasicMaterial(color=(0, 1, 0, 0.5), transparent=True)
+)
+plane3 = gfx.Mesh(
+    geometry, gfx.MeshBasicMaterial(color=(0, 0, 1, 0.7), transparent=True)
+)
 
 plane1.local.rotation = la.quat_from_axis_angle((1, 0, 0), 1.571)
 plane2.local.rotation = la.quat_from_axis_angle((0, 1, 0), 1.571)

@@ -24,6 +24,8 @@ import asyncio
 canvas = WgpuCanvas(size=(1280, 720), max_fps=-1, title="glTF viewer", vsync=False)
 
 renderer = gfx.WgpuRenderer(canvas)
+# renderer.sort_objects = True
+renderer.blend_mode = "ordered1"
 
 scene = gfx.Scene()
 
@@ -86,7 +88,7 @@ background = gfx.Background(None, gfx.BackgroundSkyboxMaterial(map=env_tex))
 background.visible = False
 scene.add(background)
 
-scene.add(gfx.Background.from_color((0.1, 0.1, 0.1, 1)))
+scene.add(gfx.Background.from_color((0.01, 0.01, 0.01, 1.0)))
 
 
 def add_env_map(obj, env_map):

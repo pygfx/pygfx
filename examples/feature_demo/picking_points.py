@@ -33,7 +33,7 @@ camera = gfx.OrthographicCamera(120, 120)
 def offset_point(event):
     info = event.pick_info
     if "vertex_index" in info:
-        i = int(round(info["vertex_index"]))
+        i = round(info["vertex_index"])
         geometry.positions.data[i, 1] *= -1
         geometry.positions.update_range(i)
         canvas.request_draw()

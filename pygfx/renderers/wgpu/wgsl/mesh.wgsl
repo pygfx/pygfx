@@ -22,6 +22,9 @@ $$ endif
 $$ if USE_IRIDESCENCE is defined
     {$ include 'pygfx.iridescence.wgsl' $}
 $$ endif
+$$ if USE_TRANSMISSION is defined
+    {$ include 'pygfx.transmission.wgsl' $}
+$$ endif
 
 struct VertexInput {
     @builtin(vertex_index) vertex_index : u32,
@@ -245,7 +248,7 @@ fn vs_main(in: VertexInput) -> Varyings {
 
     $$ if instanced
         // this is in lieu of a per-instance normal-matrix
-	    // shear transforms in the instance matrix are not supported
+        // shear transforms in the instance matrix are not supported
         let im = mat3x3f( instance_info.transform[0].xyz, instance_info.transform[1].xyz, instance_info.transform[2].xyz );
         raw_normal /= vec3f(dot(im[0], im[0]), dot(im[1], im[1]), dot(im[2], im[2]));
         raw_normal = im * raw_normal;
@@ -371,14 +374,14 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
     $$ endif
 
 
+    {$ include 'pygfx.uv_fragment.wgsl' $}
+
     $$ if color_mode == 'normal'
         var diffuse_color = vec4<f32>((normalize(surface_normal) * 0.5 + 0.5), 1.0);
     $$ else
         // to support color modes
         var diffuse_color = u_material.color;
-        $$ if colorspace == 'srgb'
-            diffuse_color = vec4f(srgb2physical(diffuse_color.rgb), diffuse_color.a);
-        $$ endif
+        diffuse_color = vec4f(srgb2physical(diffuse_color.rgb), diffuse_color.a);
 
         $$ if color_mode != 'uniform'
             $$ if use_map
@@ -386,7 +389,7 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
                     // special case for 'generic' colormap
                     var diffuse_map = sample_colormap(varyings.texcoord);
                 $$ else
-                    var diffuse_map = textureSample(t_map, s_map, varyings.texcoord{{map_uv or ''}});
+                    var diffuse_map = textureSample(t_map, s_map, map_uv);
                 $$ endif
 
                 $$ if colorspace == 'srgb'
@@ -419,6 +422,10 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
     // Apply opacity
     diffuse_color.a = diffuse_color.a * u_material.opacity;
 
+    $$ if USE_ALPHA_TEST is defined
+        if (diffuse_color.a < u_material.alpha_test) { discard; }
+    $$ endif
+
     let physical_albeido = diffuse_color.rgb;
 
     // Get normal used to calculate lighting or reflection
@@ -438,7 +445,7 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
             $$ if use_tangent is defined
                 var tbn = mat3x3f(varyings.v_tangent, varyings.v_bitangent, surface_normal);
             $$ else
-                var tbn = getTangentFrame(view, normal, varyings.texcoord{{normal_map_uv or ''}} );
+                var tbn = getTangentFrame(view, normal, normal_map_uv );
             $$ endif
 
             tbn.x = tbn.x * face_direction;
@@ -471,7 +478,7 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
     $$ endif
 
     $$ if use_specular_map is defined
-        let specular_map = textureSample( t_specular_map, s_specular_map, varyings.texcoord{{specular_map_uv or ''}} );
+        let specular_map = textureSample( t_specular_map, s_specular_map, specular_map_uv );
         let specular_strength = specular_map.r;
     $$ else
         let specular_strength = 1.0;
@@ -509,7 +516,7 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
         var irradiance = getAmbientLightIrradiance( ambient_color );
         // Light map (pre-baked lighting)
         $$ if use_light_map is defined
-            let light_map_color = srgb2physical( textureSample( t_light_map, s_light_map, varyings.texcoord{{light_map_uv or ''}} ).rgb );
+            let light_map_color = srgb2physical( textureSample( t_light_map, s_light_map, light_map_uv ).rgb );
             irradiance += light_map_color * u_material.light_map_intensity;
         $$ endif
 
@@ -539,7 +546,7 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
         // for basic material
         // Light map (pre-baked lighting)
         $$ if use_light_map is defined
-            let light_map_color = srgb2physical( textureSample( t_light_map, s_light_map, varyings.texcoord{{light_map_uv or ''}} ).rgb );
+            let light_map_color = srgb2physical( textureSample( t_light_map, s_light_map, light_map_uv ).rgb );
             reflected_light.indirect_diffuse += light_map_color * u_material.light_map_intensity * RECIPROCAL_PI;
         $$ else
             reflected_light.indirect_diffuse += vec3<f32>(1.0);
@@ -551,12 +558,16 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
     // Ambient occlusion
     $$ if use_ao_map is defined
         let ao_map_intensity = u_material.ao_map_intensity;
-        let ambient_occlusion = ( textureSample( t_ao_map, s_ao_map, varyings.texcoord{{ao_map_uv or ''}} ).r - 1.0 ) * ao_map_intensity + 1.0;
+        let ambient_occlusion = ( textureSample( t_ao_map, s_ao_map, ao_map_uv ).r - 1.0 ) * ao_map_intensity + 1.0;
 
         reflected_light.indirect_diffuse *= ambient_occlusion;
 
         $$ if USE_CLEARCOAT is defined
             clearcoat_specular_indirect *= ambient_occlusion;
+        $$ endif
+
+        $$ if USE_SHEEN is defined
+            sheen_specular_indirect *= ambient_occlusion;
         $$ endif
 
         $$ if lighting == 'pbr' and USE_IBL is defined
@@ -566,16 +577,43 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
     $$ endif
 
     // Combine direct and indirect light
-    var physical_color = reflected_light.direct_diffuse + reflected_light.direct_specular + reflected_light.indirect_diffuse + reflected_light.indirect_specular;
+    // var physical_color = reflected_light.direct_diffuse + reflected_light.direct_specular + reflected_light.indirect_diffuse + reflected_light.indirect_specular;
+
+    var total_diffuse = reflected_light.direct_diffuse + reflected_light.indirect_diffuse;
+    var total_specular = reflected_light.direct_specular + reflected_light.indirect_specular;
+
+    $$ if USE_TRANSMISSION is defined
+        let model_matrix = u_wobject.world_transform;
+        let view_matrix = u_stdinfo.cam_transform;
+        let projection_matrix = u_stdinfo.projection_transform;
+
+        let transmitted = getIBLVolumeRefraction(
+            normal, view, material.roughness, material.diffuse_color, material.specular_color, material.specular_f90,
+            varyings.world_pos, model_matrix, view_matrix, projection_matrix, material.dispersion, material.ior, material.thickness,
+            material.attenuation_color, material.attenuation_distance );
+
+        material.transmission_alpha = mix( material.transmission_alpha, transmitted.a, material.transmission );
+
+        total_diffuse = mix( total_diffuse, transmitted.rgb, material.transmission );
+    $$ endif
+
+    var physical_color = total_diffuse + total_specular;
 
     // Add emissive color
     // Now for phong、pbr and toon lighting
     $$ if lighting
         var emissive_color = srgb2physical(u_material.emissive_color.rgb) * u_material.emissive_intensity;
         $$ if use_emissive_map is defined
-        emissive_color *= srgb2physical(textureSample(t_emissive_map, s_emissive_map, varyings.texcoord{{emissive_map_uv or ''}}).rgb);
+            emissive_color *= srgb2physical(textureSample(t_emissive_map, s_emissive_map, emissive_map_uv).rgb);
         $$ endif
         physical_color += emissive_color;
+    $$ endif
+
+    $$ if USE_SHEEN is defined
+        // Sheen energy compensation approximation calculation can be found at the end of
+        // https://drive.google.com/file/d/1T0D1VSyR4AllqIJTQAraEIzjlb5h4FKH/view?usp=sharing
+        let sheen_energy_comp = 1.0 - 0.157 * max(material.sheen_color.r, max(material.sheen_color.g, material.sheen_color.b));
+        physical_color = physical_color * sheen_energy_comp + (sheen_specular_direct + sheen_specular_indirect);
     $$ endif
 
     $$ if USE_CLEARCOAT is defined
@@ -614,7 +652,18 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
         }
     $$ endif
 
+    $$ if OPAQUE is defined
+        diffuse_color.a = 1.0;
+    $$ endif
+
+    $$ if USE_TRANSMISSION is defined
+        diffuse_color.a *= material.transmission_alpha;
+    $$ endif
+
+
     let out_color = vec4<f32>(physical_color, diffuse_color.a);
+
+    // Wrap up
 
     var out = get_fragment_output(varyings.position, out_color);
 

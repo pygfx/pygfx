@@ -64,6 +64,16 @@ class MeshShader(BaseShader):
         # Per-vertex color, colormap, or a plane color?
         self["colorspace"] = "srgb"
 
+        if material.alpha_test > 0:
+            self["USE_ALPHA_TEST"] = True
+
+        # now, we don't support user to define blend mode function in material
+        # so when material.transparent is False, we just set it to opaque,
+        # and no need to do alpha blending
+        # todo: In this case, we can disable the alpha blending in the pipeline to improve performance
+        if material.transparent is False:
+            self["OPAQUE"] = True
+
         color_mode = str(material.color_mode).split(".")[-1]
 
         self["color_mode"] = color_mode
@@ -106,6 +116,12 @@ class MeshShader(BaseShader):
             Binding(f"s_{name}", "sampler/filtering", sampler, "FRAGMENT"),
             Binding(f"t_{name}", "texture/auto", view, "FRAGMENT"),
         ]
+
+        if view_dim == "2d":
+            # only 2D textures (todo: and UVMapping mode) have transform
+            bindings.append(
+                Binding(f"u_{name}", "buffer/uniform", map.uniform_buffer, "FRAGMENT"),
+            )
 
         if map.uv_channel not in self["used_uv"]:
             texcoords = getattr(geometry, f"texcoords{map.uv_channel or ''}", None)
@@ -478,6 +494,8 @@ class MeshShader(BaseShader):
             render_mask = RenderMask.all
             if material.is_transparent:
                 render_mask = RenderMask.transparent
+            elif getattr(material, "transmission", None):
+                render_mask = RenderMask.all
             elif self["color_mode"] == "uniform":
                 if material.color_is_transparent:
                     render_mask = RenderMask.transparent
@@ -695,6 +713,26 @@ class MeshPhysicalShader(MeshStandardShader):
                 )
                 self["use_iridescence_thickness_map"] = True
 
+        # sheen
+        if material.sheen:
+            self["USE_SHEEN"] = True
+
+            if material.sheen_color_map is not None:
+                bindings.extend(
+                    self._define_texture_map(
+                        geometry, material.sheen_color_map, "sheen_color_map"
+                    )
+                )
+                self["use_sheen_color_map"] = True
+
+            if material.sheen_roughness_map is not None:
+                bindings.extend(
+                    self._define_texture_map(
+                        geometry, material.sheen_roughness_map, "sheen_roughness_map"
+                    )
+                )
+                self["use_sheen_roughness_map"] = True
+
         # anisotropy
         if material.anisotropy:
             self["USE_ANISOTROPY"] = True
@@ -706,6 +744,50 @@ class MeshPhysicalShader(MeshStandardShader):
                     )
                 )
                 self["use_anisotropy_map"] = True
+
+        # transmission
+        if material.transmission:
+            self["USE_TRANSMISSION"] = True
+
+            if material.transmission_map is not None:
+                bindings.extend(
+                    self._define_texture_map(
+                        geometry, material.transmission_map, "transmission_map"
+                    )
+                )
+                self["use_transmission_map"] = True
+
+            if material.thickness_map is not None:
+                bindings.extend(
+                    self._define_texture_map(
+                        geometry, material.thickness_map, "thickness_map"
+                    )
+                )
+                self["use_thickness_map"] = True
+
+            if material.dispersion:
+                self["USE_DISPERSION"] = True
+
+            transmission_framebuffer = shared.transmission_framebuffer
+            if transmission_framebuffer is not None:
+                bindings.append(
+                    Binding(
+                        "t_transmission_framebuffer",
+                        "texture/auto",
+                        GfxTextureView(transmission_framebuffer, view_dim="2d"),
+                        "FRAGMENT",
+                    )
+                )
+
+                transmission_framebuffer_sampler = GfxSampler("linear", "clamp")
+                bindings.append(
+                    Binding(
+                        "s_transmission_framebuffer",
+                        "sampler/filtering",
+                        transmission_framebuffer_sampler,
+                        "FRAGMENT",
+                    ),
+                )
 
         # Define shader code for binding
         bindings = {i: binding for i, binding in enumerate(bindings)}

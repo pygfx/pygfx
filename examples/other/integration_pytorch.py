@@ -526,7 +526,7 @@ class SceneHandler:
     @staticmethod
     def _animate():
         try:
-            mesh_data = cast(MeshData, SceneHandler._in_queue.get_nowait())
+            mesh_data = cast("MeshData", SceneHandler._in_queue.get_nowait())
 
             # if that's the first mesh-data message, create meshes
             if SceneHandler._scene_state.first_data:
