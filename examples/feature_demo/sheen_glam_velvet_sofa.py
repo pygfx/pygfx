@@ -51,7 +51,7 @@ scene.add(gfx.AmbientLight(intensity=0.1))
 
 # Create camera and controller
 camera = gfx.PerspectiveCamera(45, 640 / 480)
-camera.show_object(gltf.scene, view_dir=(1.8, -0.6, -2.7))
+camera.show_object(gltf.scene, view_dir=(0, -0.6, -2.7))
 controller = gfx.OrbitController(camera, register_events=renderer)
 
 
