@@ -245,7 +245,7 @@ fn vs_main(in: VertexInput) -> Varyings {
 
     $$ if instanced
         // this is in lieu of a per-instance normal-matrix
-	    // shear transforms in the instance matrix are not supported
+        // shear transforms in the instance matrix are not supported
         let im = mat3x3f( instance_info.transform[0].xyz, instance_info.transform[1].xyz, instance_info.transform[2].xyz );
         raw_normal /= vec3f(dot(im[0], im[0]), dot(im[1], im[1]), dot(im[2], im[2]));
         raw_normal = im * raw_normal;
@@ -584,7 +584,7 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
 
     $$ if USE_SHEEN is defined
         // Sheen energy compensation approximation calculation can be found at the end of
-		// https://drive.google.com/file/d/1T0D1VSyR4AllqIJTQAraEIzjlb5h4FKH/view?usp=sharing
+        // https://drive.google.com/file/d/1T0D1VSyR4AllqIJTQAraEIzjlb5h4FKH/view?usp=sharing
         let sheen_energy_comp = 1.0 - 0.157 * max(material.sheen_color.r, max(material.sheen_color.g, material.sheen_color.b));
         physical_color = physical_color * sheen_energy_comp + (sheen_specular_direct + sheen_specular_indirect);
     $$ endif
