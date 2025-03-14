@@ -559,6 +559,10 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
             clearcoat_specular_indirect *= ambient_occlusion;
         $$ endif
 
+        $$ if USE_SHEEN is defined
+            sheen_specular_indirect *= ambient_occlusion;
+        $$ endif
+
         $$ if lighting == 'pbr' and USE_IBL is defined
             let dot_nv = saturate( dot( geometry.normal, geometry.view_dir ) );
             reflected_light.indirect_specular *= computeSpecularOcclusion( dot_nv, ambient_occlusion, material.roughness );
@@ -576,6 +580,13 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
         emissive_color *= srgb2physical(textureSample(t_emissive_map, s_emissive_map, varyings.texcoord{{emissive_map_uv or ''}}).rgb);
         $$ endif
         physical_color += emissive_color;
+    $$ endif
+
+    $$ if USE_SHEEN is defined
+        // Sheen energy compensation approximation calculation can be found at the end of
+		// https://drive.google.com/file/d/1T0D1VSyR4AllqIJTQAraEIzjlb5h4FKH/view?usp=sharing
+        let sheen_energy_comp = 1.0 - 0.157 * max(material.sheen_color.r, max(material.sheen_color.g, material.sheen_color.b));
+        physical_color = physical_color * sheen_energy_comp + (sheen_specular_direct + sheen_specular_indirect);
     $$ endif
 
     $$ if USE_CLEARCOAT is defined

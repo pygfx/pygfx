@@ -695,6 +695,26 @@ class MeshPhysicalShader(MeshStandardShader):
                 )
                 self["use_iridescence_thickness_map"] = True
 
+        # sheen
+        if material.sheen:
+            self["USE_SHEEN"] = True
+
+            if material.sheen_color_map is not None:
+                bindings.extend(
+                    self._define_texture_map(
+                        geometry, material.sheen_color_map, "sheen_color_map"
+                    )
+                )
+                self["use_sheen_color_map"] = True
+
+            if material.sheen_roughness_map is not None:
+                bindings.extend(
+                    self._define_texture_map(
+                        geometry, material.sheen_roughness_map, "sheen_roughness_map"
+                    )
+                )
+                self["use_sheen_roughness_map"] = True
+
         # anisotropy
         if material.anisotropy:
             self["USE_ANISOTROPY"] = True
