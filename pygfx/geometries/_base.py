@@ -21,22 +21,29 @@ class Geometry(Store):
 
     Common buffer attributes:
 
-    * "positions": an Nx3 buffer representing vertex positions. Used by e.g. ``Mesh``, ``Line``, ``Points``, ``Text``.
-    * "indices": an Nx3 buffer representing the triangular faces of a ``Mesh``.
-    * "normals": an Nx3 buffer representing the surface normals of a ``Mesh``.
-    * "texcoords": an Nx1, Nx2, or Nx3 set of per-vertex texture coordinates. The dimensionality
+    * ``positions``: an Nx3 buffer representing vertex positions. Used by e.g. ``Mesh``, ``Line``, ``Points``, ``Text``.
+    * ``indices``: an Nx3 buffer representing the triangular faces of a ``Mesh``.
+    * ``normals``: an Nx3 buffer representing the surface normals of a ``Mesh``.
+    * ``texcoords``: an Nx1, Nx2, or Nx3 set of per-vertex texture coordinates. The dimensionality
       should match that of the dimension of the colormap's texture (``material.map``).
-    * "textcoords1", "textcoords2" etc.: for additional texture coordinates. Usually Nx2.
+    * ``textcoords1``, ``textcoords2`` etc.: for additional texture coordinates. Usually Nx2.
       E.g. a ``TextureMap`` with ``uv_channel`` set to 4 will use "textcoords4".
-    * "colors": per vertex or per-face color data for e.g. ``Mesh``, ``Line``, ``Points``.
+    * ``colors``: per vertex or per-face color data for e.g. ``Mesh``, ``Line``, ``Points``.
       Can be Nx1 (grayscale), Nx2 (gray plus alpha), Nx3 (RGB), or Nx4 (RGBA).
-    * "sizes": per vertex sizes for e.g. ``Points``.
-    * "edge_colors" per vertex edge colors for points with the marker material.
-    * "rotations": per vertex point/marker rotations.
+    * ``sizes``: per vertex sizes for e.g. ``Points``.
+    * ``edge_colors`` per vertex edge colors for points with the marker material.
+    * ``rotations``: per vertex point/marker rotations.
 
     Common texture attributes:
 
-    * "grid": a 2D or 3D texture for the ``Image`` and ``Volume`` objects, respectively.
+    * ``grid``: a 2D or 3D texture for the ``Image`` and ``Volume`` objects, respectively.
+
+    For mesh morphing the following attributes are used:
+
+    * ``morph_targets_relative``: a bool indicating whether the morph positions are relative.
+    * ``morph_positions``: a list of arrays of per-vertex morph positions.
+    * ``morph_normals``: a list of arrays of per-vertex morph normals.
+    * ``morph_colors``: a list of arrays of per-vertex morph colors.
 
     Instantiation
     -------------
