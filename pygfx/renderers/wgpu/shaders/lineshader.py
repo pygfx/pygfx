@@ -6,7 +6,7 @@ import pylinalg as la
 
 from ....utils import array_from_shadertype
 from ....resources import Buffer
-from ....objects import Line
+from ....objects import Line, InstancedLine
 from ....materials._line import (
     LineMaterial,
     LineSegmentMaterial,
@@ -37,6 +37,9 @@ class LineShader(BaseShader):
         super().__init__(wobject)
         material = wobject.material
         geometry = wobject.geometry
+
+        # Is this an instanced line?
+        self["instanced"] = isinstance(wobject, InstancedLine)
 
         self["line_type"] = "line"
         self["dashing"] = False
@@ -281,8 +284,16 @@ class LineShader(BaseShader):
         bindings = {i: b for i, b in enumerate(bindings)}
         self.define_bindings(0, bindings)
 
+        # Instanced lines have an extra storage buffer that we add manually
+        bindings1 = {}  # non-auto-generated bindings
+        if self["instanced"]:
+            bindings1[0] = Binding(
+                "s_instance_infos", rbuffer, wobject.instance_buffer, "VERTEX"
+            )
+
         return {
             0: bindings,
+            1: bindings1,
         }
 
     def get_pipeline_info(self, wobject, shared):
@@ -302,6 +313,10 @@ class LineShader(BaseShader):
         material = wobject.material
         # Determine how many vertices are needed
         offset, size = self._get_n(wobject.geometry.positions)
+
+        n_instances = 1
+        if self["instanced"]:
+            n_instances = wobject.instance_buffer.nitems
 
         render_mask = 0
         if wobject.render_mask:
@@ -332,7 +347,7 @@ class LineShader(BaseShader):
                 render_mask |= RenderMask.transparent
 
         return {
-            "indices": (size, 1, offset, 0),
+            "indices": (size, n_instances, offset, 0),
             "render_mask": render_mask,
         }
 
