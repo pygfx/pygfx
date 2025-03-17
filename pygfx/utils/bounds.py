@@ -20,8 +20,7 @@ class Bounds:
             raise ValueError("aabb must be 2x3 array")
         self.aabb = aabb
         if radius is not None:
-            radius = float(radius)
-            min_radius = (aabb[1] - aabb[0]).max()  # width/height/depth
+            min_radius = 0.5 * float(abs((aabb[1] - aabb[0]).max()))  # w/h/d
             max_radius = 0.5 * float(np.linalg.norm(aabb[1] - aabb[0]))  # diagonal
             if radius > 0.99 * max_radius:
                 radius = None
@@ -54,28 +53,12 @@ class Bounds:
         c = 0.5 * (aabb[0] + aabb[1])
         return float(c[0]), float(c[1]), float(c[2]), radius
 
-    def transform(self, matrix):
-        points = bounds_to_points(self.aabb, self.radius)
-        np.matmul(points, matrix, out=points)
-        return self.from_points(points[:, :3])
-
     @classmethod
-    def from_points(cls, points):
-        aabb, radius = points_to_bounds(points)
+    def from_points(cls, points, calculate_radius=False):
+        aabb, radius = points_to_bounds(points, calculate_radius)
         if aabb is None:
             return None
         return cls(aabb, radius)
-
-    @classmethod
-    def combine(cls, bounds_objects):
-        pointsets = []
-        for bounds in bounds_objects:
-            if bounds is not None:
-                pointsets.append(bounds_to_points(bounds.aabb, bounds.radius))
-        points = np.vstack(pointsets)
-        return cls.from_points(points[:, :3])
-
-    # TODO: def point_is_in_bounds(),  line_intersects_bounds(), etc.
 
 
 def points_to_bounds(points, calculate_radius=True):
@@ -110,79 +93,3 @@ def points_to_bounds(points, calculate_radius=True):
             radius = None
 
     return aabb, radius
-
-
-def bounds_to_points(aabb, radius):
-    w, h, d = aabb[1] - aabb[0]
-
-    if w == 0 and h == 0 and d == 0:
-        # Single point
-        points = aabb[0].copy().reshape(1, 3)
-    elif d == 0:
-        # Flat in z (like an image)
-        if radius is None:
-            # Init points
-            points = np.full((4, 4), fill_value=1.0, dtype=float)
-            points[:, 2] = aabb[0, 2]  # z
-            # The corners of the aabb
-            points[0::2, 0] = aabb[0, 0]  # x
-            points[1::2, 0] = aabb[1, 0]
-            points[0:2, 1] = aabb[0, 1]  # y
-            points[2:4, 1] = aabb[1, 1]
-        else:
-            c = 0.5 * (aabb[0] + aabb[1])
-            rx = min(0.707106 * radius, w / 2)
-            ry = min(0.707106 * radius, h / 2)
-            # Init points
-            points = np.full((8, 4), fill_value=1.0, dtype=float)
-            points[:, 0:3] = c
-            # Corners, based on radius, clipped by aabb
-            points[0:4:2, 0] += rx  # x
-            points[1:4:2, 0] -= rx
-            points[0:2, 1] += ry  # y
-            points[2:4, 1] -= ry
-            # The axis of the aabb
-            points[4, 0] = aabb[0, 0]
-            points[5, 0] = aabb[1, 0]
-            points[6, 1] = aabb[0, 1]
-            points[7, 1] = aabb[1, 1]
-    else:
-        # 3D
-        if radius is None:
-            # Init points
-            points = np.full((8, 4), fill_value=1.0, dtype=float)
-            # The corners of the aabb
-            points[0::2, 0] = aabb[0, 0]  # x
-            points[1::2, 0] = aabb[1, 0]
-            points[0::4, 1] = aabb[0, 1]  # y
-            points[1::4, 1] = aabb[0, 1]
-            points[2::4, 1] = aabb[1, 1]
-            points[3::4, 1] = aabb[1, 1]
-            points[0:4, 2] = aabb[0, 2]  # z
-            points[4:8, 2] = aabb[1, 2]
-        else:
-            c = 0.5 * (aabb[0] + aabb[1])
-            rx = min(0.707106 * radius, w / 2)
-            ry = min(0.707106 * radius, h / 2)
-            rz = min(0.707106 * radius, d / 2)
-            # Init points
-            points = np.full((14, 4), fill_value=1.0, dtype=float)
-            points[:, 0:3] = c
-            # Corners, based on radius, clipped by aabb
-            points[0:8:2, 0] += rx  # x
-            points[1:8:2, 0] -= rx
-            points[0:8:4, 1] += ry  # y
-            points[1:8:4, 1] += ry
-            points[2:8:4, 1] -= ry
-            points[3:8:4, 1] -= ry
-            points[0:4, 2] += rz  # z
-            points[4:8, 2] -= rz
-            # The aixs of the aabb
-            points[8, 0] = aabb[0, 0]
-            points[9, 0] = aabb[1, 0]
-            points[10, 1] = aabb[0, 1]
-            points[11, 1] = aabb[1, 1]
-            points[12, 2] = aabb[0, 2]
-            points[13, 2] = aabb[1, 2]
-
-    return points
