@@ -143,6 +143,8 @@ class Store(dict):
             tracker._track_set((id, key), old_value, new_value)
 
     def __getattribute__(self, key):
+        if key.startswith("__"):
+            return dict.__getattribute__(self, key)
         value = undefined
         try:
             value = self[key]
