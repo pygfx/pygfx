@@ -91,7 +91,9 @@ class WorldObject(EventTarget, Trackable):
     Parameters
     ----------
     geometry : Geometry
-        The data defining the shape of the object.
+        The data defining the shape of the object. See the documentation
+        on the different WorldObject subclasses for what attributes the
+        geometry should and may have.
     material : Material
         The data defining the appearance of the object.
     visible : bool
