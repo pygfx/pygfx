@@ -1,26 +1,26 @@
 import numpy as np
 
 from ._base import id_provider
-from . import Mesh
+from . import WorldObject, Mesh
 from ..resources import Buffer
 
 
-class InstancedMesh(Mesh):
-    """Display a mesh multiple times using instances.
+class InstancedObject(WorldObject):
+    """Display an object multiple times using instances.
 
-    An instanced mesh with a matrix for each instance.
+    An instanced object with a matrix for each instance.
 
     Parameters
     ----------
     geometry : Geometry
-        The mesh's geometry data.
+        The object's geometry data.
     material : Material
-        The material with which to render the mesh.
+        The material with which to render the object.
     count : int
         The number of instances to create.
     kwargs : Any
         Additional kwargs get forwarded to the :class:`base class
-        <pygfx.objects.Mesh>`.
+        <pygfx.objects.WorldObject>`.
 
     """
 
@@ -75,3 +75,7 @@ class InstancedMesh(Mesh):
         id = pick_value & 1048575  # 2**20-1
         info["instance_index"] = self._idmap.get(id)
         return info
+
+
+class InstancedMesh(Mesh, InstancedObject):
+    pass
