@@ -97,13 +97,36 @@ fn rotate_vec2(v:vec2<f32>, angle:f32) -> vec2<f32> {
 
 struct VertexInput {
     @builtin(vertex_index) index : u32,
+    $$ if instanced
+    @builtin(instance_index) instance_index : u32,
+    $$ endif
 };
+
+$$ if instanced
+struct InstanceInfo {
+    transform: mat4x4<f32>,
+    id: u32,
+};
+@group(1) @binding(0)
+var<storage,read> s_instance_infos: array<InstanceInfo>;
+$$ endif
 
 @vertex
 fn vs_main(in: VertexInput) -> Varyings {
 
     let screen_factor:vec2<f32> = u_stdinfo.logical_size.xy / 2.0;
     let l2p:f32 = u_stdinfo.physical_size.x / u_stdinfo.logical_size.x;
+
+    // Get world transform
+    $$ if instanced
+        // NOTE: Only orthogonal instance transforms are supported
+        let instance_info = s_instance_infos[in.instance_index];
+        let world_transform = u_wobject.world_transform * instance_info.transform;
+        let world_transform_inv = transpose(instance_info.transform) * u_wobject.world_transform_inv;
+    $$ else
+        let world_transform = u_wobject.world_transform;
+        let world_transform_inv = u_wobject.world_transform_inv;
+    $$ endif
 
     // Indexing
     let index = i32(in.index);
@@ -145,9 +168,9 @@ fn vs_main(in: VertexInput) -> Varyings {
     let pos_m_node = load_s_positions(node_index);
     let pos_m_next = load_s_positions(node_index_next);
     // Convert to world
-    let pos_w_prev = u_wobject.world_transform * vec4<f32>(pos_m_prev.xyz, 1.0);
-    let pos_w_node = u_wobject.world_transform * vec4<f32>(pos_m_node.xyz, 1.0);
-    let pos_w_next = u_wobject.world_transform * vec4<f32>(pos_m_next.xyz, 1.0);
+    let pos_w_prev = world_transform * vec4<f32>(pos_m_prev.xyz, 1.0);
+    let pos_w_node = world_transform * vec4<f32>(pos_m_node.xyz, 1.0);
+    let pos_w_next = world_transform * vec4<f32>(pos_m_next.xyz, 1.0);
     // Convert to camera view
     let pos_c_prev = u_stdinfo.cam_transform * pos_w_prev;
     let pos_c_node = u_stdinfo.cam_transform * pos_w_node;
@@ -190,8 +213,8 @@ fn vs_main(in: VertexInput) -> Varyings {
         let pos_w_node_shiftedy = u_stdinfo.cam_transform_inv * u_stdinfo.projection_transform_inv * pos_n_node_shiftedy;
         $$ if thickness_space == 'model'
             // Transform back to model space
-            let pos_m_node_shiftedx = u_wobject.world_transform_inv * pos_w_node_shiftedx;
-            let pos_m_node_shiftedy = u_wobject.world_transform_inv * pos_w_node_shiftedy;
+            let pos_m_node_shiftedx = world_transform_inv * pos_w_node_shiftedx;
+            let pos_m_node_shiftedy = world_transform_inv * pos_w_node_shiftedy;
             // Distance in model space
             let thickness_ratio = (1.0 / shift_factor) * 0.5 * (distance(pos_m_node.xyz, pos_m_node_shiftedx.xyz) + distance(pos_m_node.xyz, pos_m_node_shiftedy.xyz));
         $$ else
