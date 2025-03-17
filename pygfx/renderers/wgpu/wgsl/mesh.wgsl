@@ -170,7 +170,7 @@ fn vs_main(in: VertexInput) -> Varyings {
 
         $$ if use_tangent is defined
             object_tangent = (skin_matrix * vec4f(object_tangent, 0.0)).xyz;
-        $$ endif 
+        $$ endif
 
     $$ endif
 
@@ -441,8 +441,8 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
                 var tbn = getTangentFrame(view, normal, varyings.texcoord{{normal_map_uv or ''}} );
             $$ endif
 
-            tbn.x = tbn.x * face_direction;
-            tbn.y = tbn.y * face_direction;
+            tbn[0] = tbn[0] * face_direction;
+            tbn[1] = tbn[1] * face_direction;
         $$ endif
 
         $$ if use_normal_map is defined
@@ -460,8 +460,8 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
                     var tbn_cc = getTangentFrame( view, clearcoat_normal, varyings.texcoord{{clearcoat_normal_map_uv or ''}} );
                 $$ endif
 
-                tbn_cc.x = tbn_cc.x * face_direction;
-                tbn_cc.y = tbn_cc.y * face_direction;
+                tbn_cc[0] = tbn_cc[0] * face_direction;
+                tbn_cc[1] = tbn_cc[1] * face_direction;
 
                 var clearcoat_normal_map = textureSample( t_clearcoat_normal_map, s_clearcoat_normal_map, varyings.texcoord{{clearcoat_normal_map_uv or ''}} ) * 2.0 - 1.0;
                 let clearcoat_map_n = vec3f(clearcoat_normal_map.xy * u_material.clearcoat_normal_scale, clearcoat_normal_map.z);
