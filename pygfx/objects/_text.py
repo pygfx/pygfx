@@ -41,6 +41,7 @@ import numpy as np
 
 from ..resources import Buffer
 from ..utils import text as textmodule
+from ..utils.bounds import Bounds
 from ..utils.enums import TextAlign, TextAnchor
 from ..geometries import Geometry
 from ..materials import TextMaterial
@@ -623,30 +624,19 @@ class Text(WorldObject):
         # Do a layout now, so the bounding box is up-to-date
         self._update_object()
 
-    def get_bounding_box(self):
+    def _get_bounds_from_geometry(self):
         screen_space = self._store["screen_space"]
-        if screen_space:
+        if not self._text_blocks:
+            return None
+        elif screen_space:
             # There is no sensible bounding box for text in screen space, except
             # for the anchor point. Although the point has no volume, it does
             # contribute to e.g. the scene's bounding box.
-            return np.zeros((2, 3), "f4")
+            return Bounds(np.zeros((2, 3), "f4"))
         else:
             # A bounding box makes sense, and we calculated it during layout,
             # because we're already shifting rects there.
-            return self._aabb
-
-    def get_bounding_sphere(self):
-        screen_space = self._store["screen_space"]
-        if screen_space:
-            # There is no sensible bounding box for text in screen space, except
-            # for the anchor point. Although the point has no volume, it does
-            # contribute to e.g. the scene's bounding box.
-            return np.zeros((4,), "f4")
-        else:
-            # A bounding box makes sense, we can calculate it from the rect.
-            mean = 0.5 * (self._aabb[1] + self._aabb[0])
-            diag = np.norm(self._aabb[1] - self._aabb[0])
-            return np.array([[mean[0], mean[1], mean[2], diag]], "f4")
+            return Bounds(self._aabb)
 
     # --- block management
 
@@ -823,14 +813,14 @@ class MultiText(Text):
             "f4",
         )
 
-    def get_bounding_box(self):
+    def _get_bounds_from_geometry(self):
         screen_space = self._store["screen_space"]
         if screen_space:
             positions_buf = self.geometry.positions
             if not self._text_blocks:
                 return None
             if self._aabb_rev == positions_buf.rev:
-                return self._aabb
+                return Bounds(self._aabb)
             aabb = None
             # Get positions and check expected shape
             positions = positions_buf.data[: len(self._text_blocks)]
@@ -840,27 +830,11 @@ class MultiText(Text):
                 aabb = np.column_stack([aabb, np.zeros((2, 1), "f4")])
             self._aabb = aabb
             self._aabb_rev = positions_buf.rev
-            return self._aabb
+            return Bounds(self._aabb)
         else:
             # A bounding box makes sense, and we calculated it during layout,
             # because we're already shifting rects there.
-            return self._aabb
-
-    def get_bounding_sphere(self):
-        screen_space = self._store["screen_space"]
-        if screen_space:
-            positions = self.geometry.positions.data[: len(self._text_blocks)]
-            center = positions.mean(axis=0)
-            distances = np.linalg.norm(positions - center, axis=0)
-            radius = float(distances.max())
-            if len(center) == 2:
-                return np.array([center[0], center[1], 0.0, radius], "f4")
-            else:
-                return np.array([center[0], center[1], center[2], radius], "f4")
-        else:
-            mean = 0.5 * (self._aabb[1] + self._aabb[0])
-            diag = np.norm(self._aabb[1] - self._aabb[0])
-            return np.array([[mean[0], mean[1], mean[2], diag]], "f4")
+            return Bounds(self._aabb)
 
 
 class TextBlock:
