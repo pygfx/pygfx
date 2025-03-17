@@ -14,6 +14,8 @@ class Bounds:
     max(width,height,depth) of the aabb, i.e. only cutting off its corners.
     """
 
+    __slots__ = ["aabb", "radius"]
+
     def __init__(self, aabb, radius=None):
         aabb = np.asarray(aabb)
         if aabb.shape != (2, 3):
