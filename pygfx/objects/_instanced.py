@@ -1,7 +1,7 @@
 import numpy as np
 
 from ._base import id_provider
-from . import WorldObject, Mesh
+from . import WorldObject, Mesh, Line
 from ..resources import Buffer
 
 
@@ -78,4 +78,8 @@ class InstancedObject(WorldObject):
 
 
 class InstancedMesh(Mesh, InstancedObject):
+    pass
+
+
+class InstancedLine(Line, InstancedObject):
     pass
