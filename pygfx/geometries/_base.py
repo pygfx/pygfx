@@ -26,8 +26,8 @@ class Geometry(Store):
     * ``normals``: an Nx3 buffer representing the surface normals of a ``Mesh``.
     * ``texcoords``: an Nx1, Nx2, or Nx3 set of per-vertex texture coordinates. The dimensionality
       should match that of the dimension of the colormap's texture (``material.map``).
-    * ``textcoords1``, ``textcoords2`` etc.: for additional texture coordinates. Usually Nx2.
-      E.g. a ``TextureMap`` with ``uv_channel`` set to 4 will use "textcoords4".
+    * ``texcoords1``, ``texcoords2`` etc.: for additional texture coordinates. Usually Nx2.
+      E.g. a ``TextureMap`` with ``uv_channel`` set to 4 will use "texcoords4".
     * ``colors``: per vertex or per-face color data for e.g. ``Mesh``, ``Line``, ``Points``.
       Can be Nx1 (grayscale), Nx2 (gray plus alpha), Nx3 (RGB), or Nx4 (RGBA).
     * ``sizes``: per vertex sizes for e.g. ``Points``.
