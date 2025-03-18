@@ -735,7 +735,7 @@ class MeshNormalLinesMaterial(MeshAbstractMaterial):
         self.line_length = line_length
 
     def _wgpu_get_pick_info(self, pick_value):
-        return {}  # No picking for normal lines
+        return super()._wgpu_get_pick_info(pick_value)
 
     @property
     def line_length(self):

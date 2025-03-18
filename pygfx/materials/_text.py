@@ -60,15 +60,15 @@ class TextMaterial(Material):
         self.aa = aa
 
     def _wgpu_get_pick_info(self, pick_value):
+        info = super()._wgpu_get_pick_info(pick_value)
         # Note that the glyph index is not necessarily the same as the
         # char index. It would not be worth the effort to let the shader produce
         # the char index, but I think we could make it possible to look
         # up the char index from the glyph index via the geometry.
         values = unpack_bitfield(pick_value, wobject_id=20, index=26, x=9, y=9)
-        return {
-            "glyph_index": values["index"],
-            "point_coord": (values["x"] / 511.0, values["y"] / 511.0),
-        }
+        info["glyph_index"] = values["index"]
+        info["point_coord"] = (values["x"] / 511.0, values["y"] / 511.0)
+        return info
 
     @property
     def aa(self):

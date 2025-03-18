@@ -61,12 +61,12 @@ class LineMaterial(Material):
         self.aa = aa
 
     def _wgpu_get_pick_info(self, pick_value):
+        info = super()._wgpu_get_pick_info(pick_value)
         # This should match with the shader
         values = unpack_bitfield(pick_value, wobject_id=20, index=26, coord=18)
-        return {
-            "vertex_index": values["index"],
-            "segment_coord": (values["coord"] - 100000) / 100000.0,
-        }
+        info["vertex_index"] = values["index"]
+        info["segment_coord"] = (values["coord"] - 100000) / 100000.0
+        return info
 
     @property
     def color(self):

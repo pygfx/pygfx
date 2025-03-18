@@ -80,12 +80,13 @@ class PointsMaterial(Material):
         self.rotation_mode = rotation_mode
 
     def _wgpu_get_pick_info(self, pick_value):
+        info = super()._wgpu_get_pick_info(pick_value)
         # This should match with the shader
         values = unpack_bitfield(pick_value, wobject_id=20, index=26, x=9, y=9)
-        return {
-            "vertex_index": values["index"],
-            "point_coord": (values["x"] - 256.0, values["y"] - 256.0),
-        }
+        info["vertex_index"] = values["index"]
+        info["point_coord"] = (values["x"] - 256.0, values["y"] - 256.0)
+        return info
+
 
     @property
     def color(self):
