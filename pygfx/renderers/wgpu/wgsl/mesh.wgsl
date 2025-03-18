@@ -61,10 +61,14 @@ fn get_morph( tex: texture_2d_array<f32>, vertex_index: u32, stride: u32, width:
     return textureLoad( tex, morph_uv, morph_index, 0 );
 }
 struct MorphTargetInfluence {
-    @size(16) influence: f32,
+    //@size(16) influence: f32, -> Does not work on Metal, likely an upstream bug in Naga
+    influence: f32,
+    padding0: f32,
+    padding1: f32,
+    padding2: f32,
 };
 @group(1) @binding(1)
-var<uniform> u_morph_target_influences: array<MorphTargetInfluence, {{morph_targets_count+1}}>;
+var<uniform> u_morph_target_influences: array<MorphTargetInfluence, {{influences_buffer_size}}>;
 
 $$ endif
 
@@ -124,7 +128,7 @@ fn vs_main(in: VertexInput) -> Varyings {
 
     // morph targets
     $$ if use_morph_targets
-        let base_influence = u_morph_target_influences[{{morph_targets_count}}];
+        let base_influence = u_morph_target_influences[{{influences_buffer_size-1}}];
         let stride = u32({{morph_targets_stride}});
         let width = u32({{morph_targets_texture_width}});
 
