@@ -7,8 +7,13 @@ from ..utils.trackable import Store
 from ..resources import Resource, Buffer, Texture
 
 if TYPE_CHECKING:
-    import collections.abc
     from numpy.typing import ArrayLike
+
+    ArrayOrBuffer = ArrayLike | Buffer
+    ArrayOrTexture = ArrayLike | Texture
+    ArrayOrTextureOrBuffer = ArrayLike | Texture | Buffer
+
+Optional = None
 
 
 class Geometry(Store):
@@ -62,10 +67,36 @@ class Geometry(Store):
 
     """
 
-    def __init__(self, **kwargs: Resource | ArrayLike | collections.abc.Buffer):
+    def __init__(
+        self,
+        *,
+        positions: ArrayOrBuffer = Optional,
+        indices: ArrayOrBuffer = Optional,
+        normals: ArrayOrBuffer = Optional,
+        texcoords: ArrayOrBuffer = Optional,
+        colors: ArrayOrBuffer = Optional,
+        grid: ArrayOrTexture = Optional,
+        **other_attributes: ArrayOrTextureOrBuffer,
+    ):
         super().__init__()
 
-        for name, val in kwargs.items():
+        # We separately declare some possible attribute in the signature to help users via autocompletion.
+        # We just merge these with the kwargs so we can process them uniformly.
+        all_attributes = other_attributes.copy()
+        if positions is not Optional:
+            all_attributes["positions"] = positions
+        if indices is not Optional:
+            all_attributes["indices"] = indices
+        if normals is not Optional:
+            all_attributes["normals"] = normals
+        if texcoords is not Optional:
+            all_attributes["texcoords"] = texcoords
+        if colors is not Optional:
+            all_attributes["colors"] = colors
+        if grid is not Optional:
+            all_attributes["grid"] = grid
+
+        for name, val in all_attributes.items():
             # Get resource object
             if isinstance(val, Resource):
                 resource = val
