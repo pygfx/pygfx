@@ -171,7 +171,7 @@ class PointerEvent(Event):
     x : int
         The x position of the cursor or touch in screen space (px).
     y : int
-        Thy y position of the cursor or touch in screen space (px).
+        The y position of the cursor or touch in screen space (px).
     button : int
         The integer value of the button being pushed.
     buttons : tuple
