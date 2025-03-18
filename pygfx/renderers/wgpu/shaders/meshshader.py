@@ -237,7 +237,7 @@ class MeshShader(BaseShader):
             )
             if morph_texture is None:
                 morph_texture, stride, width, morph_count = self._encode_morph_texture(
-                    geometry
+                    geometry, shared
                 )
                 geometry._gfx_morph_texture = (
                     morph_texture,
@@ -355,7 +355,7 @@ class MeshShader(BaseShader):
             1: bindings1,
         }
 
-    def _encode_morph_texture(self, geometry):
+    def _encode_morph_texture(self, geometry, shared):
         morph_positions = getattr(geometry, "morph_positions", None)
         morph_normals = getattr(geometry, "morph_normals", None)
         morph_colors = getattr(geometry, "morph_colors", None)
@@ -383,7 +383,7 @@ class MeshShader(BaseShader):
         width = total_count
         height = 1
 
-        max_texture_width = 4096  # TODO: use wgpu capabilities "max_texture_size"
+        max_texture_width = shared.device.limits["max-texture-dimension-2d"]
 
         if width > max_texture_width:
             height = math.ceil(width / max_texture_width)
