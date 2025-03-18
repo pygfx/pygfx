@@ -47,11 +47,12 @@ class MeshShader(BaseShader):
         self["use_skinning"] = isinstance(wobject, SkinnedMesh)
 
         # Is this a morphing mesh?
-        self["use_morph_targets"] = (
-            getattr(geometry, "morph_positions", None)
-            or getattr(geometry, "morph_normals", None)
-            or getattr(geometry, "morph_colors", None)
-        )
+        morph_attrs = [
+            getattr(geometry, name, None)
+            for name in ["morph_positions", "morph_normals", "morph_colors"]
+        ]
+        morph_attrs = [x for x in morph_attrs if x is not None]
+        self["use_morph_targets"] = bool(morph_attrs)
 
         # Is this a wireframe mesh?
         self["wireframe"] = getattr(material, "wireframe", False)
@@ -255,9 +256,8 @@ class MeshShader(BaseShader):
                     Binding("t_morph_targets", "texture/auto", view, "VERTEX")
                 )
 
-                self["morph_targets_count"] = min(
-                    morph_target_influences.nitems, morph_count
-                )
+                self["influences_buffer_size"] = morph_target_influences.nitems
+                self["morph_targets_count"] = morph_count
                 self["morph_targets_stride"] = stride
                 self["morph_targets_texture_width"] = width
 
@@ -360,6 +360,10 @@ class MeshShader(BaseShader):
         morph_normals = getattr(geometry, "morph_normals", None)
         morph_colors = getattr(geometry, "morph_colors", None)
 
+        morph_attrs = [morph_positions, morph_normals, morph_colors]
+        morph_attrs = [x for x in morph_attrs if x is not None]
+        morph_count = min(len(x) for x in morph_attrs)
+
         vetex_data_count = 0
 
         if morph_positions:
@@ -379,13 +383,11 @@ class MeshShader(BaseShader):
         width = total_count
         height = 1
 
-        max_texture_width = 4096  # TODO: use wgpu capabilities "max_texture_size"
+        max_texture_width = 2**14  # TODO: use wgpu capabilities "max_texture_size"
 
         if width > max_texture_width:
             height = math.ceil(width / max_texture_width)
             width = max_texture_width
-
-        morph_count = len(morph_positions or morph_normals or morph_colors or [])
 
         buffer = np.zeros((morph_count, height * width, 4), dtype=np.float32)
 
