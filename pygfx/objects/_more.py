@@ -226,10 +226,10 @@ class Mesh(WorldObject):
         morph_count = min(len(x) for x in morph_attrs)
 
         # Check with the size of the given data
-        assert len(value) == morph_count, (
-            f"Length of morph target influences must match the number of morph targets. "
-            f"Expected {morph_count}, got {len(value)}."
-        )
+        if len(value) != morph_count:
+            raise ValueError(
+                f"Length of morph target influences must match the number of morph targets. Expected {morph_count}, got {len(value)}."
+            )
 
         buffer_size = morph_count + 1  # add roon for base influence
         if (
