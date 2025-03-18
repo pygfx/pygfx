@@ -121,7 +121,9 @@ class Line(WorldObject):
     Parameters
     ----------
     geometry : Geometry
-        The data defining the shape of the object.
+        The data defining the shape of the object. Must contain at least a
+        "positions" buffer. Depending on the usage of the material, can also
+        include buffers "texcoords", "colors", and "sizes".
     material : Material
         The data defining the appearance of the object.
     visible : bool
@@ -150,7 +152,9 @@ class Points(WorldObject):
     Parameters
     ----------
     geometry : Geometry
-        The data defining the shape of the object.
+        The data defining the shape of the object. Must contain at least a
+        "positions" buffer. Depending on the usage of the material, can also
+        include buffers "texcoords", "colors", "sizes", "edge_colors", "rotations".
     material : Material
         The data defining the appearance of the object.
     visible : bool
@@ -181,7 +185,10 @@ class Mesh(WorldObject):
     Parameters
     ----------
     geometry : Geometry
-        The data defining the shape of the object.
+        The data defining the shape of the object. Must contain at least a
+        "positions" and "indices" buffers. Depending on the usage of the material, can also
+        include buffers "normals", "colors", "texcoords", "texcoords2", etc.
+        Advanced use of meshes also support "tangents", "skin_indices",  and "skin_weights".
     material : Material
         The data defining the appearance of the object.
     visible : bool
@@ -306,7 +313,8 @@ class Image(WorldObject):
     Parameters
     ----------
     geometry : Geometry
-        The data defining the shape of the object.
+        The data defining the shape of the object. Must contain at least a
+        "grid" attribute for a 2D texture.
     material : Material
         The data defining the appearance of the object.
     visible : bool
@@ -349,7 +357,8 @@ class Volume(WorldObject):
     Parameters
     ----------
     geometry : Geometry
-        The data defining the shape of the object.
+        The data defining the shape of the object. Must contain at least a
+        "grid" attribute for a 3D texture.
     material : Material
         The data defining the appearance of the object.
     visible : bool

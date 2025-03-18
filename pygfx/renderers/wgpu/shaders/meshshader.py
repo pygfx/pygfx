@@ -232,23 +232,15 @@ class MeshShader(BaseShader):
             )
 
         if self["use_morph_targets"]:
-            morph_texture, stride, width, morph_count = getattr(
-                geometry, "_gfx_morph_texture", (None, None, None, None)
-            )
-            if morph_texture is None:
-                morph_texture, stride, width, morph_count = self._encode_morph_texture(
-                    geometry, shared
-                )
-                geometry._gfx_morph_texture = (
-                    morph_texture,
-                    stride,
-                    width,
-                    morph_count,
-                )
+            # Get or create the morph texture and associated info
+            try:
+                morph_texture_info = geometry["_gfx_morph_texture"]
+            except KeyError:
+                morph_texture_info = self._encode_morph_texture(geometry, shared)
+                geometry["_gfx_morph_texture"] = morph_texture_info
+            morph_texture, stride, width, morph_count = morph_texture_info
 
-            morph_target_influences = (
-                wobject._morph_target_influences
-            )  # the influences buffer
+            morph_target_influences = wobject._morph_target_influences  # buffer
 
             if morph_texture and morph_target_influences:
                 view = GfxTextureView(morph_texture, view_dim="2d-array")

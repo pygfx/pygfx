@@ -137,10 +137,11 @@ class Text(WorldObject):
 
     Parameters
     ----------
-    geometry : Geometry
-        An empty geometry where the ``Text`` will store the data to render the text.
-        Can be omitted. For backwards compatibility, this can also be a string, as an alias
-        for the `text` arg.
+    geometry : Geometry | str
+        The geometry on which the ``Text`` will store the buffers required to
+        render the text ("positions" and "glyph_data"). If omitted, a new
+        geometry is created automatically. This argument can also be used to
+        provide the text to render as a string (as an alias for the `text` arg).
     material : TextMaterial
         The text material to use. Can be omitted.
     text : str | list[str]

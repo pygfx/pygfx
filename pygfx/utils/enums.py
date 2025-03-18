@@ -76,7 +76,7 @@ class SizeMode(Enum):
     """The SizeMode enum specifies how an object's size/width/thickness is established."""
 
     uniform = None  #: Use a uniform size.
-    vertex = None  #: Use a per-vertex size specified on the geometry.
+    vertex = None  #: Use a per-vertex size specified with ``geometry.sizes``.
 
 
 class RotationMode(Enum):
@@ -86,7 +86,7 @@ class RotationMode(Enum):
     """
 
     uniform = None  #: Use a uniform rotation.
-    vertex = None  #: Use a per-vertex rotation specified on the geometry.
+    vertex = None  #: Use a per-vertex rotation specified with ``geometry.rotations``.
 
 
 class CoordSpace(Enum):
