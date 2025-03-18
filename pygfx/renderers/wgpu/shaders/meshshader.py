@@ -383,7 +383,7 @@ class MeshShader(BaseShader):
         width = total_count
         height = 1
 
-        max_texture_width = 2**14  # TODO: use wgpu capabilities "max_texture_size"
+        max_texture_width = 4096  # TODO: use wgpu capabilities "max_texture_size"
 
         if width > max_texture_width:
             height = math.ceil(width / max_texture_width)
