@@ -18,7 +18,6 @@ class Bone(WorldObject):
 
     def __init__(self, name=""):
         super().__init__(name=name)
-        self.visible = False
 
 
 class Skeleton:

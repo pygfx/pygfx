@@ -42,14 +42,6 @@ The standardized names are:
     plane_geometry
     Geometry
 
-.. rubric:: Text Geometry
-.. autosummary::
-    :toctree: geometry/
-    :template: ../_templates/custom_layout.rst
-
-    TextGeometry
-    TextItem
-
 .. rubric:: Other/Special Geometry
 .. autosummary::
     :toctree: geometry/
@@ -80,7 +72,6 @@ from ._polyhedron import (
     tetrahedron_geometry,
 )
 from ._toroidal import torus_knot_geometry, klein_bottle_geometry
-from ._text import TextGeometry, TextItem
 
 # Define __all__ for e.g. Sphinx
 __all__ = [
@@ -92,5 +83,4 @@ __all__ = [
 __all__.sort()
 __all__.remove("Geometry")
 __all__.insert(0, "Geometry")
-__all__.insert(__all__.index("TextGeometry") + 1, "TextItem")
 __all__.append("geometry_from_trimesh")

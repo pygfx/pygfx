@@ -28,8 +28,7 @@ input is markdown `"hello *world*"`  this is separated into two parts:
 one with regular text and one with the bold text. Each part can be
 provided with a different font-family. In practice, each word becomes
 a separate text item, which allows moving words around during the
-layout. An API to provide raw `TextItem` objects is also available,
-in case more control is needed.
+layout.
 
 The result of this step is a list of text items: each a Unicode string
 and associated font properties.
@@ -95,8 +94,8 @@ italic text.
 
 ## What happens where
 
-The API entrypoint is the `TextGeometry` object, which can be found in
-the `geometries/_text.py` module. In that module we perform all the
+The API entrypoint is the `Text` (and `MultiText`) object, which can be found in
+the `objects/_text.py` module. In that module we perform all the
 steps above, except rendering. The actual implementation of most steps
 is in the `utils/text` subpackage.
 
@@ -121,7 +120,7 @@ resulting SDF glyphs are each of a different size (a "." takes less
 room than a "W") posing a challenge to efficiently pack them in the
 atlas.
 
-The TextGeometry has a `font_size` property. For text rendered in screen
+The Text object has a `font_size` property. For text rendered in screen
 space, this is the font size in logical pixels. For text rendered in
 world space, the size is expressed in world units. The object's scale
 also affects the final size.

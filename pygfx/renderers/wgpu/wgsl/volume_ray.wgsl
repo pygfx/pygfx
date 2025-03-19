@@ -66,6 +66,9 @@ fn vs_main(in: VertexInput) -> Varyings {
 @fragment
 fn fs_main(varyings: Varyings) -> FragmentOutput {
 
+    // clipping planes
+    {$ include 'pygfx.clipping_planes.wgsl' $}
+
     // Get size of the volume
     let sizef = vec3<f32>(textureDimensions(t_img));
 
@@ -115,7 +118,6 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     let ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos;
 
     // Maybe we did the work for nothing
-    apply_clipping_planes(world_pos.xyz);
 
     // Get fragment output. Note that the depth arg only affects the
     // blending - setting the depth attribute actually sets the fragment depth.

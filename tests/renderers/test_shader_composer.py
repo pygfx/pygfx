@@ -87,6 +87,9 @@ def test_uniform_definitions():
 
     shader = MyShader()
 
+    # Make it look like we're inside get_bindings ...
+    shader._template_vars_current = shader._template_vars_bindings
+
     # Fails
     with raises(TypeError):  # Not a valid struct type
         shader.define_binding(0, 0, Binding("zz", "buffer/uniform", "not a struct"))

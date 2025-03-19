@@ -1,70 +1,46 @@
 import re
 
-text_prog = re.compile(
-    r"(\n)+"  # newline (nl) -- match first so that it doesn't get included in \s
-    r"|([ \r\f\t])+"  # whitespace (ws) (except for newline as it is matched above)
-    r"|(\S)+"  # not whitespace
-)
+
+matchers = {
+    "nl": r"(\n)+",  # newline (nl) -- match first so that it doesn't get included in \s
+    "ws": r"([ \r\f\t])+",  # whitespace (ws) (except for newline as it is matched above)
+    "word": r"(\w)+",
+    "number": r"(\d)+",
+    "punctuation": r"([\,\.\;\:\?\!\…])+",
+    "stars": r"(\*)+",
+}
+
+text_groups = ["nl", "ws", "word"]
+text_prog = re.compile("|".join(matchers[group] for group in text_groups))
+
+markdown_groups = ["nl", "ws", "word", "stars"]
+markdown_prog = re.compile("|".join(matchers[group] for group in markdown_groups))
 
 
 def tokenize_text(text):
-    """Splits the text in pieces of "ws" and "other" (whitespace and non-whitespace)."""
-    pos = 0
-    while True:
-        match = text_prog.search(text, pos)
-
-        if not match:
-            other = text[pos:]
-            if other:
-                yield "other", other
-            break
-
-        other = text[pos : match.start()]
-        if other:
-            yield "other", other
-
-        s = match.group()
-        if match.group(1):
-            yield "nl", s
-        elif match.group(2):
-            yield "ws", s
-        else:
-            yield "other", s
-
-        pos = match.end()
-
-
-punctuation = r"[\,\.\;\:\?\!\…]"
-markdown_prog = re.compile(r"(\s)+|(\d|\w|-|_)+|(\*)+|(" + punctuation + ")")
+    """Splits the text in pieces of "nl", "ws" "word", and "other"."""
+    return _tokenze(text, text_groups, text_prog)
 
 
 def tokenize_markdown(text):
-    """Splits the text in pieces of: ws, words, stars, punctuation, other."""
+    """Splits the text in pieces of "nl", "ws" "word", "stars", and "other"."""
+    return _tokenze(text, markdown_groups, markdown_prog)
+
+
+def _tokenze(text, groups, prog):
     pos = 0
     while True:
-        match = markdown_prog.search(text, pos)
-
-        if not match:
-            other = text[pos:]
-            if other:
-                yield "other", other
+        match = prog.search(text, pos)
+        if match is None:
             break
 
-        other = text[pos : match.start()]
-        if other:
-            yield "", other
+        start = match.start()
+        if start > pos:
+            yield "other", text[pos : match.start()]
 
-        s = match.group()
-
-        if match.group(1):
-            yield "ws", s
-        elif match.group(2):
-            yield "word", s
-        elif match.group(3):
-            yield "stars", s
-        elif match.group(4):
-            yield "punctuation", s
-        else:
-            yield "other", s  # should not happen, but just in case
-
+        yield groups[match.lastindex - 1], match.group()
         pos = match.end()
+
+    other = text[pos:]
+    if other:
+        yield "other", other

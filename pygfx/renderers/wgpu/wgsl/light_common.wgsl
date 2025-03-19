@@ -100,7 +100,7 @@ fn F_Schlick_f(f0: f32, f90: f32, dot_vh: f32,) -> f32 {
 }
 
 $$ if use_normal_map is defined or use_clearcoat_normal_map is defined
-fn perturbNormal2Arb( eye_pos: vec3<f32>, surf_norm: vec3<f32>, mapN: vec3<f32>, uv: vec2<f32>, is_front: bool) -> vec3<f32> {
+fn getTangentFrame( eye_pos: vec3<f32>, surf_norm: vec3<f32>, uv: vec2<f32>) -> mat3x3<f32> {
     let q0 = dpdx( eye_pos.xyz );
     let q1 = dpdy( eye_pos.xyz );
     let st0 = dpdx( uv.xy );
@@ -111,8 +111,20 @@ fn perturbNormal2Arb( eye_pos: vec3<f32>, surf_norm: vec3<f32>, mapN: vec3<f32>,
     let T = q1perp * st0.x + q0perp * st1.x;
     let B = q1perp * st0.y + q0perp * st1.y;
     let det = max( dot( T, T ), dot( B, B ) );
-    let faceDirection = f32(is_front) * 2.0 - 1.0;
-    let scale = faceDirection * inverseSqrt(det);
-    return normalize(T * mapN.x * scale + B * mapN.y * scale + N * mapN.z);
+    let scale = select(inverseSqrt(det), 0.0, det == 0.0);
+
+    // We flip the Y when we compute the tangent from screen space.
+    // See: https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/NormalTangentTest#problem-flipped-y-axis-or-flipped-green-channel
+    // See: https://github.com/mrdoob/three.js/issues/11438#issuecomment-507003995
+    return mat3x3f(T * scale, -B * scale, N);
 }
+
+fn perturbNormal2Arb( eye_pos: vec3<f32>, surf_norm: vec3<f32>, map_n: vec3<f32>, uv: vec2<f32>, is_front: bool) -> vec3<f32> {
+    let tbn = getTangentFrame( eye_pos, surf_norm, uv );
+    let face_direction = f32(is_front) * 2.0 - 1.0;
+    let scaled_map_n = vec3f(map_n.xy * face_direction, map_n.z);
+    let perturb_normal = tbn * scaled_map_n;
+    return normalize( perturb_normal );
+}
+
 $$ endif

@@ -7,15 +7,17 @@ The enums used in pygfx. The enums are all available from the root ``pygfx`` nam
     :toctree: utils/enums
     :template: ../_templates/custom_layout.rst
 
+    BindMode
     ColorMode
     CoordSpace
     EdgeMode
+    ElementFormat
     MarkerShape
     RenderMask
     SizeMode
-    ElementFormat
+    TextAlign
+    TextAnchor
     VisibleSide
-    BindMode
 
 """
 
@@ -31,6 +33,8 @@ __all__ = [
     "MarkerShape",
     "RenderMask",
     "SizeMode",
+    "TextAlign",
+    "TextAnchor",
     "VisibleSide",
 ]
 
@@ -72,15 +76,25 @@ class SizeMode(Enum):
     """The SizeMode enum specifies how an object's size/width/thickness is established."""
 
     uniform = None  #: Use a uniform size.
-    vertex = None  #: Use a per-vertex size specified on the geometry.
+    vertex = None  #: Use a per-vertex size specified with ``geometry.sizes``.
+
+
+class RotationMode(Enum):
+    """The RotationMode enum specifies how an object's rotation is established.
+
+    Currently only used for PointsMaterial.
+    """
+
+    uniform = None  #: Use a uniform rotation.
+    vertex = None  #: Use a per-vertex rotation specified with ``geometry.rotations``.
 
 
 class CoordSpace(Enum):
     """The CoordSpace enum specifies a coordinate space."""
 
-    model = None  #: The space relative to the object. When the object (or one of its parents) is e.g. scaled with ``wobject.local.scale = 2`` the thing becomes bigger.
-    world = None  #: The size is expressed in the scene's space. Scaling of objects will not affect the thing's size.
-    screen = None  #: The size is expressed in (logical) screen pixels, and are the same size regardless of zooming or scaling.
+    model = None  #: The space relative to the object. When the object (or a parent) is e.g. scaled with ``wobject.local.scale = 2`` the thing becomes bigger.
+    world = None  #: The space of the scene (the root object). Scaling or rotating of objects does not affect the thing's size or orientation.
+    screen = None  #: The screen space (in logical pixels). The thing's size is not affected by zooming or scaling.
 
 
 class MarkerShape(Enum):
@@ -142,6 +156,39 @@ class BindMode(Enum):
         "attached"  #: The skinned mesh shares the same world space as the skeleton.
     )
     detached = "detached"  #: The skinned mesh has its own world space.
+
+
+class TextAlign(Enum):
+    """How text is aligned."""
+
+    start = None  #: The same as left if direction is left-to-right and right if direction is right-to-left.
+    end = None  #: The same as right if direction is left-to-right and left if direction is right-to-left.
+    left = None  #: The text is aligned to the left edge.
+    right = None  #: The text is aligned to the right edge.
+    center = None  #: The text is centered between the left and right edges.
+    justify = None  #: The words are spread to fill the full space set by max_width.
+    justify_all = None  #: Like justifym but also justify the last line.
+    auto = None  #: Unspecified alignment (use default).
+
+
+class TextAnchor(Enum):
+    """How text is aligned."""
+
+    top_left = "top-left"
+    top_center = "top-center"
+    top_right = "top-right"
+
+    baseline_left = "baseline-left"
+    baseline_center = "baseline-center"
+    baseline_right = "baseline-right"
+
+    middle_left = "middle-left"
+    middle_center = "middle-center"
+    middle_right = "middle-right"
+
+    bottom_left = "bottom-left"
+    bottom_center = "bottom-center"
+    bottom_right = "bottom-right"
 
 
 # NOTE: Don't forget to add new enums to the toctree and __all__

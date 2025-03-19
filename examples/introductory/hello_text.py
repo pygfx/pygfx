@@ -26,15 +26,17 @@ scene.add(plane)
 
 # Create two texts, one on each side of the plane
 text1 = gfx.Text(
-    gfx.TextGeometry("Hello world", font_size=2.8),
-    gfx.TextMaterial(color="#ddd"),
+    text="Hello world",
+    font_size=2.8,
+    material=gfx.TextMaterial(color="#ddd"),
 )
 text1.local.position = (0, 0, 0.5)
 plane.add(text1)
 
 text2 = gfx.Text(
-    gfx.TextGeometry("Здравей свят", font_size=2.8),
-    gfx.TextMaterial(color="#ddd"),
+    text="Здравей свят",
+    font_size=2.0,
+    material=gfx.TextMaterial(color="#ddd"),
 )
 text2.local.position = (0, 0, -0.5)
 text2.local.scale = (-1, 1, 1)
@@ -42,13 +44,11 @@ plane.add(text2)
 
 # Another text in screen space. Also shows markdown formatting
 text3 = gfx.Text(
-    gfx.TextGeometry(
-        markdown=" **Screen** space",
-        screen_space=True,
-        font_size=20,
-        anchor="bottomleft",
-    ),
-    gfx.TextMaterial(color="#0f4"),
+    markdown=" **Screen** space",
+    screen_space=True,
+    font_size=20,
+    anchor="bottom-left",
+    material=gfx.TextMaterial(color="#0f4"),
 )
 text3.local.position = (10, 10, 0)
 plane.add(text3)

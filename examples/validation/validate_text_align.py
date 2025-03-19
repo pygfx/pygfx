@@ -1,6 +1,6 @@
 """
-Text justification
-==================
+Text alignment
+==============
 
 Example demonstrating the capabilities of text to be aligned and justified
 according to the user's decision.
@@ -31,47 +31,47 @@ text = (
 font_size = 20
 
 text_bottom_right = gfx.Text(
-    gfx.TextGeometry(
-        text=text,
-        font_size=font_size,
-        screen_space=True,
-        text_align="right",
-        anchor="bottom-right",
+    text=text,
+    font_size=font_size,
+    screen_space=True,
+    text_align="right",
+    anchor="bottom-right",
+    material=gfx.TextMaterial(
+        color="#DA9DFF", outline_color="#000", outline_thickness=0.15
     ),
-    gfx.TextMaterial(color="#DA9DFF", outline_color="#000", outline_thickness=0.15),
 )
 
 text_top_right = gfx.Text(
-    gfx.TextGeometry(
-        text=text,
-        font_size=font_size,
-        screen_space=True,
-        text_align="right",
-        anchor="top-right",
+    text=text,
+    font_size=font_size,
+    screen_space=True,
+    text_align="end",
+    anchor="top-right",
+    material=gfx.TextMaterial(
+        color="#FFA99D", outline_color="#000", outline_thickness=0.15
     ),
-    gfx.TextMaterial(color="#FFA99D", outline_color="#000", outline_thickness=0.15),
 )
 
 text_bottom_left = gfx.Text(
-    gfx.TextGeometry(
-        text=text,
-        font_size=font_size,
-        screen_space=True,
-        text_align="left",
-        anchor="bottom-left",
+    text=text,
+    font_size=font_size,
+    screen_space=True,
+    text_align="start",
+    anchor="bottom-left",
+    material=gfx.TextMaterial(
+        color="#C2FF9D", outline_color="#000", outline_thickness=0.15
     ),
-    gfx.TextMaterial(color="#C2FF9D", outline_color="#000", outline_thickness=0.15),
 )
 
 text_top_left = gfx.Text(
-    gfx.TextGeometry(
-        text=text,
-        font_size=font_size,
-        screen_space=True,
-        text_align="left",
-        anchor="top-left",
+    text=text,
+    font_size=font_size,
+    screen_space=True,
+    text_align="left",
+    anchor="top-left",
+    material=gfx.TextMaterial(
+        color="#9DF3FF", outline_color="#000", outline_thickness=0.15
     ),
-    gfx.TextMaterial(color="#9DF3FF", outline_color="#000", outline_thickness=0.15),
 )
 
 points = gfx.Points(

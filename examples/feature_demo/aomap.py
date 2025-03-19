@@ -69,8 +69,9 @@ def create_scene(material, x_pos):
     scene.add(gfx.AmbientLight(intensity=1.0))
 
     t = gfx.Text(
-        gfx.TextGeometry(material.__class__.__name__, screen_space=True, font_size=20),
-        gfx.TextMaterial(),
+        text=material.__class__.__name__,
+        screen_space=True,
+        font_size=20,
     )
     t.local.position = (x_pos, 1.5, 0)
     text_scene.add(t)

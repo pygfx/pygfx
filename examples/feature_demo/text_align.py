@@ -19,34 +19,49 @@ from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 
 scene = gfx.Scene()
-
-
 scene.add(gfx.Background.from_color("#fff", "#000"))
+
+
+demo_text = """
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, etc.
+Bonjour World Olá
+مرحبا بالعالم
+pygfx
+last lyne
+""".strip()
+
+arabic_text = """
+ضوء القمر أمام السرير
+يشتبه في وجود الصقيع على الأرض
+أنظر إلى القمر الساطع
+اخفض رأسك وافتقد مسقط رأسك
+""".strip()
+
+chinese_text = """
+床前明月光
+疑是地上霜
+举头望明月
+低头思故乡
+""".strip()
+
 
 if "PYTEST_CURRENT_TEST" not in os.environ:
     import argparse
 
     parser = argparse.ArgumentParser(description="Text Alignment Demo")
-    parser.add_argument(
-        "--direction", type=str, default="ltr", help="Direction parameter"
-    )
+    parser.add_argument("--direction", type=str, default="", help="Direction parameter")
     parser.add_argument(
         "text",
         type=str,
         nargs="?",
-        default=(
-            "Lorem ipsum\n"
-            "Bonjour World Olá\n"  # some text that isn't equal in line
-            "pygfx\n"  # a line with exactly 1 word
-            "last lyne"
-        ),
+        default=demo_text,
         help="Text to display",
     )
     args = parser.parse_args()
     direction = args.direction
     text = args.text
 else:
-    direction = "ltr"
+    direction = None
     text = (
         "Lorem ipsum\n"
         "Bonjour World Olá\n"  # some text that isn't equal in line
@@ -58,15 +73,18 @@ else:
 print(f"========= Text =========\n{text}\n========================")
 
 text = gfx.Text(
-    gfx.TextGeometry(
-        text=text,
-        font_size=40,
-        screen_space=True,
-        text_align="center",
-        anchor="middle-center",
-        direction=direction,
+    material=gfx.TextMaterial(
+        color="#B4F8C8", outline_color="#000", outline_thickness=0.15
     ),
-    gfx.TextMaterial(color="#B4F8C8", outline_color="#000", outline_thickness=0.15),
+    text=text,
+    font_size=28,
+    screen_space=True,
+    text_align="center",
+    anchor="middle-center",
+    direction=direction,
+    max_width=380,
+    line_height=1.1,
+    paragraph_spacing=0.2,
 )
 text.local.position = (0, 0, 0)
 
@@ -92,25 +110,25 @@ def change_justify(event):
     if event.key == "q":
         text.geometry.anchor = "top-left"
     elif event.key == "w":
-        text.geometry.anchor = "top-middle"
+        text.geometry.anchor = "top-center"
     elif event.key == "e":
         text.geometry.anchor = "top-right"
     elif event.key == "a":
         text.geometry.anchor = "middle-left"
     elif event.key == "s":
-        text.geometry.anchor = "middle-middle"
+        text.geometry.anchor = "middle-center"
     elif event.key == "d":
         text.geometry.anchor = "middle-right"
     elif event.key == "z":
         text.geometry.anchor = "bottom-left"
     elif event.key == "x":
-        text.geometry.anchor = "bottom-middle"
+        text.geometry.anchor = "bottom-center"
     elif event.key == "c":
         text.geometry.anchor = "bottom-right"
     elif event.key == "Z":
         text.geometry.anchor = "baseline-left"
     elif event.key == "X":
-        text.geometry.anchor = "baseline-middle"
+        text.geometry.anchor = "baseline-center"
     elif event.key == "C":
         text.geometry.anchor = "baseline-right"
     elif event.key == "u":
@@ -119,6 +137,12 @@ def change_justify(event):
         text.geometry.text_align = "center"
     elif event.key == "o":
         text.geometry.text_align = "right"
+    elif event.key == "U":
+        text.geometry.text_align = "start"
+    elif event.key == "I":
+        text.geometry.text_align = "center"
+    elif event.key == "O":
+        text.geometry.text_align = "end"
     elif event.key == "j":
         text.geometry.text_align = "justify"
     elif event.key == "h":
@@ -162,7 +186,7 @@ Use the keys
 
  u  i  o
 
-to set the alignment of the text to left, middle, right respectively.
+to set the alignment of the text to left, center, right respectively.
 
 Use j to set the alignment to justify.
 Use h to set the alignment to justify-all.
@@ -171,7 +195,7 @@ Use the keys
 
   n  m  ,
 
-to set the alignment of the last line to left, middle, right respectively.
+to set the alignment of the last line to left, center, right respectively.
 
 Use
 

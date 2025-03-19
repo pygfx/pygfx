@@ -30,8 +30,10 @@ plane2.local.rotation = la.quat_from_axis_angle((0, 1, 0), 1.571)
 plane3.local.rotation = la.quat_from_axis_angle((0, 0, 1), 1.571)
 
 t = gfx.Text(
-    gfx.TextGeometry(renderer.blend_mode, screen_space=True, font_size=20),
-    gfx.TextMaterial(),
+    text=renderer.blend_mode,
+    screen_space=True,
+    font_size=20,
+    material=gfx.TextMaterial(),
 )
 t.local.position = (0, 40, 0)
 

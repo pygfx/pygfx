@@ -1,5 +1,7 @@
-import numpy as np
+import random
 
+import numpy as np
+import pygfx as gfx
 from pygfx.utils.text._atlas import GlyphAtlas, SIZES, get_suitable_size
 from pygfx.utils.text import glyph_atlas as global_atlas
 
@@ -123,6 +125,7 @@ def test_atlas_alloc_resize_with_freeing():
     for _i in range(4):
         atlas.free_region(get_index_in_use())
     assert atlas.allocated_area == 5 * 64
+    assert len(atlas._free_indices) == 4
 
     # Allocate another
     atlas.allocate_region(8, 8)
@@ -131,6 +134,9 @@ def test_atlas_alloc_resize_with_freeing():
     assert atlas.total_area == 576
     assert atlas.region_count == 6
     assert atlas.allocated_area == 6 * 64
+
+    # The free indices (into the infos array) are still there
+    assert len(atlas._free_indices) == 3  # one it taken by the allocation
 
     # Not only is the atlas not resized, the array is also still the
     # same object. This is important, because this means that the
@@ -147,6 +153,9 @@ def test_atlas_alloc_resize_with_freeing():
     assert atlas.total_area == 1024
     assert atlas.allocated_area == 12 * 64
     assert atlas._array is not prev_array
+
+    # The free indices (into the infos array) are still there
+    assert len(atlas._free_indices) == 0  # because we used all the free region
 
     # Now we free some regions
     for _i in range(6):
@@ -165,6 +174,7 @@ def test_atlas_alloc_resize_with_freeing():
     assert atlas.region_count == 3
     assert atlas.total_area == 576
     assert atlas.allocated_area == 3 * 64
+    assert len(atlas._free_indices) == 9
 
     # Free all we have
     for _i in range(3):
@@ -220,6 +230,26 @@ def test_atlas_alloc1():
 
     # Sanity check
     assert len(indices) == len(set(indices))
+
+
+def test_atlas_alloc_empty():
+    # Allocate empty regions (zero size)
+    # This is not even such a special case; it just works.
+
+    atlas = GlyphAtlas(16, 16)
+
+    i1 = atlas.allocate_region(5, 5)
+    i2 = atlas.allocate_region(0, 0)
+    i3 = atlas.allocate_region(0, 0)
+    i4 = atlas.allocate_region(5, 5)
+
+    # Unique indices
+    assert len({i1, i2, i3, i4}) == 4
+
+    assert atlas.get_region(i1).size == 25
+    assert atlas.get_region(i2).size == 0
+    assert atlas.get_region(i3).size == 0
+    assert atlas.get_region(i4).size == 25
 
 
 def test_atlas_alloc2():
@@ -300,6 +330,46 @@ def test_atlas_glyps():
 
     assert [i0, i1, i2, i3] == [0, 1, 2, 3]
     assert array_id == id(atlas._array)
+
+
+def test_against_glyph_bleeding():
+    big_tex = """
+    Lorem ipsum odor amet, consectetuer adipiscing elit. Congue aliquet fusce hendrerit leo fames ac. Proin nec sit mauris lobortis quam ultrices. Senectus habitasse ad orci posuere fusce. Ut lectus inceptos commodo taciti porttitor a habitasse. Vulputate tempus ullamcorper aptent molestie vestibulum massa. Tristique nec ac sagittis morbi; egestas nisl donec morbi. Et nisi donec conubia duis rutrum tellus?
+    """
+    chars = list(big_tex)
+
+    camera = gfx.OrthographicCamera(340, 200)
+    target = gfx.Texture(dim=2, size=(3400, 2000), format="rgba8unorm")
+    renderer = gfx.WgpuRenderer(target, pixel_ratio=1)
+
+    def render_text():
+        text = gfx.Text(
+            text=big_tex,
+            max_width=300,
+            material=gfx.TextMaterial(color="#fff", outline_thickness=5),
+        )
+        scene = gfx.Scene().add(gfx.Background.from_color("#fff"), text)
+        renderer.render(scene, camera)
+        return renderer.snapshot()
+
+    # Render the text
+    im1 = render_text()
+
+    # Reset and shuffle the atlas
+    global_atlas.__init__()
+    random.shuffle(chars)
+    gfx.Text(text="".join(chars))
+
+    # Render the text again, glyphs are now in a different spot in the atlas
+    im2 = render_text()
+
+    # Get the difference
+    diff = (im1 != im2).max(axis=2)
+    diff_count = diff.sum()
+    # diff_image = diff.astype("u1") * 255
+    if diff_count:
+        print("Number of pixels that differ:", diff_count)
+    assert diff_count == 0
 
 
 if __name__ == "__main__":

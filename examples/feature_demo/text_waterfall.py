@@ -53,10 +53,7 @@ waiting_objects = set()
 text_material = gfx.TextMaterial(color="#06E")
 
 for _i in range(100):
-    obj = gfx.Text(
-        gfx.TextGeometry(" ", font_size=18, screen_space=True),
-        text_material,
-    )
+    obj = gfx.Text(text=" ", font_size=18, screen_space=True, material=text_material)
     scene.add(obj)
     waiting_objects.add(obj)
     obj.local.y = -999
@@ -79,8 +76,9 @@ def animate():
             if garbage_collect:
                 all_indices = set()
                 for x in live_objects:
-                    all_indices.update(int(index) for index in x.geometry.indices.data)
-                for index in obj.geometry.indices.data:
+                    atlas_indices = x.geometry.glyph_data.data["atlas_index"]
+                    all_indices.update(int(index) for index in atlas_indices)
+                for index in obj.geometry.glyph_data.data["atlas_index"]:
                     index = int(index)
                     if index not in all_indices:
                         glyph_atlas.free_region(index)
@@ -91,7 +89,7 @@ def animate():
         live_objects.add(obj)
         obj.local.y = 50
         obj.local.x = np.random.uniform(0, 100)
-        obj.geometry.set_text(next(chargen))
+        obj.set_text(next(chargen))
         obj.fall_speed = np.random.uniform(1, 4)
 
     # Update the image

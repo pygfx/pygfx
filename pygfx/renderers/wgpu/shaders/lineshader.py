@@ -204,7 +204,9 @@ class LineShader(BaseShader):
             bindings.append(
                 Binding("s_texcoords", rbuffer, geometry.texcoords, "VERTEX")
             )
-            bindings.extend(self.define_colormap(material.map, geometry.texcoords))
+            bindings.extend(
+                self.define_generic_colormap(material.map, geometry.texcoords)
+            )
 
         # Need a buffer for the cumdist?
         if hasattr(self, "line_distance_buffer"):
@@ -334,7 +336,9 @@ class ThinLineShader(LineShader):
             bindings.append(
                 Binding("s_texcoords", rbuffer, geometry.texcoords, "VERTEX")
             )
-            bindings.extend(self.define_colormap(material.map, geometry.texcoords))
+            bindings.extend(
+                self.define_generic_colormap(material.map, geometry.texcoords)
+            )
 
         bindings = {i: b for i, b in enumerate(bindings)}
         self.define_bindings(0, bindings)
@@ -428,6 +432,7 @@ class ThinLineShader(LineShader):
 
         @fragment
         fn fs_main(varyings: Varyings) -> FragmentOutput {
+            {$ include 'pygfx.clipping_planes.wgsl' $}
 
             $$ if color_mode == 'vertex'
                 let color = varyings.color;
@@ -441,7 +446,6 @@ class ThinLineShader(LineShader):
             let opacity = color.a * u_material.opacity;
             let out_color = vec4<f32>(physical_color, opacity);
 
-            apply_clipping_planes(varyings.world_pos);
             return get_fragment_output(varyings.position, out_color);
         }
         """

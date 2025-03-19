@@ -181,16 +181,25 @@ class _GLTF:
         self.scene = None
         self.scenes = []
         self.cameras = []
+        self.lights = []
         self.animations = None
 
-        self._plugins = []
+        self._plugins = {}
 
-        self._plugins.append(GLTFMeshQuantizationExtension(self))
-        self._plugins.append(GLTFMaterialsIorExtension(self))
-        self._plugins.append(GLTFMaterialsSpecularExtension(self))
-        self._plugins.append(GLTFMaterialsClearcoatExtension(self))
-        self._plugins.append(GLTFMaterialsIridescenceExtension(self))
-        self._plugins.append(GLTFMaterialsEmissiveStrengthExtension(self))
+        self._register_plugin(GLTFMeshQuantizationExtension)
+        self._register_plugin(GLTFMaterialsIorExtension)
+        self._register_plugin(GLTFMaterialsSpecularExtension)
+        self._register_plugin(GLTFMaterialsClearcoatExtension)
+        self._register_plugin(GLTFMaterialsIridescenceExtension)
+        self._register_plugin(GLTFMaterialsSheenExtension)
+        self._register_plugin(GLTFMaterialsAnisotropyExtension)
+        self._register_plugin(GLTFMaterialsEmissiveStrengthExtension)
+        self._register_plugin(GLTFMaterialsUnlitExtension)
+        self._register_plugin(GLTFLightsExtension)
+
+    def _register_plugin(self, plugin_class):
+        plugin = plugin_class(self)
+        self._plugins[plugin.name] = plugin
 
     def load(self, path, quiet=False, remote_ok=True):
         """Load the whole gltf file, including meshes, skeletons, cameras, and animations."""
@@ -391,7 +400,7 @@ class _GLTF:
         if not quiet:
             extensions_required = self._gltf.model.extensionsRequired or []
 
-            supported_extensions = [plugin.name for plugin in self._plugins]
+            supported_extensions = self._plugins.keys()
 
             unsupported_extensions_required = set(extensions_required) - set(
                 supported_extensions
@@ -477,12 +486,7 @@ class _GLTF:
 
         if node_mark == "Bone":
             node_obj = gfx.Bone()
-            # Now, Bone is special, so we need to set the position, rotation, and scale manually.
-            # See: https://github.com/pygfx/pygfx/pull/746
-            node_obj.local.position = translation
-            node_obj.local.rotation = rotation
-            node_obj.local.scale = scale
-            node_obj.local.matrix = matrix
+
         elif node.camera is not None:
             camera_info = gltf.model.cameras[node.camera]
             if camera_info.type == "perspective":
@@ -512,6 +516,9 @@ class _GLTF:
             # Do not use mesh cache here, we need to create a new mesh object for each node.
             mesh_info = self._gltf.model.meshes[node.mesh]
             meshes = self._load_gltf_mesh_by_info(mesh_info, node.skin)
+            if node.weights:
+                for gfx_mesh in meshes:
+                    gfx_mesh.morph_target_influences = node.weights
             if len(meshes) == 1:
                 node_obj = meshes[0]
             else:
@@ -520,6 +527,15 @@ class _GLTF:
                     node_obj.add(mesh)
         else:
             node_obj = gfx.WorldObject()
+
+        if node.extensions:
+            for extension in node.extensions:
+                if extension in self._plugins:
+                    plugin = self._plugins[extension]
+                    if hasattr(plugin, "create_node_attachment"):
+                        node_attachment = plugin.create_node_attachment(node_index)
+                        if node_attachment is not None:
+                            node_obj.add(node_attachment)
 
         node_obj.local.matrix = matrix
         node_obj.name = node.name
@@ -592,78 +608,90 @@ class _GLTF:
     def _load_gltf_material(self, material_index):
         material = self._gltf.model.materials[material_index]
 
-        material_type = gfx.MeshStandardMaterial
+        extensions = material.extensions or {}
 
-        extensions = material.extensions
-        # check if any plugin can handle this material type
-        if extensions:
-            for plugin in self._plugins:
-                if plugin.name in extensions:
+        if (
+            GLTFMaterialsUnlitExtension.EXTENSION_NAME in extensions
+            and GLTFMaterialsUnlitExtension.EXTENSION_NAME in self._plugins
+        ):
+            plugin = self._plugins[GLTFMaterialsUnlitExtension.EXTENSION_NAME]
+            material_type = plugin.get_material_type(material)
+            gfx_material = material_type()
+            plugin.extend_material(material, gfx_material)
+
+        else:  # PBR
+            material_type = gfx.MeshStandardMaterial
+
+            # check if any plugin can handle this material type
+            for extension in extensions:
+                if extension in self._plugins:
+                    plugin = self._plugins[extension]
                     if hasattr(plugin, "get_material_type"):
-                        # get the material type from the first plugin that can handle it
-                        if plugin.get_material_type(material) is not None:
-                            material_type = plugin.get_material_type(material)
+                        _material_type = plugin.get_material_type(material)
+                        if _material_type is not None:
+                            material_type = _material_type
                             break
 
-        gfx_material = material_type()
+            gfx_material = material_type()
 
-        # check if any plugin can extend the material
-        if extensions:
-            for plugin in self._plugins:
-                if plugin.name in extensions:
+            # check if any plugin can extend the material
+            for extension in extensions:
+                if extension in self._plugins:
+                    plugin = self._plugins[extension]
                     if hasattr(plugin, "extend_material"):
                         plugin.extend_material(material, gfx_material)
 
-        pbr_metallic_roughness = material.pbrMetallicRoughness
-        if pbr_metallic_roughness is not None:
-            if pbr_metallic_roughness.baseColorFactor is not None:
-                gfx_material.color = gfx.Color.from_physical(
-                    *pbr_metallic_roughness.baseColorFactor
+            pbr_metallic_roughness = material.pbrMetallicRoughness
+            if pbr_metallic_roughness is not None:
+                if pbr_metallic_roughness.baseColorFactor is not None:
+                    gfx_material.color = gfx.Color.from_physical(
+                        *pbr_metallic_roughness.baseColorFactor
+                    )
+
+                if pbr_metallic_roughness.baseColorTexture is not None:
+                    gfx_material.map = self._load_gltf_texture(
+                        pbr_metallic_roughness.baseColorTexture
+                    )
+
+                if pbr_metallic_roughness.metallicRoughnessTexture is not None:
+                    metallic_roughness_map = self._load_gltf_texture(
+                        pbr_metallic_roughness.metallicRoughnessTexture
+                    )
+                    gfx_material.roughness_map = metallic_roughness_map
+                    gfx_material.metalness_map = metallic_roughness_map
+
+                if pbr_metallic_roughness.roughnessFactor is not None:
+                    gfx_material.roughness = pbr_metallic_roughness.roughnessFactor
+                else:
+                    gfx_material.roughness = 1.0
+
+                if pbr_metallic_roughness.metallicFactor is not None:
+                    gfx_material.metalness = pbr_metallic_roughness.metallicFactor
+                else:
+                    gfx_material.metalness = 1.0
+
+            if material.normalTexture is not None:
+                gfx_material.normal_map = self._load_gltf_texture(
+                    material.normalTexture
+                )
+                scale_factor = material.normalTexture.scale
+                if scale_factor is None:
+                    scale_factor = 1.0
+
+                gfx_material.normal_scale = (scale_factor, scale_factor)
+
+            if material.occlusionTexture is not None:
+                gfx_material.ao_map = self._load_gltf_texture(material.occlusionTexture)
+
+            if material.emissiveFactor is not None:
+                gfx_material.emissive = gfx.Color.from_physical(
+                    *material.emissiveFactor
                 )
 
-            if pbr_metallic_roughness.baseColorTexture is not None:
-                gfx_material.map = self._load_gltf_texture(
-                    pbr_metallic_roughness.baseColorTexture
+            if material.emissiveTexture is not None:
+                gfx_material.emissive_map = self._load_gltf_texture(
+                    material.emissiveTexture
                 )
-
-            if pbr_metallic_roughness.metallicRoughnessTexture is not None:
-                metallic_roughness_map = self._load_gltf_texture(
-                    pbr_metallic_roughness.metallicRoughnessTexture
-                )
-                gfx_material.roughness_map = metallic_roughness_map
-                gfx_material.metalness_map = metallic_roughness_map
-
-            if pbr_metallic_roughness.roughnessFactor is not None:
-                gfx_material.roughness = pbr_metallic_roughness.roughnessFactor
-            else:
-                gfx_material.roughness = 1.0
-
-            if pbr_metallic_roughness.metallicFactor is not None:
-                gfx_material.metalness = pbr_metallic_roughness.metallicFactor
-            else:
-                gfx_material.metalness = 1.0
-
-        if material.normalTexture is not None:
-            gfx_material.normal_map = self._load_gltf_texture(material.normalTexture)
-            scale_factor = material.normalTexture.scale
-            if scale_factor is None:
-                scale_factor = 1.0
-
-            # pygfx now assume the normal map is in tangent space, so we need to flip the y-axis.
-            # See: https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/NormalTangentTest#problem-flipped-y-axis-or-flipped-green-channel
-            # TODO: support object space normal map, and flip the y-axis when only in tangent space.(check if the tangent attribute in the mesh primitive)
-            gfx_material.normal_scale = (scale_factor, -scale_factor)
-
-        if material.occlusionTexture is not None:
-            gfx_material.ao_map = self._load_gltf_texture(material.occlusionTexture)
-
-        if material.emissiveFactor is not None:
-            gfx_material.emissive = gfx.Color.from_physical(*material.emissiveFactor)
-
-        if material.emissiveTexture is not None:
-            gfx_material.emissive_map = self._load_gltf_texture(
-                material.emissiveTexture
-            )
 
         # todo alphaMode
         # todo alphaCutoff
@@ -707,7 +735,7 @@ class _GLTF:
 
             if sampler.magFilter == 9728:
                 map.mag_filter = "nearest"
-            elif sampler.magFilter == 9729:
+            elif sampler.magFilter == 9729 or sampler.magFilter is None:
                 map.mag_filter = "linear"
 
             if sampler.minFilter == 9728:  # NEAREST
@@ -715,15 +743,21 @@ class _GLTF:
             elif sampler.minFilter == 9729:  # LINEAR
                 map.min_filter = "linear"
             elif sampler.minFilter == 9984:  # NEAREST_MIPMAP_NEAREST
+                texture._generate_mipmaps = True
                 map.min_filter = "nearest"
                 map.mipmap_filter = "nearest"
             elif sampler.minFilter == 9985:  # LINEAR_MIPMAP_NEAREST
+                texture._generate_mipmaps = True
                 map.min_filter = "linear"
                 map.mipmap_filter = "nearest"
             elif sampler.minFilter == 9986:  # NEAREST_MIPMAP_LINEAR
+                texture._generate_mipmaps = True
                 map.min_filter = "nearest"
                 map.mipmap_filter = "linear"
-            elif sampler.minFilter == 9987:  # LINEAR_MIPMAP_LINEAR
+            elif (
+                sampler.minFilter == 9987 or sampler.minFilter is None
+            ):  # LINEAR_MIPMAP_LINEAR
+                texture._generate_mipmaps = True
                 map.min_filter = "linear"
                 map.mipmap_filter = "linear"
 
@@ -1213,6 +1247,61 @@ class GLTFMaterialsIridescenceExtension(GLTFBaseMaterialsExtension):
             )
 
 
+class GLTFMaterialsAnisotropyExtension(GLTFBaseMaterialsExtension):
+    EXTENSION_NAME = "KHR_materials_anisotropy"
+
+    def extend_material(self, material_def, material):
+        if (
+            not material_def.extensions
+            or self.EXTENSION_NAME not in material_def.extensions
+        ):
+            return
+
+        extension = material_def.extensions[self.EXTENSION_NAME]
+
+        anisotropy_factor = extension.get("anisotropyStrength", None)
+        if anisotropy_factor is not None:
+            material.anisotropy = anisotropy_factor
+
+        anisotropy_rotation = extension.get("anisotropyRotation", None)
+        if anisotropy_rotation is not None:
+            material.anisotropy_rotation = anisotropy_rotation
+
+        anisotropy_texture = extension.get("anisotropyTexture", None)
+        if anisotropy_texture is not None:
+            material.anisotropy_map = self._load_texture(anisotropy_texture)
+
+
+class GLTFMaterialsSheenExtension(GLTFBaseMaterialsExtension):
+    EXTENSION_NAME = "KHR_materials_sheen"
+
+    def extend_material(self, material_def, material):
+        if (
+            not material_def.extensions
+            or self.EXTENSION_NAME not in material_def.extensions
+        ):
+            return
+
+        extension = material_def.extensions[self.EXTENSION_NAME]
+
+        sheen_color = extension.get("sheenColorFactor", None)
+        if sheen_color is not None:
+            material.sheen = 1.0
+            material.sheen_color = gfx.Color.from_physical(*sheen_color)
+
+        sheen_color_texture = extension.get("sheenColorTexture", None)
+        if sheen_color_texture is not None:
+            material.sheen_color_map = self._load_texture(sheen_color_texture)
+
+        sheen_roughness_factor = extension.get("sheenRoughnessFactor", None)
+        if sheen_roughness_factor is not None:
+            material.sheen_roughness = sheen_roughness_factor
+
+        sheen_roughness_texture = extension.get("sheenRoughnessTexture", None)
+        if sheen_roughness_texture is not None:
+            material.sheen_roughness_map = self._load_texture(sheen_roughness_texture)
+
+
 class GLTFMaterialsEmissiveStrengthExtension(GLTFBaseMaterialsExtension):
     EXTENSION_NAME = "KHR_materials_emissive_strength"
     MATERIAL_TYPE = None
@@ -1231,3 +1320,96 @@ class GLTFMaterialsEmissiveStrengthExtension(GLTFBaseMaterialsExtension):
         emissive_strength = extension.get("emissiveStrength", None)
         if emissive_strength is not None:
             material.emissive_intensity = emissive_strength
+
+
+class GLTFMaterialsUnlitExtension(GLTFBaseMaterialsExtension):
+    EXTENSION_NAME = "KHR_materials_unlit"
+    MATERIAL_TYPE = gfx.MeshBasicMaterial
+
+    def extend_material(self, material_def, material):
+        if (
+            not material_def.extensions
+            or self.EXTENSION_NAME not in material_def.extensions
+        ):
+            return
+
+        pbr_metallic_roughness = material_def.pbrMetallicRoughness
+        if pbr_metallic_roughness is not None:
+            if pbr_metallic_roughness.baseColorFactor is not None:
+                material.color = gfx.Color.from_physical(
+                    *pbr_metallic_roughness.baseColorFactor
+                )
+
+            if pbr_metallic_roughness.baseColorTexture is not None:
+                material.map = self.parser._load_gltf_texture(
+                    pbr_metallic_roughness.baseColorTexture
+                )
+
+
+class GLTFLightsExtension(GLTFExtension):
+    EXTENSION_NAME = "KHR_lights_punctual"
+
+    def create_node_attachment(self, node_index):
+        """
+        Create a light object and attach it to the node.
+        """
+        gltf = self.parser._gltf
+        node = gltf.model.nodes[node_index]
+        if node.extensions and self.EXTENSION_NAME in node.extensions:
+            extension = node.extensions[self.EXTENSION_NAME]
+            light_index = extension["light"]
+
+            light = self._load_light(light_index)
+
+            if light is not None:
+                self.parser.lights.append(light)
+
+            return light
+
+    @lru_cache(maxsize=None)
+    def _load_light(self, light_index):
+        gltf = self.parser._gltf
+
+        extensions = (gltf.model.extensions and gltf.model.extensions[self.name]) or {}
+        light_defs = extensions.get("lights", None)
+
+        if light_defs:
+            if light_index >= len(light_defs):
+                return None
+
+            light_info = light_defs[light_index]
+
+            color = light_info.get("color", [1, 1, 1])
+            light_color = gfx.Color.from_physical(*color)
+            light_range = light_info.get("range", 0)
+            intensity = light_info.get("intensity", 1.0)
+
+            light_type = light_info["type"]
+
+            if light_type == "directional":
+                light = gfx.DirectionalLight(color=light_color, intensity=intensity)
+                light.target.local.position = (0, 0, -1)
+                light.add(light.target)
+            elif light_type == "point":
+                light = gfx.PointLight(color=light_color, intensity=intensity)
+                light.distance = light_range
+            elif light_type == "spot":
+                light = gfx.SpotLight(color=light_color, intensity=intensity)
+                light.distance = light_range
+
+                if "spot" in light_info:
+                    spot = light_info["spot"]
+                    inner_cone_angle = spot.get("innerConeAngle", 0)
+                    outer_cone_angle = spot.get("innerConeAngle", np.pi / 4)
+                    light.angle = outer_cone_angle
+                    light.penumbra = 1.0 - (inner_cone_angle / outer_cone_angle)
+                    light.target.local.position = (0, 0, -1)
+                    light.add(light.target)
+
+            else:
+                raise ValueError(f"Unsupported light type: {light_info.type}")
+
+            light.local.position = (0, 0, 0)
+            light.name = light_info.get("name", f"light_{light_index}")
+
+            return light

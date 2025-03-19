@@ -3,9 +3,9 @@ from math import floor, ceil, log10
 import numpy as np
 
 from ._base import WorldObject
-from ._more import Line, Points, Text
+from ._more import Line, Points
+from ._text import MultiText
 from ..resources import Buffer
-from ..geometries import Geometry, TextGeometry
 from ..materials import LineMaterial, PointsMaterial, TextMaterial
 from ..utils.compgeo import get_visible_part_of_line_ndc
 
@@ -45,18 +45,16 @@ class Ruler(WorldObject):
         self.min_tick_distance = min_tick_distance
         self.ticks_at_end_points = ticks_at_end_points
 
-        # Create a line and poins object, with a shared geometry
-        geometry = Geometry(
-            positions=np.zeros((1, 3), np.float32),
-            sizes=np.zeros((1,), np.float32),
-        )
+        # Create a line and points object, with a shared geometry
+        self._text = MultiText(material=TextMaterial(), screen_space=True)
+        geometry = self._text.geometry  # has .positions buffer
+        geometry.sizes = Buffer(np.zeros(geometry.positions.nitems, "f4"))
         self._line = Line(geometry, LineMaterial(color="w", thickness=2))
         self._points = Points(geometry, PointsMaterial(color="w", size_mode="vertex"))
-        self.add(self._line, self._points)
-        self._text_object_pool = []
+
+        self.add(self._line, self._points, self._text)
 
         # todo: a material to draw proper tick marks
-        # todo: Text object that draws each line at a position from geometry
 
     # -- Properties to easily access sub-objects
 
@@ -69,6 +67,11 @@ class Ruler(WorldObject):
     def points(self):
         """The points object that shows the ruler's tickmarks."""
         return self._points
+
+    @property
+    def text(self):
+        """The text object that shows the ruler's tick labels."""
+        return self._text
 
     # Note: text should also be here eventually
 
@@ -421,7 +424,6 @@ class Ruler(WorldObject):
         assert isinstance(ticks, dict)
 
         tick_size = 5
-        min_n_slots = 8  # todo: can be (much) higher when we use a single text object!
 
         # Load config
         start_pos = self._start_pos
@@ -435,50 +437,38 @@ class Ruler(WorldObject):
         if length:
             vec /= length
 
-        # Get array to store positions
-        n_slots = self.points.geometry.positions.nitems
+        # Get number of positions that we need
         n_positions = len(ticks) + 2
-        if n_positions <= n_slots <= max(min_n_slots, 2 * n_positions):
-            # Re-use existing buffers
-            positions = self.points.geometry.positions.data
-            sizes = self.points.geometry.sizes.data
-            self.points.geometry.positions.update_full()
-            self.points.geometry.sizes.update_full()
-        else:
-            # Allocate new buffers
-            new_n_slots = max(min_n_slots, int(n_positions * 1.2))
-            positions = np.zeros((new_n_slots, 3), np.float32)
-            sizes = np.zeros((new_n_slots,), np.float32)
-            self.points.geometry.positions = Buffer(positions, force_contiguous=True)
-            self.points.geometry.sizes = Buffer(sizes, force_contiguous=True)
-            # Allocate text objects
-            while len(self._text_object_pool) < new_n_slots:
-                ob = Text(
-                    TextGeometry("", screen_space=True),
-                    TextMaterial(),
-                )
-                self._text_object_pool.append(ob)
-            self._text_object_pool[new_n_slots:] = []
-            # Reset children
-            self.clear()
-            self.add(self._line, self._points, *self._text_object_pool)
 
-        def define_text(pos, text):
-            ob = self._text_object_pool[index]
-            ob.geometry.anchor = self._text_anchor
-            ob.geometry.anchor_offset = self._text_anchor_offset
-            ob.geometry.set_text(text)
-            ob.local.position = pos
+        # Apply anchor props
+        if self._text._anchor != self._text_anchor:
+            self._text.anchor = self._text_anchor
+        if self._text._anchor_offset != self._text_anchor_offset:
+            self._text.anchor_offset = self._text_anchor_offset
+
+        # Get the geometry to provide us with enough slots. Keep sizes array in sync
+        self._text.set_text_block_count(n_positions)
+        positions_buffer = self._text.geometry.positions
+        sizes_buffer = self._text.geometry.sizes
+        if sizes_buffer.nitems != positions_buffer.nitems:
+            sizes_buffer = self._text.geometry.sizes = Buffer(
+                np.zeros(positions_buffer.nitems, "f4")
+            )
+
+        # Get arrays / list that we can write to
+        positions = positions_buffer.data
+        sizes = sizes_buffer.data
+        text_blocks = self._text._text_blocks
 
         # Apply start point
         index = 0
-        positions[0] = start_pos
+        positions[index] = start_pos
         if self._ticks_at_end_points:
-            sizes[0] = tick_size
-            define_text(start_pos, f"{self._start_value:0.4g}")
+            sizes[index] = tick_size
+            text_blocks[index].set_text(f"{self._start_value:0.4g}")
         else:
-            sizes[0] = 0
-            define_text(start_pos, "")
+            sizes[index] = 0
+            text_blocks[index].set_text("")
 
         # Collect ticks
         index += 1
@@ -486,27 +476,34 @@ class Ruler(WorldObject):
             pos = start_pos + vec * (value - start_value)
             positions[index] = pos
             sizes[index] = tick_size
-            define_text(pos, text)
+            text_blocks[index].set_text(text)
             index += 1
 
-        # Handle end point, and nullify remaining slots
-        positions[index:] = end_pos
-        sizes[index:] = 0
-        for ob in self._text_object_pool[index:]:
-            ob.geometry.set_text("")
-
-        # Show last tick?
+        # Apply end point
+        positions[index] = end_pos
         if self._ticks_at_end_points:
             sizes[index] = tick_size
-            define_text(end_pos, f"{end_value:0.4g}")
+            text_blocks[index].set_text(f"{end_value:0.4g}")
+        else:
+            sizes[index] = 0
+            text_blocks[index].set_text("")
 
         # Hide the ticks close to the ends?
         if self._ticks_at_end_points and ticks:
             tick_values = list(ticks.keys())
             if abs(tick_values[0] - start_value) < 0.5 * tick_auto_step:
-                self._text_object_pool[1].geometry.set_text("")
+                text_blocks[1].set_text("")
             if abs(tick_values[-1] - end_value) < 0.5 * tick_auto_step:
-                self._text_object_pool[index - 1].geometry.set_text("")
+                text_blocks[index - 1].set_text("")
+
+        # Make sure that the subset is drawn, and that the buffers are synced
+        positions[n_positions:] = (
+            np.nan
+        )  # prevent a partial join to be drawn in the line
+        if positions_buffer.draw_range[1] != n_positions:
+            positions_buffer.draw_range = 0, n_positions
+        positions_buffer.update_full()
+        sizes_buffer.update_full()
 
 
 # ---- Helper functions

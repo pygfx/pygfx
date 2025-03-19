@@ -19,14 +19,12 @@ scene = gfx.Scene()
 scene.add(gfx.Background.from_color("#fff", "#000"))
 
 text = gfx.Text(
-    gfx.TextGeometry(
-        text="Hello world",
-        font_size=100,
-        screen_space=True,
-        text_align="right",
-        anchor="center",
-    ),
-    gfx.TextMaterial(
+    text="Hello world",
+    font_size=100,
+    screen_space=True,
+    text_align="right",
+    anchor="middle-center",
+    material=gfx.TextMaterial(
         color="#DA9DFF",
         outline_color="#000",
         # Choose a very thick outline to ensure the effect is noticeable

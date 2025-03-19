@@ -1025,7 +1025,7 @@ class MeshStandardMaterial(MeshBasicMaterial):
         # mipmap technique is needed: PMREM (Prefiltered Mipmap Radiance
         # Environment Maps). We could (I think) add this technique in addition
         # to our normal mipmapping.
-        return self._env_map
+        return self._store.env_map
 
     @env_map.setter
     def env_map(self, map):
@@ -1033,7 +1033,8 @@ class MeshStandardMaterial(MeshBasicMaterial):
         if isinstance(map, Texture):
             map = TextureMap(map)
 
-        self._env_map = map
+        self._store.env_map = map
+
         if map is None:
             self.uniform_buffer.data["env_map_max_mip_level"] = 0
         else:
@@ -1072,6 +1073,10 @@ class MeshPhysicalMaterial(MeshStandardMaterial):
     - **Iridescence:** Allows to render the effect where hue varies depending on the viewing angle and
     illumination angle. This can be seen on soap bubbles, oil films, or on the wings of many insects.
 
+    - **Anisotropy:** Ability to represent the anisotropic property of materials as observable with brushed metals.
+
+    - **Sheen:** A soft, satin-like sheen on the surface, simulating the effect of a thin layer of fabric or a soft coating.
+
 
     Parameters
     ----------
@@ -1097,6 +1102,19 @@ class MeshPhysicalMaterial(MeshStandardMaterial):
         Default is 1.3.
     iridescence_thickness_range : tuple
         The range of thickness for the iridescence effect, in nanometers. Default is (100, 400).
+    anisotropy : float
+        The anisotropy strength. Default is 0.0.
+    anisotropy_rotation : float
+        The rotation of the anisotropy in tangent, bitangent space, measured in radians counter-clockwise from the tangent.
+        Default is 0.0.
+    sheen : float
+        The intensity of the sheen layer, simulating a soft, satin-like sheen on the surface.
+        Default is 0.0.
+    sheen_roughness : float
+        The roughness of the sheen layer. from 0.0 to 1.0.
+        Default is 1.0.
+    sheen_color : Color
+        The color of the sheen effect. Default is (0, 0, 0).
 
     kwargs : Any
         Additional kwargs will be passed to the :class:`base class
@@ -1105,7 +1123,6 @@ class MeshPhysicalMaterial(MeshStandardMaterial):
     """
 
     # todo:
-    # - Anisotropy
     # - Physically-based transparency
     # - Sheen
     #
@@ -1121,6 +1138,10 @@ class MeshPhysicalMaterial(MeshStandardMaterial):
         iridescence="f4",
         iridescence_ior="f4",
         iridescence_thickness_range="2xf4",
+        anisotropy_vector="2xf4",
+        sheen="f4",
+        sheen_color="4xf4",
+        sheen_roughness="f4",
     )
 
     def __init__(
@@ -1141,6 +1162,14 @@ class MeshPhysicalMaterial(MeshStandardMaterial):
         iridescence_ior=1.3,
         iridescence_thickness_range=(100, 400),
         iridescence_thickness_map=None,
+        anisotropy=0.0,
+        anisotropy_map=None,
+        anisotropy_rotation=0.0,
+        sheen=0.0,
+        sheen_roughness=1.0,
+        sheen_roughness_map=None,
+        sheen_color=(0, 0, 0),
+        sheen_color_map=None,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -1149,6 +1178,7 @@ class MeshPhysicalMaterial(MeshStandardMaterial):
         self.specular_map = specular_map
         self.specular_intensity = specular_intensity
         self.specular_intensity_map = specular_intensity_map
+
         self.clearcoat = clearcoat
         self.clearcoat_map = clearcoat_map
         self.clearcoat_normal_map = clearcoat_normal_map
@@ -1161,6 +1191,17 @@ class MeshPhysicalMaterial(MeshStandardMaterial):
         self.iridescence_ior = iridescence_ior
         self.iridescence_thickness_range = iridescence_thickness_range
         self.iridescence_thickness_map = iridescence_thickness_map
+
+        self._anisotropy = anisotropy
+        self._anisotropy_rotation = anisotropy_rotation
+        self._update_anisotropy_vector()
+        self.anisotropy_map = anisotropy_map
+
+        self.sheen = sheen
+        self.sheen_roughness = sheen_roughness
+        self.sheen_roughness_map = sheen_roughness_map
+        self.sheen_color = sheen_color
+        self.sheen_color_map = sheen_color_map
 
     @property
     def ior(self):
@@ -1346,3 +1387,103 @@ class MeshPhysicalMaterial(MeshStandardMaterial):
         if isinstance(map, Texture):
             map = TextureMap(map)
         self._store.iridescence_thickness_map = map
+
+    @property
+    def anisotropy(self):
+        """The anisotropy strength of the material. Default is 0.0."""
+        return self._anisotropy
+
+    @anisotropy.setter
+    def anisotropy(self, value):
+        self._anisotropy = value
+        self._update_anisotropy_vector()
+
+    @property
+    def anisotropy_rotation(self):
+        """The rotation of the anisotropy in tangent, bitangent space, measured in radians counter-clockwise from the tangent.
+        Default is 0.0."""
+        return self._anisotropy_rotation
+
+    @anisotropy_rotation.setter
+    def anisotropy_rotation(self, value):
+        self._anisotropy_rotation = value
+        self._update_anisotropy_vector()
+
+    def _update_anisotropy_vector(self):
+        self.uniform_buffer.data["anisotropy_vector"] = (
+            math.cos(self._anisotropy_rotation) * self._anisotropy,
+            math.sin(self._anisotropy_rotation) * self._anisotropy,
+        )
+        self.uniform_buffer.update_full()
+
+    @property
+    def anisotropy_map(self):
+        """The anisotropy map is used to define the anisotropy direction and strength.
+        Red and green channels represent the anisotropy direction in [-1, 1] tangent, bitangent space, to be rotated by `.anisotropy_rotation`.
+        The blue channel contains strength as [0, 1] to be multiplied by `.anisotropy`.
+        """
+        return self._store.anisotropy_map
+
+    @anisotropy_map.setter
+    def anisotropy_map(self, map):
+        assert_type("anisotropy_map", map, None, Texture, TextureMap)
+        if isinstance(map, Texture):
+            map = TextureMap(map)
+        self._store.anisotropy_map = map
+
+    @property
+    def sheen(self):
+        """The intensity of the sheen layer, from 0.0 to 1.0. Default is 0.0"""
+        return float(self.uniform_buffer.data["sheen"])
+
+    @sheen.setter
+    def sheen(self, value):
+        self.uniform_buffer.data["sheen"] = value
+        self.uniform_buffer.update_full()
+
+    @property
+    def sheen_roughness(self):
+        """Roughness of the sheen layer, from 0.0 to 1.0. Default is 1.0."""
+        return float(self.uniform_buffer.data["sheen_roughness"])
+
+    @sheen_roughness.setter
+    def sheen_roughness(self, value):
+        self.uniform_buffer.data["sheen_roughness"] = value
+        self.uniform_buffer.update_full()
+
+    @property
+    def sheen_roughness_map(self):
+        """The alpha channel of this texture is multiplied against .sheenRoughness, for per-pixel control over sheen roughness.
+        Default is None."""
+        return self._store.sheen_roughness_map
+
+    @sheen_roughness_map.setter
+    def sheen_roughness_map(self, map):
+        assert_type("sheen_roughness_map", map, None, Texture, TextureMap)
+        if isinstance(map, Texture):
+            map = TextureMap(map)
+        self._store.sheen_roughness_map = map
+
+    @property
+    def sheen_color(self):
+        """The sheen tint. Default is (0, 0, 0), black."""
+        return Color(self.uniform_buffer.data["sheen_color"])
+
+    @sheen_color.setter
+    def sheen_color(self, color):
+        color = Color(color)
+        self.uniform_buffer.data["sheen_color"] = color
+        self.uniform_buffer.update_full()
+
+    @property
+    def sheen_color_map(self):
+        """The RGB channels of this texture are multiplied against .sheenColor, for per-pixel control over sheen tint.
+        Default is None."""
+        return self._store.sheen_color_map
+
+    @sheen_color_map.setter
+    def sheen_color_map(self, map):
+        assert_type("sheen_color_map", map, None, Texture, TextureMap)
+        if isinstance(map, Texture):
+            map = TextureMap(map)
+        self._store.sheen_color_map = map

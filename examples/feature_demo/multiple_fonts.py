@@ -17,29 +17,27 @@ from datetime import datetime
 now = datetime.now()
 text = now.strftime("%H:%M:%S")
 
+material = gfx.TextMaterial(
+    color="#B4F8C8", outline_color="#000", outline_thickness=0.15
+)
+
 text_noto = gfx.Text(
-    gfx.TextGeometry(
-        text="Noto Sans: " + text,
-        # family="Noto Sans",
-    ),
-    gfx.TextMaterial(color="#B4F8C8", outline_color="#000", outline_thickness=0.15),
+    text="Noto Sans: " + text,
+    # family="Noto Sans",
+    material=material,
 )
 text_noto.local.position = (0, -40, 0)
 
 text_humor = gfx.Text(
-    gfx.TextGeometry(
-        text="Humor Sans: " + text,
-        family="Humor Sans",
-    ),
-    gfx.TextMaterial(color="#B4F8C8", outline_color="#000", outline_thickness=0.15),
+    text="Humor Sans: " + text,
+    family="Humor Sans",
+    material=material,
 )
 text_humor.local.position = (0, 0, 0)
 
 text_instructions = gfx.Text(
-    gfx.TextGeometry(
-        text="Click to update the clock",
-    ),
-    gfx.TextMaterial(color="#B4F8C8", outline_color="#000", outline_thickness=0.15),
+    text="Click to update the clock",
+    material=material,
 )
 text_instructions.local.position = (0, 40, 0)
 
@@ -53,8 +51,8 @@ renderer = gfx.renderers.WgpuRenderer(WgpuCanvas(size=(800, 600)))
 def change_text(event):
     now = datetime.now()
     text = now.strftime("%H:%M:%S")
-    text_noto.geometry.set_text("Noto Sans: " + text)
-    text_humor.geometry.set_text("Humor Sans: " + text, family="Humor Sans")
+    text_noto.set_text("Noto Sans: " + text)
+    text_humor.set_text("Humor Sans: " + text)
     renderer.request_draw()
 
 

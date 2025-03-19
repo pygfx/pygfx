@@ -19,15 +19,9 @@ from .templating import apply_templating
 
 
 class ShaderInterface:
-    """Define what a shader object must look like from the pov from the pipeline."""
+    """Define what a shader object must look like from the pov of the pipeline."""
 
     def __init__(self):
-        self._hash = None
-
-    def lock_hash(self):
-        self._hash = self._get_hash()
-
-    def unlock_hash(self):
         self._hash = None
 
     @property
@@ -41,10 +35,10 @@ class ShaderInterface:
     def _get_hash(self):
         raise NotImplementedError()
 
-    def generate_wgsl(self, **kwargs):
+    def generate_wgsl(self, **template_vars):
         raise NotImplementedError()
 
-    def get_bindings(self, wobject, shared):
+    def get_bindings_info(self, wobject, shared):
         """Subclasses must return a dict describing the buffers and
         textures used by this shader.
 
@@ -88,23 +82,26 @@ class ShaderInterface:
 class BaseShader(ShaderInterface):
     """Base shader object to compose and template shaders using jinja2.
 
-    Templating variables can be provided as kwargs, set (and get) as attributes,
-    or passed as kwargs to ``generate_wgsl()``.
+    Templating variables can be passed kwargs, set(and get) as attributes, or passed as kwargs to ``generate_wgsl()``.
+    They should only be set in __init__() and get_bindings_info().
+
+    The template variables affect the hash. After `pipeline.py` calls get_bindings_info(), it checks
+    the hash to see if the shader has changed, and recompiles the wgsl if it has.
     """
 
     type = "render"  # must be "compute" or "render"
     needs_bake_function = False
 
-    def __init__(self, wobject, **kwargs):
+    def __init__(self, wobject, **template_vars):
         super().__init__()
 
-        # The shader kwargs
-        self.kwargs = kwargs
+        # The shader templating variables
+        self._template_vars_init = {}
+        self._template_vars_init.update(template_vars)
+        self._template_vars_bindings = {}
 
-        # The stored hash. If set, the hash is locked, and kwargs cannot
-        # be set. This is to prevent the shader implementations setting
-        # shader kwargs *after* the pipeline has obtained the hash.
-        self._hash = None
+        # Start off with the current dict set. This is reset when get_bindings_info() gets called.
+        self._template_vars_current = self._template_vars_init
 
         # Handling binding definitions is handled by a wrapped object.
         self._binding_definitions = BindingDefinitions()
@@ -118,24 +115,27 @@ class BaseShader(ShaderInterface):
         self["colormap_dim"] = None
 
     def __setitem__(self, key, value):
-        if hasattr(self.__class__, key):
-            msg = f"Templating variable {key} causes name clash with class attribute."
-            raise KeyError(msg)
-        if self._hash is not None:
+        if self._template_vars_current is None:
             raise RuntimeError(
-                "Shader is trying to set shaders kwargs while they're locked."
+                "Attempt to set template variable outside of _init() or _get_bindings()."
             )
-        self.kwargs[key] = value
+        self._template_vars_current[key] = value
 
     def __getitem__(self, key):
-        return self.kwargs[key]
+        try:
+            return self._template_vars_bindings[key]
+        except KeyError:
+            return self._template_vars_init[key]
 
     def _get_hash(self):
+        # Getting the hash also locks template var setting
+        self._template_vars_current = None
+
         # The full name of this shader class.
         fullname = self.__class__.__module__ + "." + self.__class__.__name__
 
         # If we assume that the shader class produces the same code for
-        # a specific set of kwargs, we can use the fullname in the hash
+        # a specific set of template-vars, we can use the fullname in the hash
         # instead of the actual code. This assumption is valid in
         # general, but can break down in a few specific situations, the
         # most common one being an interactive session. In this case,
@@ -148,15 +148,46 @@ class BaseShader(ShaderInterface):
         name_probably_defines_code = fullname.count(".") >= 2
 
         if name_probably_defines_code:
-            # Faster, but assumes that the produced code only depends on kwargs.
+            # Faster, but assumes that the produced code only depends on template-vars.
             return hash_from_value(
-                [fullname, self._binding_definitions.get_code(), self.kwargs]
+                [
+                    fullname,
+                    self._binding_definitions.get_code(),
+                    self._template_vars_init,
+                    self._template_vars_bindings,
+                ]
             )
         else:
             # More reliable (e.g. in an interactive session).
             return hash_from_value(
-                [self._binding_definitions.get_code(), self.get_code(), self.kwargs]
+                [
+                    self._binding_definitions.get_code(),
+                    self.get_code(),
+                    self._template_vars_init,
+                    self._template_vars_bindings,
+                ]
             )
+
+    def get_bindings_info(self, wobject, shared):
+        # We assume that in normal usage (by the pipeline.py logic),
+        # this method is called first after initialization,
+        # which means that we can handle the _template_vars_current here.
+        self._template_vars_current = self._template_vars_bindings
+
+        # Clear the binding-based template variables, and the binding definitions, so that when get_bindings()
+        # not-sets a variable (which was previously set), this affects the hash and is detected.
+        self._template_vars_bindings.clear()
+        self._binding_definitions.clear()
+
+        try:
+            return self.get_bindings(wobject, shared)
+        finally:
+            self._template_vars_current = None
+            self._hash = None  # template vars my have changed, so force a recalculation
+
+    def get_bindings(self, wobject, shared):
+        # Default implementation returns zero bindings
+        return {0: {}}
 
     def get_code(self):
         """Implement this to compose the total (but still templated)
@@ -164,34 +195,41 @@ class BaseShader(ShaderInterface):
         """
         raise NotImplementedError()
 
-    def generate_wgsl(self, **kwargs):
+    def generate_wgsl(self, **more_template_vars):
         """Generate the final WGSL. Calls get_code() and then resolves
         the templating variables, varyings, and depth output.
         """
 
         # Compose shader variables
-        shader_kwargs = {}
-        shader_kwargs.update(self.kwargs)
-        shader_kwargs.update(kwargs)
-        shader_kwargs["bindings_code"] = self._binding_definitions.get_code()
+        template_vars = {}
+        template_vars.update(self._template_vars_init)
+        template_vars.update(self._template_vars_bindings)
+        template_vars.update(more_template_vars)
+        template_vars["bindings_code"] = self._binding_definitions.get_code()
 
-        # If shader kwargs are used in ``get_code()``, make sure its correct.
-        ori_kwargs, self.kwargs = self.kwargs, shader_kwargs
+        # If template variables are used in ``get_code()``, make sure its correct.
+        ori_template_vars, self._template_vars_bindings = (
+            self._template_vars_bindings,
+            template_vars,
+        )
 
         try:
             # Obtain base code
             code1 = self.get_code()
             # Templating and resolving includes
-            code2 = apply_templating(code1, **shader_kwargs)
+            code2 = apply_templating(code1, **template_vars)
             # Auto-insert varyings struct, and Tweak FragmentOutput if depth is set in frag shader.
             code3 = resolve_varyings(code2)
             code3 = resolve_depth_output(code3)
             return code3
         finally:
-            self.kwargs = ori_kwargs
+            self._template_vars_bindings = ori_template_vars
 
     def define_bindings(self, bindgroup, bindings_dict):
         """Define a collection of bindings organized in a dict."""
+        if self._template_vars_current is not self._template_vars_bindings:
+            raise RuntimeError("define_bindings can only be used from get_bindings")
+
         for index, binding in bindings_dict.items():
             self._binding_definitions.define_binding(bindgroup, index, binding)
 
@@ -201,20 +239,22 @@ class BaseShader(ShaderInterface):
         The binding must be a Binding object. The code that defines the binding
         will be inserted in ``pygfx.std.wgsl``.
         """
+        if self._template_vars_current is not self._template_vars_bindings:
+            raise RuntimeError("define_bindings can only be used from get_bindings")
+
         self._binding_definitions.define_binding(bindgroup, index, binding)
 
     # ----- Colormap stuff
 
-    def define_colormap(self, map, texcoords):
+    def define_generic_colormap(self, map, texcoords):
         """Define the given texture as the colormap to be used to
-        lookup the final color from the (per-vertex or per-face) texcoords.
-        In the WGSL the colormap can be sampled using ``sample_colormap()``.
+        lookup the final color from the (per-vertex or per-face) texcoords. In
+        the WGSL the colormap can be sampled using ``sample_colormap()``.
         Returns a list of bindings.
-        """
 
-        self["colormap_interpolation"] = (
-            map.mag_filter
-        )  # todo: remove colormap_interpolation?
+        For colormaps in mesh, line, points. Supports 1D/2D/3D
+        textures, different texture formats.
+        """
 
         filter_mode = f"{map.mag_filter}, {map.min_filter}, {map.mipmap_filter}"
         address_mode = f"{map.wrap_s}, {map.wrap_t}"
@@ -245,10 +285,6 @@ class BaseShader(ShaderInterface):
         In the WGSL the colormap can be sampled using ``sample_colormap()``.
         Returns a list of bindings.
         """
-
-        self["colormap_interpolation"] = (
-            map.mag_filter
-        )  # todo: remove colormap_interpolation?
 
         filter_mode = f"{map.mag_filter}, {map.min_filter}, {map.mipmap_filter}"
         address_mode = f"{map.wrap_s}, {map.wrap_t}"

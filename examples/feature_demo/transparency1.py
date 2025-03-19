@@ -37,9 +37,10 @@ scene.add(background, plane1, plane2, plane3)
 camera = gfx.OrthographicCamera(100, 100)
 
 scene_overlay = gfx.Scene()
-blending_text = gfx.Text(
-    gfx.TextGeometry(f"Blending: {plane1.material.blending}", anchor="bottom-left"),
-    gfx.TextMaterial(outline_thickness=0.3),
+blend_mode_text = gfx.Text(
+    text=f"Blend mode: {plane1.material.blending}",
+    anchor="bottom-left",
+    material=gfx.TextMaterial(outline_thickness=0.3),
 )
 scene_overlay.add(blending_text)
 
@@ -68,7 +69,7 @@ def handle_event(event):
         for plane in plane1, plane2, plane3:
             plane.material.blending = blending
         print("Selecting blending", blending)
-        blending_text.geometry.set_text(f"Blending: {blending}")
+        blend_mode_text.set_text(f"Blend mode: {blending}")
 
 
 def animate():

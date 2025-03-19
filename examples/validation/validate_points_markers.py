@@ -48,7 +48,13 @@ npoints = len(colors)
 
 positions = np.zeros((npoints, 3), np.float32)
 positions[:, 0] = np.arange(npoints) * 2
-geometry = gfx.Geometry(positions=positions, colors=colors, edge_colors=edge_colors)
+rotations = np.arange(npoints, dtype=np.float32) / npoints * np.pi * 2
+geometry = gfx.Geometry(
+    positions=positions,
+    colors=colors,
+    edge_colors=edge_colors,
+    rotations=rotations,
+)
 
 
 scene = gfx.Scene()
@@ -118,31 +124,37 @@ pygfx_sdf = """
 
 y = 0
 text = gfx.Text(
-    gfx.TextGeometry("centered", anchor="middle-middle", font_size=1),
-    gfx.TextMaterial("#000"),
+    text="centered",
+    anchor="middle-center",
+    font_size=1,
+    material=gfx.TextMaterial("#000"),
 )
 text.local.y = y
 text.local.x = npoints
 scene.add(text)
 
 text = gfx.Text(
-    gfx.TextGeometry("inner", anchor="middle-middle", font_size=1),
-    gfx.TextMaterial("#000"),
+    text="inner",
+    anchor="middle-center",
+    font_size=1,
+    material=gfx.TextMaterial("#000"),
 )
 text.local.y = y
 text.local.x = 2 * npoints + npoints
 scene.add(text)
 
 text = gfx.Text(
-    gfx.TextGeometry("outer", anchor="middle-middle", font_size=1),
-    gfx.TextMaterial("#000"),
+    text="outer",
+    anchor="middle-center",
+    font_size=1,
+    material=gfx.TextMaterial("#000"),
 )
 text.local.y = y
 text.local.x = 4 * npoints + npoints
 scene.add(text)
 
 all_lines = []
-for marker in gfx.MarkerShape:
+for i, marker in enumerate(gfx.MarkerShape):
     y += 2
     line = gfx.Points(
         geometry,
@@ -194,6 +206,11 @@ for marker in gfx.MarkerShape:
             marker=marker,
             edge_width=0.1 if not marker == "custom" else 0.033333,
             edge_mode="outer",
+            # We use the pin to validate the rotation since it looks like an
+            # arrow
+            rotation=i * np.pi / 12 if marker != "pin" else np.pi / 4,
+            # If your heart is broken, it won't be upright!!!!
+            rotation_mode="uniform" if marker != "heart" else "vertex",
             custom_sdf=pygfx_sdf if marker == "custom" else None,
         ),
     )
@@ -205,8 +222,10 @@ for marker in gfx.MarkerShape:
     all_lines.append(line_outer)
 
     text = gfx.Text(
-        gfx.TextGeometry(marker, anchor="middle-right", font_size=1),
-        gfx.TextMaterial("#000"),
+        text=marker,
+        anchor="middle-right",
+        font_size=1,
+        material=gfx.TextMaterial("#000"),
     )
     text.local.y = -y
     text.local.x = 0
@@ -239,6 +258,18 @@ def handle_event(event):
         for line in all_lines:
             line.material.edge_width *= 1.1
         print(f"edge_width {line.material.edge_width}")
+    elif event.key == "r":
+        for line in all_lines:
+            line.material.rotation += np.pi / 12
+        geometry.rotations.data[...] += np.pi / 12
+        geometry.rotations.update_full()
+        print(f"rotation {line.material.rotation}")
+    elif event.key == "R":
+        for line in all_lines:
+            line.material.rotation -= np.pi / 12
+        geometry.rotations.data[...] -= np.pi / 12
+        geometry.rotations.update_full()
+        print(f"rotation {line.material.rotation}")
 
     canvas.update()
 

@@ -2,7 +2,7 @@ import gc
 import time
 import weakref
 
-from pygfx.utils.trackable import Trackable, PropTracker
+from pygfx.utils.trackable import Trackable, Store, PropTracker
 
 # ruff: noqa: B018 - in these tests we access values for their side-effect
 
@@ -604,6 +604,98 @@ def test_track_trackables2():
     tree2 = MyTrackable()
     tree1.sub1 = t1 = MyTrackable()
     tree2.sub1 = t2 = MyTrackable()
+
+    tree1.sub1.foo = tree2.sub1.foo = 42
+
+    root.sub1 = tree1
+
+    with root.track_usage("format"):
+        root.sub1.sub1.foo
+
+    with root.track_usage("!resources"):
+        root.sub1.sub1
+
+    t1.foo = 43
+    assert root.pop_changed() == {"format"}
+
+    root.sub1 = tree2
+    assert root.pop_changed() == {"format", "resources"}
+
+    t2.foo = 43
+    assert root.pop_changed() == {"format"}
+
+    root.sub1 = tree1
+    assert root.pop_changed() == {"resources"}
+
+
+def test_track_substore0():
+    # This represents tracking the resource objects themselves - without "!"
+
+    root = MyRootTrackable()
+    t1 = Store()
+    t2 = Store()
+
+    t1.foo = t2.foo = 42
+
+    root.sub1 = t1
+
+    with root.track_usage("format"):
+        root.sub1.foo
+
+    with root.track_usage("resources"):
+        root.sub1
+
+    t1.foo = 43
+    assert root.pop_changed() == {"format"}
+
+    root.sub1 = t2
+    assert root.pop_changed() == {"format"}  # no resources
+
+    t2.foo = 43
+    assert root.pop_changed() == {"format"}
+
+    root.sub1 = t1
+    assert root.pop_changed() == set()  # no resources
+
+
+def test_track_substore1():
+    # This represents tracking the resource objects themselves - with "!"
+
+    root = MyRootTrackable()
+    t1 = Store()
+    t2 = Store()
+
+    t1.foo = t2.foo = 42
+
+    root.sub1 = t1
+
+    with root.track_usage("format"):
+        root.sub1.foo
+
+    with root.track_usage("!resources"):
+        root.sub1
+
+    t1.foo = 43
+    assert root.pop_changed() == {"format"}
+
+    root.sub1 = t2
+    assert root.pop_changed() == {"format", "resources"}
+
+    t2.foo = 43
+    assert root.pop_changed() == {"format"}
+
+    root.sub1 = t1
+    assert root.pop_changed() == {"resources"}
+
+
+def test_track_substore2():
+    # This represents tracking the resource objects themselves - deeper
+
+    root = MyRootTrackable()
+    tree1 = Store()
+    tree2 = Store()
+    tree1.sub1 = t1 = Store()
+    tree2.sub1 = t2 = Store()
 
     tree1.sub1.foo = tree2.sub1.foo = 42
 

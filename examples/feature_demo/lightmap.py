@@ -63,10 +63,7 @@ def create_scene(material, x_pos):
     mesh.local.scale = 100
     scene.add(mesh)
 
-    t = gfx.Text(
-        gfx.TextGeometry(material.__class__.__name__, screen_space=True, font_size=20),
-        gfx.TextMaterial(),
-    )
+    t = gfx.Text(text=material.__class__.__name__, screen_space=True, font_size=20)
     t.local.position = (x_pos, 1.5, 0)
     text_scene.add(t)
 
