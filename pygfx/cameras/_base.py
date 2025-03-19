@@ -10,7 +10,7 @@ from ..utils.transform import cached
 class Camera(WorldObject):
     """Abstract base camera.
 
-    Camera's are world objects and be placed in the scene, but this is not required.
+    Camera's are world objects and can be placed in the scene, but this is not required.
 
     The purpose of a camera is to define the viewpoint for rendering a scene.
     This viewpoint consists of its position and orientation (in the world) and
