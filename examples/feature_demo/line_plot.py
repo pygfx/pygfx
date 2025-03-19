@@ -49,7 +49,7 @@ line = gfx.Line(
 scene.add(background, grid, rulerx, rulery, line)
 
 camera = gfx.OrthographicCamera(maintain_aspect=False)
-camera.show_rect(-100, 1100, -5, 5)
+camera.show_object(scene, match_aspect=True, scale=1.1)
 
 controller = gfx.PanZoomController(camera, register_events=renderer)
 

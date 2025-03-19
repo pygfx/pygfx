@@ -18,6 +18,7 @@ cube = gfx.Mesh(
     gfx.box_geometry(200, 200, 200),
     gfx.MeshPhongMaterial(color="#336699"),
 )
+cube.local.scale_z = 3
 
 
 def animate():

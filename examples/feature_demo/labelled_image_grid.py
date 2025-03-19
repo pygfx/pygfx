@@ -91,7 +91,7 @@ for position in np.ndindex(grid_shape):
     add_image(img, position)
 
 camera = gfx.PerspectiveCamera(70)
-camera.show_object(scene)
+camera.show_object(scene, match_aspect=True)
 camera.local.scale_y = -1
 
 
