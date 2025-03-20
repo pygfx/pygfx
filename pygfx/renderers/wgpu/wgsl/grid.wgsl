@@ -276,6 +276,9 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     let opacity = alpha * color.a * u_material.opacity;
     let out_color = vec4<f32>(physical_color, opacity);
 
+    // Drop transparent objects so they don't write the depth buffer
+    if (opacity < 0.01) { discard; }
+
     // We can apply clipping planes, but maybe a grid should not be clipped?
     // apply_clipping_planes(in.world_pos);
 
