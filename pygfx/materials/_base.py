@@ -247,7 +247,10 @@ class Material(Trackable):
         * "subtract": Subtract the fragment color, multiplied by alpha.
         * "dither": use stochastic blending. All fragments are opaque, and the chance
           of a fragment being discared (invisible) is one minus alpha.
-        * A dict: Custom blend function (equation, src, dst).
+        * "weighted": use weighted blending, where the order of objects does not matter for the
+          end-result.
+        * A dict: Custom blend function (equation, src, dst). TODO
+
         """
         return self._store.blending
 
@@ -255,7 +258,7 @@ class Material(Trackable):
     def blending(self, blending):
         if blending is None:
             blending = "normal"
-        valids = ["no", "normal", "add", "subtract", "dither"]
+        valids = ["no", "normal", "add", "subtract", "dither", "weighted"]
         if isinstance(blending, str):
             if blending not in valids:
                 raise ValueError(

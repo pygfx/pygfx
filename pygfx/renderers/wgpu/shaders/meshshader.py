@@ -465,7 +465,7 @@ class MeshShader(BaseShader):
             if self["use_uniform_color"]:
                 if material.color_is_transparent:
                     transparent = True
-            if self["use_colormap"]:
+            if "use_colormap" in self._template_vars_bindings:
                 if self["color_buffer_channels"] in (2, 4):
                     transparent = None
             if self["use_vertex_color"]:

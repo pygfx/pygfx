@@ -49,7 +49,7 @@ blend_mode_text = gfx.Text(
     anchor="bottom-left",
     material=gfx.TextMaterial(outline_thickness=0.3),
 )
-scene_overlay.add(blending_text)
+scene_overlay.add(blend_mode_text)
 
 screen_camera = gfx.ScreenCoordsCamera()
 
@@ -64,13 +64,14 @@ def handle_event(event):
         clr = "#fff" if background.material.color_bottom_left == "#000" else "#000"
         print(f"Changing background color to {clr}")
         background.material.set_colors(clr)
-    elif event.key in "1234":
+    elif event.key in "12345":
         m = [
             None,
             "no",  # 1
             "normal",  # 2
             "add",  # 3
             "dither",  # 4
+            "weighted",  # 5
         ]
         blending = m[int(event.key)]
         for plane in plane1, plane2, plane3:

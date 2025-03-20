@@ -254,6 +254,7 @@ class WorldObject(EventTarget, Trackable):
         Objects with higher ``render_order`` get rendered later.
         Default 0. Also see ``Renderer.sort_objects``.
         """
+        # TODO: does not have to be on the store. Also maybe move to material?
         return self._store.render_order
 
     @render_order.setter
