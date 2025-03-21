@@ -6,7 +6,6 @@ object.
 
 import wgpu  # only for flags/enums
 
-from ....utils.enums import RenderMask
 from .flusher import create_full_quad_pipeline
 from .shared import get_shared
 
@@ -256,8 +255,9 @@ class TheOneAndOnlyBlender:
         if pass_type == "weighted":
             self._weighted_blending_was_used = True
             # TODO: this'd be a good time to make sure the accum and reveal texture are ready
-            # We always clear the textures used in this pass
-            # TODO: always clear??
+            # We always clear the textures at the beginning of a pass, because at
+            # the end of that pass it will be merged with the color buffer using
+            # the combine pass.
             accum_load_op = reveal_load_op = wgpu.LoadOp.clear
             accum_clear_value = 0, 0, 0, 0
             reveal_clear_value = 1, 0, 0, 0
@@ -296,22 +296,19 @@ class TheOneAndOnlyBlender:
     def get_shader_kwargs(self, pass_index, blending):
         # Take depth into account, but don't treat transparent fragments differently
 
-        code = """
-        struct FragmentOutput {
-            @location(0) color: vec4<f32>,
-            @location(1) pick: vec4<u32>,
-        };
-        fn get_fragment_output(position: vec4<f32>, color: vec4<f32>) -> FragmentOutput {
-            var out : FragmentOutput;
-            SUBCODE
-            return out;
-        }
-        """
+        if blending in ("no", "normal", "add", "subtract"):
+            blending_code = """
+            struct FragmentOutput {
+                @location(0) color: vec4<f32>,
+                @location(1) pick: vec4<u32>,
+            };
+            fn get_fragment_output(position: vec4<f32>, color: vec4<f32>) -> FragmentOutput {
+                var out: FragmentOutput;
+                out.color = color;
+                return out;
+            }
+            """
 
-        if blending == "no":
-            subcode = "out.color = vec4<f32>(color.rgb, 1.0);"
-        elif blending in ("normal", "add", "subtract"):
-            subcode = "out.color = vec4<f32>(color.rgb, color.a);"
         elif blending == "dither":
             # We want the seed for the random function to be such that the result is
             # deterministic, so that rendered images can be visually compared. This
@@ -324,19 +321,34 @@ class TheOneAndOnlyBlender:
             # are exactly on top of each other. Therefore we use rgba as another seed.
             # So the only case where the same pattern may be used for different
             # fragments if an object is at the same depth and has the same color.
-            subcode = """
-            let seed1 = position.x * position.y * position.z;
-            let seed2 = color.r * 0.12 + color.g * 0.34 + color.b * 0.56 + color.a * 0.78;
-            let rand = random2(vec2<f32>(seed1, seed2));
-            if ( color.a < 1.0 - ALPHA_COMPARE_EPSILON && color.a < rand ) { discard; }
-            out.color = vec4<f32>(color.rgb, 1.0);  // fragments that pass through are opaque
-            """.strip()
+            blending_code = """
+            struct FragmentOutput {
+                @location(0) color: vec4<f32>,
+                @location(1) pick: vec4<u32>,
+            };
+
+            fn get_fragment_output(position: vec4<f32>, color: vec4<f32>) -> FragmentOutput {
+                var out : FragmentOutput;
+                let seed1 = position.x * position.y * position.z;
+                let seed2 = color.r * 0.12 + color.g * 0.34 + color.b * 0.56 + color.a * 0.78;
+                let rand = random2(vec2<f32>(seed1, seed2));
+                if ( color.a < 1.0 - ALPHA_COMPARE_EPSILON && color.a < rand ) { discard; }
+                out.color = vec4<f32>(color.rgb, 1.0);  // fragments that pass through are opaque
+                return out;
+            }
+            """
 
         elif blending == "weighted":
-            weight_func = "alpha"  # TODO: parametrize, maybe blending="weighted: depth", or a dict
+            weight_func = "opaque"  # TODO: parametrize, maybe blending="weighted: depth", or a dict
             if weight_func == "alpha":
                 weight_code = """
                     let weight = alpha;
+                """
+            elif weight_func == "opaque":
+                weight_code = """
+                    //let vec_from_center = 2.0 * abs(varyings.texcoord - 0.5);
+                    let weight = alpha;
+                    alpha = 1.0;
                 """
             elif weight_func == "depth":
                 # The "generic purpose" weight function proposed by McGuire in
@@ -351,18 +363,18 @@ class TheOneAndOnlyBlender:
                     f"Unknown weighted-blending weight_func: {weight_func!r}"
                 )
 
-            code = """
+            blending_code = """
             struct FragmentOutput {
                 @location(0) accum: vec4<f32>,
                 @location(1) reveal: f32,
             };
             fn get_fragment_output(position: vec4<f32>, color: vec4<f32>) -> FragmentOutput {
-                let depth = position.z;
-                let alpha = color.a;
+                var alpha = color.a;
+                var depth = position.z;
                 if (alpha <= ALPHA_COMPARE_EPSILON) { discard; }
-                let premultiplied = color.rgb * alpha;
-                SUBCODE
+                WEIGHT_CODE
                 var out : FragmentOutput;
+                let premultiplied = color.rgb * alpha;
                 out.accum = vec4<f32>(premultiplied, alpha) * weight;
                 out.reveal = alpha;  // yes, alpha, not weight
                 return out;
@@ -373,13 +385,13 @@ class TheOneAndOnlyBlender:
                 //    out.accum = - out.accum;
                 //    out.reveal = 1.0 - 1.0 / (1.0 - alpha);
             }
-            """
-            subcode = weight_code
+            """.replace("WEIGHT_CODE", weight_code)
+
         else:
             raise RuntimeError(f"Unexpected blending {blending!r}")
 
         return {
-            "blending_code": code.replace("SUBCODE", subcode),
+            "blending_code": blending_code,
             "write_pick": True,  # todo: factore this out
         }
 
