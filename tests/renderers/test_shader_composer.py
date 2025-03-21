@@ -193,6 +193,7 @@ def test_resolve_output():
     struct FragmentOutput {
         @location(0) color: vec4<f32>,
     }
+    @fragment
     fn fs_main() {
     }
     """.strip()
@@ -203,6 +204,7 @@ def test_resolve_output():
     struct FragmentOutput {
         @location(0) color: vec4<f32>,
     }
+    @fragment
     fn fs_main() {
         out.depth = 0.0;
     }
@@ -213,6 +215,7 @@ def test_resolve_output():
         @builtin(frag_depth) depth : f32,
         @location(0) color: vec4<f32>,
     }
+    @fragment
     fn fs_main() {
         out.depth = 0.0;
     }
