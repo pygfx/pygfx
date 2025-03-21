@@ -1,5 +1,5 @@
 from pygfx.renderers.wgpu.shader import BaseShader
-from pygfx.renderers.wgpu.shader.base import resolve_depth_output
+from pygfx.renderers.wgpu.shader.resolve import resolve_output
 from pygfx.renderers.wgpu import Binding
 from pygfx.utils import array_from_shadertype
 from pygfx import Buffer
@@ -188,7 +188,7 @@ def test_uniform_definitions():
         shader.define_binding(0, 0, Binding("zz", "buffer/uniform", struct))
 
 
-def test_resolve_depth_output():
+def test_resolve_output():
     code1 = """
     struct FragmentOutput {
         @location(0) color: vec4<f32>,
@@ -197,7 +197,7 @@ def test_resolve_depth_output():
     }
     """.strip()
     code2 = code1
-    assert resolve_depth_output(code1).strip() == code2
+    assert resolve_output(code1).strip() == code2
 
     code1 = """
     struct FragmentOutput {
@@ -218,11 +218,11 @@ def test_resolve_depth_output():
     }
     """.strip()
 
-    assert resolve_depth_output(code1).strip() == code2
+    assert resolve_output(code1).strip() == code2
 
 
 if __name__ == "__main__":
     test_templating()
     test_logic_beyond_templating()
     test_uniform_definitions()
-    test_resolve_depth_output()
+    test_resolve_output()

@@ -1,4 +1,4 @@
-from pygfx.renderers.wgpu.shader.base import resolve_varyings
+from pygfx.renderers.wgpu.shader.resolve import resolve_varyings
 from pytest import raises
 
 
@@ -14,6 +14,7 @@ def test_varyings_struct_position0():
     # If no varyings are used, the struct is not inserted
 
     code1 = """
+    @vertex
     fn vs_main() {
     }
     fn fs_main() {
@@ -30,6 +31,7 @@ def test_varyings_struct_position1():
     # But if the struct type is used, we insert it
 
     code1 = """
+    @vertex
     fn vs_main() -> Varyings {
     }
     fn fs_main(varyings : Varyings) {
@@ -40,6 +42,7 @@ def test_varyings_struct_position1():
     struct Varyings {
     };
 
+    @vertex
     fn vs_main() -> Varyings {
     }
     fn fs_main(varyings : Varyings) {
@@ -54,6 +57,7 @@ def test_varyings_struct_position2():
     # Indentation is preserved
 
     code1 = """
+            @vertex
             fn vs_main() -> Varyings {
             }
             fn fs_main(varyings : Varyings) {
@@ -64,6 +68,7 @@ def test_varyings_struct_position2():
             struct Varyings {
             };
 
+            @vertex
             fn vs_main() -> Varyings {
             }
             fn fs_main(varyings : Varyings) {
@@ -80,6 +85,7 @@ def test_varyings_struct_position3():
     code1 = """
     fn foo() = {
     }
+    @vertex
     fn vs_main() -> Varyings {
     }
     fn fs_main(varyings : Varyings) {
@@ -92,6 +98,7 @@ def test_varyings_struct_position3():
     struct Varyings {
     };
 
+    @vertex
     fn vs_main() -> Varyings {
     }
     fn fs_main(varyings : Varyings) {
@@ -128,7 +135,7 @@ def test_varyings_struct_position5():
     code1 = """
     fn foo() = {
     }
-    @blabla
+    @@vertex
     fn vs_main() -> Varyings {
     }
     fn fs_main(varyings : Varyings) {
@@ -141,7 +148,7 @@ def test_varyings_struct_position5():
     struct Varyings {
     };
 
-    @blabla
+    @@vertex
     fn vs_main() -> Varyings {
     }
     fn fs_main(varyings : Varyings) {
@@ -156,6 +163,7 @@ def test_varyings_remove1():
     # If no varyings are used, any set varyings are removed.
 
     code1 = """
+    @vertex
     fn vs_main() -> Varyings {
         var varyings : Varyings;
         varyings.foo = f32(something1);
@@ -170,6 +178,7 @@ def test_varyings_remove1():
     struct Varyings {
     };
 
+    @vertex
     fn vs_main() -> Varyings {
         var varyings : Varyings;
         // unused: varyings.foo = f32(something1);
@@ -188,6 +197,7 @@ def test_varyings_remove2():
     # Used varyings are held
 
     code1 = """
+    @vertex
     fn vs_main() -> Varyings {
         var varyings : Varyings;
         varyings.foo = f32(something1);
@@ -206,6 +216,7 @@ def test_varyings_remove2():
         @location(0) bar : vec2<f32>,
     };
 
+    @vertex
     fn vs_main() -> Varyings {
         var varyings : Varyings;
         // unused: varyings.foo = f32(something1);
@@ -227,6 +238,7 @@ def test_varyings_remove3():
     # Comments are taken into account
 
     code1 = """
+    @vertex
     fn vs_main() -> Varyings {
         var varyings : Varyings;
         varyings.foo = f32(something1);
@@ -245,6 +257,7 @@ def test_varyings_remove3():
     struct Varyings {
     };
 
+    @vertex
     fn vs_main() -> Varyings {
         var varyings : Varyings;
         // unused: varyings.foo = f32(something1);
@@ -267,6 +280,7 @@ def test_varyings_remove4():
     # Usage can actually be to the left of the assignment op
 
     code1 = """
+    @vertex
     fn vs_main() -> Varyings {
         var varyings : Varyings;
         varyings.foo = f32(something1);
@@ -283,6 +297,7 @@ def test_varyings_remove4():
         @location(0) foo : f32,
     };
 
+    @vertex
     fn vs_main() -> Varyings {
         var varyings : Varyings;
         varyings.foo = f32(something1);
@@ -302,6 +317,7 @@ def test_varyings_remove5():
     # Varying assignments can be multi-line
 
     code1 = """
+    @vertex
     fn vs_main() -> Varyings {
         var varyings : Varyings;
         varyings.spam = vec3<f32>(
@@ -315,6 +331,7 @@ def test_varyings_remove5():
     struct Varyings {
     };
 
+    @vertex
     fn vs_main() -> Varyings {
         var varyings : Varyings;
         // unused: varyings.spam = vec3<f32>(
@@ -332,6 +349,7 @@ def test_varyings_struct1():
     # Usage in other funcs counts, and varyings are sorted alphabetically
 
     code1 = """
+    @vertex
     fn vs_main() -> Varyings {
         var varyings : Varyings;
         varyings.foo = f32(something1);
@@ -356,6 +374,7 @@ def test_varyings_struct1():
         @location(2) spam : vec3<f32>,
     };
 
+    @vertex
     fn vs_main() -> Varyings {
         var varyings : Varyings;
         varyings.foo = f32(something1);
@@ -381,6 +400,7 @@ def test_varyings_attr1():
     # Can set varying attribute
 
     code1 = """
+    @vertex
     fn vs_main() -> Varyings {
         var varyings : Varyings;
         varyings.color = vec4<f32>(color);
@@ -398,6 +418,7 @@ def test_varyings_attr1():
         @location(0) color : vec4<f32>,
     };
 
+    @vertex
     fn vs_main() -> Varyings {
         var varyings : Varyings;
         varyings.color = vec4<f32>(color);
@@ -418,6 +439,7 @@ def test_varyings_attr2():
     # Can set varying attribute, and all setter lines are commented
 
     code1 = """
+    @vertex
     fn vs_main() -> Varyings {
         var varyings : Varyings;
         varyings.color = vec4<f32>(color);
@@ -433,6 +455,7 @@ def test_varyings_attr2():
     struct Varyings {
     };
 
+    @vertex
     fn vs_main() -> Varyings {
         var varyings : Varyings;
         // unused: varyings.color = vec4<f32>(color);
@@ -452,6 +475,7 @@ def test_varyings_builtin1():
     # Builtins are not slots
 
     code1 = """
+    @vertex
     fn vs_main() -> Varyings {
         var varyings : Varyings;
         varyings.position = vec4<f32>(ndc_pos);
@@ -473,6 +497,7 @@ def test_varyings_builtin1():
         @builtin(position) position : vec4<f32>,
     };
 
+    @vertex
     fn vs_main() -> Varyings {
         var varyings : Varyings;
         varyings.position = vec4<f32>(ndc_pos);
@@ -495,6 +520,7 @@ def test_varyings_builtin2():
     # Builtins are considered used when set
 
     code1 = """
+    @vertex
     fn vs_main() -> Varyings {
         var varyings : Varyings;
         varyings.position = vec4<f32>(ndc_pos);
@@ -510,6 +536,7 @@ def test_varyings_builtin2():
         @builtin(position) position : vec4<f32>,
     };
 
+    @vertex
     fn vs_main() -> Varyings {
         var varyings : Varyings;
         varyings.position = vec4<f32>(ndc_pos);
@@ -528,6 +555,7 @@ def test_varyings_error_readonly_in_vs1():
     # Cannot use varying as a getter in vs_main
 
     code1 = """
+    @vertex
     fn vs_main() -> Varyings {
         var varyings : Varyings;
         varyings.position = vec4<f32>(ndc_pos);
@@ -548,6 +576,7 @@ def test_varyings_error_need_type_when_set():
     # Assignment needs type annotation
 
     code1 = """
+    @vertex
     fn vs_main() -> Varyings {
         var varyings : Varyings;
         varyings.position = ndc_pos;
@@ -567,6 +596,7 @@ def test_varyings_error_assignments_invalid_multiline1():
     # Assignment needs type annotation
 
     code1 = """
+    @vertex
     fn vs_main() -> Varyings {
         var varyings : Varyings;
         varyings.foo = vec4<f32>(
@@ -577,6 +607,7 @@ def test_varyings_error_assignments_invalid_multiline1():
     info.match("missing a semicolon")
 
     code = """
+    @vertex
     fn vs_main() -> Varyings {
         var varyings : Varyings;
         varyings.foo = vec4<f32>(
@@ -596,6 +627,7 @@ def test_varyings_error_need_type_match():
     # When assigning multiple times, the type should match
 
     code1 = """
+    @vertex
     fn vs_main() -> Varyings {
         var varyings : Varyings;
         varyings.position = vec4<f32>(ndc_pos);
@@ -616,6 +648,7 @@ def test_varyings_error_used_but_not_assigned():
     # When assigning multiple times, the type should match
 
     code1 = """
+    @vertex
     fn vs_main() -> Varyings {
     }
 

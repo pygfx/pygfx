@@ -8,8 +8,8 @@ varying_types = (
     + [t.replace("f", "u") for t in varying_types]
 )
 
-re_varying_getter = re.compile(r"[\s,\(\[]varyings\.(\w+)", re.UNICODE)
-re_varying_setter = re.compile(r"\A\s*?varyings\.(\w+)(\.\w+)?\s*?\=", re.UNICODE)
+re_varying_getter = re.compile(r"[^\w]varyings\.(\w+)", re.UNICODE)
+re_varying_setter = re.compile(r"varyings\.(\w+)(\.\w+)?\s*\=", re.UNICODE)
 builtin_varyings = {"position": "vec4<f32>"}
 
 
@@ -31,6 +31,8 @@ def _resolve(wgsl, *funcs):
 
     # Split into lines, which is easier to process. Ensure it ends with newline in the end.
     lines = wgsl.splitlines()
+    while lines and not lines[0]:
+        lines.pop(0)
     if not (lines and lines[-1] == ""):
         lines.append("")
 
@@ -58,11 +60,28 @@ def _resolve_varyings(lines):
     # We try to find the function that first uses the Varyings struct.
     struct_insert_pos = None
 
+    in_vertex_shader = False
+    current_func_linenr = 0
+
     # Go over all lines to:
     # - find the lines where a varying is set
     # - collect the types of these varyings
-    for linenr, line in enumerate(lines):
-        match = re_varying_setter.match(line)
+    # - collect all used varyings
+    # - find where the vertex-shader starts
+    for linenr, ori_line in enumerate(lines):
+        line = ori_line.split("//", 1)[0].strip()
+        if not line:
+            continue
+
+        # Detect when we enter a new function
+        if line.startswith("fn "):
+            current_func_linenr = linenr
+            prevline = lines[linenr - 1].strip() if linenr > 0 else ""
+            in_vertex_shader = prevline.startswith("@vertex")
+
+        # Look for varyings being set (in the vertex shader)
+        # Note that this implicitly matches from start of the strpped line.
+        match = re_varying_setter.match(line) if in_vertex_shader else None
         if match:
             # Get parts
             name = match.group(1)
@@ -91,39 +110,28 @@ def _resolve_varyings(lines):
             # Store position
             assigned_varyings.setdefault(name, []).append(linenr)
 
-    # Go over all lines to:
-    # - collect all used varyings
-    # - find where the vertex-shader starts
-    in_vertex_shader = False
-    current_func_linenr = 0
-    for linenr, line in enumerate(lines):
-        line = line.strip()
-        # Detect when we enter a new function
-        if line.startswith("fn "):
-            current_func_linenr = linenr
-            if line.startswith("fn vs_main"):
-                in_vertex_shader = True
-            else:
-                in_vertex_shader = False
-        # Remove comments (shader code has no strings that can contain slashes)
-        line = line.split("//")[0]
-        if "Varyings" in line and struct_insert_pos is None:
+        # Look for the first usage of the Varyings type
+        if struct_insert_pos is None and "Varyings" in line:
             struct_insert_pos = current_func_linenr
-        # Everything we find here is a match (prepend a space to allow an easier regexp)
-        for match in re_varying_getter.finditer(" " + line):
-            name = match.group(1)
-            this_varying_is_set_on_this_line = linenr in assigned_varyings.get(name, [])
-            if this_varying_is_set_on_this_line:
-                pass
-            elif in_vertex_shader:
-                # If varyings are used in another way than setting, in the vertex shader,
-                # we should either consider them "used", or possibly break the shader if
-                # the used varying is disabled. So let's just not allow it.
-                raise TypeError(
-                    f"Varying {name!r} is read in the vertex shader, but only writing is allowed:\n{line}"
+
+        # Look for varyings being get (anywhere)
+        if "varyings." in line:
+            for match in re_varying_getter.finditer(" " + line):
+                name = match.group(1)
+                this_varying_is_set_on_this_line = linenr in assigned_varyings.get(
+                    name, []
                 )
-            else:
-                used_varyings.setdefault(name, []).append(linenr)
+                if this_varying_is_set_on_this_line:
+                    pass
+                elif in_vertex_shader:
+                    # If varyings are used in another way than setting, in the vertex shader,
+                    # we should either consider them "used", or possibly break the shader if
+                    # the used varying is disabled. So let's just not allow it.
+                    raise TypeError(
+                        f"Varying {name!r} is read in the vertex shader, but only writing is allowed:\n{line}"
+                    )
+                else:
+                    used_varyings.setdefault(name, []).append(linenr)
 
     # Check if all used varyings are assigned
     for name in used_varyings:
@@ -193,13 +201,29 @@ def _resolve_output(lines):
     # depth to be known.
     depth_is_set = False
     struct_linenr = -1
-    for linenr, line in enumerate(lines):
+
+    in_fragment_shader = False
+    current_func_linenr = 0
+
+    for linenr, ori_line in enumerate(lines):
+        line = ori_line.split("//", 1)[0].strip()
+        if not line:
+            continue
+
+        # Detect when we enter a new function
+        if line.startswith("fn "):
+            current_func_linenr = linenr
+            prevline = lines[linenr - 1].strip() if linenr > 0 else ""
+            in_fragment_shader = prevline.startswith("@fragment")
+
         if line.lstrip().startswith("struct FragmentOutput {"):
             struct_linenr = linenr
-        elif re_depth_setter.match(line):
-            depth_is_set = True
-            if struct_linenr >= 0:
-                break
+
+        if in_fragment_shader:
+            if re_depth_setter.match(line):
+                depth_is_set = True
+                if struct_linenr >= 0:
+                    break
 
     if depth_is_set:
         if struct_linenr < 0:
