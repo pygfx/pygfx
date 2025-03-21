@@ -13,7 +13,7 @@ from ..engine.utils import (
     hash_from_value,
 )
 from ..engine.binding import Binding
-from .resolve import resolve_varyings, resolve_depth_output
+from .resolve import resolve_shadercode
 from .bindings import BindingDefinitions
 from .templating import apply_templating
 
@@ -219,8 +219,16 @@ class BaseShader(ShaderInterface):
             # Templating and resolving includes
             code2 = apply_templating(code1, **template_vars)
             # Auto-insert varyings struct, and Tweak FragmentOutput if depth is set in frag shader.
-            code3 = resolve_varyings(code2)
-            code3 = resolve_depth_output(code3)
+            import time
+
+            t0 = time.perf_counter()
+            n = 100
+            for _ in range(n):
+                code3 = resolve_shadercode(code2)
+            et = (time.perf_counter() - t0) / n
+            print(
+                f"Shader resolving of {self.__class__.__name__} took {et * 1000:0.2f} ms"
+            )
             return code3
         finally:
             self._template_vars_bindings = ori_template_vars

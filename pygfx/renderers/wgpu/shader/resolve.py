@@ -9,26 +9,46 @@ varying_types = (
 )
 
 re_varying_getter = re.compile(r"[\s,\(\[]varyings\.(\w+)", re.UNICODE)
-re_varying_setter = re.compile(r"\A\s*?varyings\.(\w+)(\.\w+)?\s*?\=")
+re_varying_setter = re.compile(r"\A\s*?varyings\.(\w+)(\.\w+)?\s*?\=", re.UNICODE)
 builtin_varyings = {"position": "vec4<f32>"}
 
 
+def resolve_shadercode(wgsl):
+    """Apply all shader resolve opearions."""
+    return _resolve(wgsl, _resolve_varyings, _resolve_output)
+
+
 def resolve_varyings(wgsl):
+    return _resolve(wgsl, _resolve_varyings)
+
+
+def resolve_output(wgsl):
+    return _resolve(wgsl, _resolve_output)
+
+
+def _resolve(wgsl, *funcs):
+    assert isinstance(wgsl, str)
+
+    # Split into lines, which is easier to process. Ensure it ends with newline in the end.
+    lines = wgsl.splitlines()
+    if not (lines and lines[-1] == ""):
+        lines.append("")
+
+    # Apply resolve functions. They modify the lines
+    for func in funcs:
+        func(lines)
+
+    # Return as str
+    return "\n".join(lines)
+
+
+def _resolve_varyings(lines):
     """Resolve varyings in the given wgsl:
     * Detect varyings being used.
     * Check that these are also set.
     * Remove assignments of varyings that are not used.
     * Include the Varyings struct.
     """
-    assert isinstance(wgsl, str)
-
-    # Split into lines, which is easier to process. Ensure it ends with newline in the end.
-    lines = wgsl.splitlines()
-    while lines and not lines[0].strip():
-        lines.pop(0)
-    while lines and not lines[-1].strip():
-        lines.pop(-1)
-    lines.append("")
 
     # Prepare dicts that map name to list-of-linenr. And a tupe dict.
     assigned_varyings = {}
@@ -156,27 +176,14 @@ def resolve_varyings(wgsl):
     else:
         assert not used_varyings, "woops, did not expect used_varyings here"
 
-    # Return modified code
-    return "\n".join(lines)
-
 
 re_depth_setter = re.compile(r"\A\s*?out\.depth\s*?\=")
 
 
-def resolve_depth_output(wgsl):
+def _resolve_output(lines):
     """When out.depth is set (in the fragment shader), adjust the FragmentOutput
     to accept depth.
     """
-    assert isinstance(wgsl, str)
-
-    # Split into lines, which is easier to process. Ensure it ends with newline in the end.
-    lines = wgsl.splitlines()
-    while lines and not lines[0].strip():
-        lines.pop(0)
-    while lines and not lines[-1].strip():
-        lines.pop(-1)
-    lines.append("")
-
     # Detect whether the depth is set in the shader. We're going to assume
     # this is in the fragment shader. We check for "out.depth =".
     # Background: by default the depth is based on the geometry (set
@@ -201,5 +208,3 @@ def resolve_depth_output(wgsl):
         line = lines[struct_linenr]
         indent = line[: len(line) - len(line.lstrip())]
         lines.insert(struct_linenr + 1, indent + depth_field)
-
-    return "\n".join(lines)
