@@ -223,10 +223,38 @@ All fragment functions in Pygfx are somewhat like this:
             @stage(fragment)
             fn fs_main(varyings: Varyings) -> FragmentOutput {
                 ...
-                var out = get_fragment_output(varyings.position, color);
+                var out: FragmentOutput;
+                out.color = vec4<f32>(...);
                 return out;
             }
             """
+
+For some types of blending the output struct is modified automatically,
+and users can influence this process. E.g. to explicitly set the seed for
+dithered blending:
+
+.. code-block:: wgsl
+
+    ...
+    var out: FragmentOutput;
+    out.color = vec4<f32>(...);
+    $$ if blending == 'dither'
+    out.seed = f32(...);
+    $$ endif
+    return out;
+
+... or set the weight for weighted blending:
+
+.. code-block:: wgsl
+
+    ...
+    var out: FragmentOutput;
+    out.color = vec4<f32>(...);
+    $$ if blending == 'weighted'
+    out.weight = f32(...);
+    $$ endif
+    return out;
+
 
 Picking
 -------
@@ -257,7 +285,8 @@ to unpack the picking info. See e.g. the picking of a mesh:
             @stage(fragment)
             fn fs_main(varyings: Varyings) -> FragmentOutput {
                 ...
-                var out = get_fragment_output(varyings.position, color);
+                var out: FragmentOutput;
+                out.color = color;
 
                 // The builtin write_pick templating variable should be used
                 // to ensure picking info is only written in the appropriate render pass
@@ -297,8 +326,8 @@ you can include the wgsl code for clipping planes in your shader like this:
                 // clipping planes
                 {$ include 'pygfx.clipping_planes.wgsl' $}
 
-                var out = get_fragment_output(varyings.position, color);
-                ...
+                var out: FragmentOutput;
+                out.color = color;
                 return out;
             }
             """

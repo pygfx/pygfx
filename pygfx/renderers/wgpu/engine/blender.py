@@ -153,14 +153,13 @@ class OpaquePass(BasePass):
     def get_shader_code(self, blender):
         return """
         struct FragmentOutput {
+            // virtualfield color = vec4<f32>(0.0, 0.0, 0.0, 1.0)
             @location(0) color: vec4<f32>,
             @location(1) pick: vec4<u32>,
         };
-        fn get_fragment_output(position: vec4<f32>, color: vec4<f32>) -> FragmentOutput {
+        fn apply_virtual_fields_of_fragment_output(outp: ptr<function,FragmentOutput>, color: vec4<f32>) {
             if (color.a < 1.0 - ALPHA_COMPARE_EPSILON ) { discard; }
-            var out : FragmentOutput;
-            out.color = vec4<f32>(color.rgb, 1.0);
-            return out;
+            (*outp).color = vec4<f32>(color.rgb, 1.0);
         }
         """
 
@@ -174,13 +173,12 @@ class FullOpaquePass(OpaquePass):
     def get_shader_code(self, blender):
         return """
         struct FragmentOutput {
+            // virtualfield color = vec4<f32>(0.0, 0.0, 0.0, 1.0)
             @location(0) color: vec4<f32>,
             @location(1) pick: vec4<u32>,
         };
-       fn get_fragment_output(position: vec4<f32>, color: vec4<f32>) -> FragmentOutput {
-            var out : FragmentOutput;
-            out.color = vec4<f32>(color.rgb, 1.0);  // make every fragment opaque
-            return out;
+        fn apply_virtual_fields_of_fragment_output(outp: ptr<function,FragmentOutput>, color: vec4<f32>) {
+            (*outp).color = vec4<f32>(color.rgb, 1.0);
         }
         """
 
@@ -193,30 +191,28 @@ class DitherPass(OpaquePass):
 
     def get_shader_code(self, blender):
         return """
-
+        // We want the seed for the randon function to be such that the result is
+        // deterministic, so that rendered images can be visually compared. This
+        // is why the object-id should not be used. Using the xy ndc coord is a
+        // no-brainer seed. Using only these will give an effect often observed
+        // in games, where the pattern is "stuck to the screen". We also seed with
+        // the depth, since this covers *a lot* of cases, e.g. different objects
+        // behind each-other, as well as the same object having different parts
+        // at the same screen pixel. This only does not cover cases where objects
+        // are exactly on top of each other. Therefore we use rgba as another seed.
+        // So the only case where the same pattern may be used for different
+        // fragments if an object is at the same depth and has the same color.
         struct FragmentOutput {
+            // virtualfield seed1 = varyings.position.x * varyings.position.y * varyings.position.z
+            // virtualfield seed2 = out.color.r * 0.12 + out.color.g * 0.34 + out.color.b * 0.56 + out.color.a * 0.78
             @location(0) color: vec4<f32>,
             @location(1) pick: vec4<u32>,
         };
-        fn get_fragment_output(position: vec4<f32>, color: vec4<f32>) -> FragmentOutput {
-            // We want the seed for the ramdon function to be such that the result is
-            // deterministic, so that rendered images can be visually compared. This
-            // is why the object-id should not be used. Using the xy ndc coord is a
-            // no-brainer seed. Using only these will give an effect often observed
-            // in games, where the pattern is "stuck to the screen". We also seed with
-            // the depth, since this covers *a lot* of cases, e.g. different objects
-            // behind each-other, as well as the same object having different parts
-            // at the same screen pixel. This only does not cover cases where objects
-            // are exactly on top of each other. Therefore we use rgba as another seed.
-            // So the only case where the same pattern may be used for different
-            // fragments if an object is at the same depth and has the same color.
-            var out : FragmentOutput;
-            let seed1 = position.x * position.y * position.z;
-            let seed2 = color.r * 0.12 + color.g * 0.34 + color.b * 0.56 + color.a * 0.78;
+        fn apply_virtual_fields_of_fragment_output(outp: ptr<function,FragmentOutput>, seed1:f32, seed2:f32) {
             let rand = random2(vec2<f32>(seed1, seed2));
-            if ( color.a < 1.0 - ALPHA_COMPARE_EPSILON && color.a < rand ) { discard; }
-            out.color = vec4<f32>(color.rgb, 1.0);  // fragments that pass through are opaque
-            return out;
+            let alpha = (*outp).color.a;
+            if ( alpha < 1.0 - ALPHA_COMPARE_EPSILON && alpha < rand ) { discard; }
+            (*outp).color.a = 1.0;  // fragments that pass through are opaque
         }
         """
 
@@ -252,10 +248,8 @@ class SimpleSinglePass(OpaquePass):
             @location(0) color: vec4<f32>,
             @location(1) pick: vec4<u32>,
         };
-        fn get_fragment_output(position: vec4<f32>, color: vec4<f32>) -> FragmentOutput {
-            var out : FragmentOutput;
-            out.color = vec4<f32>(color.rgb * color.a, color.a);
-            return out;
+        fn apply_virtual_fields_of_fragment_output(outp: ptr<function,FragmentOutput>, color: vec4<f32>) {
+            (*outp).color = vec4<f32>(color.rgb * color.a, color.a);
         }
         """
 
@@ -321,11 +315,9 @@ class SimpleTransparencyPass(BasePass):
         struct FragmentOutput {
             @location(0) color: vec4<f32>,
         };
-        fn get_fragment_output(position: vec4<f32>, color: vec4<f32>) -> FragmentOutput {
+        fn apply_virtual_fields_of_fragment_output(outp: ptr<function,FragmentOutput>, color: vec4<f32>) {
             if (color.a <= ALPHA_COMPARE_EPSILON) { discard; }
-            var out : FragmentOutput;
-            out.color = vec4<f32>(color.rgb * color.a, color.a);
-            return out;
+            (*outp).color = vec4<f32>(color.rgb * color.a, color.a);
         }
         """
 
@@ -420,19 +412,18 @@ class WeightedTransparencyPass(BasePass):
     def get_shader_code(self, blender):
         code = """
         struct FragmentOutput {
+            // virtualfield color = vec4<f32>(0.0)
+            // virtualfield depth = varyings.position.z;
             @location(0) accum: vec4<f32>,
             @location(1) reveal: f32,
         };
-        fn get_fragment_output(position: vec4<f32>, color: vec4<f32>) -> FragmentOutput {
-            let depth = position.z;
+        fn apply_virtual_fields_of_fragment_output(outp: ptr<function,FragmentOutput>, color: vec4<f32>, depth: f32) {
             let alpha = color.a;
             if (alpha <= ALPHA_COMPARE_EPSILON) { discard; }
             let premultiplied = color.rgb * alpha;
             WEIGHT_CODE
-            var out : FragmentOutput;
-            out.accum = vec4<f32>(premultiplied, alpha) * weight;
-            out.reveal = alpha;  // yes, alpha, not weight
-            return out;
+            (*outp).accum = vec4<f32>(premultiplied, alpha) * weight;
+            (*outp).reveal = alpha;  // yes, alpha, not weight
             // Note 1: could also take user-specified transmittance into account.
             // Note 2: its also possible to undo a fragment contribution. For this the accum
             // and reveal buffer must be float to avoid clamping. And we'd do `abs(color.a)` above.
@@ -516,14 +507,13 @@ class FrontmostTransparencyPass(BasePass):
     def get_shader_code(self, blender):
         return """
         struct FragmentOutput {
+            // virtualfield color = vec4<f32>(0.0)
             @location(0) color: vec4<f32>,
             @location(1) pick: vec4<u32>,
         };
-        fn get_fragment_output(position: vec4<f32>, color: vec4<f32>) -> FragmentOutput {
+        fn apply_virtual_fields_of_fragment_output(outp: ptr<function,FragmentOutput>, color: vec4<f32>) {
             if (color.a <= ALPHA_COMPARE_EPSILON || color.a >= 1.0 - ALPHA_COMPARE_EPSILON) { discard; }
-            var out : FragmentOutput;
-            out.color = vec4<f32>(color.rgb * color.a, color.a);
-            return out;
+            (*outp).color = vec4<f32>(color.rgb * color.a, color.a);
         }
         """
 
@@ -1044,12 +1034,6 @@ class AdditivePass(BasePass):
         struct FragmentOutput {
             @location(0) color: vec4<f32>,
         };
-        fn get_fragment_output(position: vec4<f32>, color: vec4<f32>) -> FragmentOutput {
-            let depth = position.z;
-            var out : FragmentOutput;
-            out.color = color;
-            return out;
-        }
         """
 
 

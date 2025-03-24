@@ -104,7 +104,14 @@ fn is_orthographic() -> bool {
 
 // Implements get_fragment_output
 {{ blending_code }}
-
+struct StubColorWrapper {
+    color: vec4<f32>,
+}
+fn get_fragment_output(position: vec4<f32>, color: vec4<f32>) -> StubColorWrapper {
+    var wrapper : StubColorWrapper;
+    wrapper.color = color;
+    return wrapper;
+}
 
 fn srgb2physical(color: vec3<f32>) -> vec3<f32> {
     // In Python, the below reads as

@@ -1,16 +1,9 @@
 import re
+import logging
 
 
-varying_types = ["f32", "vec2<f32>", "vec3<f32>", "vec4<f32>"]
-varying_types = (
-    varying_types
-    + [t.replace("f", "i") for t in varying_types]
-    + [t.replace("f", "u") for t in varying_types]
-)
-
-re_varying_getter = re.compile(r"[^\w]varyings\.(\w+)", re.UNICODE)
-re_varying_setter = re.compile(r"varyings\.(\w+)(\.\w+)?\s*\=", re.UNICODE)
-builtin_varyings = {"position": "vec4<f32>"}
+logger = logging.getLogger("pygfx")
+warned_for = set()
 
 
 def resolve_shadercode(wgsl):
@@ -36,6 +29,7 @@ def _resolve(wgsl, *resolvers):
     if not (lines and lines[-1] == ""):
         lines.append("")
 
+    curly_braces_level = 0
     current_func_kind = None
 
     # Apply resolve functions. They modify the lines
@@ -47,12 +41,19 @@ def _resolve(wgsl, *resolvers):
         if line.startswith("fn "):
             prevline = lines[linenr - 1].strip() if linenr > 0 else ""
             current_func_kind = "normal"
-            if prevline.startswith("@vertex"):
-                current_func_kind = "vertex"
-            elif prevline.startswith("@fragment"):
-                current_func_kind = "fragment"
-            elif prevline.startswith("@compute"):
-                current_func_kind = "compute"
+            if prevline.startswith("@"):
+                if prevline.startswith("@vertex"):
+                    current_func_kind = "vertex"
+                elif prevline.startswith("@fragment"):
+                    current_func_kind = "fragment"
+                elif prevline.startswith("@compute"):
+                    current_func_kind = "compute"
+            curly_braces_level = 0
+
+        if current_func_kind:
+            curly_braces_level += line.count("{") - line.count("}")
+            if curly_braces_level <= 0:
+                current_func_kind = None
 
         for resolver in resolvers:
             resolver.process_line(linenr, line, current_func_kind)
@@ -62,6 +63,22 @@ def _resolve(wgsl, *resolvers):
 
     # Return as str
     return "\n".join(lines)
+
+
+def indent_from_line(line):
+    return line[: len(line) - len(line.lstrip())]
+
+
+varying_types = ["f32", "vec2<f32>", "vec3<f32>", "vec4<f32>"]
+varying_types = (
+    varying_types
+    + [t.replace("f", "i") for t in varying_types]
+    + [t.replace("f", "u") for t in varying_types]
+)
+
+re_varying_getter = re.compile(r"[^\w]varyings\.(\w+)", re.UNICODE)
+re_varying_setter = re.compile(r"varyings\.(\w+)(\.\w+)?\s*\=", re.UNICODE)
+builtin_varyings = {"position": "vec4<f32>"}
 
 
 class VaryingResolver:
@@ -89,7 +106,7 @@ class VaryingResolver:
 
     def process_line(self, linenr, line, current_func_kind):
         # Look for varyings being set (in the vertex shader)
-        # Note that this implicitly matches from start of the strpped line.
+        # Note that this implicitly matches from the start of the stripped line.
         in_vertex_shader = current_func_kind == "vertex"
 
         # Put the Varyings struct right above where its first used
@@ -128,8 +145,8 @@ class VaryingResolver:
                 # Store position
                 self.assigned_varyings.setdefault(name, []).append(linenr)
 
-        # Look for varyings being get (anywhere)
-        if "varyings." in line:
+        # Look for varyings being get (in any function)
+        if current_func_kind and "varyings." in line:
             for match in re_varying_getter.finditer(" " + line):
                 name = match.group(1)
                 this_varying_is_set_on_this_line = linenr in self.assigned_varyings.get(
@@ -164,7 +181,7 @@ class VaryingResolver:
             if name not in used_varyings:
                 for linenr in linenrs:
                     line = lines[linenr]
-                    indent = line[: len(line) - len(line.lstrip())]
+                    indent = indent_from_line(line)
                     lines[linenr] = indent + "// unused: " + line[len(indent) :]
                     # Deal with multiple-line assignments
                     line_s = line.strip()
@@ -201,14 +218,17 @@ class VaryingResolver:
             struct_lines.append("};\n")
             # Apply indentation and insert
             line = lines[struct_linenr]
-            indent = line[: len(line) - len(line.lstrip())]
+            indent = indent_from_line(line)
             new_lines = [indent + line for line in struct_lines] + [line]
             lines[struct_linenr] = "\n".join(new_lines)
         else:
             assert not used_varyings, "woops, did not expect used_varyings here"
 
 
-re_depth_setter = re.compile(r"out\.depth\s*\=")
+re_out_create = re.compile(r"var\s*out\s*\:\s*FragmentOutput\s*;")
+re_out_create_old = re.compile(r"var\s*out\s*\=\s*get_fragment_output\(")
+re_out_field = re.compile(r"out\.(\w+)\s*\=", re.UNICODE)
+re_out_return = re.compile(r"return\s*out\s*;", re.MULTILINE)
 
 
 class OutputResolver:
@@ -224,28 +244,121 @@ class OutputResolver:
         # shader to write the depth instead. If this is done, the GPU cannot
         # do early depth testing; the fragment shader must be run for the
         # depth to be known.
-        self.depth_is_set = False
+
         self.struct_linenr = None
+        self.assigned_fields = None  # dict mapping field-name -> linenr
+        self.assigned_fields_list = []  # list of assigned_fields
 
     def process_line(self, linenr, line, current_func_kind):
         in_fragment_shader = current_func_kind == "fragment"
 
+        if not in_fragment_shader:
+            self.assigned_fields = None
+
         if self.struct_linenr is None:
             if line.startswith("struct FragmentOutput {"):
                 self.struct_linenr = linenr
+
         if in_fragment_shader:
-            if re_depth_setter.match(line):
-                self.depth_is_set = True
+            if self.assigned_fields is None:
+                # Detect var out: FragmentOutput
+                if re_out_create.match(line) or re_out_create_old.match(line):
+                    self.assigned_fields = {"__create": linenr}
+                    self.assigned_fields_list.append(self.assigned_fields)
+            else:
+                # Detect fields being set
+                match = re_out_field.match(line)
+                if match:
+                    name = match.group(1)
+                    self.assigned_fields[name] = linenr
+                # Detect return, because that's the best place to insert our call
+                match = re_out_return.match(line)
+                if match:
+                    self.assigned_fields["return"] = linenr
+                    self.assigned_fields = None
 
     def update_lines(self, lines):
-        depth_is_set = self.depth_is_set
         struct_linenr = self.struct_linenr
+        assigned_fields_list = self.assigned_fields_list
 
+        # Collect virtual fields, specified in comments inside the FragmentOutput definition.
+        # These will be the args for apply_virtual_fields_of_fragment_output()
+        # E.g. // virtualfield color = vec4<f32>(0.0)
+        virtual_field_prefix = "// virtualfield "
+        virtual_fields = {}
+        if struct_linenr is not None:
+            linenr = struct_linenr
+            while linenr < len(lines) - 1:
+                linenr += 1
+                line = lines[linenr].lstrip()
+                if line.startswith(virtual_field_prefix):
+                    name, eq, value = (
+                        line[len(virtual_field_prefix) :].split("//")[0].partition("=")
+                    )
+                    assert eq, (
+                        "A virtualfield needs a ' = default-value'. {name!r} has not"
+                    )
+                    virtual_fields[name.strip()] = value.strip(" \t;")
+                else:
+                    break
+
+        depth_is_set = False
+
+        # Handle each place where a FragmentOutput is returned
+        for assigned_fields in assigned_fields_list:
+            # Handle get_fragment_output deprecated usage. Not pretty, but it works and is temporary.
+            # TODO: after one or two releases, remove the deprecated get_fragment_output case.
+            linenr_create = assigned_fields["__create"]
+            create_line = lines[linenr_create]
+            if re_out_create_old.match(create_line.lstrip()):
+                if "get_fragment_output" not in warned_for:
+                    warned_for.add("get_fragment_output")
+                    logger.warning("get_fragment_output() in WGSL is deprecated")
+                indent = indent_from_line(create_line)
+                new_create_line = indent + "var out: FragmentOutput;"
+                colorset_line = (
+                    indent
+                    + "out.color ="
+                    + create_line.split("=", 1)[1].replace(";", ".color;")
+                )
+                lines[linenr_create - 1] += "\n" + new_create_line
+                lines[linenr_create] = colorset_line
+                assigned_fields["color"] = assigned_fields["__create"]
+
+            # Collect virtual argument values
+            args = []
+            for arg_name, default_value in virtual_fields.items():
+                if arg_name in assigned_fields:
+                    linenr = assigned_fields[arg_name]
+                    line = lines[linenr]
+                    new_name = f"out_virtualfield_{arg_name}"
+                    lines[linenr] = line.replace(f"out.{arg_name}", f"let {new_name}")
+                    args.append(new_name)
+                else:
+                    args.append(default_value)
+            # Process special arguments
+            if "depth" in assigned_fields:
+                depth_is_set = True
+
+            # Apply the virtual fields. The call to the apply-function is
+            # inserted right before 'return out', or right after the last struct
+            # field is set (if we did not detect a return).
+            if args:
+                linenr = max(assigned_fields.values())
+                args.insert(0, "&out")
+                line = lines[linenr]
+                is_return_line = line.lstrip().startswith("return")
+                indent = indent_from_line(line)
+                extra_line = f"{indent}apply_virtual_fields_of_fragment_output({', '.join(args)});"
+                new_lines = [extra_line, line] if is_return_line else [line, extra_line]
+                lines[linenr] = "\n".join(new_lines)
+
+        # If depth is set, add the depth field to the struct definition.
         if depth_is_set:
             if struct_linenr is None:
                 raise TypeError("FragmentOutput definition not found.")
             depth_field = "    @builtin(frag_depth) depth : f32,"
             line = lines[struct_linenr]
-            indent = line[: len(line) - len(line.lstrip())]
+            indent = indent_from_line(line)
             new_lines = [line, indent + depth_field]
             lines[struct_linenr] = "\n".join(new_lines)
