@@ -59,7 +59,7 @@ class TextMaterial(Material):
         self.weight_offset = weight_offset
         self.aa = aa
 
-    def _wgpu_get_pick_info(self, pick_value):
+    def _wgpu_get_pick_info(self, pick_value) -> dict:
         info = super()._wgpu_get_pick_info(pick_value)
         # Note that the glyph index is not necessarily the same as the
         # char index. It would not be worth the effort to let the shader produce

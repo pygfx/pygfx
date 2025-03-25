@@ -60,7 +60,7 @@ class LineMaterial(Material):
         self.dash_offset = dash_offset
         self.aa = aa
 
-    def _wgpu_get_pick_info(self, pick_value):
+    def _wgpu_get_pick_info(self, pick_value) -> dict:
         info = super()._wgpu_get_pick_info(pick_value)
         # This should match with the shader
         values = unpack_bitfield(pick_value, wobject_id=20, index=26, coord=18)

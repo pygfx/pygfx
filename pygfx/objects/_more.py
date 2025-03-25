@@ -268,7 +268,7 @@ class Mesh(WorldObject):
         """
         return self._morph_target_names
 
-    def _wgpu_get_pick_info(self, pick_value):
+    def _wgpu_get_pick_info(self, pick_value) -> dict:
         info = super()._wgpu_get_pick_info(pick_value)
         values = unpack_bitfield(
             pick_value, wobject_id=20, index=26, coord1=6, coord2=6, coord3=6
@@ -331,7 +331,7 @@ class Image(WorldObject):
 
     """
 
-    def _wgpu_get_pick_info(self, pick_value):
+    def _wgpu_get_pick_info(self, pick_value) -> dict:
         info = super()._wgpu_get_pick_info(pick_value)
         tex = self.geometry.grid
         if hasattr(tex, "texture"):
@@ -375,7 +375,7 @@ class Volume(WorldObject):
 
     """
 
-    def _wgpu_get_pick_info(self, pick_value):
+    def _wgpu_get_pick_info(self, pick_value) -> dict:
         info = super()._wgpu_get_pick_info(pick_value)
         tex = self.geometry.grid
         if hasattr(tex, "texture"):

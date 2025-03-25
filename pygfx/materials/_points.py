@@ -79,7 +79,7 @@ class PointsMaterial(Material):
         self.rotation = rotation
         self.rotation_mode = rotation_mode
 
-    def _wgpu_get_pick_info(self, pick_value):
+    def _wgpu_get_pick_info(self, pick_value) -> dict:
         info = super()._wgpu_get_pick_info(pick_value)
         # This should match with the shader
         values = unpack_bitfield(pick_value, wobject_id=20, index=26, x=9, y=9)
