@@ -332,7 +332,9 @@ class OutputResolver:
                     linenr = assigned_fields[arg_name]
                     line = lines[linenr]
                     new_name = f"out_virtualfield_{arg_name}"
-                    lines[linenr] = line.replace(f"out.{arg_name}", f"let {new_name}")
+                    lines[linenr] = line.replace(
+                        f"out.{arg_name}", f"let {new_name}", 1
+                    )
                     args.append(new_name)
                 else:
                     args.append(default_value)
