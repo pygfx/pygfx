@@ -218,17 +218,8 @@ class BaseShader(ShaderInterface):
             code1 = self.get_code()
             # Templating and resolving includes
             code2 = apply_templating(code1, **template_vars)
-            # Auto-insert varyings struct, and Tweak FragmentOutput if depth is set in frag shader.
-            import time
-
-            t0 = time.perf_counter()
-            n = 100
-            for _ in range(n):
-                code3 = resolve_shadercode(code2)
-            et = (time.perf_counter() - t0) / n
-            print(
-                f"Shader resolving of {self.__class__.__name__} took {et * 1000:0.2f} ms"
-            )
+            # Resolve Varyings and FragmentOutput
+            code3 = resolve_shadercode(code2)
             return code3
         finally:
             self._template_vars_bindings = ori_template_vars
