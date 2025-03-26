@@ -71,7 +71,8 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
     let out_color = vec4<f32>(physical_color, opacity);
 
     // Wrap up
-    var out = get_fragment_output(varyings.position, out_color);
+    var out: FragmentOutput;
+    out.color = out_color;
 
     $$ if write_pick
     // The wobject-id must be 20 bits. In total it must not exceed 64 bits.

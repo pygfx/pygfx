@@ -13,7 +13,7 @@ from .renderer import WgpuRenderer
 
 # Notes:
 # - The user code provides color as-is in rgba.
-# - In the get_fragment_output logic defined in the shaders here, the color
+# - In the apply_virtual_fields_of_fragment_output logic defined in the shaders here, the color
 #   is pre-multiplied with the alpha.
 # - All fixed-pipeling blending options assume premultiplied alpha.
 
@@ -71,9 +71,9 @@ class BasePass:
 
         Notes:
 
-        * This code gets injected into the shader, so the material shaders
-          can use get_fragment_output.
-        * This code should define FragmentOutput and get_fragment_output.
+        * This code gets injected into the shader, defining FragmentOutput.
+        * This code may define virtual fields in FragmentOutput using a special comment.
+        * If it does, it should define apply_virtual_fields_of_fragment_output(outp: ptr<function,FragmentOutput>, *virtual_args)
         """
         return ""
 
