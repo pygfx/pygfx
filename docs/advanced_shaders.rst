@@ -233,7 +233,7 @@ For some types of blending the output struct is modified automatically,
 and users can influence this process. E.g. to explicitly set a seed for
 dithered blending:
 
-.. code-block:: wgsl
+.. code-block::
 
     ...
     var out: FragmentOutput;
@@ -245,7 +245,7 @@ dithered blending:
 
 ... or set the weight for weighted blending:
 
-.. code-block:: wgsl
+.. code-block::
 
     ...
     var out: FragmentOutput;
