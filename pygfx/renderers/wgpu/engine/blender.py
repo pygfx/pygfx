@@ -636,6 +636,7 @@ class BaseFragmentBlender:
         return {
             "blending_code": self.passes[pass_index].get_shader_code(self),
             "write_pick": self.passes[pass_index].write_pick,
+            "blending": self.name,
         }
 
     def get_pass_count(self):
