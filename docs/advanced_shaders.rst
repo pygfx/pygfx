@@ -209,9 +209,9 @@ FragmentOutput
 In a somewhat similar way, the output of the fragment shader is
 predefined. Though in this case the output is determined by the blend
 mode and render pass (opaque or transparent), and the details are hidden
-from the shader author. This way, Pygfx can support advanced handling
-of transparency without affecting individual shaders.
-All fragment functions in Pygfx are somewhat like this:
+from the shader author. This way, Pygfx can support special blend modes
+without affecting individual shaders.
+All fragment functions in Pygfx look somewhat like this:
 
 
 .. code-block:: python
@@ -230,7 +230,7 @@ All fragment functions in Pygfx are somewhat like this:
             """
 
 For some types of blending the output struct is modified automatically,
-and users can influence this process. E.g. to explicitly set the seed for
+and users can influence this process. E.g. to explicitly set a seed for
 dithered blending:
 
 .. code-block:: wgsl
@@ -239,7 +239,7 @@ dithered blending:
     var out: FragmentOutput;
     out.color = vec4<f32>(...);
     $$ if blending == 'dither'
-    out.seed = f32(...);
+    out.seed1 = f32(...);
     $$ endif
     return out;
 
