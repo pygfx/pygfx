@@ -38,7 +38,7 @@ def test_fragmentoutput_no_output():
     # Has virtual fields, but code does not use FragmentOutput in fragment shader
     code1 = """
     struct FragmentOutput {
-        // virtualfield foo = 42;
+        // virtualfield foo : f32 = 42;
         @location(0) color: vec4<f32>,
     }
     fn some function() {
@@ -57,7 +57,7 @@ def test_fragmentoutput_virtual_using_default():
 
     code1 = """
     struct FragmentOutput {
-        // virtualfield foo = 42;
+        // virtualfield foo : f32 = 42;
         @location(0) color: vec4<f32>,
     }
     @fragment
@@ -69,7 +69,7 @@ def test_fragmentoutput_virtual_using_default():
 
     code2 = """
     struct FragmentOutput {
-        // virtualfield foo = 42;
+        // virtualfield foo : f32 = 42;
         @location(0) color: vec4<f32>,
     }
     @fragment
@@ -89,7 +89,7 @@ def test_fragmentoutput_virtual_no_return():
 
     code1 = """
     struct FragmentOutput {
-        // virtualfield foo = 42;
+        // virtualfield foo : f32 = 42;
         @location(0) color: vec4<f32>,
     }
     @fragment
@@ -100,7 +100,7 @@ def test_fragmentoutput_virtual_no_return():
 
     code2 = """
     struct FragmentOutput {
-        // virtualfield foo = 42;
+        // virtualfield foo : f32 = 42;
         @location(0) color: vec4<f32>,
     }
     @fragment
@@ -119,7 +119,7 @@ def test_fragmentoutput_virtual_is_set():
 
     code1 = """
     struct FragmentOutput {
-        // virtualfield foo = 42;
+        // virtualfield foo : f32 = 42;
         @location(0) color: vec4<f32>,
     }
     @fragment
@@ -132,13 +132,57 @@ def test_fragmentoutput_virtual_is_set():
 
     code2 = """
     struct FragmentOutput {
-        // virtualfield foo = 42;
+        // virtualfield foo : f32 = 42;
         @location(0) color: vec4<f32>,
     }
     @fragment
     fn fs_main() {
         var out: FragmentOutput;
-        let out_virtualfield_foo = 7;
+        var out_virtualfield_foo: f32;
+        out_virtualfield_foo = 7;
+        apply_virtual_fields_of_fragment_output(&out, out_virtualfield_foo);
+        return out;
+    }
+    """.strip()
+
+    code3 = resolve_output(code1).strip()
+    assert code3 == code2
+
+
+def test_fragmentoutput_virtual_is_set_in_branch():
+    # out.foo is set, use that
+
+    code1 = """
+    struct FragmentOutput {
+        // virtualfield foo : f32 = 42;
+        @location(0) color: vec4<f32>,
+    }
+    @fragment
+    fn fs_main() {
+        var out: FragmentOutput;
+        if (something) {
+            out.foo = 7;
+        } else {
+            out.foo = 9;
+        }
+        return out;
+    }
+    """.strip()
+
+    code2 = """
+    struct FragmentOutput {
+        // virtualfield foo : f32 = 42;
+        @location(0) color: vec4<f32>,
+    }
+    @fragment
+    fn fs_main() {
+        var out: FragmentOutput;
+        var out_virtualfield_foo: f32;
+        if (something) {
+            out_virtualfield_foo = 7;
+        } else {
+            out_virtualfield_foo = 9;
+        }
         apply_virtual_fields_of_fragment_output(&out, out_virtualfield_foo);
         return out;
     }
@@ -153,7 +197,7 @@ def test_fragmentoutput_virtual_is_also_real_field_unset():
 
     code1 = """
     struct FragmentOutput {
-        // virtualfield color = vec4<f32>(0.0);
+        // virtualfield color : vec4<f32> = vec4<f32>(0.0);
         @location(0) color: vec4<f32>,
     }
     @fragment
@@ -165,7 +209,7 @@ def test_fragmentoutput_virtual_is_also_real_field_unset():
 
     code2 = """
     struct FragmentOutput {
-        // virtualfield color = vec4<f32>(0.0);
+        // virtualfield color : vec4<f32> = vec4<f32>(0.0);
         @location(0) color: vec4<f32>,
     }
     @fragment
@@ -185,7 +229,7 @@ def test_fragmentoutput_virtual_is_also_real_field_set():
 
     code1 = """
     struct FragmentOutput {
-        // virtualfield color = vec4<f32>(0.0);
+        // virtualfield color : vec4<f32> = vec4<f32>(0.0);
         @location(0) color: vec4<f32>,
     }
     @fragment
@@ -198,13 +242,14 @@ def test_fragmentoutput_virtual_is_also_real_field_set():
 
     code2 = """
     struct FragmentOutput {
-        // virtualfield color = vec4<f32>(0.0);
+        // virtualfield color : vec4<f32> = vec4<f32>(0.0);
         @location(0) color: vec4<f32>,
     }
     @fragment
     fn fs_main() {
         var out: FragmentOutput;
-        let out_virtualfield_color = some_color;
+        var out_virtualfield_color: vec4<f32>;
+        out_virtualfield_color = some_color;
         apply_virtual_fields_of_fragment_output(&out, out_virtualfield_color);
         return out;
     }
@@ -219,7 +264,7 @@ def test_fragmentoutput_virtual_is_multiline():
 
     code1 = """
     struct FragmentOutput {
-        // virtualfield foo = vec2<f32>(0.0);
+        // virtualfield foo : vec2<f32> = vec2<f32>(0.0);
         @location(0) color: vec4<f32>,
     }
     @fragment
@@ -235,13 +280,14 @@ def test_fragmentoutput_virtual_is_multiline():
 
     code2 = """
     struct FragmentOutput {
-        // virtualfield foo = vec2<f32>(0.0);
+        // virtualfield foo : vec2<f32> = vec2<f32>(0.0);
         @location(0) color: vec4<f32>,
     }
     @fragment
     fn fs_main() {
         var out: FragmentOutput;
-        let out_virtualfield_foo = vec2<f32>(
+        var out_virtualfield_foo: vec2<f32>;
+        out_virtualfield_foo = vec2<f32>(
                 1.0,
                 2.0
         );
@@ -259,8 +305,8 @@ def test_fragmentoutput_multiple_places():
 
     code1 = """
     struct FragmentOutput {
-        // virtualfield foo = 42;
-        // virtualfield bar = vec2<f32>(0.0);
+        // virtualfield foo : f32 = 42;
+        // virtualfield bar : vec2<f32> = vec2<f32>(0.0);
         @location(0) color: vec4<f32>,
     }
     @fragment
@@ -283,14 +329,15 @@ def test_fragmentoutput_multiple_places():
 
     code2 = """
     struct FragmentOutput {
-        // virtualfield foo = 42;
-        // virtualfield bar = vec2<f32>(0.0);
+        // virtualfield foo : f32 = 42;
+        // virtualfield bar : vec2<f32> = vec2<f32>(0.0);
         @location(0) color: vec4<f32>,
     }
     @fragment
     fn fs_main1() {
         var out: FragmentOutput;
-        let out_virtualfield_foo = 7;
+        var out_virtualfield_foo: f32;
+        out_virtualfield_foo = 7;
         apply_virtual_fields_of_fragment_output(&out, out_virtualfield_foo, vec2<f32>(0.0));
         return out;
     }
@@ -301,7 +348,8 @@ def test_fragmentoutput_multiple_places():
     @fragment
     fn fs_main2() {
         var out: FragmentOutput;
-        let out_virtualfield_bar = vec2<f32>(1.0, 2.0);
+        var out_virtualfield_bar: vec2<f32>;
+        out_virtualfield_bar = vec2<f32>(1.0, 2.0);
         apply_virtual_fields_of_fragment_output(&out, 42, out_virtualfield_bar);
         return out;
     }
@@ -348,7 +396,7 @@ def test_fragmentoutput_add_depth_with_virtual():
 
     code1 = """
     struct FragmentOutput {
-        // virtualfield foo = 42;
+        // virtualfield foo : f32 = 42;
         @location(0) color: vec4<f32>,
     }
     @fragment
@@ -363,7 +411,7 @@ def test_fragmentoutput_add_depth_with_virtual():
     code2 = """
     struct FragmentOutput {
         @builtin(frag_depth) depth : f32,
-        // virtualfield foo = 42;
+        // virtualfield foo : f32 = 42;
         @location(0) color: vec4<f32>,
     }
     @fragment
@@ -415,7 +463,7 @@ def test_fragmentoutput_legacy_with_virtual():
 
     code1 = """
     struct FragmentOutput {
-        // virtualfield foo = 42;
+        // virtualfield foo : f32 = 42;
         @location(0) color: vec4<f32>,
     }
     @fragment
@@ -428,14 +476,15 @@ def test_fragmentoutput_legacy_with_virtual():
 
     code2 = """
     struct FragmentOutput {
-        // virtualfield foo = 42;
+        // virtualfield foo : f32 = 42;
         @location(0) color: vec4<f32>,
     }
     @fragment
     fn fs_main() {
         var out: FragmentOutput;
+        var out_virtualfield_foo: f32;
         out.color = get_fragment_output(varyings.position, out_color).color;
-        let out_virtualfield_foo = 7;
+        out_virtualfield_foo = 7;
         apply_virtual_fields_of_fragment_output(&out, out_virtualfield_foo);
         return out;
     }
@@ -450,7 +499,7 @@ def test_fragmentoutput_legacy_virtual_is_real():
 
     code1 = """
     struct FragmentOutput {
-        // virtualfield color = vec4<f32>(0.0);
+        // virtualfield color : vec4<f32> = vec4<f32>(0.0);
         @location(0) color: vec4<f32>,
     }
     @fragment
@@ -462,13 +511,14 @@ def test_fragmentoutput_legacy_virtual_is_real():
 
     code2 = """
     struct FragmentOutput {
-        // virtualfield color = vec4<f32>(0.0);
+        // virtualfield color : vec4<f32> = vec4<f32>(0.0);
         @location(0) color: vec4<f32>,
     }
     @fragment
     fn fs_main() {
         var out: FragmentOutput;
-        let out_virtualfield_color = get_fragment_output(varyings.position, out_color).color;
+        var out_virtualfield_color: vec4<f32>;
+        out_virtualfield_color = get_fragment_output(varyings.position, out_color).color;
         apply_virtual_fields_of_fragment_output(&out, out_virtualfield_color);
         return out;
     }

@@ -153,7 +153,7 @@ class OpaquePass(BasePass):
     def get_shader_code(self, blender):
         return """
         struct FragmentOutput {
-            // virtualfield color = vec4<f32>(0.0)
+            // virtualfield color : vec4<f32> = vec4<f32>(0.0)
             @location(0) color: vec4<f32>,
             @location(1) pick: vec4<u32>,
         };
@@ -173,7 +173,7 @@ class FullOpaquePass(OpaquePass):
     def get_shader_code(self, blender):
         return """
         struct FragmentOutput {
-            // virtualfield color = vec4<f32>(0.0)
+            // virtualfield color : vec4<f32> = vec4<f32>(0.0)
             @location(0) color: vec4<f32>,
             @location(1) pick: vec4<u32>,
         };
@@ -203,8 +203,8 @@ class DitherPass(OpaquePass):
         // So the only case where the same pattern may be used for different
         // fragments if an object is at the same depth and has the same color.
         struct FragmentOutput {
-            // virtualfield seed1 = varyings.position.x * varyings.position.y * varyings.position.z
-            // virtualfield seed2 = out.color.r * 0.12 + out.color.g * 0.34 + out.color.b * 0.56 + out.color.a * 0.78
+            // virtualfield seed1 : f32 = varyings.position.x * varyings.position.y * varyings.position.z
+            // virtualfield seed2 : f32 = out.color.r * 0.12 + out.color.g * 0.34 + out.color.b * 0.56 + out.color.a * 0.78
             @location(0) color: vec4<f32>,
             @location(1) pick: vec4<u32>,
         };
@@ -245,7 +245,7 @@ class SimpleSinglePass(OpaquePass):
         # Take depth into account, but don't treat transparent fragments differently
         return """
         struct FragmentOutput {
-            // virtualfield color = vec4<f32>(0.0)
+            // virtualfield color : vec4<f32> = vec4<f32>(0.0)
             @location(0) color: vec4<f32>,
             @location(1) pick: vec4<u32>,
         };
@@ -314,7 +314,7 @@ class SimpleTransparencyPass(BasePass):
     def get_shader_code(self, blender):
         return """
         struct FragmentOutput {
-            // virtualfield color = vec4<f32>(0.0)
+            // virtualfield color : vec4<f32> = vec4<f32>(0.0)
             @location(0) color: vec4<f32>,
         };
         fn apply_virtual_fields_of_fragment_output(outp: ptr<function,FragmentOutput>, color: vec4<f32>) {
@@ -414,8 +414,8 @@ class WeightedTransparencyPass(BasePass):
     def get_shader_code(self, blender):
         code = """
         struct FragmentOutput {
-            // virtualfield color = vec4<f32>(0.0)
-            // virtualfield depth_for_weight = varyings.position.z;
+            // virtualfield color : vec4<f32> = vec4<f32>(0.0)
+            // virtualfield depth_for_weight: f32 = varyings.position.z;
             @location(0) accum: vec4<f32>,
             @location(1) reveal: f32,
         };
@@ -509,7 +509,7 @@ class FrontmostTransparencyPass(BasePass):
     def get_shader_code(self, blender):
         return """
         struct FragmentOutput {
-            // virtualfield color = vec4<f32>(0.0)
+            // virtualfield color : vec4<f32> = vec4<f32>(0.0)
             @location(0) color: vec4<f32>,
             @location(1) pick: vec4<u32>,
         };

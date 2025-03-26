@@ -246,7 +246,7 @@ class OutputResolver:
         # depth to be known.
 
         self.struct_linenr = None
-        self.assigned_fields = None  # dict mapping field-name -> linenr
+        self.assigned_fields = None  # list of (field-name, linenr)
         self.assigned_fields_list = []  # list of assigned_fields
 
     def process_line(self, linenr, line, current_func_kind):
@@ -263,18 +263,18 @@ class OutputResolver:
             if self.assigned_fields is None:
                 # Detect var out: FragmentOutput
                 if re_out_create.match(line) or re_out_create_old.match(line):
-                    self.assigned_fields = {"__create": linenr}
+                    self.assigned_fields = [("__create", linenr)]
                     self.assigned_fields_list.append(self.assigned_fields)
             else:
                 # Detect fields being set
                 match = re_out_field.match(line)
                 if match:
                     name = match.group(1)
-                    self.assigned_fields[name] = linenr
+                    self.assigned_fields.append((name, linenr))
                 # Detect return, because that's the best place to insert our call
                 match = re_out_return.match(line)
                 if match:
-                    self.assigned_fields["return"] = linenr
+                    self.assigned_fields.append(("return", linenr))
                     self.assigned_fields = None
 
     def update_lines(self, lines):
@@ -283,22 +283,24 @@ class OutputResolver:
 
         # Collect virtual fields, specified in comments inside the FragmentOutput definition.
         # These will be the args for apply_virtual_fields_of_fragment_output()
-        # E.g. // virtualfield color = vec4<f32>(0.0)
+        # E.g. // virtualfield foo : f32 = vec4<f32>(0.0)
         virtual_field_prefix = "// virtualfield "
-        virtual_fields = {}
+        virtual_fields = []
         if struct_linenr is not None:
             linenr = struct_linenr
             while linenr < len(lines) - 1:
                 linenr += 1
                 line = lines[linenr].lstrip()
                 if line.startswith(virtual_field_prefix):
-                    name, eq, value = (
-                        line[len(virtual_field_prefix) :].split("//")[0].partition("=")
+                    name_type_value = line[len(virtual_field_prefix) :].split("//")[0]
+                    name, colon, type_value = name_type_value.partition(":")
+                    type, eq, value = type_value.partition("=")
+                    assert colon and eq, (
+                        "A virtualfield needs to be of the form 'name : type = defaultvalue'. {name!r} does not"
                     )
-                    assert eq, (
-                        "A virtualfield needs a ' = default-value'. {name!r} has not"
+                    virtual_fields.append(
+                        (name.strip(), type.strip(), value.strip(" ;"))
                     )
-                    virtual_fields[name.strip()] = value.strip(" \t;")
                 else:
                     break
 
@@ -306,47 +308,54 @@ class OutputResolver:
 
         # Handle each place where a FragmentOutput is returned
         for assigned_fields in assigned_fields_list:
+            create_linenr = next(i for name, i in assigned_fields if name == "__create")
+            create_indent = indent_from_line(lines[create_linenr])
+
             # Handle get_fragment_output deprecated usage. Not pretty, but it works and is temporary.
             # TODO: after one or two releases, remove the deprecated get_fragment_output case.
-            linenr_create = assigned_fields["__create"]
-            create_line = lines[linenr_create]
+            create_line = lines[create_linenr]
             if re_out_create_old.match(create_line.lstrip()):
                 if "get_fragment_output" not in warned_for:
                     warned_for.add("get_fragment_output")
                     logger.warning("get_fragment_output() in WGSL is deprecated")
-                indent = indent_from_line(create_line)
-                new_create_line = indent + "var out: FragmentOutput;"
+                new_create_line = create_indent + "var out: FragmentOutput;"
                 colorset_line = (
-                    indent
+                    create_indent
                     + "out.color ="
-                    + create_line.split("=", 1)[1].replace(";", ".color;")
+                    + create_line.split("=", 1)[1].replace(");", ").color;")
                 )
-                lines[linenr_create - 1] += "\n" + new_create_line
-                lines[linenr_create] = colorset_line
-                assigned_fields["color"] = assigned_fields["__create"]
+                lines[create_linenr - 1] += "\n" + new_create_line
+                lines[create_linenr] = colorset_line
+                assigned_fields.append(("color", create_linenr))
+                create_linenr -= 1
 
             # Collect virtual argument values
             args = []
-            for arg_name, default_value in virtual_fields.items():
-                if arg_name in assigned_fields:
-                    linenr = assigned_fields[arg_name]
-                    line = lines[linenr]
-                    new_name = f"out_virtualfield_{arg_name}"
-                    lines[linenr] = line.replace(
-                        f"out.{arg_name}", f"let {new_name}", 1
-                    )
-                    args.append(new_name)
-                else:
+            for name, type, default_value in virtual_fields:
+                linenrs = [i for n, i in assigned_fields if n == name]
+                if not linenrs:
                     args.append(default_value)
+                else:
+                    prefixed_name = f"out_virtualfield_{name}"
+                    args.append(prefixed_name)
+                    lines[create_linenr] += (
+                        f"\n{create_indent}var {prefixed_name}: {type};"
+                    )
+
+                    for linenr in linenrs:
+                        lines[linenr] = lines[linenr].replace(
+                            f"out.{name}", f"{prefixed_name}", 1
+                        )
+
             # Process special arguments
-            if "depth" in assigned_fields:
+            if any(i for name, i in assigned_fields if name == "depth"):
                 depth_is_set = True
 
             # Apply the virtual fields. The call to the apply-function is
             # inserted right before 'return out', or right after the last struct
             # field is set (if we did not detect a return).
             if args:
-                linenr = max(assigned_fields.values())
+                linenr = max(i for _, i in assigned_fields)
                 args.insert(0, "&out")
                 line = lines[linenr]
                 is_return_line = line.lstrip().startswith("return")
