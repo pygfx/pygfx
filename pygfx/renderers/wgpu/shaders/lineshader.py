@@ -126,18 +126,16 @@ class LineShader(BaseShader):
             self._bake_line_distance(wobject, camera, logical_size)
 
     def _bake_line_loops(self, wobject):
-        # Get buffers
-        positions_buffer = wobject.geometry.positions
-        loop_buffer = self.line_loop_buffer
-        r_offset, r_size = positions_buffer.draw_range
-
         # Early exit?
+        positions_buffer = wobject.geometry.positions
         loop_hash = (id(positions_buffer), positions_buffer.rev)
         if loop_hash == self._loop_hash:
             return
         self._loop_hash = loop_hash
 
         # Get arrays
+        loop_buffer = self.line_loop_buffer
+        r_offset, r_size = positions_buffer.draw_range
         positions_array = positions_buffer.data
         loop_array = loop_buffer.data
 
@@ -162,7 +160,6 @@ class LineShader(BaseShader):
             i1 = i2
 
         loop_buffer.update_range(r_offset, r_size)
-        # TODO: can we dynamically add loops?
 
     def _bake_line_distance(self, wobject, camera, logical_size):
         # Prepare

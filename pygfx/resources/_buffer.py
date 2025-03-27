@@ -252,6 +252,8 @@ class Buffer(Resource):
 
     @draw_range.setter
     def draw_range(self, draw_range):
+        if draw_range is None:
+            draw_range = 0, self.nitems
         origin, size = draw_range
         origin, size = int(origin), int(size)
         if not (origin == 0 or 0 < origin < self.nitems):  # note nitems can be 0

@@ -23,7 +23,7 @@ class LineMaterial(Material):
         The pattern of the dash, e.g. `[2, 3]`. See `dash_pattern` docs for details. Defaults to an empty tuple, i.e. no dashing.
     dash_offset : float
         The offset into the dash phase. Default 0.0.
-    loop : int
+    loop : bool
         Whether the line's end should be connected. Default False.
     aa : bool
         Whether or not the line is anti-aliased in the shader. Default True.
@@ -48,7 +48,7 @@ class LineMaterial(Material):
         map=None,
         dash_pattern=(),
         dash_offset=0,
-        loop=0,
+        loop=False,
         aa=True,
         **kwargs,
     ):
@@ -224,13 +224,19 @@ class LineMaterial(Material):
         self.uniform_buffer.update_full()
 
     @property
-    def loop(self):
-        """Whether the line's ends should be connected."""
+    def loop(self) -> bool:
+        """Whether the line's ends should be connected.
+
+        If set to True, the end of the line is connected to its beginning,
+        in such a way that a transparent line shows no overlap.
+        When the line consists of multiple pieces separated by nan-positions,
+        each line-pieces is considered a loop.
+        """
         return self._store.loop
 
     @loop.setter
-    def loop(self, loop):
-        self._store.loop = int(loop)
+    def loop(self, loop: bool):
+        self._store.loop = bool(loop)
 
 
 class LineDebugMaterial(LineMaterial):
