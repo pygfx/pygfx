@@ -191,8 +191,9 @@ class _GLTF:
         self._register_plugin(GLTFMaterialsSpecularExtension)
         self._register_plugin(GLTFMaterialsClearcoatExtension)
         self._register_plugin(GLTFMaterialsIridescenceExtension)
-        self._register_plugin(GLTFMaterialsEmissiveStrengthExtension)
+        self._register_plugin(GLTFMaterialsSheenExtension)
         self._register_plugin(GLTFMaterialsAnisotropyExtension)
+        self._register_plugin(GLTFMaterialsEmissiveStrengthExtension)
         self._register_plugin(GLTFMaterialsUnlitExtension)
         self._register_plugin(GLTFLightsExtension)
         self._register_plugin(GLTFTextureTransformExtension)
@@ -1283,6 +1284,36 @@ class GLTFMaterialsAnisotropyExtension(GLTFBaseMaterialsExtension):
             material.anisotropy_map = self.parser._load_gltf_texture_map(
                 anisotropy_texture
             )
+
+
+class GLTFMaterialsSheenExtension(GLTFBaseMaterialsExtension):
+    EXTENSION_NAME = "KHR_materials_sheen"
+
+    def extend_material(self, material_def, material):
+        if (
+            not material_def.extensions
+            or self.EXTENSION_NAME not in material_def.extensions
+        ):
+            return
+
+        extension = material_def.extensions[self.EXTENSION_NAME]
+
+        sheen_color = extension.get("sheenColorFactor", None)
+        if sheen_color is not None:
+            material.sheen = 1.0
+            material.sheen_color = gfx.Color.from_physical(*sheen_color)
+
+        sheen_color_texture = extension.get("sheenColorTexture", None)
+        if sheen_color_texture is not None:
+            material.sheen_color_map = self._load_texture(sheen_color_texture)
+
+        sheen_roughness_factor = extension.get("sheenRoughnessFactor", None)
+        if sheen_roughness_factor is not None:
+            material.sheen_roughness = sheen_roughness_factor
+
+        sheen_roughness_texture = extension.get("sheenRoughnessTexture", None)
+        if sheen_roughness_texture is not None:
+            material.sheen_roughness_map = self._load_texture(sheen_roughness_texture)
 
 
 class GLTFMaterialsEmissiveStrengthExtension(GLTFBaseMaterialsExtension):

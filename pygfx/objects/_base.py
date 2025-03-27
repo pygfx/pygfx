@@ -9,9 +9,10 @@ from time import perf_counter_ns
 
 import numpy as np
 
-from ..resources import Buffer
+from ..resources import Buffer, Texture
 from ..utils import array_from_shadertype, logger
 from ..utils.trackable import Trackable
+from ..utils.bounds import Bounds
 from ._events import EventTarget
 from ..utils.transform import (
     AffineTransform,
@@ -90,7 +91,9 @@ class WorldObject(EventTarget, Trackable):
     Parameters
     ----------
     geometry : Geometry
-        The data defining the shape of the object.
+        The data defining the shape of the object. See the documentation
+        on the different WorldObject subclasses for what attributes the
+        geometry should and may have.
     material : Material
         The data defining the appearance of the object.
     visible : bool
@@ -173,6 +176,10 @@ class WorldObject(EventTarget, Trackable):
         # Set id
         self._id = id_provider.claim_id(self)
         buffer.data["id"] = self._id
+
+        # Bounds
+        self._bounds_geometry = None
+        self._bounds_geometry_rev = 0
 
         #: The GPU data of this WorldObject.
         self.uniform_buffer = buffer
@@ -480,6 +487,45 @@ class WorldObject(EventTarget, Trackable):
         for child in self._children:
             yield from child.iter(filter_fn, skip_invisible)
 
+    def _get_bounds_from_geometry(self):
+        geometry = self.geometry
+        if geometry is None:
+            self._bounds_geometry = None
+        elif isinstance(positions_buf := getattr(geometry, "positions", None), Buffer):
+            if self._bounds_geometry_rev == positions_buf.rev:
+                return self._bounds_geometry
+            self._bounds_geometry = None
+            # Get array and check expected shape
+            positions_array = positions_buf.data
+            if positions_array.ndim == 2 and positions_array.shape[1] in (2, 3):
+                self._bounds_geometry = Bounds.from_points(positions_array)
+                self._bounds_geometry_rev = positions_buf.rev
+        elif isinstance(grid_buf := getattr(geometry, "grid", None), Texture):
+            if self._bounds_geometry_rev == grid_buf.rev:
+                return self._bounds_geometry
+            # account for multi-channel image data
+            grid_shape = tuple(reversed(grid_buf.size[: grid_buf.dim]))
+            # create aabb in index/data space
+            aabb = np.array([np.zeros_like(grid_shape), grid_shape[::-1]], dtype="f8")
+            # convert to local image space by aligning
+            # center of voxel index (0, 0, 0) with origin (0, 0, 0)
+            aabb -= 0.5
+            # ensure coordinates are 3D
+            # NOTE: important we do this last, we don't want to apply
+            # the -0.5 offset to the z-coordinate of 2D images
+            if aabb.shape[1] == 2:
+                aabb = np.hstack([aabb, [[0], [0]]])
+            self._bounds_geometry = Bounds(aabb, None)
+            self._bounds_geometry_rev = grid_buf.rev
+        else:
+            self._bounds_geometry = None
+        return self._bounds_geometry
+
+    def get_geometry_bounding_box(self) -> np.ndarray | None:
+        bounds = self._get_bounds_from_geometry()
+        if bounds is not None:
+            return bounds.aabb
+
     def get_bounding_box(self) -> np.ndarray | None:
         """Axis-aligned bounding box in parent space.
 
@@ -497,10 +543,9 @@ class WorldObject(EventTarget, Trackable):
             if aabb is not None:
                 trafo = child.local.matrix
                 _aabbs.append(la.aabb_transform(aabb, trafo))
-        if self.geometry is not None:
-            aabb = self.geometry.get_bounding_box()
-            if aabb is not None:
-                _aabbs.append(aabb)
+        bounds = self._get_bounds_from_geometry()
+        if bounds is not None:
+            _aabbs.append(bounds.aabb)
 
         # Combine
         if _aabbs:
@@ -523,6 +568,7 @@ class WorldObject(EventTarget, Trackable):
             not take up a particular space.
 
         """
+        # NOTE: this currently does not even use the sphere-data from the geometry!
         aabb = self.get_bounding_box()
         return None if aabb is None else la.aabb_to_sphere(aabb)
 

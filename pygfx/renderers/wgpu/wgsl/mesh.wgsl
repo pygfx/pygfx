@@ -61,10 +61,14 @@ fn get_morph( tex: texture_2d_array<f32>, vertex_index: u32, stride: u32, width:
     return textureLoad( tex, morph_uv, morph_index, 0 );
 }
 struct MorphTargetInfluence {
-    @size(16) influence: f32,
+    //@size(16) influence: f32, -> Does not work on Metal, likely an upstream bug in Naga
+    influence: f32,
+    padding0: f32,
+    padding1: f32,
+    padding2: f32,
 };
 @group(1) @binding(1)
-var<uniform> u_morph_target_influences: array<MorphTargetInfluence, {{morph_targets_count+1}}>;
+var<uniform> u_morph_target_influences: array<MorphTargetInfluence, {{influences_buffer_size}}>;
 
 $$ endif
 
@@ -124,7 +128,7 @@ fn vs_main(in: VertexInput) -> Varyings {
 
     // morph targets
     $$ if use_morph_targets
-        let base_influence = u_morph_target_influences[{{morph_targets_count}}];
+        let base_influence = u_morph_target_influences[{{influences_buffer_size-1}}];
         let stride = u32({{morph_targets_stride}});
         let width = u32({{morph_targets_texture_width}});
 
@@ -170,7 +174,7 @@ fn vs_main(in: VertexInput) -> Varyings {
 
         $$ if use_tangent is defined
             object_tangent = (skin_matrix * vec4f(object_tangent, 0.0)).xyz;
-        $$ endif 
+        $$ endif
 
     $$ endif
 
@@ -245,7 +249,7 @@ fn vs_main(in: VertexInput) -> Varyings {
 
     $$ if instanced
         // this is in lieu of a per-instance normal-matrix
-	    // shear transforms in the instance matrix are not supported
+        // shear transforms in the instance matrix are not supported
         let im = mat3x3f( instance_info.transform[0].xyz, instance_info.transform[1].xyz, instance_info.transform[2].xyz );
         raw_normal /= vec3f(dot(im[0], im[0]), dot(im[1], im[1]), dot(im[2], im[2]));
         raw_normal = im * raw_normal;
@@ -441,8 +445,8 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
                 var tbn = getTangentFrame(view, normal, normal_map_uv );
             $$ endif
 
-            tbn.x = tbn.x * face_direction;
-            tbn.y = tbn.y * face_direction;
+            tbn[0] = tbn[0] * face_direction;
+            tbn[1] = tbn[1] * face_direction;
         $$ endif
 
         $$ if use_normal_map is defined
@@ -460,8 +464,8 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
                     var tbn_cc = getTangentFrame( view, clearcoat_normal, varyings.texcoord{{clearcoat_normal_map_uv or ''}} );
                 $$ endif
 
-                tbn_cc.x = tbn_cc.x * face_direction;
-                tbn_cc.y = tbn_cc.y * face_direction;
+                tbn_cc[0] = tbn_cc[0] * face_direction;
+                tbn_cc[1] = tbn_cc[1] * face_direction;
 
                 var clearcoat_normal_map = textureSample( t_clearcoat_normal_map, s_clearcoat_normal_map, varyings.texcoord{{clearcoat_normal_map_uv or ''}} ) * 2.0 - 1.0;
                 let clearcoat_map_n = vec3f(clearcoat_normal_map.xy * u_material.clearcoat_normal_scale, clearcoat_normal_map.z);
@@ -559,6 +563,10 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
             clearcoat_specular_indirect *= ambient_occlusion;
         $$ endif
 
+        $$ if USE_SHEEN is defined
+            sheen_specular_indirect *= ambient_occlusion;
+        $$ endif
+
         $$ if lighting == 'pbr' and USE_IBL is defined
             let dot_nv = saturate( dot( geometry.normal, geometry.view_dir ) );
             reflected_light.indirect_specular *= computeSpecularOcclusion( dot_nv, ambient_occlusion, material.roughness );
@@ -576,6 +584,13 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
             emissive_color *= srgb2physical(textureSample(t_emissive_map, s_emissive_map, emissive_map_uv).rgb);
         $$ endif
         physical_color += emissive_color;
+    $$ endif
+
+    $$ if USE_SHEEN is defined
+        // Sheen energy compensation approximation calculation can be found at the end of
+        // https://drive.google.com/file/d/1T0D1VSyR4AllqIJTQAraEIzjlb5h4FKH/view?usp=sharing
+        let sheen_energy_comp = 1.0 - 0.157 * max(material.sheen_color.r, max(material.sheen_color.g, material.sheen_color.b));
+        physical_color = physical_color * sheen_energy_comp + (sheen_specular_direct + sheen_specular_indirect);
     $$ endif
 
     $$ if USE_CLEARCOAT is defined

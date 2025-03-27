@@ -143,6 +143,8 @@ class Store(dict):
             tracker._track_set((id, key), old_value, new_value)
 
     def __getattribute__(self, key):
+        if key.startswith("__"):
+            return dict.__getattribute__(self, key)
         value = undefined
         try:
             value = self[key]
@@ -262,8 +264,13 @@ class PropTracker:
         # tree behind that trackable (to the extend that we track it).
 
         is_trackable = 0
-        is_trackable |= 1 * isinstance(old_value, Trackable)
-        is_trackable |= 2 * isinstance(new_value, Trackable)
+        old_store = new_store = None
+        if isinstance(old_value, (Store, Trackable)):
+            is_trackable |= 1
+            old_store = old_value if isinstance(old_value, Store) else old_value._store
+        if isinstance(new_value, (Store, Trackable)):
+            is_trackable |= 2
+            new_store = new_value if isinstance(new_value, Store) else new_value._store
 
         # Get labels
         labels = self._trackable_names.get(name, None)
@@ -272,16 +279,17 @@ class PropTracker:
             # Register / unregister stores
             if is_trackable & 1:
                 for label in labels:
-                    self._untrack_store(old_value._store, label)
+                    self._untrack_store(old_store, label)
             if is_trackable & 2:
                 for label in labels:
-                    self._track_store(new_value._store, label)
+                    self._track_store(new_store, label)
             # If this was and is a trackable, we only process labels starting with "!"
             if is_trackable == 3 and type(old_value) is type(new_value):
                 labels = set(label for label in labels if label.startswith("!"))
 
             # Follow the hierarchy
-            self._track_set_follow_tree(old_value, new_value)
+            if old_store is not None:
+                self._track_set_follow_tree(old_store, new_store)
 
         # Update changed values
         if labels:
@@ -299,51 +307,56 @@ class PropTracker:
             elif comp_value != cur_value:
                 self._trackable_values[name] = ref_value, comp_value
 
-    def _track_set_follow_tree(self, old_value, new_value):
-        if isinstance(old_value, Trackable):
-            # Get names of stuff we track on the old trackable store
-            id = old_value._store["_trackable_id"]
-            sub_names = [n for n in self._trackable_names.keys() if n[0] == id]
+    def _track_set_follow_tree(self, old_store, new_store):
+        # old_store must be a store
+        # new_store must be a store or None
 
-            # We need to follow these
-            for name1 in sub_names:
-                _, key = name1
-                try:
-                    value1 = old_value._store[key]
-                except KeyError:
-                    continue
+        # Get names of stuff we track on the old trackable store
+        id = old_store["_trackable_id"]
+        sub_names = [n for n in self._trackable_names.keys() if n[0] == id]
 
-                # Try get matching path in the new hierarchy
+        # We need to follow these
+        for name1 in sub_names:
+            _, key = name1
+            try:
+                value1 = old_store[key]
+            except KeyError:
+                continue
+
+            # Try get matching path in the new hierarchy
+            value2 = undefined
+            if new_store is not None:
                 try:
-                    name2 = new_value._store["_trackable_id"], key
-                    value2 = new_value._store[key]
+                    name2 = new_store["_trackable_id"], key
+                    value2 = new_store[key]
                 except (AttributeError, KeyError):
-                    value2 = undefined
+                    pass
 
-                if value2 is not undefined:
-                    # Rename
-                    self._trackable_names[name2] = self._trackable_names.pop(name1)
-                    self._trackable_values[name2] = self._trackable_values.pop(name1)
-                    try:
-                        self._trackable_changed[name2] = self._trackable_changed.pop(
-                            name1
-                        )
-                    except KeyError:
-                        pass
-                    # Recurse
-                    self._track_set(name2, value1, value2)
+            if value2 is not undefined:
+                # Rename
+                self._trackable_names[name2] = self._trackable_names.pop(name1)
+                self._trackable_values[name2] = self._trackable_values.pop(name1)
+                try:
+                    self._trackable_changed[name2] = self._trackable_changed.pop(name1)
+                except KeyError:
+                    pass
+                # Recurse
+                self._track_set(name2, value1, value2)
 
-                else:
-                    # Unregister
-                    labels = self._trackable_names.pop(name1, ())
-                    self._trackable_values.pop(name1, None)
-                    dirty_labels_for_this_name = self._trackable_changed.setdefault(
-                        name1, set()
-                    )
-                    dirty_labels_for_this_name.update(labels)
-                    # Unregister stores
-                    if isinstance(value1, Trackable):
-                        for label in labels:
-                            self._untrack_store(value1._store, label)
-                    # Recurse
-                    self._track_set_follow_tree(value1, value2)
+            else:
+                # Unregister
+                labels = self._trackable_names.pop(name1, ())
+                self._trackable_values.pop(name1, None)
+                dirty_labels_for_this_name = self._trackable_changed.setdefault(
+                    name1, set()
+                )
+                dirty_labels_for_this_name.update(labels)
+                # Unregister stores
+                if isinstance(value1, Trackable):
+                    for label in labels:
+                        self._untrack_store(value1._store, label)
+                # Recurse
+                if isinstance(value1, Store):
+                    self._track_set_follow_tree(value1, None)
+                elif isinstance(value1, Trackable):
+                    self._track_set_follow_tree(value1._store, None)

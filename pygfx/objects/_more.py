@@ -121,7 +121,9 @@ class Line(WorldObject):
     Parameters
     ----------
     geometry : Geometry
-        The data defining the shape of the object.
+        The data defining the shape of the object. Must contain at least a
+        "positions" buffer. Depending on the usage of the material, can also
+        include buffers "texcoords", "colors", and "sizes".
     material : Material
         The data defining the appearance of the object.
     visible : bool
@@ -150,7 +152,9 @@ class Points(WorldObject):
     Parameters
     ----------
     geometry : Geometry
-        The data defining the shape of the object.
+        The data defining the shape of the object. Must contain at least a
+        "positions" buffer. Depending on the usage of the material, can also
+        include buffers "texcoords", "colors", "sizes", "edge_colors", "rotations".
     material : Material
         The data defining the appearance of the object.
     visible : bool
@@ -181,7 +185,10 @@ class Mesh(WorldObject):
     Parameters
     ----------
     geometry : Geometry
-        The data defining the shape of the object.
+        The data defining the shape of the object. Must contain at least a
+        "positions" and "indices" buffers. Depending on the usage of the material, can also
+        include buffers "normals", "colors", "texcoords", "texcoords2", etc.
+        Advanced use of meshes also support "tangents", "skin_indices",  and "skin_weights".
     material : Material
         The data defining the appearance of the object.
     visible : bool
@@ -213,49 +220,46 @@ class Mesh(WorldObject):
 
     @morph_target_influences.setter
     def morph_target_influences(self, value):
-        morph_attrs = (
-            getattr(self.geometry, "morph_positions", None)
-            or getattr(self.geometry, "morph_normals", None)
-            or getattr(self.geometry, "morph_colors", None)
-            or []
-        )
+        value = np.asarray(value, dtype=np.float32)
 
+        # Get the number of morph targets from the morph data on the geometry
+        morph_attrs = [
+            getattr(self.geometry, name, None)
+            for name in ["morph_positions", "morph_normals", "morph_colors"]
+        ]
+        morph_attrs = [x for x in morph_attrs if x is not None]
         if not morph_attrs:
             return
+        morph_count = min(len(x) for x in morph_attrs)
 
-        morph_target_count = len(morph_attrs)
+        # Check with the size of the given data
+        if len(value) != morph_count:
+            raise ValueError(
+                f"Length of morph target influences must match the number of morph targets. Expected {morph_count}, got {len(value)}."
+            )
 
-        assert len(value) == morph_target_count, (
-            f"Length of morph target influences must match the number of morph targets. "
-            f"Expected {morph_target_count}, got {len(value)}."
-        )
-
+        buffer_size = morph_count + 1  # add roon for base influence
         if (
             self._morph_target_influences is None
-            or self._morph_target_influences.nitems != morph_target_count + 1
+            or self._morph_target_influences.nitems != buffer_size
         ):
             self._morph_target_influences = Buffer(
                 array_from_shadertype(
                     {
                         "influence": "f4",
                     },
-                    morph_target_count + 1,
+                    buffer_size,
                 )
             )
-
-        if not isinstance(value, np.ndarray):
-            value = np.array(value, dtype=np.float32)
 
         if getattr(self.geometry, "morph_targets_relative", False):
             base_influence = 1.0
         else:
             base_influence = 1 - value.sum()
 
-        # Add the base influence to the end of the array
-        value = np.concatenate([value, [base_influence]], axis=0)
-
-        self._morph_target_influences.data["influence"] = value
-        self._morph_target_influences.update_range()
+        self._morph_target_influences.data["influence"][:-1] = value
+        self._morph_target_influences.data["influence"][-1] = base_influence
+        self._morph_target_influences.update_full()
 
     @property
     def morph_target_names(self):
@@ -309,7 +313,8 @@ class Image(WorldObject):
     Parameters
     ----------
     geometry : Geometry
-        The data defining the shape of the object.
+        The data defining the shape of the object. Must contain at least a
+        "grid" attribute for a 2D texture.
     material : Material
         The data defining the appearance of the object.
     visible : bool
@@ -352,7 +357,8 @@ class Volume(WorldObject):
     Parameters
     ----------
     geometry : Geometry
-        The data defining the shape of the object.
+        The data defining the shape of the object. Must contain at least a
+        "grid" attribute for a 3D texture.
     material : Material
         The data defining the appearance of the object.
     visible : bool

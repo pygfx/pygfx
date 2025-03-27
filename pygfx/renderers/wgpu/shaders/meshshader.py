@@ -47,11 +47,12 @@ class MeshShader(BaseShader):
         self["use_skinning"] = isinstance(wobject, SkinnedMesh)
 
         # Is this a morphing mesh?
-        self["use_morph_targets"] = (
-            getattr(geometry, "morph_positions", None)
-            or getattr(geometry, "morph_normals", None)
-            or getattr(geometry, "morph_colors", None)
-        )
+        morph_attrs = [
+            getattr(geometry, name, None)
+            for name in ["morph_positions", "morph_normals", "morph_colors"]
+        ]
+        morph_attrs = [x for x in morph_attrs if x is not None]
+        self["use_morph_targets"] = bool(morph_attrs)
 
         # Is this a wireframe mesh?
         self["wireframe"] = getattr(material, "wireframe", False)
@@ -237,23 +238,15 @@ class MeshShader(BaseShader):
             )
 
         if self["use_morph_targets"]:
-            morph_texture, stride, width, morph_count = getattr(
-                geometry, "_gfx_morph_texture", (None, None, None, None)
-            )
-            if morph_texture is None:
-                morph_texture, stride, width, morph_count = self._encode_morph_texture(
-                    geometry
-                )
-                geometry._gfx_morph_texture = (
-                    morph_texture,
-                    stride,
-                    width,
-                    morph_count,
-                )
+            # Get or create the morph texture and associated info
+            try:
+                morph_texture_info = geometry["_gfx_morph_texture"]
+            except KeyError:
+                morph_texture_info = self._encode_morph_texture(geometry, shared)
+                geometry["_gfx_morph_texture"] = morph_texture_info
+            morph_texture, stride, width, morph_count = morph_texture_info
 
-            morph_target_influences = (
-                wobject._morph_target_influences
-            )  # the influences buffer
+            morph_target_influences = wobject._morph_target_influences  # buffer
 
             if morph_texture and morph_target_influences:
                 view = GfxTextureView(morph_texture, view_dim="2d-array")
@@ -261,9 +254,8 @@ class MeshShader(BaseShader):
                     Binding("t_morph_targets", "texture/auto", view, "VERTEX")
                 )
 
-                self["morph_targets_count"] = min(
-                    morph_target_influences.nitems, morph_count
-                )
+                self["influences_buffer_size"] = morph_target_influences.nitems
+                self["morph_targets_count"] = morph_count
                 self["morph_targets_stride"] = stride
                 self["morph_targets_texture_width"] = width
 
@@ -361,10 +353,14 @@ class MeshShader(BaseShader):
             1: bindings1,
         }
 
-    def _encode_morph_texture(self, geometry):
+    def _encode_morph_texture(self, geometry, shared):
         morph_positions = getattr(geometry, "morph_positions", None)
         morph_normals = getattr(geometry, "morph_normals", None)
         morph_colors = getattr(geometry, "morph_colors", None)
+
+        morph_attrs = [morph_positions, morph_normals, morph_colors]
+        morph_attrs = [x for x in morph_attrs if x is not None]
+        morph_count = min(len(x) for x in morph_attrs)
 
         vetex_data_count = 0
 
@@ -385,13 +381,11 @@ class MeshShader(BaseShader):
         width = total_count
         height = 1
 
-        max_texture_width = 4096  # TODO: use wgpu capabilities "max_texture_size"
+        max_texture_width = shared.device.limits["max-texture-dimension-2d"]
 
         if width > max_texture_width:
             height = math.ceil(width / max_texture_width)
             width = max_texture_width
-
-        morph_count = len(morph_positions or morph_normals or morph_colors or [])
 
         buffer = np.zeros((morph_count, height * width, 4), dtype=np.float32)
 
@@ -700,6 +694,26 @@ class MeshPhysicalShader(MeshStandardShader):
                     )
                 )
                 self["use_iridescence_thickness_map"] = True
+
+        # sheen
+        if material.sheen:
+            self["USE_SHEEN"] = True
+
+            if material.sheen_color_map is not None:
+                bindings.extend(
+                    self._define_texture_map(
+                        geometry, material.sheen_color_map, "sheen_color_map"
+                    )
+                )
+                self["use_sheen_color_map"] = True
+
+            if material.sheen_roughness_map is not None:
+                bindings.extend(
+                    self._define_texture_map(
+                        geometry, material.sheen_roughness_map, "sheen_roughness_map"
+                    )
+                )
+                self["use_sheen_roughness_map"] = True
 
         # anisotropy
         if material.anisotropy:

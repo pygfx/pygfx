@@ -26,7 +26,7 @@ image = gfx.Image(
 scene.add(image)
 
 camera = gfx.OrthographicCamera(512, 512)
-camera.show_object(scene, view_dir=(0, 0, -1))
+camera.show_object(scene, match_aspect=True)
 camera.local.scale_y = -1
 
 
