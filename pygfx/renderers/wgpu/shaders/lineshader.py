@@ -42,6 +42,7 @@ class LineShader(BaseShader):
         self["dashing"] = False
         self["thickness_space"] = material.thickness_space
         self["aa"] = material.aa
+        self["loop"] = material.loop
         self["debug"] = False
 
         # Handle color

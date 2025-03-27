@@ -23,6 +23,8 @@ class LineMaterial(Material):
         The pattern of the dash, e.g. `[2, 3]`. See `dash_pattern` docs for details. Defaults to an empty tuple, i.e. no dashing.
     dash_offset : float
         The offset into the dash phase. Default 0.0.
+    loop : int
+        Whether the line's end should be connected. Default False.
     aa : bool
         Whether or not the line is anti-aliased in the shader. Default True.
     kwargs : Any
@@ -46,6 +48,7 @@ class LineMaterial(Material):
         map=None,
         dash_pattern=(),
         dash_offset=0,
+        loop=0,
         aa=True,
         **kwargs,
     ):
@@ -58,6 +61,7 @@ class LineMaterial(Material):
         self.map = map
         self.dash_pattern = dash_pattern
         self.dash_offset = dash_offset
+        self.loop = loop
         self.aa = aa
 
     def _wgpu_get_pick_info(self, pick_value):
@@ -218,6 +222,15 @@ class LineMaterial(Material):
     def dash_offset(self, value):
         self.uniform_buffer.data["dash_offset"] = float(value)
         self.uniform_buffer.update_full()
+
+    @property
+    def loop(self):
+        """Whether the line's ends should be connected."""
+        return self._store.loop
+
+    @loop.setter
+    def loop(self, loop):
+        self._store.loop = int(loop)
 
 
 class LineDebugMaterial(LineMaterial):
