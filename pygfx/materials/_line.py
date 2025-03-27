@@ -227,10 +227,10 @@ class LineMaterial(Material):
     def loop(self) -> bool:
         """Whether the line's ends should be connected.
 
-        If set to True, the end of the line is connected to its beginning,
-        in such a way that a transparent line shows no overlap.
-        When the line consists of multiple pieces separated by nan-positions,
-        each line-pieces is considered a loop.
+        If set to True, the end of the line is connected to its beginning, in
+        such a way there is no overlap (which would otherwise be visible for
+        semi-transparent lines). When the line consists of multiple pieces
+        separated by nan-positions, each line-piece is considered a loop.
         """
         return self._store.loop
 

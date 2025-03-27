@@ -95,7 +95,7 @@ class LineShader(BaseShader):
         # ):
         #     # self["line_type"] = "quickline"
 
-        # Handle looping
+        # Handle looping. The line_loop_buffer is one larger to enable looping the last point.
         if material.loop:
             self["loop"] = True
             self.line_loop_buffer = Buffer(

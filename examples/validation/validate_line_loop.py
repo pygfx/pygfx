@@ -2,8 +2,7 @@
 Line loop
 =========
 
-Drawing multiple line loops by separating pieces with nans, and setting
-material.loop.
+Drawing multiple line loops using material.loop and separating line-pieces with nans.
 """
 
 # ruff: noqa: RUF005
@@ -29,7 +28,7 @@ def circle(n, x=0, y=0):
 nanpoint = np.full((1, 3), np.nan, dtype="f4")
 rect_points = np.array([[-1, -1, 0], [-1, +1, 0], [+1, +1, 0], [+1, -1, 0]], "f4")
 
-# This line-pieces has all straight corners. It covers the fix for a
+# This line-piece has all straight corners. It covers the fix for a
 # bug wherer 90 degree corner, aligned with the coordinate frame,
 # resulted in a glitch in the line join.
 all_corners = np.array(
