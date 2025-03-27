@@ -42,7 +42,7 @@ class LineShader(BaseShader):
         self["dashing"] = False
         self["thickness_space"] = material.thickness_space
         self["aa"] = material.aa
-        self["loop"] = material.loop
+        self["loop"] = False
         self["debug"] = False
 
         # Handle color
@@ -95,6 +95,15 @@ class LineShader(BaseShader):
         # ):
         #     # self["line_type"] = "quickline"
 
+        # Handle looping
+        if material.loop:
+            self["loop"] = True
+            self.line_loop_buffer = Buffer(
+                np.zeros((geometry.positions.nitems,), np.uint32)
+            )
+            self._loop_hash = None
+            self.needs_bake_function = True
+
         # Handle dashing
         if material.dash_pattern:
             # Set dash props
@@ -105,12 +114,57 @@ class LineShader(BaseShader):
             # For normal lines, we need a cumulative distance.
             if not isinstance(material, LineSegmentMaterial):
                 self.needs_bake_function = True
-                self._positions_hash = None
+                self._cumdist_hash = None
                 self.line_distance_buffer = Buffer(
                     np.zeros((geometry.positions.nitems,), np.float32)
                 )
 
     def bake_function(self, wobject, camera, logical_size):
+        if hasattr(self, "line_loop_buffer"):
+            self._bake_line_loops(wobject)
+        if hasattr(self, "line_distance_buffer"):
+            self._bake_line_distance(wobject, camera, logical_size)
+
+    def _bake_line_loops(self, wobject):
+        # Get buffers
+        positions_buffer = wobject.geometry.positions
+        loop_buffer = self.line_loop_buffer
+        r_offset, r_size = positions_buffer.draw_range
+
+        # Early exit?
+        loop_hash = (id(positions_buffer), positions_buffer.rev)
+        if loop_hash == self._loop_hash:
+            return
+        self._loop_hash = loop_hash
+
+        # Get arrays
+        positions_array = positions_buffer.data
+        loop_array = loop_buffer.data
+
+        # Get indices of points that are nan
+        (nan_indices,) = np.where(
+            np.isnan(positions_array[r_offset : r_offset + r_size]).any(axis=1)
+        )
+
+        is_first = 0x10000000
+        is_last = 0x20000000
+        is_connector = 0x30000000
+
+        # Mark these indices in the loop array
+        loop_array[r_offset : r_offset + r_size] = 0.0
+        i1 = r_offset - 1
+        for i2 in nan_indices:
+            n_nodes = i2 - i1 - 1
+            if n_nodes >= 3:
+                loop_array[i1 + 1] = is_first + n_nodes
+                loop_array[i2 - 1] = is_last + n_nodes
+                loop_array[i2] = is_connector + n_nodes
+            i1 = i2
+
+        loop_buffer.update_range(r_offset, r_size)
+        # TODO: can we dynamically add loops?
+
+    def _bake_line_distance(self, wobject, camera, logical_size):
         # Prepare
         positions_buffer = wobject.geometry.positions
         r_offset, r_size = positions_buffer.draw_range
@@ -122,10 +176,10 @@ class LineShader(BaseShader):
         # Get vertices in the appropriate coordinate frame
         if wobject.material.thickness_space == "model":
             # Skip this step if the position data has not changed
-            positions_hash = (id(positions_buffer), positions_buffer.rev)
-            if positions_hash == self._positions_hash:
+            cumdist_hash = (id(positions_buffer), positions_buffer.rev)
+            if cumdist_hash == self._cumdist_hash:
                 return
-            self._positions_hash = positions_hash
+            self._cumdist_hash = cumdist_hash
             vertex_array = positions_array
         else:
             # Prep
@@ -209,7 +263,9 @@ class LineShader(BaseShader):
                 self.define_generic_colormap(material.map, geometry.texcoords)
             )
 
-        # Need a buffer for the cumdist?
+        # Need a buffer for the loop and/or cumdist?
+        if hasattr(self, "line_loop_buffer"):
+            bindings.append(Binding("s_loop", rbuffer, self.line_loop_buffer, "VERTEX"))
         if hasattr(self, "line_distance_buffer"):
             bindings.append(
                 Binding("s_cumdist", rbuffer, self.line_distance_buffer, "VERTEX")

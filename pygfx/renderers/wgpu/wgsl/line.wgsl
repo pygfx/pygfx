@@ -113,31 +113,28 @@ fn vs_main(in: VertexInput) -> Varyings {
     var face_index = node_index;  // corrected below if necessary, depending on configuration
     let node_index_is_even = node_index % 2 == 0;
 
+    var node_index_prev = max(0, node_index - 1);
+    var node_index_next = min(u_renderer.last_i, node_index + 1);
+
     $$ if loop
-    var is_end_of_line_loop = false;
-    var node_index_prev = node_index - 1;
-    var node_index_next = node_index + 1;
+    var is_first_node_in_loop = false;
+    var is_connecting_node_in_loop = false;
 
-    let is_first_point_in_loop = (node_index % 5) == 0;
-    let is_last_point_in_loop = (node_index % 5) == 3;
-
-    let is_closing_point_in_loop = is_nan(load_s_positions(node_index).x); // ((node_index % 5) == 4);//
-    if (is_first_point_in_loop) {
-        node_index_prev = node_index + 3;
-    } else if (is_last_point_in_loop) {
-        node_index_next = node_index - 3;
-    } else if (is_closing_point_in_loop) {
-        node_index = node_index - 4;
-        node_index_next = node_index + 1;
-        is_end_of_line_loop = true;
+    let loop_state: u32 = load_s_loop(node_index);
+    if (loop_state > 0x0fffffffu) {
+        let loop_node_kind = loop_state >> 28;
+        let loop_node_count = i32(loop_state & 0x0fffffff);
+        if (loop_node_kind == 1u) { // first node
+            is_first_node_in_loop = true;
+            node_index_prev = node_index + (loop_node_count - 1);
+        } else if (loop_node_kind == 2u) { // last node
+            node_index_next = node_index - (loop_node_count - 1);
+        } else { // if (loop_node_kind == 3u) { // connecting node
+            node_index = node_index - loop_node_count;
+            node_index_next = node_index + 1;
+            is_connecting_node_in_loop = true;
+        }
     }
-
-
-    // if (node_index == 0) { node_index_prev = u_renderer.last_i-1; }
-    // if (node_index == u_renderer.last_i) { node_index_next = 1; is_end_of_line_loop = true;}
-    $$ else
-    let node_index_prev = max(0, node_index - 1);
-    let node_index_next = min(u_renderer.last_i, node_index + 1);
     $$ endif
 
     // Sample the current node and it's two neighbours. Model coords.
@@ -553,10 +550,10 @@ fn vs_main(in: VertexInput) -> Varyings {
     // This causes a triangle to appear from the connecting node of a loop to the first node of the *next* loop.
     // To avoid this, we create nan positions. However, some hardware may not actually have nans, so we
     // *also* drop these triagles using the valid_array.
-    if (is_first_point_in_loop) {
+    if (is_first_node_in_loop) {
         valid_array[0] = 0.0;
         valid_array[1] = 0.0;
-    } else if (is_end_of_line_loop) {
+    } else if (is_connecting_node_in_loop) {
         valid_array[vertex_index] = 0.0;
         if (vertex_index > 1) {
             the_pos_n = vec4<f32>(bitcast<f32>(0x7fc00000u));  // nan
