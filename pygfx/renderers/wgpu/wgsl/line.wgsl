@@ -134,6 +134,8 @@ fn vs_main(in: VertexInput) -> Varyings {
             node_index_next = node_index + 1;
             is_connecting_node_in_loop = true;
         }
+    } else {
+        node_index = min(u_renderer.last_i, node_index);
     }
     $$ endif
 

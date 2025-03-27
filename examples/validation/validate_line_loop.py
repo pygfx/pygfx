@@ -26,8 +26,8 @@ def circle(n, x=0, y=0):
     return np.stack([x + np.sin(t), y + np.cos(t), np.zeros_like(t)], axis=1)
 
 
-rect_points = np.array([[-1, -1, 0], [-1, +1, 0], [+1, +1, 0], [+1, -1, 0]], "f4")
 nanpoint = np.full((1, 3), np.nan, dtype="f4")
+rect_points = np.array([[-1, -1, 0], [-1, +1, 0], [+1, +1, 0], [+1, -1, 0]], "f4")
 
 # This line-pieces has all straight corners. It covers the fix for a
 # bug wherer 90 degree corner, aligned with the coordinate frame,
@@ -55,9 +55,7 @@ all_corners += (-8, 3, 0)
 
 positions = np.vstack(
     [
-        # Big rect and special case
-        rect_points * 10,
-        nanpoint,
+        # Special case
         all_corners,
         nanpoint,
         # Increasingly more corners
@@ -92,16 +90,23 @@ positions = np.vstack(
         circle(96, +2, -6),
         nanpoint,
         circle(192, +5, -6),
-        nanpoint,
+        # nanpoint,  # optional
     ],
     dtype="f4",
 )
 
 line1 = gfx.Line(
     gfx.Geometry(positions=positions),
-    gfx.LineMaterial(thickness=16, color="red", opacity=0.7, loop=True),
+    gfx.LineMaterial(thickness=14, color="red", opacity=0.7, loop=True),
 )
 scene.add(line1)
+
+
+line2 = gfx.Line(
+    gfx.Geometry(positions=rect_points * 10),
+    gfx.LineMaterial(thickness=20, color="cyan", opacity=0.7, loop=True),
+)
+scene.add(line2)
 
 camera = gfx.OrthographicCamera(500, 500)
 camera.show_object(scene, match_aspect=True, scale=1.1)

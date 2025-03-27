@@ -99,7 +99,7 @@ class LineShader(BaseShader):
         if material.loop:
             self["loop"] = True
             self.line_loop_buffer = Buffer(
-                np.zeros((geometry.positions.nitems,), np.uint32)
+                np.zeros((geometry.positions.nitems + 1,), np.uint32)
             )
             self._loop_hash = None
             self.needs_bake_function = True
@@ -151,6 +151,7 @@ class LineShader(BaseShader):
         # Mark these indices in the loop array
         loop_array[r_offset : r_offset + r_size] = 0.0
         i1 = r_offset - 1
+        i2 = -1
         for i2 in nan_indices:
             n_nodes = i2 - i1 - 1
             if n_nodes >= 3:
@@ -158,6 +159,15 @@ class LineShader(BaseShader):
                 loop_array[i2 - 1] = is_last + n_nodes
                 loop_array[i2] = is_connector + n_nodes
             i1 = i2
+
+        # Connect final node to last loop-start. Note that the comparison with i1 and
+        # n_nodes makes sure that if the last node is already nan, this step is skipped.
+        i2 = r_offset + r_size
+        n_nodes = i2 - i1 - 1
+        if n_nodes >= 3:
+            loop_array[i1 + 1] = is_first + n_nodes
+            loop_array[i2 - 1] = is_last + n_nodes
+            loop_array[i2] = is_connector + n_nodes
 
         loop_buffer.update_range(r_offset, r_size)
 
@@ -284,6 +294,8 @@ class LineShader(BaseShader):
 
     def _get_n(self, positions):
         offset, size = positions.draw_range
+        if self["loop"]:
+            size += 1
         return offset * 6, size * 6
 
     def get_render_info(self, wobject, shared):
