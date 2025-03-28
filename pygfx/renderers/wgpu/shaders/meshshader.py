@@ -451,27 +451,7 @@ class MeshShader(BaseShader):
         return {
             "primitive_topology": topology,
             "cull_mode": cull_mode,
-            "transparent": self._get_transparent(wobject),
         }
-
-    def _get_transparent(self, wobject):
-        material = wobject.material
-        transparent = material.transparent
-        if transparent is None:
-            if material.is_transparent:
-                transparent = True
-        if transparent is None:
-            transparent = False
-            if self["use_uniform_color"]:
-                if material.color_is_transparent:
-                    transparent = True
-            if "use_colormap" in self._template_vars_bindings:
-                if self["color_buffer_channels"] in (2, 4):
-                    transparent = None
-            if self["use_vertex_color"]:
-                if self["color_buffer_channels"] in (1, 3):
-                    transparent = None
-        return transparent
 
     def get_render_info(self, wobject, shared):
         geometry = wobject.geometry
@@ -845,40 +825,11 @@ class MeshSliceShader(BaseShader):
         }
 
     def get_render_info(self, wobject, shared):
-        material = wobject.material
         geometry = wobject.geometry
-
         offset, size = geometry.indices.draw_range
         offset, size = offset * 6, size * 6
-
-        render_mask = 0
-        if wobject.render_mask:
-            render_mask = wobject.render_mask
-        elif material.is_transparent:
-            render_mask = RenderMask.transparent
-        else:
-            # Get what passes are needed for the color
-            if self["color_mode"] == "uniform":
-                if material.color_is_transparent:
-                    render_mask |= RenderMask.transparent
-                else:
-                    render_mask |= RenderMask.opaque
-            elif self["color_mode"] in ("vertex", "face"):
-                if self["color_buffer_channels"] in (1, 3):
-                    render_mask |= RenderMask.opaque
-                else:
-                    render_mask |= RenderMask.all
-            elif self["color_mode"] in ("vertex_map", "face_map"):
-                if self["colormap_nchannels"] in (1, 3):
-                    render_mask |= RenderMask.opaque
-                else:
-                    render_mask |= RenderMask.all
-            else:
-                raise RuntimeError(f"Unexpected color mode {self['color_mode']}")
-
         return {
             "indices": (size, 1, offset, 0),
-            "render_mask": render_mask,
         }
 
     def get_code(self):

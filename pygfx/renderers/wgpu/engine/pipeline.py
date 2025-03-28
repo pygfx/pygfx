@@ -370,20 +370,8 @@ class PipelineContainer:
             with tracker.track_usage("pipeline_info"):
                 self.pipeline_info = self.shader.get_pipeline_info(wobject, self.shared)
                 self.wobject_info["depth_test"] = wobject.material.depth_test
-                self.wobject_info["depth_write"] = wobject.material.depth_write
+                self.wobject_info["depth_write"] = wobject.material.depth_write_flag
             self._check_pipeline_info()
-            # Auto-transparent
-            if self.wobject_info["blending"] in ("no", "dither"):
-                wobject._gfx_blends_fragments = False
-            else:
-                wobject._gfx_blends_fragments = self.pipeline_info["transparent"]
-            # Auto-depth-write
-            if self.wobject_info["depth_write"] is None:
-                if wobject._gfx_blends_fragments is not None:
-                    self.wobject_info["depth_write"] = not wobject._gfx_blends_fragments
-                else:
-                    self.wobject_info["depth_write"] = True  # default to True?
-
             changed.add("render_info")
             self.wgpu_pipelines = {}
 
@@ -572,20 +560,13 @@ class RenderPipelineContainer(PipelineContainer):
         pipeline_info = self.pipeline_info
         assert isinstance(pipeline_info, dict)
 
-        # TODO: implememt _get_transparent for all shaders
-        if "transparent" not in pipeline_info:
-            pipeline_info["transparent"] = None
-
-        expected = {"cull_mode", "primitive_topology", "transparent"}
+        expected = {"cull_mode", "primitive_topology"}
         assert set(pipeline_info.keys()) == expected, f"{pipeline_info.keys()}"
         self.update_strip_index_format()
 
     def _check_render_info(self):
         render_info = self.render_info
         assert isinstance(render_info, dict)
-
-        # TODO: remove this; implememt _get_transparent for all shaders
-        render_info.pop("render_mask", None)
 
         expected = {"indices"}
         assert set(render_info.keys()) == expected, f"{render_info.keys()}"

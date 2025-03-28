@@ -33,6 +33,7 @@ def create_pyramid_weights(ny, nx):
     center_coords = 1 - np.abs(texcoords * 2 - 1)
     return center_coords.min(axis=2)
 
+
 # TODO: Maybe this can also be achieved using the texcoords in the shader, using a custom shader, or perhaps custom blending
 
 x = 0

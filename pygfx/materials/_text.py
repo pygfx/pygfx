@@ -92,12 +92,6 @@ class TextMaterial(Material):
         color = Color(color)
         self.uniform_buffer.data["color"] = color
         self.uniform_buffer.update_full()
-        self._store.color_is_transparent = color.a < 1
-
-    @property
-    def color_is_transparent(self):
-        """Whether the color is (semi) transparent (i.e. not fully opaque)."""
-        return self._store.color_is_transparent
 
     @property
     def outline_thickness(self):
@@ -121,12 +115,6 @@ class TextMaterial(Material):
         outline_color = Color(outline_color)
         self.uniform_buffer.data["outline_color"] = outline_color
         self.uniform_buffer.update_full()
-        self._store.outline_color_is_transparent = outline_color.a < 1
-
-    @property
-    def outline_color_is_transparent(self):
-        """Whether the outline_color is (semi) transparent (i.e. not fully opaque)."""
-        return self._store.outline_color_is_transparent
 
     @property
     def weight_offset(self):

@@ -357,8 +357,9 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
         class Flat:
             def __init__(self):
-                self.opaque_objects = []
-                self.transparent_objects = []
+                self.fully_opaque_objects = []
+                self.semi_opaque_objects = []
+                self.fully_transparent_objects = []
                 self.weighted_objects = []
                 self.lights = {
                     "point_lights": [],
@@ -400,16 +401,17 @@ class WgpuRenderer(RootEventHandler, Renderer):
                     flat.weighted_objects.append(ob)
                 elif blending == "dither":
                     z_sort_sign = +1
-                    flat.opaque_objects.append(ob)
-                elif material.transparent:
-                    # TODO: use auto-transparency
+                    flat.fully_opaque_objects.append(ob)
+                elif material.transparent_flag:
                     z_sort_sign = -1
-                    flat.transparent_objects.append(ob)
+                    flat.fully_transparent_objects.append(ob)
+                elif material.transparent_flag is None:
+                    z_sort_sign = -1
+                    flat.semi_opaque_objects.append(ob)
                 else:
                     z_sort_sign = +1
-                    flat.opaque_objects.append(ob)
+                    flat.fully_opaque_objects.append(ob)
                     # TODO: does it make sense to draw objects that have discard later later/earlier?
-                    # TODO: objects that use aa are best drawn back-to-front too
 
                 # Set sort key
                 if sort_by_depth and z_sort_sign:
@@ -419,8 +421,9 @@ class WgpuRenderer(RootEventHandler, Renderer):
                     ob._gfx_sort_key = ob.render_order
 
         # Sort the objects
-        flat.opaque_objects.sort(key=lambda ob: ob._gfx_sort_key)
-        flat.transparent_objects.sort(key=lambda ob: ob._gfx_sort_key)
+        flat.fully_opaque_objects.sort(key=lambda ob: ob._gfx_sort_key)
+        flat.semi_opaque_objects.sort(key=lambda ob: ob._gfx_sort_key)
+        flat.fully_transparent_objects.sort(key=lambda ob: ob._gfx_sort_key)
         # flat.weighted_objects.sort(key=lambda: ob: ob._gfx_sort_key) -> the whole points is that weighted does not need sorting
 
         return flat
@@ -533,7 +536,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # todo: can we get this into _get_flat_scene?
         compute_pipeline_containers = []
         render_pipeline_containers = []
-        for wobject in flat.opaque_objects:
+        for wobject in flat.fully_opaque_objects:
             container_group = get_pipeline_container_group(wobject, renderstate)
             compute_pipeline_containers.extend(container_group.compute_containers)
             render_pipeline_containers.extend(container_group.render_containers)
@@ -663,25 +666,35 @@ class WgpuRenderer(RootEventHandler, Renderer):
         )
         # TODO: collect as flat.shadow_objects?
         render_shadow_maps(
-            lights, flat.opaque_objects + flat.transparent_objects, command_encoder
+            lights,
+            flat.fully_opaque_objects + flat.fully_transparent_objects,
+            command_encoder,
         )
 
         # ----- render in stages
 
         self._render_wobjects(
-            flat.opaque_objects,
+            flat.fully_opaque_objects,
             renderstate,
             physical_viewport,
             command_encoder,
-            "opaque",
+            "fully_opaque",
         )
 
         self._render_wobjects(
-            flat.transparent_objects,
+            flat.semi_opaque_objects,
             renderstate,
             physical_viewport,
             command_encoder,
-            "transparent",
+            "semi_opaque",
+        )
+
+        self._render_wobjects(
+            flat.fully_transparent_objects,
+            renderstate,
+            physical_viewport,
+            command_encoder,
+            "fully_transparent",
         )
 
         if flat.weighted_objects:
@@ -699,6 +712,9 @@ class WgpuRenderer(RootEventHandler, Renderer):
     def _render_wobjects(
         self, wobjects, renderstate, physical_viewport, command_encoder, pass_type
     ):
+        if not wobjects:
+            return
+
         blender = (
             renderstate.blender
         )  # TODO: I don't think the blender needs to be part of the renderstate

@@ -20,7 +20,7 @@ canvas = WgpuCanvas(size=(1000, 800))
 renderer = gfx.WgpuRenderer(canvas)
 renderer_svg = gfx.SvgRenderer(640, 480, "~/line.svg")
 
-renderer.blend_mode = "weighted"
+# renderer.blend_mode = "weighted"
 
 scene = gfx.Scene()
 positions = [[200 + np.sin(i) * i * 6, 200 + np.cos(i) * i * 6, 0] for i in range(20)]

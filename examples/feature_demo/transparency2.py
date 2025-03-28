@@ -14,6 +14,8 @@ Press 1-4 to select the blending mode.
 # sphinx_gallery_pygfx_docs = 'screenshot'
 # sphinx_gallery_pygfx_test = 'run'
 
+# TODO: Make sure that with WEIGHTED the planes indeed don't like bright
+
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 import pylinalg as la
@@ -27,9 +29,9 @@ background = gfx.Background.from_color("#000")
 sphere = gfx.Mesh(gfx.sphere_geometry(10), gfx.MeshPhongMaterial())
 
 geometry = gfx.plane_geometry(50, 50)
-plane1 = gfx.Mesh(geometry, gfx.MeshBasicMaterial(color=(1, 0, 0, 0.2)))
-plane2 = gfx.Mesh(geometry, gfx.MeshBasicMaterial(color=(0, 1, 0, 0.5)))
-plane3 = gfx.Mesh(geometry, gfx.MeshBasicMaterial(color=(0, 0, 1, 0.7)))
+plane1 = gfx.Mesh(geometry, gfx.MeshBasicMaterial(color="red", opacity=0.2))
+plane2 = gfx.Mesh(geometry, gfx.MeshBasicMaterial(color="green", opacity=0.5))
+plane3 = gfx.Mesh(geometry, gfx.MeshBasicMaterial(color="blue", opacity=0.7))
 
 plane1.local.rotation = la.quat_from_axis_angle((1, 0, 0), 1.571)
 plane2.local.rotation = la.quat_from_axis_angle((0, 1, 0), 1.571)

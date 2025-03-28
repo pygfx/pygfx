@@ -41,8 +41,8 @@ class Material(Trackable):
         Default True. If False, the object is like a ghost: not testing
         against the depth buffer and also not writing to it.
     depth_write :  bool | None
-        Whether the object writes to the depth buffer. Default (None' is
-        based on transparency.
+        Whether the object writes to the depth buffer. With None (default) this
+        is determined automatically.
     """
 
     # Note that in the material classes we define what properties are stored as
@@ -146,15 +146,7 @@ class Material(Trackable):
         value = min(max(float(value), 0), 1)
         self.uniform_buffer.data["opacity"] = value
         self.uniform_buffer.update_full()
-        self._store.is_transparent = value < 1
-
-    # todo: rename to _opacity_is_transparent
-    @property
-    def is_transparent(self) -> bool:
-        """Whether this material is (semi) transparent because of its opacity value.
-        If False the object can still appear transparent because of its color.
-        """
-        return self._store.is_transparent
+        self._resolve_transparent_flag()
 
     @property
     def clipping_planes(self) -> Sequence[ABCDTuple]:
@@ -220,22 +212,44 @@ class Material(Trackable):
 
     @property
     def transparent(self) -> Union[bool, None]:
-        """Whether this material is (semi) transparent.
+        """Defines whether this material is (semi) transparent.
 
-        * True: consider the object as transparent.
-        * False: consider the object as opaque.
-        * None: auto-determine based on ``.opacity``, ``.color`` and more.
+        * True: consider the object as fully transparent.
+        * False: consider the object as fully opaque.
+        * None: auto-determine based on ``.opacity``. See ``transparent_flag`` for the resolved value.
         """
         return self._store.transparent
 
     @transparent.setter
-    def transparent(self, value: Union[bool, None]) -> None:
+    def transparent(self, value: Union[bool, None]):
         if value is None:
             self._store.transparent = None
         elif isinstance(value, bool):
             self._store.transparent = bool(value)
         else:
             raise TypeError("material.transparent must be bool or None.")
+        self._resolve_transparent_flag()
+
+    @property
+    def transparent_flag(self) -> Union[bool, None]:
+        """Whether this material is (semi) transparent (readonly).
+
+        If ``.transparent`` is None, the value is auto-determined based on the
+        ``opacity``. The result can still be None, in which case its
+        undetermined, and the object possibly has mixed opaque and transparent
+        fragments.
+        """
+        return self._store.transparent_flag
+
+    def _resolve_transparent_flag(self):
+        # This method must be called from the appropriate places
+        try:
+            transparent = self._store["transparent"]
+        except KeyError:
+            return  # initializing
+        if transparent is None and self.opacity < 1:
+            transparent = True
+        self._store.transparent_flag = transparent
 
     @property
     def blending(self):
@@ -284,11 +298,15 @@ class Material(Trackable):
 
     @property
     def depth_write(self) -> Union[bool, None]:
-        """Whether this material writes to the depth buffer, preventing futher writing behind it.
+        """Whether this material writes to the depth buffer, preventing other objects being drawn behind it.
 
-        * True: yes, write depth.
-        * False: no, don't write depth.
-        * None: auto-determine based on ``blending`` and (detected) transparency.
+         * True: yes, write depth.
+         * False: no, don't write depth.
+         * None: auto-determine (default): yes unless ``.transparent_flag`` is True.
+
+        The auto-option provides good default behaviour for common use-case. See
+        ``depth_write_flag`` for the resolved value. If you know what you're
+        doing you should probably just set this value to True or False.
         """
         return self._store.depth_write
 
@@ -300,6 +318,15 @@ class Material(Trackable):
             self._store.depth_write = bool(value)
         else:
             raise TypeError("material.depth_write must be bool or None.")
+
+    @property
+    def depth_write_flag(self) -> bool:
+        """The resolved depth_write value, converting auto (None) into either True or False."""
+        depth_write = self.depth_write
+        if depth_write is None:
+            # write depth when transparent is False or None
+            depth_write = not bool(self.transparent_flag)
+        return depth_write
 
     @property
     def pick_write(self) -> bool:

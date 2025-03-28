@@ -67,30 +67,9 @@ class TextShader(BaseShader):
         }
 
     def get_render_info(self, wobject, shared):
-        material = wobject.material
         n = wobject.geometry.glyph_data.draw_range[1] * 6
-
-        render_mask = 0
-        if wobject.render_mask:
-            render_mask = wobject.render_mask
-        elif material.is_transparent:
-            render_mask = RenderMask.transparent
-        else:
-            # Determine needed passes
-            if material.color_is_transparent:
-                render_mask |= RenderMask.transparent
-            else:
-                render_mask |= RenderMask.opaque
-            if material.outline_color_is_transparent:
-                render_mask |= RenderMask.transparent
-            else:
-                render_mask |= RenderMask.opaque
-            if material.aa:
-                render_mask |= RenderMask.transparent
-
         return {
             "indices": (n, 1),
-            "render_mask": render_mask,
         }
 
     def get_code(self):
