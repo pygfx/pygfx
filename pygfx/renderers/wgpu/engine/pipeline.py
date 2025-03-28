@@ -370,7 +370,7 @@ class PipelineContainer:
             with tracker.track_usage("pipeline_info"):
                 self.pipeline_info = self.shader.get_pipeline_info(wobject, self.shared)
                 self.wobject_info["depth_test"] = wobject.material.depth_test
-                self.wobject_info["depth_write"] = wobject.material.depth_write_flag
+                self.wobject_info["depth_write"] = wobject.material.depth_write
             self._check_pipeline_info()
             changed.add("render_info")
             self.wgpu_pipelines = {}

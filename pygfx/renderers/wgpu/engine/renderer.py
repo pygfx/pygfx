@@ -402,16 +402,18 @@ class WgpuRenderer(RootEventHandler, Renderer):
                 elif blending == "dither":
                     z_sort_sign = +1
                     flat.fully_opaque_objects.append(ob)
-                elif material.transparent_flag:
-                    z_sort_sign = -1
-                    flat.fully_transparent_objects.append(ob)
-                elif material.transparent_flag is None:
-                    z_sort_sign = -1
-                    flat.semi_opaque_objects.append(ob)
                 else:
-                    z_sort_sign = +1
-                    flat.fully_opaque_objects.append(ob)
-                    # TODO: does it make sense to draw objects that have discard later later/earlier?
+                    transparent = material.transparent
+                    if transparent:
+                        z_sort_sign = -1
+                        flat.fully_transparent_objects.append(ob)
+                    elif transparent is None:
+                        z_sort_sign = -1
+                        flat.semi_opaque_objects.append(ob)
+                    else:
+                        z_sort_sign = +1
+                        flat.fully_opaque_objects.append(ob)
+                        # TODO: does it make sense to draw objects that have discard later later/earlier?
 
                 # Set sort key
                 if sort_by_depth and z_sort_sign:
