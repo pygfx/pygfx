@@ -20,10 +20,8 @@ renderer = gfx.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
 # This example ensures there are no visual artifacts with transparent lines
-# for closed loops
-# We add a background to demonstrate that it behaves well with
-# transparent lines
-scene.add(gfx.Background.from_color("#fff", "#000", "#f00", "#0f0"))
+# for closed loops. Add a background to help demonstrate that.
+scene.add(gfx.Background.from_color("#fff", "#000"))
 
 
 def circle(n, x=0, y=0):
