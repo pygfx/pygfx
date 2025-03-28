@@ -132,9 +132,6 @@ class Line(WorldObject):
         Whether the object is visible.
     render_order : int
         The render order (when applicable for the renderer's blend mode).
-    render_mask : str
-        Determines the render passes that the object is rendered in. It's
-        recommended to let the renderer decide, using "auto".
     position : Vector
         The position of the object in the world. Default (0, 0, 0).
 
@@ -163,9 +160,6 @@ class Points(WorldObject):
         Whether the object is visible.
     render_order : int
         The render order (when applicable for the renderer's blend mode).
-    render_mask : str
-        Determines the render passes that the object is rendered in. It's
-        recommended to let the renderer decide, using "auto".
     position : Vector
         The position of the object in the world. Default (0, 0, 0).
 
@@ -197,9 +191,6 @@ class Mesh(WorldObject):
         Whether the object is visible.
     render_order : int
         The render order (when applicable for the renderer's blend mode).
-    render_mask : str
-        Determines the render passes that the object is rendered in. It's
-        recommended to let the renderer decide, using "auto".
     position : Vector
         The position of the object in the world. Default (0, 0, 0).
 
@@ -323,9 +314,6 @@ class Image(WorldObject):
         Whether the object is visible.
     render_order : int
         The render order (when applicable for the renderer's blend mode).
-    render_mask : str
-        Determines the render passes that the object is rendered in. It's
-        recommended to let the renderer decide, using "auto".
     position : Vector
         The position of the object in the world. Default (0, 0, 0).
 
@@ -367,9 +355,6 @@ class Volume(WorldObject):
         Whether the object is visible.
     render_order : int
         The render order (when applicable for the renderer's blend mode).
-    render_mask : str
-        Determines the render passes that the object is rendered in. It's
-        recommended to let the renderer decide, using "auto".
     position : Vector
         The position of the object in the world. Default (0, 0, 0).
 

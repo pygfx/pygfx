@@ -79,14 +79,9 @@ The shader must implement a few methods. A typical shader is shown below:
         def get_render_info(self, wobject, shared):
             n_vertices = ...
             n_instances = 1
-            render_mask = wobject.render_mask
-            if not render_mask:
-                render_mask = RenderMask.all
-            # Result. All fields are mandatory. The RenderMask.all is a safe
-            # value; other values are optimizations.
+            # Result. All fields are mandatory.
             return {
                 "indices": (n_vertices, n_instances),
-                "render_mask": render_mask,
             }
 
         def get_code(self):
@@ -113,30 +108,6 @@ Remarks:
 * You can also manually define the wgsl code for a binding in cases where this is easier.
   We recommend using a separate bindgroup for that.
 * By convention, methods that return wgsl code are prefixed with "code".
-* The ``render_mask`` specifies in what passes the object must be drawn. Users
-  can set it on the object, but by default it is "auto" (zero), in which case it must
-  be set by the shader. In the code above it is set to "all" which is a safe option, but if
-  the shader knows that all fragments are opaque or all fragments are transparent,
-  the ``render_mask`` can be set accordingly.
-
-
-Render passes and render_mask
------------------------------
-
-When a scene is rendered, it is likely that it's not rendered once, but twice:
-one time for the opaque fragments, and one time for the transparent fragments.
-This depends on the ``renderer.blend_mode``. It can also be set to just
-a single (opaque) pass, or a mode that provides improved handling of transparent
-objects that has more than two passes.
-
-Since the used render targets depend on the blend mode and the render
-pass, the fragment output is abstracted away for shader authors, as
-we'll see further on in this document.
-
-Objects that can have both opaque and transparent fragments, must participate in
-all render passes. However, objects that only have opaque fragments or only transparent
-fragments, can be optimized. This is what the ``render_mask`` in the previous section
-is about. In case of doubt ``RenderMask.all`` is a safe default.
 
 
 WGSL code and templating

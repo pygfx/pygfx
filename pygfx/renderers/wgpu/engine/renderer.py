@@ -405,6 +405,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
                 else:
                     transparent = material.transparent
                     if transparent:
+                        # TODO: threeJS renders double-sided objects twice, maybe we should too? (we can look at this later)
                         z_sort_sign = -1
                         flat.fully_transparent_objects.append(ob)
                     elif transparent is None:

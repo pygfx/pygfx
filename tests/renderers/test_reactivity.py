@@ -67,11 +67,6 @@ def test_reactivity_mesh1():
     changed = render(cube)
     assert changed == set()
 
-    # Changing the render mask requires new render info
-    cube.render_mask = "all"
-    changed = render(cube)
-    assert changed == {"render_info"}
-
     # Changing the side requires a new pipeline
     cube.material.side = "front"
     changed = render(cube)

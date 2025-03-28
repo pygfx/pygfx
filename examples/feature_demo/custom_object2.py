@@ -85,7 +85,6 @@ class TriangleShader(BaseShader):
         # Since we draw only one triangle we need just 3 vertices.
         return {
             "indices": (3, 1),
-            "render_mask": RenderMask.all,  # Good default
         }
 
     def get_code(self):

@@ -48,7 +48,6 @@ class SquareShader(BaseShader):
     def get_render_info(self, wobject, shared):
         return {
             "indices": (4, 1),
-            "render_mask": 3,
         }
 
     def get_code(self):
