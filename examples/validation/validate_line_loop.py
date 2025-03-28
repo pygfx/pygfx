@@ -19,6 +19,12 @@ canvas = RenderCanvas(size=(1000, 800))
 renderer = gfx.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
+# This example ensures there are no visual artifacts with transparent lines
+# for closed loops
+# We add a background to demonstrate that it behaves well with
+# transparent lines
+scene.add(gfx.Background.from_color("#fff", "#000", "#f00", "#0f0"))
+
 
 def circle(n, x=0, y=0):
     t = np.linspace(0, 2 * np.pi, n, endpoint=False)
@@ -58,7 +64,7 @@ positions = np.vstack(
         all_corners,
         nanpoint,
         # Increasingly more corners
-        circle(0, -7, 0),
+        circle(0, -7, 0),  # actuall zero points, so this results in two successive nanpoints
         nanpoint,
         circle(1, -4, 0),
         nanpoint,
@@ -66,10 +72,17 @@ positions = np.vstack(
         nanpoint,
         circle(3, +2, 0),
         nanpoint,
+        nanpoint,  # ensure 2 successive nanpoints don't crash the shader
+        nanpoint, 
         circle(4, +5, 0),
         nanpoint,
         # Even more corners
         circle(5, -7, -3),
+        nanpoint,
+        nanpoint,  # ensure many successive nanpoints don't crash the shader
+        nanpoint,
+        nanpoint,
+        nanpoint,
         nanpoint,
         circle(6, -4, -3),
         nanpoint,
