@@ -64,7 +64,7 @@ positions = np.vstack(
         all_corners,
         nanpoint,
         # Increasingly more corners
-        circle(0, -7, 0),  # actuall zero points, so this results in two successive nanpoints
+        circle(0, -7, 0),  # actuall zero points, so two successive nanpoints
         nanpoint,
         circle(1, -4, 0),
         nanpoint,
@@ -73,7 +73,7 @@ positions = np.vstack(
         circle(3, +2, 0),
         nanpoint,
         nanpoint,  # ensure 2 successive nanpoints don't crash the shader
-        nanpoint, 
+        nanpoint,
         circle(4, +5, 0),
         nanpoint,
         # Even more corners
