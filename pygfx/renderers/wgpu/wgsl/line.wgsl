@@ -107,17 +107,43 @@ fn vs_main(in: VertexInput) -> Varyings {
 
     // Indexing
     let index = i32(in.index);
-    let node_index = index / 6;
+    var node_index = index / 6;
     let vertex_index = index % 6;
     let vertex_num = vertex_index + 1;
     var face_index = node_index;  // corrected below if necessary, depending on configuration
     let node_index_is_even = node_index % 2 == 0;
 
+    var node_index_prev = max(0, node_index - 1);
+    var node_index_next = min(u_renderer.last_i, node_index + 1);
+
+    $$ if loop
+    var is_first_node_in_loop = false;
+    var is_connecting_node_in_loop = false;
+
+    let loop_state: u32 = load_s_loop(node_index);
+    if (loop_state > 0x0fffffffu) {
+        let loop_node_kind = loop_state >> 28;
+        let loop_node_count = i32(loop_state & 0x0fffffff);
+        if (loop_node_kind == 1u) { // first node
+            is_first_node_in_loop = true;
+            node_index_prev = node_index + (loop_node_count - 1);
+        } else if (loop_node_kind == 2u) { // last node
+            node_index_next = node_index - (loop_node_count - 1);
+        } else { // if (loop_node_kind == 3u) { // connecting node
+            node_index = node_index - loop_node_count;
+            node_index_next = node_index + 1;
+            is_connecting_node_in_loop = true;
+        }
+    } else {
+        node_index = min(u_renderer.last_i, node_index);
+    }
+    $$ endif
+
     // Sample the current node and it's two neighbours. Model coords.
     // Note that if we sample out of bounds, this affects the shader in mysterious ways (21-12-2021).
-    let pos_m_prev = load_s_positions(max(0, node_index - 1));
+    let pos_m_prev = load_s_positions(node_index_prev);
     let pos_m_node = load_s_positions(node_index);
-    let pos_m_next = load_s_positions(min(u_renderer.last_i, node_index + 1));
+    let pos_m_next = load_s_positions(node_index_next);
     // Convert to world
     let pos_w_prev = u_wobject.world_transform * vec4<f32>(pos_m_prev.xyz, 1.0);
     let pos_w_node = u_wobject.world_transform * vec4<f32>(pos_m_node.xyz, 1.0);
@@ -311,7 +337,7 @@ fn vs_main(in: VertexInput) -> Varyings {
         pos_s_other = pos_s_next;
         pos_n_other = pos_n_next;
         $$ if dashing and line_type == 'line'
-        cumdist_other = f32(load_s_cumdist(node_index + 1));
+        cumdist_other = f32(load_s_cumdist(node_index_next));
         $$ endif
 
     } else if (right_is_cap)  {
@@ -334,7 +360,7 @@ fn vs_main(in: VertexInput) -> Varyings {
         pos_s_other = pos_s_prev;
         pos_n_other = pos_n_prev;
         $$ if dashing and line_type == 'line'
-        cumdist_other = f32(load_s_cumdist(node_index - 1));
+        cumdist_other = f32(load_s_cumdist(node_index_prev));
         $$ endif
 
     } else {
@@ -343,12 +369,12 @@ fn vs_main(in: VertexInput) -> Varyings {
         pos_s_other = select(pos_s_prev, pos_s_next, vertex_num >= 4);
         pos_n_other = select(pos_n_prev, pos_n_next, vertex_num >= 4);
         $$ if dashing and line_type == 'line'
-        cumdist_other = load_s_cumdist(node_index + select(-1, 1, vertex_num >= 4));
+        cumdist_other = load_s_cumdist(select(node_index_prev, node_index_next, vertex_num >= 4));
         $$ endif
         $$ if color_mode == 'vertex'
-        color_other = load_s_colors(node_index + select(-1, 1, vertex_num >= 4));
+        color_other = load_s_colors(select(node_index_prev, node_index_next, vertex_num >= 4));
         $$ elif color_mode == 'vertex_map'
-        texcoord_other = load_s_texcoords(node_index + select(-1, 1, vertex_num >= 4));
+        texcoord_other = load_s_texcoords(select(node_index_prev, node_index_next, vertex_num >= 4));
         $$ endif
 
         $$ if line_type == 'quickline'
@@ -379,8 +405,16 @@ fn vs_main(in: VertexInput) -> Varyings {
 
         // Determine the angle of the corner. If this angle is smaller than zero,
         // the inside of the join is at vert2/vert6, otherwise it is at vert1/vert5.
-        let angle = atan2( vec_s_prev.x * vec_s_next.y - vec_s_prev.y * vec_s_next.x,
-                            vec_s_prev.x * vec_s_next.x + vec_s_prev.y * vec_s_next.y );
+        let atan_arg1 = vec_s_prev.x * vec_s_next.y - vec_s_prev.y * vec_s_next.x;
+        var atan_arg2 = vec_s_prev.x * vec_s_next.x + vec_s_prev.y * vec_s_next.y;
+        // Atan is unstable/undefined when the denominator is zero. For our case this
+        // can happen when the vectors are orthogonal and aligned with the coordinate system.
+        // We can fix this numerical issue by simply adding a bit to one of the vectors.
+        if (atan_arg2 == 0) {
+            let vec_s_alt = vec_s_prev + vec2<f32>(1e-9);
+            atan_arg2 = vec_s_alt.x * vec_s_next.x + vec_s_alt.y * vec_s_next.y;
+        }
+        let angle = atan2(atan_arg1, atan_arg2);
 
         // Which way does the join bent?
         let inner_corner_is_at_15 = angle >= 0.0;
@@ -509,7 +543,25 @@ fn vs_main(in: VertexInput) -> Varyings {
 
     // Calculate vertex position in NDC.The z and w are inter/extra-polated.
     let the_pos_s = pos_s_node + relative_vert_s;
-    let the_pos_n = vec4<f32>((the_pos_s / screen_factor - 1.0) * w, z, w);
+    var the_pos_n = vec4<f32>((the_pos_s / screen_factor - 1.0) * w, z, w);
+
+    $$ if loop
+    // In a loop, only two vertices of the connecting node (the one that has position nan) are needed
+    // to connect it to the join of the first node of the loop. The others should be degenerate triangles.
+    // There is no degenerate triangle at the first node of a loop, because we don't have spare vertices.
+    // This causes a triangle to appear from the connecting node of a loop to the first node of the *next* loop.
+    // To avoid this, we create nan positions. However, some hardware may not actually have nans, so we
+    // *also* drop these triagles using the valid_array.
+    if (is_first_node_in_loop) {
+        valid_array[0] = 0.0;
+        valid_array[1] = 0.0;
+    } else if (is_connecting_node_in_loop) {
+        valid_array[vertex_index] = 0.0;
+        if (vertex_index > 1) {
+            the_pos_n = vec4<f32>(bitcast<f32>(0x7fc00000u));  // nan
+        }
+    }
+    $$ endif
 
     // Build varyings output
     var varyings: Varyings;
@@ -605,12 +657,12 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
 
     // clipping planes
     {$ include 'pygfx.clipping_planes.wgsl' $}
-    
+
     // Get the half-thickness in physical coordinates. This is the reference thickness.
     // If aa is used, the line is actually a bit thicker, leaving space to do aa.
     let half_thickness_p = 0.5 * varyings.thickness_pw / varyings.w;
 
-    // Discard invalid faces. These are faces for which *all* 3 verts are set to zero. (trick 5b)
+    // Discard invalid faces. These are faces for which *all* 3 verts are set to zero. (trick 5b and 7c)
     if (varyings.valid_if_nonzero == 0.0) {
         discard;
     }
@@ -840,7 +892,8 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
     let opacity = min(1.0, color.a) * alpha * u_material.opacity;
     let out_color = vec4<f32>(physical_color, opacity);
 
-    var out = get_fragment_output(varyings.position, out_color);
+    var out: FragmentOutput;
+    out.color = out_color;
 
     // Set picking info.
     $$ if write_pick

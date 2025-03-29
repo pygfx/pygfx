@@ -10,7 +10,7 @@ struct VertexInput {
 
 @vertex
 fn vs_main(in: VertexInput) -> Varyings {
-    var varyings: Varyings;
+
     // Define positions at the four corners of the viewport, at the largest depth
     var positions = array<vec2<f32>, 4>(
         vec2<f32>(-1.0, -1.0),
@@ -43,6 +43,7 @@ fn vs_main(in: VertexInput) -> Varyings {
         let texcoord = vec3<f32>(virtual_pos * 0.5 + 0.5, 0.0);
     $$ endif
 
+    var varyings: Varyings;
     varyings.position = vec4<f32>(pos, 0.9999999, 1.0);
     varyings.texcoord = vec3<f32>(texcoord);
     //varyings.world_pos = vec3<f32>(ndc_to_world_pos(vec4<f32>(virtual_pos, 0.9999999, 1.0);));
@@ -84,11 +85,9 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     // We can apply clipping planes, but maybe a background should not be clipped?
     // apply_clipping_planes(in.world_pos);
 
-    // This is the opaque pass.
-    // A fragment of the background could be transparent, but it should still be
-    // written in the opaque pass in order for it to really be background.
-    // So we fool the blender into thinking this fragment is opaque, even if its not.
-    var out = get_fragment_output(varyings.position, vec4<f32>(out_color.rgb, 1.0));
+    // Force opaque. We may undo this when the ordered2 mechanics are removed.
+    var out: FragmentOutput;
+    out.color = vec4<f32>(out_color.rgb, 1.0);
     $$ if write_pick
         // We omit any extra information in the pick info
         // While we figure out exactly how best to return it.
@@ -96,6 +95,5 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
         // https://github.com/pygfx/pygfx/pull/700
         out.pick = pick_pack(u32(u_wobject.id), 20);
     $$ endif
-    out.color = vec4<f32>(out_color);
     return out;
 }

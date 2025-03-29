@@ -302,11 +302,6 @@ class TheOneAndOnlyBlender:
                 @location(0) color: vec4<f32>,
                 @location(1) pick: vec4<u32>,
             };
-            fn get_fragment_output(position: vec4<f32>, color: vec4<f32>) -> FragmentOutput {
-                var out: FragmentOutput;
-                out.color = color;
-                return out;
-            }
             """
 
         elif blending == "dither":
@@ -323,41 +318,29 @@ class TheOneAndOnlyBlender:
             # fragments if an object is at the same depth and has the same color.
             blending_code = """
             struct FragmentOutput {
+                // virtualfield seed1 : f32 = varyings.position.x * varyings.position.y * varyings.position.z
+                // virtualfield seed2 : f32 = out.color.r * 0.12 + out.color.g * 0.34 + out.color.b * 0.56 + out.color.a * 0.78
                 @location(0) color: vec4<f32>,
                 @location(1) pick: vec4<u32>,
             };
 
-            fn get_fragment_output(position: vec4<f32>, color: vec4<f32>) -> FragmentOutput {
-                var out : FragmentOutput;
-                let seed1 = position.x * position.y * position.z;
-                let seed2 = color.r * 0.12 + color.g * 0.34 + color.b * 0.56 + color.a * 0.78;
+            fn apply_virtual_fields_of_fragment_output(outp: ptr<function,FragmentOutput>, seed1:f32, seed2:f32) {
                 let rand = random2(vec2<f32>(seed1, seed2));
-                if ( color.a < 1.0 - ALPHA_COMPARE_EPSILON && color.a < rand ) { discard; }
-                out.color = vec4<f32>(color.rgb, 1.0);  // fragments that pass through are opaque
-                return out;
+                let alpha = (*outp).color.a;
+                if ( alpha < 1.0 - ALPHA_COMPARE_EPSILON && alpha < rand ) { discard; }
+                (*outp).color.a = 1.0;  // fragments that pass through are opaque
             }
             """
 
         elif blending == "weighted":
-            weight_func = "opaque"  # TODO: parametrize, maybe blending="weighted: depth", or a dict
+            weight_func = "alpha"  # TODO: parametrize, maybe blending="weighted: depth", or a dict
+            # We use -42.0 as a signal value that mean to use `color.a`
             if weight_func == "alpha":
-                weight_code = """
-                    let weight = alpha;
-                """
+                weight_default = "-42.0"
+                alpha_default = "-42.0"
             elif weight_func == "opaque":
-                weight_code = """
-                    //let vec_from_center = 2.0 * abs(varyings.texcoord - 0.5);
-                    let weight = alpha;
-                    alpha = 1.0;
-                """
-            elif weight_func == "depth":
-                # The "generic purpose" weight function proposed by McGuire in
-                # http://casual-effects.blogspot.com/2015/03/implemented-weighted-blended-order.html
-                weight_code = """
-                    let a = min(1.0, alpha) * 8.0 + 0.01;
-                    let b = (1.0 - 0.99999 * depth);
-                    let weight = clamp(a * a * a * 1e8 * b * b * b, 1e-2, 3e2);
-                """
+                weight_default = "-42.0"
+                alpha_default = "1.0"
             else:
                 raise ValueError(
                     f"Unknown weighted-blending weight_func: {weight_func!r}"
@@ -365,26 +348,27 @@ class TheOneAndOnlyBlender:
 
             blending_code = """
             struct FragmentOutput {
+                // virtualfield color : vec4<f32> = vec4<f32>(0.0)
+                // virtualfield alpha : f32 = ALPHA_DEFAULT
+                // virtualfield weight : f32 = WEIGHT_DEFAULT
                 @location(0) accum: vec4<f32>,
                 @location(1) reveal: f32,
             };
-            fn get_fragment_output(position: vec4<f32>, color: vec4<f32>) -> FragmentOutput {
-                var alpha = color.a;
-                var depth = position.z;
-                WEIGHT_CODE
-                var out : FragmentOutput;
-                let premultiplied = color.rgb * alpha;
-                out.accum = vec4<f32>(premultiplied, alpha) * weight;
-                out.reveal = alpha;  // yes, alpha, not weight
-                return out;
-                // Note 1: could also take user-specified transmittance into account.
-                // Note 2: its also possible to undo a fragment contribution. For this the accum
-                // and reveal buffer must be float to avoid clamping. And we'd do `abs(color.a)` above.
-                // The formula would then be:
-                //    out.accum = - out.accum;
-                //    out.reveal = 1.0 - 1.0 / (1.0 - alpha);
+
+            fn apply_virtual_fields_of_fragment_output(outp: ptr<function,FragmentOutput>, color: vec4<f32>,  _alpha: f32, _weight: f32) {
+                let alpha = select(_alpha, color.a, _alpha == -42.0);
+                let weight = select(_weight, color.a, _weight == -42.0);
+                (*outp).accum = vec4<f32>(color.rgb * alpha, alpha) * weight;
+                (*outp).reveal = alpha;  // yes, alpha, not weight
             }
-            """.replace("WEIGHT_CODE", weight_code)
+            """.replace("WEIGHT_DEFAULT", weight_default).replace("ALPHA_DEFAULT", alpha_default)
+
+            # Note 1: could also take user-specified transmittance into account.
+            # Note 2: its also possible to undo a fragment contribution. For this the accum
+            # and reveal buffer must be float to avoid clamping. And we'd do `abs(color.a)` above.
+            # The formula would then be:
+            #    out.accum = - out.accum;
+            #    out.reveal = 1.0 - 1.0 / (1.0 - alpha);
 
         else:
             raise RuntimeError(f"Unexpected blending {blending!r}")
