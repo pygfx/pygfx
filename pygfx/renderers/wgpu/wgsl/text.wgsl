@@ -298,7 +298,8 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     // Debug
     //color_out = vec4<f32>(atlas_value, 0.0, 0.0, 1.0);
 
-    var out = get_fragment_output(varyings.position, color_out);
+    var out: FragmentOutput;
+    out.color = color_out;
 
     // Move text closer to camera, since its often overlaid on something.
     // The text is moved closer than the outline so that the outline of one character
