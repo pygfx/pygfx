@@ -371,7 +371,6 @@ class TheOneAndOnlyBlender:
             fn get_fragment_output(position: vec4<f32>, color: vec4<f32>) -> FragmentOutput {
                 var alpha = color.a;
                 var depth = position.z;
-                if (alpha <= ALPHA_COMPARE_EPSILON) { discard; }
                 WEIGHT_CODE
                 var out : FragmentOutput;
                 let premultiplied = color.rgb * alpha;

@@ -353,7 +353,12 @@ class PipelineContainer:
         if "create" in changed or "reset" in changed:
             with tracker.track_usage("reset"):
                 self.wobject_info["pick_write"] = wobject.material.pick_write
-                self.wobject_info["blending"] = wobject.material.blending
+                blending = wobject.material.blending
+                if blending == "dither" and wobject.material.transparent == False:  # noqa
+                    # TODO: Dither with an opaque object -> we can drop the discard
+                    pass  # blending["is_opaque"] = True:
+                self.wobject_info["blending"] = blending
+
             changed.update(("bindings", "pipeline_info", "render_info"))
             self.wgpu_shaders = {}
 
