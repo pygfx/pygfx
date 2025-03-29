@@ -67,7 +67,6 @@ class TriangleShader(BaseShader):
         # Our triangle is opaque (render mask 1).
         return {
             "indices": (3, 1),
-            "render_mask": RenderMask.opaque,
         }
 
     def get_code(self):

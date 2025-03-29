@@ -388,7 +388,6 @@ class AudioShader(BaseShader):
     def get_render_info(self, wobject, shared):
         return {
             "indices": (3, 1),
-            "render_mask": RenderMask.opaque,
         }
 
     def get_code(self):

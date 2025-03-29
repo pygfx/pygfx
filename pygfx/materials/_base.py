@@ -6,10 +6,21 @@ from ..utils.trackable import Trackable
 from ..utils import array_from_shadertype
 from ..resources import Buffer
 
+
 if TYPE_CHECKING:
-    from typing import ClassVar, TypeAlias, Literal, Sequence
+    from typing import Union, ClassVar, TypeAlias, Literal, Sequence
 
     ABCDTuple: TypeAlias = tuple[float, float, float, float]
+
+
+# Little class that allows us to return a bool for .transparent and .depth_write
+# while showing that it was automatically determined. Not super-elegant, but
+# effective and it avoids extra API surface.
+class AutoBool(int):  # cannot inherit from bool
+    __class__ = bool  # makes it pass isinstance(.., bool)
+
+    def __repr__(self):
+        return repr(bool(self)) + " (auto)"
 
 
 class Material(Trackable):
@@ -30,10 +41,18 @@ class Material(Trackable):
         is "any" (the default) a fragment is discarded if it is clipped by any
         clipping plane. If this is "all", a fragment is discarded only if it is
         clipped by *all* of the clipping planes.
+    transparent : bool | None
+        Whether the object is (semi) transparent.
+        Default (None) tries to derive this from the shader.
+    blending : str : dict
+        The way to blend semi-transparent fragments  (alpha < 1) for this material.
     depth_test : bool
         Whether the object takes the depth buffer into account.
         Default True. If False, the object is like a ghost: not testing
         against the depth buffer and also not writing to it.
+    depth_write :  bool | None
+        Whether the object writes to the depth buffer. With None (default) this
+        is determined automatically.
     """
 
     # Note that in the material classes we define what properties are stored as
@@ -54,7 +73,10 @@ class Material(Trackable):
         opacity: float = 1,
         clipping_planes: Sequence[ABCDTuple] = (),
         clipping_mode: Literal["ANY", "ALL"] = "ANY",
+        transparent: Union[bool, None] = None,
+        blending: str = "normal",
         depth_test: bool = True,
+        depth_write: Union[bool, None] = None,
         pick_write: bool = False,
     ):
         super().__init__()
@@ -66,7 +88,10 @@ class Material(Trackable):
         self.opacity = opacity
         self.clipping_planes = clipping_planes
         self.clipping_mode = clipping_mode
+        self.transparent = transparent
+        self.blending = blending
         self.depth_test = depth_test
+        self.depth_write = depth_write
         self.pick_write = pick_write
 
     def _set_size_of_uniform_array(self, key: str, new_length: int) -> None:
@@ -131,14 +156,7 @@ class Material(Trackable):
         value = min(max(float(value), 0), 1)
         self.uniform_buffer.data["opacity"] = value
         self.uniform_buffer.update_full()
-        self._store.is_transparent = value < 1
-
-    @property
-    def is_transparent(self) -> bool:
-        """Whether this material is (semi) transparent because of its opacity value.
-        If False the object can still appear transparent because of its color.
-        """
-        return self._store.is_transparent
+        self._resolve_transparent()
 
     @property
     def clipping_planes(self) -> Sequence[ABCDTuple]:
@@ -203,16 +221,129 @@ class Material(Trackable):
             raise ValueError(f"Unexpected clipping_mode: {value}")
 
     @property
+    def transparent(self) -> Union[bool, None]:
+        """Defines whether this material is transparent or opaque.
+
+        If set to None, the transparency is autodetermined
+        based on ``.opacity`` and possibly other material properties.
+
+        The final transparency value is one of:
+
+        * True: the object is (considered) fully opaque. The renderer draws
+          these first, and sorts front-to-back to avoid drawing hidden fragments.
+        * False: the object is (considered) fully transparent. The renderer draws
+          these after opaque objects, and sorts back-to-front for proper blending.
+        * None: the object is considered to have both opaque and transparent
+          fragments. The renderer draws these in between opaque and transparent
+          passes, back-to-front.
+        """
+        transparent = self._store.transparent
+        if transparent is not None and self._store["user_transparent"] is None:
+            transparent = AutoBool(transparent)
+        return transparent
+
+    @transparent.setter
+    def transparent(self, value: Union[bool, None]):
+        if value is None:
+            self._store.user_transparent = None
+        elif isinstance(value, bool):
+            self._store.user_transparent = bool(value)
+        else:
+            raise TypeError("material.transparent must be bool or None.")
+        self._resolve_transparent()
+
+    def _looks_transparent(self):
+        # This could be overloaded in subclasses.
+        transparent = None
+        if self.opacity < 1:
+            transparent = True
+        return transparent
+
+    def _resolve_transparent(self):
+        # This method must be called from the appropriate places
+        try:
+            transparent = self._store["user_transparent"]
+        except KeyError:
+            return  # initializing
+        if transparent is None:
+            looks_transparent = self._looks_transparent()
+            if looks_transparent is not None:
+                transparent = bool(looks_transparent)
+        self._store.transparent = transparent
+
+    @property
+    def blending(self):
+        """The way to blend semi-transparent fragments (alpha < 1) for this material.
+
+        * "no": No blending, render as opaque.
+        * "normal": Alpha blending using the over operator (the default).
+        * "add": Add the fragment color, multiplied by alpha.
+        * "subtract": Subtract the fragment color, multiplied by alpha.
+        * "dither": use stochastic blending. All fragments are opaque, and the chance
+          of a fragment being discared (invisible) is one minus alpha.
+        * "weighted": use weighted blending, where the order of objects does not matter for the
+          end-result.
+        * A dict: Custom blend function (equation, src, dst). TODO
+
+        """
+        return self._store.blending
+
+    @blending.setter
+    def blending(self, blending):
+        if blending is None:
+            blending = "normal"
+        valids = ["no", "normal", "add", "subtract", "dither", "weighted"]
+        if isinstance(blending, str):
+            if blending not in valids:
+                raise ValueError(
+                    f"Blending is {blending!r} but expected one of {valids!r}"
+                )
+        elif isinstance(blending, dict):
+            raise NotImplementedError()
+        else:
+            raise TypeError("Material.blending must be None, str or dict.")
+        self._store.blending = blending
+
+    @property
     def depth_test(self) -> bool:
         """Whether the object takes the depth buffer into account."""
         return self._store.depth_test
 
     @depth_test.setter
-    def depth_test(self, value: int) -> None:
+    def depth_test(self, value: bool) -> None:
         # Explicit test that this is a bool. We *could* maybe later allow e.g. 'greater'.
         if not isinstance(value, (bool, int)):
             raise TypeError("Material.depth_test must be bool.")
         self._store.depth_test = bool(value)
+
+    @property
+    def depth_write(self) -> bool:
+        """Whether this material writes to the depth buffer, preventing other objects being drawn behind it.
+
+        Can be set to:
+
+        * True: yes, write depth.
+        * False: no, don't write depth.
+        * None: auto-determine (default): yes unless ``.transparent`` is True.
+
+        The auto-option provides good default behaviour for common use-case, but
+        if you know what you're doing you should probably just set this value to
+        True or False.
+        """
+        depth_write = self._store.depth_write
+        if depth_write is None:
+            # write depth when transparent is False or None
+            depth_write = AutoBool(not bool(self._store.transparent))
+        return depth_write
+
+    @depth_write.setter
+    def depth_write(self, value: Union[bool, None]) -> None:
+        if value is None:
+            self._store.depth_write = None
+        elif isinstance(value, bool):
+            self._store.depth_write = bool(value)
+        else:
+            raise TypeError("material.depth_write must be bool or None.")
 
     @property
     def pick_write(self) -> bool:

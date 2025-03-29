@@ -35,6 +35,7 @@ from ....resources._base import resource_update_registry
 from ....utils import Color
 
 from ... import Renderer
+from .blender import TheOneAndOnlyBlender
 from .flusher import RenderFlusher
 from .pipeline import get_pipeline_container_group
 from .update import update_resource, ensure_wgpu_object
@@ -51,38 +52,17 @@ AnyBaseCanvas = BaseRenderCanvas, WgpuCanvasBase
 def _get_sort_function(camera: Camera):
     """Given a scene object, get a function to sort wobject-tuples"""
 
+    # todo: camera.view, excluding the prpjection, project=False arg for vec_transform.
+    # todo: reverse?
     def sort_func(wobject: WorldObject):
         z = la.vec_transform(wobject.world.position, camera.camera_matrix)[2]
-        return wobject.render_order, z
+        return wobject.render_order, -z
 
     return sort_func
 
 
 class WgpuRenderer(RootEventHandler, Renderer):
     """Turns Scenes into rasterized images using wgpu.
-
-    The current implementation supports various ``blend_modes`` which control how
-    transparency is handled during the rendering process. The following modes exist:
-
-        * "default" or None: Select the default: currently this is "ordered2".
-        * "additive": single-pass approach that adds fragments together.
-        * "opaque": single-pass approach that ignores transparency.
-        * "ordered1": single-pass approach that blends fragments (using alpha
-          blending). Can only produce correct results if fragments are drawn
-          from back to front.
-        * "ordered2": two-pass approach that first processes all opaque
-          fragments and then blends transparent fragments (using alpha blending)
-          with depth-write disabled. The visual results are usually better than
-          ordered1, but still depend on the drawing order.
-        * "weighted": two-pass approach for order independent transparency based
-          on alpha weights.
-        * "weighted_depth": two-pass approach for order independent transparency
-          based on alpha weights and depth [1]. Note that the depth range
-          affects the (quality of the) visual result.
-        * "weighted_plus": three-pass approach for order independent
-          transparency, in which the front-most transparent layer is rendered
-          correctly, while transparent layers behind it are blended using alpha
-          weights.
 
     Parameters
     ----------
@@ -96,8 +76,6 @@ class WgpuRenderer(RootEventHandler, Renderer):
     show_fps : bool
         Whether to display the frames per second. Beware that
         depending on the GUI toolkit, the canvas may impose a frame rate limit.
-    blend_mode : str
-        The method for handling transparency. If None, use ``"ordered2"``.
     sort_objects : bool
         If True, sort objects by depth before rendering. The sorting
         uses a hierarchical index based on the object's (1) ``render_order``,
@@ -111,10 +89,6 @@ class WgpuRenderer(RootEventHandler, Renderer):
         The gamma correction to apply in the final render stage. Typically a
         number between 0.0 and 2.0. A value of 1.0 indicates no correction.
 
-    References
-    ----------
-    [1] Morgan McGuire and Louis Bavoil, Weighted Blended Order-Independent Transparency, Journal of Computer Graphics Techniques (JCGT), vol. 2, no. 2, 122-141, 2013
-
     """
 
     _blenders_available = {}
@@ -127,8 +101,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         pixel_ratio=None,
         pixel_filter=None,
         show_fps=False,
-        blend_mode="default",
-        sort_objects=False,
+        sort_objects=True,
         enable_events=True,
         gamma_correction=1.0,
         **kwargs,
@@ -181,8 +154,8 @@ class WgpuRenderer(RootEventHandler, Renderer):
             self._target._wgpu_usage |= wgpu.TextureUsage.RENDER_ATTACHMENT
             self._target._wgpu_usage |= wgpu.TextureUsage.TEXTURE_BINDING
 
-        # Prepare render targets.
-        self.blend_mode = blend_mode
+        self._blender = TheOneAndOnlyBlender()
+
         self.sort_objects = sort_objects
 
         # Prepare object that performs the final render step into a texture
@@ -301,6 +274,8 @@ class WgpuRenderer(RootEventHandler, Renderer):
     def blend_mode(self):
         """The method for blending fragments bases on their alpha values:
 
+        Stuck to "ordered1" until we clean up the whole blender and renderer.blend_mode.
+
         * "default" or None: Select the default: currently this is "ordered2".
         * "additive": single-pass approach that adds fragments together.
         * "opaque": single-pass approach that consider every fragment opaque.
@@ -320,7 +295,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
           in which the front-most transparent layer is rendered correctly, while
           transparent layers behind it are blended using alpha weights.
         """
-        return self._blend_mode
+        return "default"
 
     @staticmethod
     def _register_blend_mode(blender_class=None):
@@ -344,34 +319,6 @@ class WgpuRenderer(RootEventHandler, Renderer):
             )
         WgpuRenderer._blenders_available[name] = blender_class
         return blender_class
-
-    @blend_mode.setter
-    def blend_mode(self, value):
-        # Without importing our standard blender module, the
-        # blenders will not be registered and available.
-        # since they import the renderer module
-        # we cannot have this import at the top level otherwise it
-        # creates a circular import
-        # https://github.com/pygfx/pygfx/pull/966
-        from . import blender as _blender_module  # noqa F401
-
-        # Massage and check the input
-        if value is None:
-            value = "default"
-        value = value.lower()
-        if value == "default":
-            value = "ordered2"
-
-        blender = self._blenders_available.get(value)
-        if blender is None:
-            available = list(self._blenders_available.keys())
-            raise ValueError(f"Unknown blend_mode '{value}', use any of {available}.")
-        # Set blender object
-        self._blend_mode = value
-        self._blender = blender()
-        # If our target is a canvas, request a new draw
-        if isinstance(self._target, AnyBaseCanvas):
-            self._target.request_draw()
 
     @property
     def sort_objects(self):
@@ -404,13 +351,16 @@ class WgpuRenderer(RootEventHandler, Renderer):
         """Traverse the scene graph to get a flat representation of the scene,
         and during this traversal, do syncs and updates and collect various information.
 
-        The idea is to do this as much as possible in a single traversal to reduce the overhead
+        The idea is to do this in a single traversal to reduce the overhead
         of iterating over a large number of objects.
         """
 
         class Flat:
             def __init__(self):
-                self.wobjects = []
+                self.fully_opaque_objects = []
+                self.semi_opaque_objects = []
+                self.fully_transparent_objects = []
+                self.weighted_objects = []
                 self.lights = {
                     "point_lights": [],
                     "directional_lights": [],
@@ -418,12 +368,13 @@ class WgpuRenderer(RootEventHandler, Renderer):
                     "ambient_color": [0, 0, 0],
                 }
 
+        # Prepare z-sorting info
+        sort_by_depth = bool(self._sort_objects)
+        view_matrix = camera.view_matrix  # == camera.world.inverse_matrix
+
+        # Collect objects
         flat = Flat()
-
-        def visit_wobject(ob):
-            # Add to semi-flat data structure
-            wobject_dict.setdefault(ob.render_order, []).append(ob)
-
+        for ob in scene.iter(skip_invisible=True):
             # Update things like transform and uniform buffers
             ob._update_object()
 
@@ -441,20 +392,42 @@ class WgpuRenderer(RootEventHandler, Renderer):
                     ambient_color[1] += g * ob.intensity
                     ambient_color[2] += b * ob.intensity
 
-        # Flatten the scenegraph, categorised by render_order
-        wobject_dict = {}
-        scene.traverse(visit_wobject, True)
+            elif (material := ob._material) is not None:
+                z_sort_sign = 0
 
-        # Produce a sorted list of world objects
-        if self._sort_objects:
-            depth_sort_func = _get_sort_function(camera)
-            for render_order in sorted(wobject_dict.keys()):
-                wobjects = wobject_dict[render_order]
-                wobjects.sort(key=depth_sort_func)
-                flat.wobjects.extend(wobjects)
-        else:
-            for render_order in sorted(wobject_dict.keys()):
-                flat.wobjects.extend(wobject_dict[render_order])
+                blending = material.blending
+                if blending == "weighted":
+                    z_sort_sign = 0
+                    flat.weighted_objects.append(ob)
+                elif blending == "dither":
+                    z_sort_sign = +1
+                    flat.fully_opaque_objects.append(ob)
+                else:
+                    transparent = material.transparent
+                    if transparent:
+                        # TODO: threeJS renders double-sided objects twice, maybe we should too? (we can look at this later)
+                        z_sort_sign = -1
+                        flat.fully_transparent_objects.append(ob)
+                    elif transparent is None:
+                        z_sort_sign = -1
+                        flat.semi_opaque_objects.append(ob)
+                    else:
+                        z_sort_sign = +1
+                        flat.fully_opaque_objects.append(ob)
+                        # TODO: does it make sense to draw objects that have discard later later/earlier?
+
+                # Set sort key
+                if sort_by_depth and z_sort_sign:
+                    z = la.vec_transform(ob.world.position, view_matrix)[2]
+                    ob._gfx_sort_key = ob.render_order, z * z_sort_sign
+                else:
+                    ob._gfx_sort_key = ob.render_order
+
+        # Sort the objects
+        flat.fully_opaque_objects.sort(key=lambda ob: ob._gfx_sort_key)
+        flat.semi_opaque_objects.sort(key=lambda ob: ob._gfx_sort_key)
+        flat.fully_transparent_objects.sort(key=lambda ob: ob._gfx_sort_key)
+        # flat.weighted_objects.sort(key=lambda: ob: ob._gfx_sort_key) -> the whole points is that weighted does not need sorting
 
         return flat
 
@@ -566,9 +539,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # todo: can we get this into _get_flat_scene?
         compute_pipeline_containers = []
         render_pipeline_containers = []
-        for wobject in flat.wobjects:
-            if not wobject.material:
-                continue
+        for wobject in flat.fully_opaque_objects:
             container_group = get_pipeline_container_group(wobject, renderstate)
             compute_pipeline_containers.extend(container_group.compute_containers)
             render_pipeline_containers.extend(container_group.render_containers)
@@ -591,13 +562,12 @@ class WgpuRenderer(RootEventHandler, Renderer):
         command_buffers = []
         command_buffers += self._render_recording(
             renderstate,
-            flat.wobjects,
+            flat,
             compute_pipeline_containers,
             render_pipeline_containers,
             physical_viewport,
             clear_color,
         )
-        command_buffers += self._blender.perform_combine_pass()
 
         # Collect commands and submit
         self._device.queue.submit(command_buffers)
@@ -662,7 +632,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
     def _render_recording(
         self,
         renderstate,
-        wobject_list,
+        flat,
         compute_pipeline_containers,
         render_pipeline_containers,
         physical_viewport,
@@ -675,6 +645,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # todo: we may be able to speed this up with render bundles though
 
         command_encoder = self._device.create_command_encoder()
+
         blender = self._blender
         if clear_color:
             blender.clear()
@@ -687,41 +658,86 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
         for compute_pipeline_container in compute_pipeline_containers:
             compute_pipeline_container.dispatch(compute_pass)
-
         compute_pass.end()
 
-        # ----- render pipelines
+        # ----- process shadow maps
 
-        # -- process shadow maps
         lights = (
             renderstate.lights["point_lights"]
             + renderstate.lights["spot_lights"]
             + renderstate.lights["directional_lights"]
         )
-        render_shadow_maps(lights, wobject_list, command_encoder)
+        # TODO: collect as flat.shadow_objects?
+        render_shadow_maps(
+            lights,
+            flat.fully_opaque_objects + flat.fully_transparent_objects,
+            command_encoder,
+        )
 
-        for pass_index in range(blender.get_pass_count()):
-            color_attachments = blender.get_color_attachments(pass_index)
-            depth_attachment = blender.get_depth_attachment(pass_index)
-            render_mask = blender.passes[pass_index].render_mask
-            if not color_attachments:
-                continue
+        # ----- render in stages
 
-            render_pass = command_encoder.begin_render_pass(
-                color_attachments=color_attachments,
-                depth_stencil_attachment=depth_attachment,
-                occlusion_query_set=None,
+        self._render_wobjects(
+            flat.fully_opaque_objects,
+            renderstate,
+            physical_viewport,
+            command_encoder,
+            "fully_opaque",
+        )
+
+        self._render_wobjects(
+            flat.semi_opaque_objects,
+            renderstate,
+            physical_viewport,
+            command_encoder,
+            "semi_opaque",
+        )
+
+        self._render_wobjects(
+            flat.fully_transparent_objects,
+            renderstate,
+            physical_viewport,
+            command_encoder,
+            "fully_transparent",
+        )
+
+        if flat.weighted_objects:
+            self._render_wobjects(
+                flat.weighted_objects,
+                renderstate,
+                physical_viewport,
+                command_encoder,
+                "weighted",
             )
-            render_pass.set_viewport(*physical_viewport)
-
-            for render_pipeline_container in render_pipeline_containers:
-                render_pipeline_container.draw(
-                    render_pass, renderstate, pass_index, render_mask
-                )
-
-            render_pass.end()
+            self._blender.perform_combine_pass(command_encoder)
 
         return [command_encoder.finish()]
+
+    def _render_wobjects(
+        self, wobjects, renderstate, physical_viewport, command_encoder, pass_type
+    ):
+        if not wobjects:
+            return
+
+        blender = (
+            renderstate.blender
+        )  # TODO: I don't think the blender needs to be part of the renderstate
+        color_attachments = blender.get_color_attachments(0, pass_type)
+        depth_attachment = blender.get_depth_attachment(0)
+
+        render_pass = command_encoder.begin_render_pass(
+            color_attachments=color_attachments,
+            depth_stencil_attachment=depth_attachment,
+            occlusion_query_set=None,
+        )
+        render_pass.set_viewport(*physical_viewport)
+
+        for wobject in wobjects:
+            # TODO: avoid duplicate call to get_pipeline_container_group?
+            container_group = get_pipeline_container_group(wobject, renderstate)
+            for render_pipeline_container in container_group.render_containers:
+                render_pipeline_container.draw(render_pass, renderstate, 0)
+
+        render_pass.end()
 
     def _update_stdinfo_buffer(
         self, camera: Camera, physical_size, logical_size, ndc_offset
