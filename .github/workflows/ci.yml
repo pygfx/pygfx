@@ -19,8 +19,6 @@ jobs:
   lint-build:
     name: Linting
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
     steps:
     - uses: actions/checkout@v4
     - name: Set up Python
@@ -41,8 +39,6 @@ jobs:
   docs-build:
     name: Docs
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
     steps:
     - uses: actions/checkout@v4
     - name: Set up Python
@@ -166,8 +162,6 @@ jobs:
   release-build:
     name: Build release on ubuntu-latest
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
