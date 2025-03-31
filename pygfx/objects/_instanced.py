@@ -4,25 +4,29 @@ from ._base import id_provider
 from . import WorldObject, Mesh, Line
 from ..resources import Buffer
 
+DOCSTRING_TEMPLATE = """Display a {name} multiple times using instances.
 
-class InstancedObject(WorldObject):
-    """Display an object multiple times using instances.
-
-    An instanced object with a matrix for each instance.
+    An instanced {name} with a matrix for each instance.
 
     Parameters
     ----------
     geometry : Geometry
-        The object's geometry data.
+        The {name}'s geometry data.
     material : Material
-        The material with which to render the object.
+        The material with which to render the {name}.
     count : int
         The number of instances to create.
     kwargs : Any
         Additional kwargs get forwarded to the :class:`base class
-        <pygfx.objects.WorldObject>`.
+        <pygfx.objects.{base_cls}>`.
 
     """
+
+
+class InstancedObject(WorldObject):
+    __doc__ = DOCSTRING_TEMPLATE.format(name="object", base_cls="WorldObject").replace(
+        "a object", "an object"
+    )
 
     def __init__(self, geometry, material, count, **kwargs):
         super().__init__(geometry, material, **kwargs)
@@ -78,8 +82,14 @@ class InstancedObject(WorldObject):
 
 
 class InstancedMesh(Mesh, InstancedObject):
-    pass
+    __doc__ = DOCSTRING_TEMPLATE.format(name="mesh", base_cls="Mesh")
+
+    def __init__(self, geometry, material, count, **kwargs):
+        super().__init__(geometry, material, count, **kwargs)
 
 
 class InstancedLine(Line, InstancedObject):
-    pass
+    __doc__ = DOCSTRING_TEMPLATE.format(name="line", base_cls="Line")
+
+    def __init__(self, geometry, material, count, **kwargs):
+        super().__init__(geometry, material, count, **kwargs)
