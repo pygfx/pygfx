@@ -69,8 +69,8 @@ class InstancedMesh(Mesh):
         """get the matrix for the instance at the given index."""
         return self._store["instance_buffer"].data["matrix"][index].T
 
-    def _wgpu_get_pick_info(self, pick_value):
-        info = self.material._wgpu_get_pick_info(pick_value)
+    def _wgpu_get_pick_info(self, pick_value) -> dict:
+        info = super()._wgpu_get_pick_info(pick_value)
         # The id maps to one of our instances
         id = pick_value & 1048575  # 2**20-1
         info["instance_index"] = self._idmap.get(id)

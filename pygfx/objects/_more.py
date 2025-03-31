@@ -268,7 +268,8 @@ class Mesh(WorldObject):
         """
         return self._morph_target_names
 
-    def _wgpu_get_pick_info(self, pick_value):
+    def _wgpu_get_pick_info(self, pick_value) -> dict:
+        info = super()._wgpu_get_pick_info(pick_value)
         values = unpack_bitfield(
             pick_value, wobject_id=20, index=26, coord1=6, coord2=6, coord3=6
         )
@@ -292,8 +293,9 @@ class Mesh(WorldObject):
                 # face_coord slot of index 1, (see meshshader.py), so
                 # we put that at the end and put a zero in its place.
                 face_coord = face_coord[0], 0.0, face_coord[2], face_coord[1]
-
-        return {"face_index": face_index, "face_coord": tuple(face_coord)}
+        info["face_index"] = face_index
+        info["face_coord"] = tuple(face_coord)
+        return info
 
 
 class Image(WorldObject):
@@ -329,7 +331,8 @@ class Image(WorldObject):
 
     """
 
-    def _wgpu_get_pick_info(self, pick_value):
+    def _wgpu_get_pick_info(self, pick_value) -> dict:
+        info = super()._wgpu_get_pick_info(pick_value)
         tex = self.geometry.grid
         if hasattr(tex, "texture"):
             tex = tex.texture  # tex was a view
@@ -338,10 +341,9 @@ class Image(WorldObject):
         x = values["x"] / 4194303 * tex.size[0] - 0.5
         y = values["y"] / 4194303 * tex.size[1] - 0.5
         ix, iy = int(x + 0.5), int(y + 0.5)
-        return {
-            "index": (ix, iy),
-            "pixel_coord": (x - ix, y - iy),
-        }
+        info["index"] = (ix, iy)
+        info["pixel_coord"] = (x - ix, y - iy)
+        return info
 
 
 class Volume(WorldObject):
@@ -373,7 +375,8 @@ class Volume(WorldObject):
 
     """
 
-    def _wgpu_get_pick_info(self, pick_value):
+    def _wgpu_get_pick_info(self, pick_value) -> dict:
+        info = super()._wgpu_get_pick_info(pick_value)
         tex = self.geometry.grid
         if hasattr(tex, "texture"):
             tex = tex.texture  # tex was a view
@@ -383,7 +386,6 @@ class Volume(WorldObject):
         size = tex.size
         x, y, z = [(v / 16383) * s - 0.5 for v, s in zip(texcoords_encoded, size)]
         ix, iy, iz = int(x + 0.5), int(y + 0.5), int(z + 0.5)
-        return {
-            "index": (ix, iy, iz),
-            "voxel_coord": (x - ix, y - iy, z - iz),
-        }
+        info["index"] = (ix, iy, iz)
+        info["voxel_coord"] = (x - ix, y - iy, z - iz)
+        return info
