@@ -44,7 +44,7 @@ camera = gfx.OrthographicCamera(100, 100)
 
 scene_overlay = gfx.Scene()
 blend_mode_text = gfx.Text(
-    text=f"Blend mode: {plane1.material.blending}",
+    text=f"Blend mode: {plane1.material.blending['preset']}",
     anchor="bottom-left",
     material=gfx.TextMaterial(outline_thickness=0.3),
 )

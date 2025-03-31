@@ -23,6 +23,13 @@ class AutoBool(int):  # cannot inherit from bool
         return repr(bool(self)) + " (auto)"
 
 
+class ReadOnlyDict(dict):
+    # There is no FrozenDict. This comes close enough
+
+    def __setitem__(self, item, value):
+        raise TypeError("Cannot set dict item (readonly)")
+
+
 class Material(Trackable):
     """Material base class.
 
@@ -44,7 +51,7 @@ class Material(Trackable):
     transparent : bool | None
         Whether the object is (semi) transparent.
         Default (None) tries to derive this from the shader.
-    blending : str : dict
+    blending : str | dict
         The way to blend semi-transparent fragments  (alpha < 1) for this material.
     depth_test : bool
         Whether the object takes the depth buffer into account.
@@ -74,7 +81,7 @@ class Material(Trackable):
         clipping_planes: Sequence[ABCDTuple] = (),
         clipping_mode: Literal["ANY", "ALL"] = "ANY",
         transparent: Union[bool, None] = None,
-        blending: str = "normal",
+        blending: Union[str, dict] = "normal",
         depth_test: bool = True,
         depth_write: Union[bool, None] = None,
         pick_write: bool = False,
@@ -275,34 +282,125 @@ class Material(Trackable):
     def blending(self):
         """The way to blend semi-transparent fragments (alpha < 1) for this material.
 
-        * "no": No blending, render as opaque.
-        * "normal": Alpha blending using the over operator (the default).
-        * "add": Add the fragment color, multiplied by alpha.
-        * "subtract": Subtract the fragment color, multiplied by alpha.
+        Can be set using a short name:
+
+        * "no": no blending, render as opaque.
+        * "normal": alpha blending using the over operator (the default).
+        * "add": add the fragment color, multiplied by alpha.
         * "dither": use stochastic blending. All fragments are opaque, and the chance
           of a fragment being discared (invisible) is one minus alpha.
-        * "weighted": use weighted blending, where the order of objects does not matter for the
-          end-result.
-        * A dict: Custom blend function (equation, src, dst). TODO
+        * "weighted": use weighted blending, where the order of objects does not matter for the end-result.
 
+        Can be set using a dict for more control. The following fields are supported:
+
+        * "mode": the blend-mode, one of "classic", "dither", "weighted".
+        * When ``mode`` is "classic", the following fields must/can be provided:
+          * "color_op": the blend operation/equation, any value from ``wgpu.BlendOperation``. Default 'add'.
+          * "color_src": source factor, any value of ``wgpu.BlendFactor``.
+          * "color_dst": destination factor, any value of ``wgpu.BlendFactor``.
+          * "color_constant": represents the constant value of the constant blend color. Default black.
+          * "alpha_op": as ``color_op`` but for alpha.
+          * "alpha_src": as ``color_dst`` but for alpha.
+          * "alpha_dst": as ``color_src`` but for alpha.
+          * "alpha_constant": as ``color_constant`` but for alpha (default 0).
+        * When ``mode`` is "dither":
+          * "seed1" the positional seed to use.
+          * "seed2": the color-seed to use.
+        * When ``mode`` is "weighted":
+          * "weight": the weight factor as wgsl.
         """
-        return self._store.blending
+        return self._store.blending_dict
 
     @blending.setter
     def blending(self, blending):
         if blending is None:
             blending = "normal"
-        valids = ["no", "normal", "add", "subtract", "dither", "weighted"]
+
+        preset_blending_dicts = {
+            "no": {
+                "mode": "classic",
+                "color_src": "one",
+                "color_dst": "zero",
+                "alpha_src": "one",
+                "alpha_dst": "zero",
+            },
+            "normal": {
+                "mode": "classic",
+                "color_src": "src-alpha",
+                "color_dst": "one-minus-src-alpha",
+                "alpha_src": "one",
+                "alpha_dst": "one-minus-src-alpha",
+            },
+            "add": {
+                "mode": "classic",
+                "color_src": "one",
+                "color_dst": "one",
+                "alpha_src": "one",
+                "alpha_dst": "one",
+            },
+            "dither": {
+                "mode": "dither",
+            },
+            "weighted": {
+                "mode": "weighted",
+            },
+        }
+
         if isinstance(blending, str):
-            if blending not in valids:
+            preset_keys = set(preset_blending_dicts.keys())
+            if blending not in preset_keys:
                 raise ValueError(
-                    f"Blending is {blending!r} but expected one of {valids!r}"
+                    f"Blending is {blending!r} but expected one of {preset_keys!r}"
                 )
+            blending_dict = preset_blending_dicts[blending]
+
         elif isinstance(blending, dict):
-            raise NotImplementedError()
+            # we pop elements from the given dict, so we can detect invalid fields
+            blending_src = blending.copy()
+            blending_dict = {}
+            try:
+                blending_src.pop("preset", None)
+                blending_dict["mode"] = mode = blending_src.pop("mode")
+                if mode == "classic":
+                    for key in ["color_src", "color_dst", "alpha_src", "alpha_dst"]:
+                        blending_dict[key] = blending_src.pop(key)
+                    for key in [
+                        "color_op",
+                        "alpha_op",
+                        "color_constant",
+                        "alpha_constant",
+                    ]:
+                        if key in blending_src:
+                            blending_dict[key] = blending_src.pop(key)
+                elif mode == "dither":
+                    blending_src.pop("preset", None)
+                    blending_dict["mode"] = mode = blending_src.pop("mode")
+                    for key in ["seed1", "seed2"]:
+                        if key in blending_src:
+                            blending_dict[key] = blending_src.pop(key)
+                elif mode == "weighted":
+                    blending_src.pop("preset", None)
+                    blending_dict["mode"] = mode = blending_src.pop("mode")
+                    for key in ["weight"]:
+                        if key in blending_src:
+                            blending_dict[key] = blending_src.pop(key)
+                else:
+                    raise ValueError(f"Unexpected blending mode {mode!r}")
+            except KeyError as err:
+                raise KeyError(f"Key {err.key!r} missing from blending dict.") from None
+            if blending_src:
+                raise ValueError(f"Unknown keys in blending dict: {blending_src!r}")
+
         else:
             raise TypeError("Material.blending must be None, str or dict.")
-        self._store.blending = blending
+
+        # Prepend the preset name if the dict matches a preset
+        for preset_name, preset_dict in preset_blending_dicts.items():
+            if blending_dict == preset_dict:
+                blending_dict = {"preset": preset_name, **blending_dict}
+
+        self._store.blending_dict = ReadOnlyDict(blending_dict)
+        self._store.blending_mode = blending_dict["mode"]
 
     @property
     def depth_test(self) -> bool:

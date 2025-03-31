@@ -144,40 +144,31 @@ class TheOneAndOnlyBlender:
     def get_color_descriptors(self, pass_index, material_write_pick, blending):
         # todo: remove pass_index
         bf, bo = wgpu.BlendFactor, wgpu.BlendOperation
-        color_blend = None
-        if isinstance(blending, str):
-            if blending == "no":
-                color_blend = {
-                    "alpha": blend_dict(bf.one, bf.zero, bo.add),
-                    "color": blend_dict(bf.one, bf.zero, bo.add),
-                }
-            elif blending == "normal":
-                color_blend = {
-                    "alpha": blend_dict(bf.one, bf.one_minus_src_alpha, bo.add),
-                    "color": blend_dict(bf.src_alpha, bf.one_minus_src_alpha, bo.add),
-                }
-            elif blending == "add":
-                color_blend = {
-                    "alpha": blend_dict(bf.one, bf.one, bo.add),
-                    "color": blend_dict(bf.one, bf.one, bo.add),
-                }
-            elif blending == "subtract":
-                # todo: is this correct?
-                color_blend = {
-                    "alpha": blend_dict(bf.one, bf.one, bo.subtract),
-                    "color": blend_dict(bf.one, bf.one, bo.subtract),
-                }
-            elif blending == "dither":
-                color_blend = {
-                    "alpha": blend_dict(bf.one, bf.zero, bo.add),
-                    "color": blend_dict(bf.one, bf.zero, bo.add),
-                }
-            elif blending == "weighted":
-                pass  # handled below
-            else:
-                raise RuntimeError(f"Unexpected blending string {blending:!r}")
+
+        blending_mode = blending["mode"]
+        if blending_mode == "classic":
+            color_blend = {
+                "color": blend_dict(
+                    blending["color_src"],
+                    blending["color_dst"],
+                    blending.get("color_op", "add"),
+                ),
+                "alpha": blend_dict(
+                    blending["alpha_src"],
+                    blending["alpha_dst"],
+                    blending.get("alpha_op", "add"),
+                ),
+            }
+
+        elif blending_mode == "dither":
+            color_blend = {
+                "alpha": blend_dict(bf.one, bf.zero, bo.add),
+                "color": blend_dict(bf.one, bf.zero, bo.add),
+            }
+        elif blending_mode == "weighted":
+            color_blend = None  # handled below
         else:
-            raise RuntimeError(f"Unexpected blending {blending:!r}")
+            raise RuntimeError(f"Unexpected blending mode {blending_mode:!r}")
 
         color_descriptor = {
             "format": self.color_format,
@@ -191,7 +182,7 @@ class TheOneAndOnlyBlender:
         }
         descriptors = [color_descriptor, pick_descriptor]
 
-        if blending == "weighted":
+        if blending_mode == "weighted":
             accum_descriptor = {
                 "format": self.accum_format,
                 "blend": {
@@ -293,10 +284,10 @@ class TheOneAndOnlyBlender:
             "depth_store_op": wgpu.StoreOp.store,
         }
 
-    def get_shader_kwargs(self, pass_index, blending):
+    def get_shader_kwargs(self, pass_index, blending_mode):
         # Take depth into account, but don't treat transparent fragments differently
 
-        if blending in ("no", "normal", "add", "subtract"):
+        if blending_mode == "classic":
             blending_code = """
             struct FragmentOutput {
                 @location(0) color: vec4<f32>,
@@ -304,7 +295,7 @@ class TheOneAndOnlyBlender:
             };
             """
 
-        elif blending == "dither":
+        elif blending_mode == "dither":
             # We want the seed for the random function to be such that the result is
             # deterministic, so that rendered images can be visually compared. This
             # is why the object-id should not be used. Using the xy ndc coord is a
@@ -332,7 +323,7 @@ class TheOneAndOnlyBlender:
             }
             """
 
-        elif blending == "weighted":
+        elif blending_mode == "weighted":
             weight_func = "alpha"  # TODO: parametrize, maybe blending="weighted: depth", or a dict
             # We use -42.0 as a signal value that mean to use `color.a`
             if weight_func == "alpha":
@@ -361,7 +352,9 @@ class TheOneAndOnlyBlender:
                 (*outp).accum = vec4<f32>(color.rgb * alpha, alpha) * weight;
                 (*outp).reveal = alpha;  // yes, alpha, not weight
             }
-            """.replace("WEIGHT_DEFAULT", weight_default).replace("ALPHA_DEFAULT", alpha_default)
+            """.replace("WEIGHT_DEFAULT", weight_default).replace(
+                "ALPHA_DEFAULT", alpha_default
+            )
 
             # Note 1: could also take user-specified transmittance into account.
             # Note 2: its also possible to undo a fragment contribution. For this the accum
@@ -371,7 +364,7 @@ class TheOneAndOnlyBlender:
             #    out.reveal = 1.0 - 1.0 / (1.0 - alpha);
 
         else:
-            raise RuntimeError(f"Unexpected blending {blending!r}")
+            raise RuntimeError(f"Unexpected blending mode {blending_mode!r}")
 
         return {
             "blending_code": blending_code,

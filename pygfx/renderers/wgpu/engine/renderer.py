@@ -395,14 +395,14 @@ class WgpuRenderer(RootEventHandler, Renderer):
             elif (material := ob._material) is not None:
                 z_sort_sign = 0
 
-                blending = material.blending
-                if blending == "weighted":
+                blending_mode = material.blending["mode"]
+                if blending_mode == "weighted":
                     z_sort_sign = 0
                     flat.weighted_objects.append(ob)
-                elif blending == "dither":
+                elif blending_mode == "dither":
                     z_sort_sign = +1
                     flat.fully_opaque_objects.append(ob)
-                else:
+                else:  # blending_mode == 'classic'
                     transparent = material.transparent
                     if transparent:
                         # TODO: threeJS renders double-sided objects twice, maybe we should too? (we can look at this later)
