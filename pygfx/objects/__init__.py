@@ -22,6 +22,7 @@
     TextBlock
     Ruler
     InstancedMesh
+    InstancedLine
     Light
     PointLight
     DirectionalLight
@@ -77,7 +78,7 @@ from ._more import (
 )
 from ._ruler import Ruler
 from ._text import Text, MultiText, TextBlock
-from ._instanced import InstancedMesh
+from ._instanced import InstancedMesh, InstancedLine
 from ._lights import Light, PointLight, DirectionalLight, AmbientLight, SpotLight
 from ._lights import (
     LightShadow,
