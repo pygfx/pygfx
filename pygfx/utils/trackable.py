@@ -54,9 +54,8 @@ there is no persistent knowledge of hierarchy.
 
 """
 
-import weakref
 import threading
-
+import weakref
 
 global_id_counter = 0
 global_lock = threading.RLock()
@@ -150,6 +149,8 @@ class Store(dict):
             value = self[key]
             return value
         except KeyError:
+            if hasattr(dict, key):
+                return dict.__getattribute__(self, key)
             raise AttributeError(key) from None
         finally:
             if global_context:
