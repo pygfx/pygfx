@@ -34,7 +34,19 @@ def create_pyramid_weights(ny, nx):
     return center_coords.min(axis=2)
 
 
-# TODO: Maybe this can also be achieved using the texcoords in the shader, using a custom shader, or perhaps custom blending
+# Define the blending using a dict. We use weighted blending, using the alpha
+# channel as weights, and setting the final alpha to 1.
+#
+# The commented line shows how we could use the shader texcoord to create
+# the same effect. This avoids having to create the pyramid alpha channel for the image,
+# but it's a less portable solution because it assumes that the shader has a
+# texcoor on its varying.
+blending = {
+    "mode": "weighted",
+    "weight": "alpha",
+    # "weight": "1.0 - 2.0*max(abs(varyings.texcoord.x - 0.5), abs(varyings.texcoord.y - 0.5))",
+    "alpha": "1.0",
+}
 
 x = 0
 for image_name in ["wood.jpg", "bricks.jpg"]:
@@ -45,7 +57,7 @@ for image_name in ["wood.jpg", "bricks.jpg"]:
     rgba = np.dstack([rgb, weights])
     image = gfx.Image(
         gfx.Geometry(grid=gfx.Texture(rgba, dim=2)),
-        gfx.ImageBasicMaterial(clim=(0, 255), blending="weighted", depth_write=False),
+        gfx.ImageBasicMaterial(clim=(0, 255), blending=blending, depth_write=False),
     )
     scene1.add(image)
     image.local.x = x

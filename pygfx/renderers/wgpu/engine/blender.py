@@ -284,8 +284,10 @@ class TheOneAndOnlyBlender:
             "depth_store_op": wgpu.StoreOp.store,
         }
 
-    def get_shader_kwargs(self, pass_index, blending_mode):
+    def get_shader_kwargs(self, pass_index, blending):
         # Take depth into account, but don't treat transparent fragments differently
+
+        blending_mode = blending["mode"]
 
         if blending_mode == "classic":
             blending_code = """
@@ -324,18 +326,13 @@ class TheOneAndOnlyBlender:
             """
 
         elif blending_mode == "weighted":
-            weight_func = "alpha"  # TODO: parametrize, maybe blending="weighted: depth", or a dict
-            # We use -42.0 as a signal value that mean to use `color.a`
-            if weight_func == "alpha":
-                weight_default = "-42.0"
-                alpha_default = "-42.0"
-            elif weight_func == "opaque":
-                weight_default = "-42.0"
-                alpha_default = "1.0"
-            else:
-                raise ValueError(
-                    f"Unknown weighted-blending weight_func: {weight_func!r}"
-                )
+            use_alpha = "alpha", "use_alpha", "weighted_blending_use_alpha"
+            weight_default = blending.get("weight", "alpha")
+            if weight_default in use_alpha:
+                weight_default = "weighted_blending_use_alpha"
+            alpha_default = blending.get("alpha", "alpha")
+            if alpha_default in use_alpha:
+                alpha_default = "weighted_blending_use_alpha"
 
             blending_code = """
             struct FragmentOutput {
@@ -345,10 +342,11 @@ class TheOneAndOnlyBlender:
                 @location(0) accum: vec4<f32>,
                 @location(1) reveal: f32,
             };
+            const weighted_blending_use_alpha: f32 = -42.0;
 
             fn apply_virtual_fields_of_fragment_output(outp: ptr<function,FragmentOutput>, color: vec4<f32>,  _alpha: f32, _weight: f32) {
-                let alpha = select(_alpha, color.a, _alpha == -42.0);
-                let weight = select(_weight, color.a, _weight == -42.0);
+                let alpha = select(_alpha, color.a, _alpha == weighted_blending_use_alpha);
+                let weight = select(_weight, color.a, _weight == weighted_blending_use_alpha);
                 (*outp).accum = vec4<f32>(color.rgb * alpha, alpha) * weight;
                 (*outp).reveal = alpha;  // yes, alpha, not weight
             }

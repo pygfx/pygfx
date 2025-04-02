@@ -282,32 +282,32 @@ class Material(Trackable):
     def blending(self):
         """The way to blend semi-transparent fragments (alpha < 1) for this material.
 
-        Can be set using a short name:
+        The blending can be set using one of the following presets:
 
         * "no": no blending, render as opaque.
-        * "normal": alpha blending using the over operator (the default).
-        * "add": add the fragment color, multiplied by alpha.
-        * "dither": use stochastic blending. All fragments are opaque, and the chance
+        * "normal": use classic alpha blending using the 'over' operator (the default).
+        * "add": use additive blending by adding the fragment color, multiplied by alpha.
+        * "dither": use stochastic transparency blending. All fragments are opaque, and the chance
           of a fragment being discared (invisible) is one minus alpha.
         * "weighted": use weighted blending, where the order of objects does not matter for the end-result.
 
-        Can be set using a dict for more control. The following fields are supported:
+        The blending property returns (and can be set with) a dict, with the following fields:
 
         * "mode": the blend-mode, one of "classic", "dither", "weighted".
         * When ``mode`` is "classic", the following fields must/can be provided:
           * "color_op": the blend operation/equation, any value from ``wgpu.BlendOperation``. Default 'add'.
-          * "color_src": source factor, any value of ``wgpu.BlendFactor``.
-          * "color_dst": destination factor, any value of ``wgpu.BlendFactor``.
+          * "color_src": source factor, any value of ``wgpu.BlendFactor``. Mandatory.
+          * "color_dst": destination factor, any value of ``wgpu.BlendFactor``. Mandatory.
           * "color_constant": represents the constant value of the constant blend color. Default black.
           * "alpha_op": as ``color_op`` but for alpha.
           * "alpha_src": as ``color_dst`` but for alpha.
           * "alpha_dst": as ``color_src`` but for alpha.
           * "alpha_constant": as ``color_constant`` but for alpha (default 0).
-        * When ``mode`` is "dither":
-          * "seed1" the positional seed to use.
-          * "seed2": the color-seed to use.
+        * When ``mode`` is "dither": there are (currently) no extra fields.
         * When ``mode`` is "weighted":
-          * "weight": the weight factor as wgsl.
+          * "weight": the weight factor as wgsl. Default 'alpha', which means use the color's alpha value.
+          * "alpha": the used alpha value. Default 'alpha', which means use as-is. Can e.g. be set to 1.0
+            so that the alpha channel can be used as the weight factor, while the object is otherwise opaque.
         """
         return self._store.blending_dict
 
@@ -373,23 +373,21 @@ class Material(Trackable):
                         if key in blending_src:
                             blending_dict[key] = blending_src.pop(key)
                 elif mode == "dither":
-                    blending_src.pop("preset", None)
-                    blending_dict["mode"] = mode = blending_src.pop("mode")
-                    for key in ["seed1", "seed2"]:
-                        if key in blending_src:
-                            blending_dict[key] = blending_src.pop(key)
+                    pass
                 elif mode == "weighted":
-                    blending_src.pop("preset", None)
-                    blending_dict["mode"] = mode = blending_src.pop("mode")
-                    for key in ["weight"]:
+                    for key in ["weight", "alpha"]:
                         if key in blending_src:
                             blending_dict[key] = blending_src.pop(key)
                 else:
                     raise ValueError(f"Unexpected blending mode {mode!r}")
             except KeyError as err:
-                raise KeyError(f"Key {err.key!r} missing from blending dict.") from None
+                raise KeyError(
+                    f"Blending dict is missing field {err.args[0]!r}"
+                ) from None
             if blending_src:
-                raise ValueError(f"Unknown keys in blending dict: {blending_src!r}")
+                raise ValueError(
+                    f"Blending dict contains invalid fields: {blending_src!r}"
+                )
 
         else:
             raise TypeError("Material.blending must be None, str or dict.")

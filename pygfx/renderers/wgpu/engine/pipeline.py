@@ -353,9 +353,11 @@ class PipelineContainer:
         if "create" in changed or "reset" in changed:
             with tracker.track_usage("reset"):
                 self.wobject_info["pick_write"] = wobject.material.pick_write
-                self.wobject_info["blending_mode"] = blending_mode = (
-                    wobject.material._store.blending_mode
-                )
+                blending_mode = wobject.material._store.blending_mode
+                # If the blending mode is dither or weighted, the generated wgsl in blender.get_shader_kwargs()
+                # differs on the additional fields in the blending dict.
+                if blending_mode in ("dither", "weighted"):
+                    self.wobject_info["blending"] = wobject.material.blending
                 if blending_mode == "dither" and wobject.material.transparent == False:  # noqa
                     # TODO: Dither with an opaque object -> we can drop the discard
                     pass  # blending["is_opaque"] = True:
@@ -604,7 +606,7 @@ class RenderPipelineContainer(PipelineContainer):
         renderstate_bind_group_index = len(self.wgpu_bind_groups)
 
         blender_kwargs = blender.get_shader_kwargs(
-            pass_index, self.wobject_info["blending_mode"]
+            pass_index, self.wobject_info["blending"]
         )
         renderstate_kwargs = renderstate.get_shader_kwargs(renderstate_bind_group_index)
         shader_kwargs = blender_kwargs.copy()
