@@ -9,17 +9,14 @@ In the given example, it is all done on the CPU.
 # sphinx_gallery_pygfx_docs = 'screenshot'
 # sphinx_gallery_pygfx_test = 'run'
 
-import time
 import numpy as np
 import imageio.v3 as imageio
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
+import wgpu
 from wgpu.utils.imgui import ImguiRenderer
 from imgui_bundle import imgui
 
 import pygfx as gfx
-from pylinalg import vec_transform, vec_unproject
-from pygfx.renderers.wgpu import register_wgpu_render_function
-from pygfx.renderers.wgpu.shaders.lineshader import LineShader
 
 
 # Get list of available standard images
@@ -38,231 +35,180 @@ standard_images = [
 ]
 
 # Initialize canvas and renderer
-canvas = WgpuCanvas(size=(800, 600))
+canvas = RenderCanvas(size=(800, 600))
 renderer = gfx.renderers.WgpuRenderer(canvas)
 
-# Create viewports for image and histogram
-w, h = canvas.get_logical_size()
-viewport_image = gfx.Viewport(renderer, rect=(0, 0, w // 2, h))
-viewport_hist = gfx.Viewport(renderer, rect=(w // 2, 0, w - w // 2, h))
-
-# Create scenes
-scene_image = gfx.Scene()
-scene_hist = gfx.Scene()
-
-# Add background to scenes
-scene_image.add(gfx.Background.from_color("#111111"))
-scene_hist.add(gfx.Background.from_color("#111111"))
-
-# Create camera for image view
-camera_image = gfx.OrthographicCamera(w // 2, h)
-
-# Create camera for histogram view
-camera_hist = gfx.OrthographicCamera(256, 256)
-
-# Create controllers
-controller_image = gfx.PanZoomController(camera_image, register_events=viewport_image)
-controller_hist = gfx.PanZoomController(camera_hist, register_events=viewport_hist)
-
-# Create grid and rulers for histogram view
-grid = gfx.Grid(
-    None,
-    gfx.GridMaterial(
-        major_step=50,  # Major grid lines every 50 units
-        minor_step=10,  # Minor grid lines every 10 units
-        thickness_space="screen",
-        major_thickness=2,
-        minor_thickness=0.5,
-        infinite=True,
-    ),
-    orientation="xy",
-)
-grid.local.z = -1
-
-rulerx = gfx.Ruler(tick_side="right")
-rulery = gfx.Ruler(tick_side="left", min_tick_distance=40)
-
-scene_hist.add(grid, rulerx, rulery)
+# Scene, camera, controller
+scene = gfx.Scene()
+scene.add(gfx.Background.from_color("#777"))
+camera = gfx.OrthographicCamera()
+controller = gfx.PanZoomController(camera, register_events=renderer)
 
 
 def load_image(image_name):
-    return imageio.imread(f"imageio:{image_name}.png")
+    im = imageio.imread(f"imageio:{image_name}.png")
+    if im.ndim == 2:
+        im = np.stack([im, im, im], axis=2)
+    return im
 
 
-# Create initial image and histogram
-current_image_name = standard_images[0]
-img = load_image(current_image_name)
+# Create initial image
+img = load_image(standard_images[0])
+image_texture = gfx.Texture(img, dim=2, usage=wgpu.TextureUsage.STORAGE_BINDING)
 image_object = gfx.Image(
-    gfx.Geometry(grid=gfx.Texture(img, dim=2)), gfx.ImageBasicMaterial(clim=(0, 255))
+    gfx.Geometry(grid=image_texture),
+    gfx.ImageBasicMaterial(clim=(0, 255)),
 )
 image_object.local.scale_y = -1
-scene_image.add(image_object)
+scene.add(image_object)
 
-# Update camera to show the full image
-camera_image.show_object(image_object)
 
-# Create histogram objects
-x = np.arange(257, dtype=np.float32)
-y = np.zeros_like(x)
-z = np.zeros_like(x)
-
-histogram_data = np.vstack(
-    (
-        np.column_stack((x, y, z)),  # red
-        np.column_stack((x, y, z)),  # green
-        np.column_stack((x, y, z)),  # blue
-        np.column_stack((x, y, z)),  # luminance
-    )
+# Create an image object to contain the histogram
+nbins = 20
+histogram_texture = gfx.Texture(
+    data=None,
+    dim=2,
+    size=(nbins, 100, 1),
+    format="rgba8unorm",
+    usage=wgpu.TextureUsage.STORAGE_BINDING,
 )
+histogram_object = gfx.Image(
+    gfx.Geometry(grid=histogram_texture),
+    gfx.ImageBasicMaterial(clim=(0, 255), interpolation="nearest"),
+)
+histogram_object.local.y += 10
+histogram_object.local.scale_x = 512 / nbins
+scene.add(histogram_object)
 
-histogram_data[256::257, :] = np.nan
+
+# Update camera to show the image and histogram
+camera.show_object(scene)
 
 
-class HistogramMaterial(gfx.LineMaterial):
-    uniform_type = dict(
-        gfx.LineMaterial.uniform_type,
-        absolute_scale="f4",
+## GPU Compute
+
+histogram_wgsl = """
+
+@group(0) @binding(0) var imageTexture: texture_2d<f32>;
+@group(0) @binding(1) var histTexture: texture_storage_2d<rgba8unorm,write>;
+
+// from: https://www.w3.org/WAI/GL/wiki/Relative_luminance
+const kSRGBLuminanceFactors = vec3f(0.2126, 0.7152, 0.0722);
+fn srgbLuminance(color: vec3f) -> f32 {
+    return saturate(dot(color, kSRGBLuminanceFactors));
+}
+
+@compute @workgroup_size(1)
+fn main() {
+    let size = textureDimensions(imageTexture, 0);
+    //let hist_size = textureDimensions(histTexture, 0);
+    let numBins = 20;//hist_size.x;
+    let numLevels = 100;//hist_size.y;
+
+    // Compute hist
+
+    var bins: array<i32,20>;
+
+    let lastBinIndex = u32(numBins - 1);
+    for (var y = 0u; y < size.y; y++) {
+        for (var x = 0u; x < size.x; x++) {
+        let position = vec2u(x, y);
+        let color = textureLoad(imageTexture, position, 0);
+        let v = srgbLuminance(color.rgb);
+        let bin = min(u32(v * f32(numBins)), lastBinIndex);
+        bins[bin] += 1;
+        }
+    }
+
+    // Draw hist
+
+    // Detect maximum count
+    var maxCount = 0;
+    for (var x = 0; x < numBins; x++) {
+        maxCount = max(maxCount, bins[x]);
+    }
+
+    // Fill output image
+    for (var x = 0; x < numBins; x++) {
+        let count = bins[x];
+        let max_y = i32(round( f32(numLevels) * f32(count) / f32(maxCount) ));
+        for (var y = 0; y < max_y; y++) {
+            let value = vec4<f32>(1.0, 1.0, 0.0, 1.0);
+            textureStore(histTexture, vec2<i32>(x, y), value);
+        }
+        for (var y = max_y; y < numLevels; y++) {
+            let value = vec4<f32>(0.0, 0.0, 0.0, 0.0);
+            textureStore(histTexture, vec2<i32>(x, y), value);
+        }
+
+    }
+}
+
+"""
+
+
+def compute_histogram():
+    nx, ny, nz = 100, 1, 1
+
+    # Get Pygfx's wgu device object
+    device = gfx.renderers.wgpu.Shared.get_instance().device
+
+    # TODO: accessing internal _wgpu_object attribute
+    image_wgpu_texture = image_object.geometry.grid._wgpu_object
+    histogram_wgpu_texture = histogram_texture._wgpu_object
+
+    # Compile our shader
+    # TODO: don't do this every time!
+    cshader = device.create_shader_module(code=histogram_wgsl)
+    compute = {
+        "module": cshader,
+        "entry_point": "main",
+    }
+    # compute["constants"] = constants
+
+    # Create a pipeline
+    compute_pipeline = device.create_compute_pipeline(
+        layout="auto",
+        compute=compute,
     )
 
-    def __init__(self, *args, absolute_scale=1.0, log_scale=False, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.log_scale = log_scale
-        self.absolute_scale = absolute_scale
+    # Create bindings
+    bindings = [
+        {
+            "binding": 0,
+            "resource": image_wgpu_texture.create_view(
+                usage=wgpu.TextureUsage.STORAGE_BINDING
+            ),
+        },
+        {
+            "binding": 1,
+            "resource": histogram_wgpu_texture.create_view(
+                usage=wgpu.TextureUsage.STORAGE_BINDING
+            ),
+        },
+    ]
+    bind_group_layout = compute_pipeline.get_bind_group_layout(0)
+    bind_group = device.create_bind_group(layout=bind_group_layout, entries=bindings)
 
-    @property
-    def log_scale(self):
-        return self._store.log_scale
-
-    @log_scale.setter
-    def log_scale(self, value):
-        self._store.log_scale = value
-
-    @property
-    def absolute_scale(self):
-        return float(self.uniform_buffer.data["absolute_scale"])
-
-    @absolute_scale.setter
-    def absolute_scale(self, value):
-        self.uniform_buffer.data["absolute_scale"] = float(value)
-        self.uniform_buffer.update_full()
-
-
-class Histogram(gfx.Line):
-    pass
-
-
-@register_wgpu_render_function(Histogram, HistogramMaterial)
-class HistogramShader(LineShader):
-    def __init__(self, wobject):
-        super().__init__(wobject)
-        material = wobject.material
-
-        self["log_scale"] = material.log_scale
-        self["absolute_scale"] = material.absolute_scale
-
-    def get_code(self):
-        return (
-            super()
-            .get_code()
-            .replace(
-                """
-    let pos_m_prev = load_s_positions(node_index_prev);
-    let pos_m_node = load_s_positions(node_index);
-    let pos_m_next = load_s_positions(node_index_next);
-""",
-                """
-    let pos_m_prev_raw = load_s_positions(node_index_prev);
-    let pos_m_node_raw = load_s_positions(node_index);
-    let pos_m_next_raw = load_s_positions(node_index_next);
-
-    let pos_m_prev = vec3<f32>(
-        pos_m_prev_raw.x, 
-    $$ if log_scale
-        log(pos_m_prev_raw.y + 1.0) * u_material.absolute_scale,
-    $$ else
-        pos_m_prev_raw.y * u_material.absolute_scale,
-    $$ endif
-        pos_m_prev_raw.z,
-    );
-    let pos_m_node = vec3<f32>(
-        pos_m_node_raw.x, 
-    $$ if log_scale
-        log(pos_m_node_raw.y + 1.0) * u_material.absolute_scale,
-    $$ else
-        pos_m_node_raw.y * u_material.absolute_scale,
-    $$ endif
-        pos_m_node_raw.z,
-    );
-    let pos_m_next = vec3<f32>(
-        pos_m_next_raw.x, 
-    $$ if log_scale
-        log(pos_m_next_raw.y + 1.0) * u_material.absolute_scale,
-    $$ else
-        pos_m_next_raw.y * u_material.absolute_scale,
-    $$ endif
-        pos_m_next_raw.z,
-    );
-""",
-            )
-        )
+    # Run
+    command_encoder = device.create_command_encoder()
+    compute_pass = command_encoder.begin_compute_pass()
+    compute_pass.set_pipeline(compute_pipeline)
+    compute_pass.set_bind_group(0, bind_group)
+    compute_pass.dispatch_workgroups(nx, ny, nz)
+    compute_pass.end()
+    device.queue.submit([command_encoder.finish()])
 
 
-vertex_color = np.zeros((4, 257, 3), dtype=np.float32)
-vertex_color[0, :256, 0] = 1
-vertex_color[1, :256, 1] = 1
-vertex_color[2, :256, 2] = 1
-vertex_color[3, :256, :] = 1
+## ------
 
-hist_line = Histogram(
-    gfx.Geometry(positions=histogram_data, colors=vertex_color.reshape(-1, 3)),
-    HistogramMaterial(color=(1, 1, 1), color_mode="vertex", absolute_scale=255),
-)
-scene_hist.add(hist_line)
-
-# State variables
-use_log_scale = False
 current_image_index = 0
-
-
-def compute_histogram(img):
-    start_time = time.time()
-    r = img[..., 0]
-    g = img[..., 1]
-    b = img[..., 2]
-    l = r * 0.299 + g * 0.587 + b * 0.114
-
-    hist_r = np.histogram(r, bins=256, range=(0, 256))[0].astype(np.float32)
-    hist_g = np.histogram(g, bins=256, range=(0, 256))[0].astype(np.float32)
-    hist_b = np.histogram(b, bins=256, range=(0, 256))[0].astype(np.float32)
-    hist_l = np.histogram(l, bins=256, range=(0, 256))[0].astype(np.float32)
-
-    max_val = max(hist_r.max(), hist_g.max(), hist_b.max(), hist_l.max())
-    hist_r = hist_r / max_val
-    hist_g = hist_g / max_val
-    hist_b = hist_b / max_val
-    hist_l = hist_l / max_val
-
-    computation_time = time.time() - start_time
-    return hist_r, hist_g, hist_b, hist_l, computation_time
-
-
-def update_histogram(hist_r, hist_g, hist_b, hist_l):
-    positions = hist_line.geometry.positions.data.reshape(4, 257, 3)
-    positions[0, :256, 1] = hist_r
-    positions[1, :256, 1] = hist_g
-    positions[2, :256, 1] = hist_b
-    positions[3, :256, 1] = hist_l
-    hist_line.geometry.positions.update_range()
-
-
-hist_r, hist_g, hist_b, hist_l, computation_time = compute_histogram(img)
-update_histogram(hist_r, hist_g, hist_b, hist_l)
+hist_needs_update = True
 
 
 def draw_imgui():
     global current_image_index
-    global img, hist_r, hist_g, hist_b, hist_l, computation_time
-    global use_log_scale
+    global hist_needs_update
 
     imgui.new_frame()
 
@@ -276,20 +222,17 @@ def draw_imgui():
         changed, current_image_index = imgui.combo(
             "Image", current_image_index, standard_images, len(standard_images)
         )
-        # Log scale toggle
-        log_changed, use_log_scale = imgui.checkbox("Log Scale", use_log_scale)
-        if log_changed:
-            hist_line.material.log_scale = use_log_scale
-
         if changed:
             img = load_image(standard_images[current_image_index])
-            image_object.geometry.grid = gfx.Texture(img, dim=2)
+            image_texture = gfx.Texture(
+                img, dim=2, usage=wgpu.TextureUsage.STORAGE_BINDING
+            )
+            image_object.geometry.grid = image_texture
 
             # Trigger recomputation of the histogram
-            hist_r, hist_g, hist_b, hist_l, computation_time = compute_histogram(img)
-            update_histogram(hist_r, hist_g, hist_b, hist_l)
+            hist_needs_update = True
 
-        imgui.text(f"Histogram computation time: {computation_time * 1000:.1f} ms")
+        # imgui.text(f"Histogram computation time: {computation_time * 1000:.1f} ms")
 
     imgui.end()
     imgui.end_frame()
@@ -297,60 +240,24 @@ def draw_imgui():
     return imgui.get_draw_data()
 
 
-def map_screen_to_world(pos, viewport_size):
-    x = pos[0] / viewport_size[0] * 2 - 1
-    y = -(pos[1] / viewport_size[1] * 2 - 1)
-    pos_ndc = (x, y, 0)
-
-    pos_ndc += vec_transform(camera_hist.world.position, camera_hist.camera_matrix)
-    pos_world = vec_unproject(pos_ndc[:2], camera_hist.camera_matrix)
-
-    return pos_world
-
-
 # Create GUI renderer
 gui_renderer = ImguiRenderer(renderer.device, canvas)
+gui_renderer.set_gui(draw_imgui)
 
 
 def animate():
-    w, h = canvas.get_logical_size()
+    global hist_needs_update
 
-    viewport_image.rect = (0, 0, w // 2, h)
-    viewport_hist.rect = (w // 2, 0, w - w // 2, h)
+    renderer.render(scene, camera)
 
-    # Update rulers and grid for histogram view
-    xmin, ymin = 0, h
-    xmax, ymax = w // 2, 0
+    if hist_needs_update:
+        hist_needs_update = False
+        compute_histogram()
 
-    world_xmin, world_ymin, _ = map_screen_to_world((xmin, ymin), (w // 2, h))
-    world_xmax, world_ymax, _ = map_screen_to_world((xmax, ymax), (w // 2, h))
-
-    # Set start and end positions of rulers
-    rulerx.start_pos = world_xmin, 0, -1
-    rulerx.end_pos = world_xmax, 0, -1
-    rulerx.start_value = rulerx.start_pos[0]
-    statsx = rulerx.update(camera_hist, (w // 2, h))
-
-    rulery.start_pos = 0, world_ymin, -1
-    rulery.end_pos = 0, world_ymax, -1
-    rulery.start_value = rulery.start_pos[1]
-    statsy = rulery.update(camera_hist, (w // 2, h))
-
-    # Update grid steps based on ruler stats
-    major_step_x, major_step_y = statsx["tick_step"], statsy["tick_step"]
-    grid.material.major_step = major_step_x, major_step_y
-    grid.material.minor_step = 0.2 * major_step_x, 0.2 * major_step_y
-
-    viewport_image.render(scene_image, camera_image)
-    viewport_hist.render(scene_hist, camera_hist)
-
-    renderer.flush()
     gui_renderer.render()
     canvas.request_draw()
 
 
-gui_renderer.set_gui(draw_imgui)
-
 if __name__ == "__main__":
     canvas.request_draw(animate)
-    run()
+    loop.run()
