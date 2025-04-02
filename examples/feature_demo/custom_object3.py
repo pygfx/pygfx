@@ -27,7 +27,6 @@ import pygfx as gfx
 from pygfx.renderers.wgpu import (
     Binding,
     BaseShader,
-    RenderMask,
     register_wgpu_render_function,
 )
 
@@ -94,11 +93,8 @@ class TriangleShader(BaseShader):
         }
 
     def get_render_info(self, wobject, shared):
-        material = wobject.material
-        geometry = wobject.geometry
-
         # Determine number of vertices
-        n = 3 * geometry.positions.nitems
+        n = 3 * wobject.geometry.positions.nitems
 
         return {
             "indices": (n, 1),

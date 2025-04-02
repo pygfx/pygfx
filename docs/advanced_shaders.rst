@@ -25,7 +25,7 @@ The shader must implement a few methods. A typical shader is shown below:
 .. code-block:: python
 
     from pygfx.renderers.wgpu import (
-        register_wgpu_render_function, WorldObjectShader, Binding, RenderMask
+        register_wgpu_render_function, WorldObjectShader, Binding
     )
 
     @register_wgpu_render_function(SomeWorldObject, SomeMaterial)

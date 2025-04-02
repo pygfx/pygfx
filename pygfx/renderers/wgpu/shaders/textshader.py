@@ -9,7 +9,6 @@ from .. import (
     load_wgsl,
     BaseShader,
     Binding,
-    RenderMask,
     GfxSampler,
     GfxTextureView,
 )

@@ -20,7 +20,6 @@ from .. import (
     register_wgpu_render_function,
     BaseShader,
     Binding,
-    RenderMask,
     load_wgsl,
     nchannels_from_format,
 )

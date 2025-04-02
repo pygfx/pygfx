@@ -24,7 +24,6 @@ import pygfx as gfx
 from pygfx.renderers.wgpu import (
     Binding,
     BaseShader,
-    RenderMask,
     register_wgpu_render_function,
 )
 

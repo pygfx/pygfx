@@ -21,7 +21,6 @@ from tqdm import tqdm
 from wgpu.gui.auto import WgpuCanvas, run
 from pygfx.renderers.wgpu import (
     Binding,
-    RenderMask,
     GfxSampler,
     GfxTextureView,
     register_wgpu_render_function,
