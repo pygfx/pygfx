@@ -149,9 +149,7 @@ class Store(dict):
             value = self[key]
             return value
         except KeyError:
-            if hasattr(dict, key):
-                return dict.__getattribute__(self, key)
-            raise AttributeError(key) from None
+            return dict.__getattribute__(self, key)
         finally:
             if global_context:
                 global_context.tracker._track_get(
