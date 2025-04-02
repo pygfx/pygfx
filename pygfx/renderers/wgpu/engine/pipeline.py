@@ -359,8 +359,8 @@ class PipelineContainer:
                 if blending_mode in ("dither", "weighted"):
                     self.wobject_info["blending"] = wobject.material.blending
                 if blending_mode == "dither" and wobject.material.transparent == False:  # noqa
-                    # TODO: Dither with an opaque object -> we can drop the discard
-                    pass  # blending["is_opaque"] = True:
+                    # Dither with an opaque object -> we can drop the discard in blender.py
+                    self.wobject_info["blending_no_discard"] = True
 
             changed.update(("bindings", "pipeline_info", "render_info"))
             self.wgpu_shaders = {}
@@ -605,8 +605,12 @@ class RenderPipelineContainer(PipelineContainer):
         blender = renderstate.blender
         renderstate_bind_group_index = len(self.wgpu_bind_groups)
 
+        blending = self.wobject_info["blending"]
+        if self.wobject_info.get("blending_no_discard", False):
+            blending = {**blending, "no_discard": True}
+
         blender_kwargs = blender.get_shader_kwargs(
-            pass_index, self.wobject_info["blending"]
+            pass_index, blending
         )
         renderstate_kwargs = renderstate.get_shader_kwargs(renderstate_bind_group_index)
         shader_kwargs = blender_kwargs.copy()

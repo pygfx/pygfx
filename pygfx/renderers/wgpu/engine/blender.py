@@ -325,6 +325,14 @@ class TheOneAndOnlyBlender:
             }
             """
 
+            # Optimization for the case when the object is known (or determined) to be opaque.
+            # The discard will not happen then. By removing it from the shader, we enable early-z optimizations.
+            # By disabling the whole function, it behaves as classic blending for opaque-declared objects.
+            if blending.get("no_discard"):
+                blending_code, selector, rest = blending_code.partition("let rand")
+                assert selector, "looks like dither code changed, selector not present"
+                blending_code = blending_code.rstrip() + "}"
+
         elif blending_mode == "weighted":
             use_alpha = "alpha", "use_alpha", "weighted_blending_use_alpha"
             weight_default = blending.get("weight", "alpha")
@@ -449,6 +457,7 @@ class TheOneAndOnlyBlender:
             let reveal = textureLoad(r_reveal, texindex, 0).r;
 
             // Exit if no transparent fragments was written
+            // This discard does not brake early-z, because with weighted blending you're rendering each object anyway.
             if (reveal >= 1.0) { discard; }  // no transparent fragments here
 
             // Reconstruct the color and alpha, and set final color, with premultiplied alpha
