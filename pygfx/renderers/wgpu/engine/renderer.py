@@ -35,7 +35,7 @@ from ....resources._base import resource_update_registry
 from ....utils import Color
 
 from ... import Renderer
-from .blender import TheOneAndOnlyBlender
+from .blender import Blender
 from .flusher import RenderFlusher
 from .pipeline import get_pipeline_container_group
 from .update import update_resource, ensure_wgpu_object
@@ -154,7 +154,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
             self._target._wgpu_usage |= wgpu.TextureUsage.RENDER_ATTACHMENT
             self._target._wgpu_usage |= wgpu.TextureUsage.TEXTURE_BINDING
 
-        self._blender = TheOneAndOnlyBlender()
+        self._blender = Blender()
 
         self.sort_objects = sort_objects
 

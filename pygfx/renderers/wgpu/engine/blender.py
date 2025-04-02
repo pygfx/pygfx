@@ -1,19 +1,11 @@
 """
-Defines the classes for the different render passes and the blender
-objects that contain them. A blender becomes part of the renderstate
-object.
+The blender manages output targets, and blending configuration, based on material.blending.
 """
 
 import wgpu  # only for flags/enums
 
 from .flusher import create_full_quad_pipeline
 from .shared import get_shared
-
-# Notes:
-# - The user code provides color as-is in rgba.
-# - In the get_fragment_output logic defined in the shaders here, the color
-#   is pre-multiplied with the alpha.
-# - All fixed-pipeling blending options assume premultiplied alpha.
 
 
 standard_texture_des = {
@@ -31,7 +23,7 @@ def blend_dict(src_factor, dst_factor, operation):
     }
 
 
-class TheOneAndOnlyBlender:
+class Blender:
     """Manage how fragments are blended and end up in the final target.
     Each renderer has one blender object.
     """
