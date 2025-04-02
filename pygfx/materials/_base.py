@@ -428,8 +428,12 @@ class Material(Trackable):
         """
         depth_write = self._store.depth_write
         if depth_write is None:
-            # write depth when transparent is False or None
-            depth_write = AutoBool(not bool(self._store.transparent))
+            if self._store.blending_mode == "dither":
+                # The great thing with stochastic transparency is that everything is opaque (from a depth testing perspective)
+                depth_write = AutoBool(True)
+            else:
+                # Write depth when transparent is False or None
+                depth_write = AutoBool(not bool(self._store.transparent))
         return depth_write
 
     @depth_write.setter
