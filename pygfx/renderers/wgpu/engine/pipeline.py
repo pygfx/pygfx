@@ -396,37 +396,19 @@ class PipelineContainer:
         # be done in update_shader_data(). If you find that info on the wobject is needed,
         # add that info to self.wobject_info under the appropriate tracking context.
 
-        # Determine what render-passes apply, for this combination of shader and blender
-        if isinstance(self, RenderPipelineContainer):
-            blender = renderstate.blender
-            pass_indices = []
-            for pass_index in range(blender.get_pass_count()):
-                if not blender.get_color_descriptors(
-                    pass_index,
-                    self.wobject_info["pick_write"],
-                    self.wobject_info["blending"],
-                ):
-                    continue
-                pass_indices.append(pass_index)
-        else:
-            pass_indices = [0]
+        # TODO: clean up the pass_index and the internal dicts etc
+        pass_index = 0
 
         # Update shaders
-        for pass_index in pass_indices:
-            if pass_index not in self.wgpu_shaders:
-                changed.add("shader")
-                self.wgpu_shaders[pass_index] = self._get_shader(
-                    pass_index, renderstate
-                )
-                self.wgpu_pipelines.pop(pass_index, None)
+        if pass_index not in self.wgpu_shaders:
+            changed.add("shader")
+            self.wgpu_shaders[pass_index] = self._get_shader(renderstate)
+            self.wgpu_pipelines.pop(pass_index, None)
 
         # Update pipelines
-        for pass_index in pass_indices:
-            if pass_index not in self.wgpu_pipelines:
-                changed.add("pipeline")
-                self.wgpu_pipelines[pass_index] = self._compose_pipeline(
-                    pass_index, renderstate
-                )
+        if pass_index not in self.wgpu_pipelines:
+            changed.add("pipeline")
+            self.wgpu_pipelines[pass_index] = self._compose_pipeline(renderstate)
 
     def update_shader_hash(self):
         """Update the shader hash, invalidating the wgpu shaders if it changed."""
@@ -521,12 +503,12 @@ class ComputePipelineContainer(PipelineContainer):
         assert all(isinstance(i, int) for i in indices)
         assert len(indices) == 3
 
-    def _get_shader(self, pass_index, renderstate):
+    def _get_shader(self, renderstate):
         """Get the wgpu shader module for the templated wgsl shade."""
         shader_kwargs = {}
         return get_cached_shader_module(self.device, self.shader, shader_kwargs)
 
-    def _compose_pipeline(self, pass_index, renderstate):
+    def _compose_pipeline(self, renderstate):
         """Create the wgpu pipeline object from the shader and bind group layouts."""
 
         # Create pipeline layout object from list of layouts
@@ -600,7 +582,7 @@ class RenderPipelineContainer(PipelineContainer):
             self.strip_index_format = strip_index_format
             self.wgpu_pipelines = {}
 
-    def _get_shader(self, pass_index, renderstate):
+    def _get_shader(self, renderstate):
         """Get the wgpu shader module for the templated shader."""
         blender = renderstate.blender
         renderstate_bind_group_index = len(self.wgpu_bind_groups)
@@ -609,9 +591,7 @@ class RenderPipelineContainer(PipelineContainer):
         if self.wobject_info.get("blending_no_discard", False):
             blending = {**blending, "no_discard": True}
 
-        blender_kwargs = blender.get_shader_kwargs(
-            pass_index, blending
-        )
+        blender_kwargs = blender.get_shader_kwargs(blending)
         renderstate_kwargs = renderstate.get_shader_kwargs(renderstate_bind_group_index)
         shader_kwargs = blender_kwargs.copy()
         shader_kwargs.update(renderstate_kwargs)
@@ -619,7 +599,7 @@ class RenderPipelineContainer(PipelineContainer):
 
         return get_cached_shader_module(self.device, self.shader, shader_kwargs)
 
-    def _compose_pipeline(self, pass_index, renderstate):
+    def _compose_pipeline(self, renderstate):
         """Create the wgpu pipeline object from the shader, bind group layouts and other pipeline info."""
 
         strip_index_format = self.strip_index_format
@@ -643,14 +623,10 @@ class RenderPipelineContainer(PipelineContainer):
         depth_test = self.wobject_info["depth_test"]
         depth_write = self.wobject_info["depth_write"]
         color_descriptors = blender.get_color_descriptors(
-            pass_index,
-            self.wobject_info["pick_write"],
-            self.wobject_info["blending"],
+            self.wobject_info["pick_write"], self.wobject_info["blending"]
         )
-        depth_descriptor = blender.get_depth_descriptor(
-            pass_index, depth_test, depth_write
-        )
-        shader_module = self.wgpu_shaders[pass_index]
+        depth_descriptor = blender.get_depth_descriptor(depth_test, depth_write)
+        shader_module = self.wgpu_shaders[0]
 
         return get_cached_render_pipeline(
             self.device,
@@ -663,13 +639,13 @@ class RenderPipelineContainer(PipelineContainer):
             color_descriptors,
         )
 
-    def draw(self, render_pass, renderstate, pass_index):
+    def draw(self, render_pass, renderstate):
         """Draw the pipeline, doing the actual rendering job."""
         if self.broken:
             return
 
         # Collect what's needed
-        pipeline = self.wgpu_pipelines[pass_index]
+        pipeline = self.wgpu_pipelines[0]
         indices = self.render_info["indices"]
         bind_groups = self.wgpu_bind_groups
 

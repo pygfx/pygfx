@@ -721,8 +721,8 @@ class WgpuRenderer(RootEventHandler, Renderer):
         blender = (
             renderstate.blender
         )  # TODO: I don't think the blender needs to be part of the renderstate
-        color_attachments = blender.get_color_attachments(0, pass_type)
-        depth_attachment = blender.get_depth_attachment(0)
+        color_attachments = blender.get_color_attachments(pass_type)
+        depth_attachment = blender.get_depth_attachment()
 
         render_pass = command_encoder.begin_render_pass(
             color_attachments=color_attachments,
@@ -735,7 +735,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
             # TODO: avoid duplicate call to get_pipeline_container_group?
             container_group = get_pipeline_container_group(wobject, renderstate)
             for render_pipeline_container in container_group.render_containers:
-                render_pipeline_container.draw(render_pass, renderstate, 0)
+                render_pipeline_container.draw(render_pass, renderstate)
 
         render_pass.end()
 

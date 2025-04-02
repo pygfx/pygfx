@@ -141,8 +141,7 @@ class TheOneAndOnlyBlender:
 
     # The five methods below represent the API that the render system uses.
 
-    def get_color_descriptors(self, pass_index, material_write_pick, blending):
-        # todo: remove pass_index
+    def get_color_descriptors(self, material_write_pick, blending):
         bf, bo = wgpu.BlendFactor, wgpu.BlendOperation
 
         blending_mode = blending["mode"]
@@ -203,7 +202,7 @@ class TheOneAndOnlyBlender:
 
         return descriptors
 
-    def get_depth_descriptor(self, pass_index, depth_test=True, depth_write=True):
+    def get_depth_descriptor(self, depth_test=True, depth_write=True):
         depth_write = bool(depth_write)
         depth_compare = (
             wgpu.CompareFunction.less if depth_test else wgpu.CompareFunction.always
@@ -218,7 +217,7 @@ class TheOneAndOnlyBlender:
             "stencil_back": {},  # use defaults
         }
 
-    def get_color_attachments(self, pass_index, pass_type):
+    def get_color_attachments(self, pass_type):
         color_load_op = pick_load_op = wgpu.LoadOp.load
         if self.color_clear:
             self.color_clear = False
@@ -270,7 +269,7 @@ class TheOneAndOnlyBlender:
 
         return attachments
 
-    def get_depth_attachment(self, pass_index):
+    def get_depth_attachment(self):
         # We don't use the stencil yet, but when we do, we will also have to specify
         # "stencil_read_only", "stencil_load_op", and "stencil_store_op"
         depth_load_op = wgpu.LoadOp.load
@@ -284,7 +283,7 @@ class TheOneAndOnlyBlender:
             "depth_store_op": wgpu.StoreOp.store,
         }
 
-    def get_shader_kwargs(self, pass_index, blending):
+    def get_shader_kwargs(self, blending):
         # Take depth into account, but don't treat transparent fragments differently
 
         blending_mode = blending["mode"]
