@@ -72,10 +72,8 @@ def get_comp_value(value):
     else:
         try:
             return "hash:" + str(hash(value))
-        except Exception:
-            raise TypeError(
-                f"You cannot store unhashable values on a Store: {value!r}"
-            ) from None
+        except TypeError:
+            return "id:" + str(id(value))
 
 
 class Undefined:

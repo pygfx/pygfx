@@ -5,8 +5,6 @@ import weakref
 from pygfx.utils.trackable import Trackable, Store, PropTracker
 from pygfx.utils import ReadOnlyDict
 
-import pytest
-
 # ruff: noqa: B018 - in these tests we access values for their side-effect
 
 
@@ -296,30 +294,69 @@ def test_tuple_values():
     assert rt.pop_changed() == set()
 
 
-def test_cannot_set_non_hashable_values():
+def test_list_values():
+    # Lists are not hashable, so are tracked by id
+
+    rt = MyRootTrackable()
+
+    v1 = [1, 2]
+    v2 = [3, 4]
+    v3 = [1, 2]
+
+    with rt.track_usage("foo"):
+        rt.foo
+    assert rt.pop_changed() == set()
+
+    # Changing the value marks a change
+    rt.foo = v1
+    assert rt.pop_changed() == {"foo"}
+    rt.foo = v2
+    assert rt.pop_changed() == {"foo"}
+
+    # Even if the value is the same - it tracks the object!
+    rt.foo = v1
+    assert rt.pop_changed() == {"foo"}
+    rt.foo = v3
+    assert rt.pop_changed() == {"foo"}
+
+    # This means that ...
+    v3.append(8)
+    assert rt.foo == v3  # changed in-place
+    rt.foo = v3  # so this does not do much
+    assert rt.pop_changed() == set()
+
+    # It can even mean that the second assert below fails, because when
+    # that last list is allocated, it may use the memory previously
+    # occupied by [0, 1], so it has the same id ... This is hard to
+    # test reliably, but it *can* happen.
+    rt.foo = [0, 1]
+    assert rt.pop_changed() == {"foo"}
+    rt.foo = [0, 2]  # on this line, the previous list is freed
+    rt.foo = [0, 3]  # a new list object is allocated
+    # assert rt.pop_changed() == {"foo"}
+
+
+def test_dict_and_readonlydict():
     rt = MyRootTrackable()
 
     with rt.track_usage("foo"):
         rt.foo
     assert rt.pop_changed() == set()
 
-    # Cannot set to a list
-    with pytest.raises(TypeError):
-        rt.foo = [1, 2]
-
-    # But a tuple works
-    rt.foo = (1, 2)
+    # Can set a dict
+    d = {"foo": 42}
+    rt.foo = d
     assert rt.pop_changed() == {"foo"}
 
-    # Changing again with the same value
-    rt.foo = (1, 2)
+    # Which tracks by id ...
+    rt.foo = d
     assert rt.pop_changed() == set()
 
-    # Cannot set to a dict
-    with pytest.raises(TypeError):
-        rt.foo = {"foo": 42}
+    # ... not by value
+    rt.foo = {"foo": 42}
+    assert rt.pop_changed() == {"foo"}
 
-    # But ReadOnlyDict works
+    # But ReadOnlyDict is tracked by value, because it is hashable
     rt.foo = ReadOnlyDict({"foo": 42})
     assert rt.pop_changed() == {"foo"}
 
