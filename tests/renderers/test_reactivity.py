@@ -254,13 +254,12 @@ def test_change_blending_mode():
     assert "reset" in changed
 
     # Render with another blending
-    cube.material.blending = "add"
+    cube.material.blending = "additive"
     changed = render(cube, renderer1)
     assert "reset" in changed
 
-
     # Setting the blending to the same current value should not trigger
-    cube.material.blending = "add"
+    cube.material.blending = "additive"
     changed = render(cube, renderer1)
     assert changed == set()
 

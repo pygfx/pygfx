@@ -68,7 +68,7 @@ def handle_event(event):
             None,
             "no",  # 1
             "normal",  # 2
-            "add",  # 3
+            "additive",  # 3
             "dither",  # 4
             "weighted",  # 5
         ]

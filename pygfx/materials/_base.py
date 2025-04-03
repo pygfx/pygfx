@@ -286,7 +286,9 @@ class Material(Trackable):
 
         * "no": no blending, render as opaque.
         * "normal": use classic alpha blending using the 'over' operator (the default).
-        * "add": use additive blending by adding the fragment color, multiplied by alpha.
+        * "additive": use additive blending that adds the fragment color, multiplied by alpha.
+        * "subtractive": use subtractuve blending that removes the fragment color.
+        * "multiply": use multiplicative blending that multiplies the fragment color.
         * "dither": use stochastic transparency blending. All fragments are opaque, and the chance
           of a fragment being discared (invisible) is one minus alpha.
         * "weighted": use weighted blending, where the order of objects does not matter for the end-result.
@@ -318,6 +320,7 @@ class Material(Trackable):
         if blending is None:
             blending = "normal"
 
+        # Note: we assume alpha is not pre-multiplied
         preset_blending_dicts = {
             "no": {
                 "mode": "classic",
@@ -333,12 +336,26 @@ class Material(Trackable):
                 "alpha_src": "one",
                 "alpha_dst": "one-minus-src-alpha",
             },
-            "add": {
+            "additive": {
                 "mode": "classic",
-                "color_src": "one",
+                "color_src": "src-alpha",
                 "color_dst": "one",
-                "alpha_src": "one",
+                "alpha_src": "src-alpha",
                 "alpha_dst": "one",
+            },
+            "subtractive": {
+                "mode": "classic",
+                "color_src": "zero",
+                "color_dst": "one-minus-src",
+                "alpha_src": "zero",
+                "alpha_dst": "one",
+            },
+            "multiply": {
+                "mode": "classic",
+                "color_src": "zero",
+                "color_dst": "src",
+                "alpha_src": "zero",
+                "alpha_dst": "src",
             },
             "dither": {
                 "mode": "dither",
