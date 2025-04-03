@@ -224,7 +224,7 @@ def assert_type(name, value, *classes):
 class ReadOnlyDict(dict):
     """A read-only dict, for storing structured data that can be hashed."""
 
-    ___slots__ = ["_hash"]
+    __slots__ = ["_hash"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

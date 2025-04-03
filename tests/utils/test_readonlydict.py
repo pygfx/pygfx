@@ -24,6 +24,10 @@ def test_readonlydict_immutable():
     with pytest.raises(TypeError):
         d.setdefault("foo", 42)
 
+    # Also immutable (using __slots__)
+    with pytest.raises(AttributeError):
+        d.foo = 3
+
 
 def test_readonlydict_hash():
     d1 = ReadOnlyDict(foo=3, bar=4, spam=5)
