@@ -17,7 +17,6 @@ distance_from_center = 0.5
 
 canvas = WgpuCanvas()
 renderer = gfx.WgpuRenderer(canvas, gamma_correction=1.0)
-renderer.blend_mode = "additive"
 camera = gfx.OrthographicCamera()
 camera.show_rect(-2, 2, -2, 2)
 scene = gfx.Scene()
@@ -30,7 +29,7 @@ for i, color in enumerate(colors):
     x = distance_from_center * np.cos(angle)
     y = distance_from_center * np.sin(angle)
 
-    m = gfx.Mesh(plane, gfx.MeshBasicMaterial(color=color))
+    m = gfx.Mesh(plane, gfx.MeshBasicMaterial(color=color, blending="add"))
     m.local.x = x
     m.local.y = y
     scene.add(m)

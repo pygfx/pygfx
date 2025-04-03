@@ -21,7 +21,6 @@ import pygfx as gfx
 
 canvas = WgpuCanvas(size=(1000, 1000))
 renderer = gfx.WgpuRenderer(canvas)
-renderer.blend_mode = "weighted"
 
 position_pairs = [
     [-1, -1, -1],

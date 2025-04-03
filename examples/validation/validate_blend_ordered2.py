@@ -34,7 +34,7 @@ import pygfx as gfx
 
 canvas = WgpuCanvas(size=(600, 600))
 renderer = gfx.renderers.WgpuRenderer(canvas)
-renderer.blend_mode = "ordered2"
+renderer.blend_mode = "ordered2"  # TODO: remove example, make it test something else, or attempt to replicate ordered2?
 
 scene = gfx.Scene()
 scene.add(gfx.Background.from_color("#000"))
@@ -42,23 +42,15 @@ scene.add(gfx.Background.from_color("#000"))
 geometry = gfx.plane_geometry(100, 50)
 geometry_strip = gfx.plane_geometry(20, 200)
 
-strip_opaque = gfx.Mesh(geometry_strip, gfx.MeshBasicMaterial(color=(0, 0, 0.5, 1)))
+strip_opaque = gfx.Mesh(geometry_strip, gfx.MeshBasicMaterial(color=(0, 0, 0.5)))
 strip_transp = gfx.Mesh(
-    geometry_strip, gfx.MeshBasicMaterial(color=(0, 0, 0.5, 0.5), transparent=True)
+    geometry_strip, gfx.MeshBasicMaterial(color=(0, 0, 0.5), opacity=0.5)
 )
 
-plane_g1 = gfx.Mesh(
-    geometry, gfx.MeshBasicMaterial(color=(0, 1, 0, 0.3), transparent=True)
-)
-plane_g2 = gfx.Mesh(
-    geometry, gfx.MeshBasicMaterial(color=(0, 1, 0, 0.3), transparent=True)
-)
-plane_r1 = gfx.Mesh(
-    geometry, gfx.MeshBasicMaterial(color=(1, 0, 0, 0.3), transparent=True)
-)
-plane_r2 = gfx.Mesh(
-    geometry, gfx.MeshBasicMaterial(color=(1, 0, 0, 0.3), transparent=True)
-)
+plane_g1 = gfx.Mesh(geometry, gfx.MeshBasicMaterial(color=(0, 1, 0), opacity=0.3))
+plane_g2 = gfx.Mesh(geometry, gfx.MeshBasicMaterial(color=(0, 1, 0), opacity=0.3))
+plane_r1 = gfx.Mesh(geometry, gfx.MeshBasicMaterial(color=(1, 0, 0), opacity=0.3))
+plane_r2 = gfx.Mesh(geometry, gfx.MeshBasicMaterial(color=(1, 0, 0), opacity=0.3))
 
 strip_opaque.local.position = 10, 0, 0
 strip_transp.local.position = 21, 0, 0

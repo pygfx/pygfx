@@ -23,7 +23,6 @@ import pygfx as gfx
 
 canvas = WgpuCanvas(size=(600, 600))
 renderer = gfx.renderers.WgpuRenderer(canvas)
-renderer.blend_mode = "ordered2"
 
 geometry = gfx.plane_geometry(100, 100)
 

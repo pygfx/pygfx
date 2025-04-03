@@ -4,10 +4,6 @@ Mesh Picking
 
 Example showing picking a mesh. Showing two meshes that can be clicked
 on. Upon clicking, the vertex closest to the pick location is moved.
-
-One of the shown objects is semi-transparent. In order for picking to
-work on such objects, the ``renderer.blend_mode`` must be set to
-"weighted_plus".
 """
 
 # sphinx_gallery_pygfx_docs = 'screenshot'
@@ -24,7 +20,6 @@ import pylinalg as la
 
 canvas = WgpuCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
-renderer.blend_mode = "weighted_plus"
 scene = gfx.Scene()
 
 scene.add(gfx.Background.from_color("#446"))
@@ -34,7 +29,7 @@ tex = gfx.Texture(im, dim=2)
 
 cube = gfx.Mesh(
     gfx.box_geometry(200, 200, 200),
-    gfx.MeshBasicMaterial(map=tex, opacity=0.8, pick_write=True),
+    gfx.MeshBasicMaterial(map=tex, pick_write=True),
 )
 cube.local.x += 150
 scene.add(cube)

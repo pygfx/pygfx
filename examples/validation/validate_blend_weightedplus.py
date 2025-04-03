@@ -14,7 +14,7 @@ import pylinalg as la
 
 canvas = WgpuCanvas(size=(600, 600))
 renderer = gfx.renderers.WgpuRenderer(canvas)
-renderer.blend_mode = "weighted_plus"
+renderer.blend_mode = "weighted_plus"  # TODO: weighted_plus is no more
 
 scene = gfx.Scene()
 

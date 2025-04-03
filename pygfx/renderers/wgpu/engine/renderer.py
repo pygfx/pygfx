@@ -6,7 +6,6 @@ manages the rendering process.
 import time
 import weakref
 
-from warnings import warn
 import numpy as np
 import wgpu
 import pylinalg as la
@@ -91,7 +90,6 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
     """
 
-    _blenders_available = {}
     _wobject_pipelines_collection = weakref.WeakValueDictionary()
 
     def __init__(
@@ -106,7 +104,12 @@ class WgpuRenderer(RootEventHandler, Renderer):
         gamma_correction=1.0,
         **kwargs,
     ):
+        blend_mode = kwargs.pop("blend_mode", None)
         super().__init__(*args, **kwargs)
+
+        # blend_mode is deprecated; raise error with somewhat helpful message
+        if blend_mode:
+            self.blend_mode = blend_mode
 
         # Check and normalize inputs
         # if isinstance(target, WgpuCanvasBase):
@@ -272,53 +275,15 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
     @property
     def blend_mode(self):
-        """The method for blending fragments bases on their alpha values:
+        raise DeprecationWarning(
+            "renderer.blend_mode is removed. Use material.blending instead."
+        )
 
-        Stuck to "ordered1" until we clean up the whole blender and renderer.blend_mode.
-
-        * "default" or None: Select the default: currently this is "ordered2".
-        * "additive": single-pass approach that adds fragments together.
-        * "opaque": single-pass approach that consider every fragment opaque.
-        * "dither": single-pass approach that uses dithering to handle transparency.
-          Also known as stochastic transparency. All visible fragments are opaque.
-        * "ordered1": single-pass approach that blends fragments (using alpha blending).
-          Can only produce correct results if fragments are drawn from back to front.
-        * "ordered2": two-pass approach that first processes all opaque fragments and then
-          blends transparent fragments (using alpha blending) with depth-write disabled. The
-          visual results are usually better than ordered1, but still depend on the drawing order.
-        * "weighted": two-pass approach that for order independent transparency,
-          using alpha weights.
-        * "weighted_depth": two-pass approach for order independent transparency,
-          with weights based on alpha and depth (McGuire 2013). Note that the depth
-          range affects the (quality of the) visual result.
-        * "weighted_plus": three-pass approach for order independent transparency,
-          in which the front-most transparent layer is rendered correctly, while
-          transparent layers behind it are blended using alpha weights.
-        """
-        return "default"
-
-    @staticmethod
-    def _register_blend_mode(blender_class=None):
-        """Register a new blender for usage with rendering pipelines.
-
-        Note that Blender classes are highly experimental and their inteface
-        is expected to change rapidly from pygfx version 0.7.0 to
-        version 1.0.0.
-        The permenant existance of this function is not guaranteed.
-
-        Use carefully (i.e. at your own risk) as you help us
-        test and validate PyGFX's more advanced features.
-        """
-
-        name = blender_class.name
-        if name in WgpuRenderer._blenders_available:
-            warn(
-                f"Blend mode '{name}' is already registered. "
-                f"Overwritting {name} with {blender_class}.",
-                stacklevel=2,
-            )
-        WgpuRenderer._blenders_available[name] = blender_class
-        return blender_class
+    @blend_mode.setter
+    def blend_mode(self, value):
+        raise DeprecationWarning(
+            "renderer.blend_mode is removed. Use material.blending instead."
+        )
 
     @property
     def sort_objects(self):
