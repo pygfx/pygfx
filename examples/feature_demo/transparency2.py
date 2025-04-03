@@ -21,7 +21,7 @@ import pygfx as gfx
 import pylinalg as la
 
 canvas = WgpuCanvas()
-renderer = gfx.renderers.WgpuRenderer(canvas, pixel_ratio=2)
+renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
 background = gfx.Background.from_color("#000")
@@ -47,7 +47,7 @@ scene.add(camera.add(gfx.DirectionalLight()))
 
 scene_overlay = gfx.Scene()
 blend_text = gfx.Text(
-    text=f"Blending: {plane1.material.blending['preset']}",
+    text=f"Blending: {plane1.material.blending['name']}",
     anchor="bottom-left",
     material=gfx.TextMaterial(outline_thickness=0.3),
 )
@@ -80,6 +80,7 @@ def handle_event(event):
             plane.material.blending = blending
         print("Selecting blending", blending)
         blend_text.set_text(f"Blending: {blending}")
+    canvas.request_draw()
 
 
 def animate():

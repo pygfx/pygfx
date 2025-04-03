@@ -282,7 +282,7 @@ class Material(Trackable):
     def blending(self):
         """The way to blend semi-transparent fragments (alpha < 1) for this material.
 
-        The blending can be set using one of the following presets:
+        The blending can be set using one of the following preset names:
 
         * "no": no blending, render as opaque.
         * "normal": use classic alpha blending using the 'over' operator (the default).
@@ -293,6 +293,7 @@ class Material(Trackable):
 
         The blending property returns (and can be set with) a dict, with the following fields:
 
+        * "name": the preset name of this blending, or 'custom'. (This field is ignored when setting the ``blending``.)
         * "mode": the blend-mode, one of "classic", "dither", "weighted".
         * When ``mode`` is "classic", the following fields must/can be provided:
           * "color_op": the blend operation/equation, any value from ``wgpu.BlendOperation``. Default 'add'.
@@ -308,6 +309,7 @@ class Material(Trackable):
           * "weight": the weight factor as wgsl. Default 'alpha', which means use the color's alpha value.
           * "alpha": the used alpha value. Default 'alpha', which means use as-is. Can e.g. be set to 1.0
             so that the alpha channel can be used as the weight factor, while the object is otherwise opaque.
+
         """
         return self._store.blending_dict
 
@@ -359,7 +361,7 @@ class Material(Trackable):
             blending_src = blending.copy()
             blending_dict = {}
             try:
-                blending_src.pop("preset", None)
+                blending_src.pop("name", None)
                 blending_dict["mode"] = mode = blending_src.pop("mode")
                 if mode == "classic":
                     for key in ["color_src", "color_dst", "alpha_src", "alpha_dst"]:
@@ -395,7 +397,10 @@ class Material(Trackable):
         # Prepend the preset name if the dict matches a preset
         for preset_name, preset_dict in preset_blending_dicts.items():
             if blending_dict == preset_dict:
-                blending_dict = {"preset": preset_name, **blending_dict}
+                blending_dict = {"name": preset_name, **blending_dict}
+                break
+        else:
+            blending_dict = {"name": "custom", **blending_dict}
 
         self._store.blending_dict = ReadOnlyDict(blending_dict)
         self._store.blending_mode = blending_dict["mode"]
