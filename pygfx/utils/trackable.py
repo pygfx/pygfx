@@ -70,7 +70,12 @@ def get_comp_value(value):
     elif isinstance(value, tuple):
         return tuple(get_comp_value(v) for v in value)
     else:
-        return f"id:{id(value)}"
+        try:
+            return "hash:" + str(hash(value))
+        except Exception:
+            raise TypeError(
+                f"You cannot store unhashable values on a Store: {value!r}"
+            ) from None
 
 
 class Undefined:
