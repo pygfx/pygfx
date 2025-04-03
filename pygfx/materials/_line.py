@@ -95,10 +95,7 @@ class LineMaterial(Material):
         result. Line-based aa results in additional improvement.
 
         Because semi-transparent fragments are introduced, it may affect how the
-        line blends with other (semi-transparent) objects. It can also affect
-        performance for very large datasets. In particular, when the line itself
-        is opaque, the line is (in most blend modes) drawn twice to account for
-        both the opaque and semi-transparent fragments.
+        line blends with other (semi-transparent) objects.
         """
         return self._store.aa
 

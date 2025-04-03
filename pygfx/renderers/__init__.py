@@ -36,8 +36,7 @@ texture)::
 The internal representation is managed by the blender object. The internal
 render textures are typically at a higher resolution to reduce aliasing (SSAA).
 The blender has auxiliary buffers such as a depth buffer, pick buffer, and
-buffers for transparent fragments. Depending on the blend mode, a single render
-call may consist of multiple passes (to deal with semi-transparent fragments).
+e.g. buffers for weighted fragments.
 
 The flush-step resolves the internal representation into the target texture or
 canvas, averaging neighbouring fragments for anti-aliasing.

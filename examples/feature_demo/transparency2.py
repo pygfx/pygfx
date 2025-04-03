@@ -47,7 +47,7 @@ scene.add(camera.add(gfx.DirectionalLight()))
 
 scene_overlay = gfx.Scene()
 blend_text = gfx.Text(
-    text=f"Blend mode: {plane1.material.blending['preset']}",
+    text=f"Blending: {plane1.material.blending['preset']}",
     anchor="bottom-left",
     material=gfx.TextMaterial(outline_thickness=0.3),
 )
@@ -79,7 +79,7 @@ def handle_event(event):
         for plane in plane1, plane2, plane3:
             plane.material.blending = blending
         print("Selecting blending", blending)
-        blend_text.set_text(f"Blend mode: {blending}")
+        blend_text.set_text(f"Blending: {blending}")
 
 
 def animate():

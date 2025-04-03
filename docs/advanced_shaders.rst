@@ -178,9 +178,9 @@ FragmentOutput
 --------------
 
 In a somewhat similar way, the output of the fragment shader is
-predefined. Though in this case the output is determined by the blend
-mode and render pass (opaque or transparent), and the details are hidden
-from the shader author. This way, Pygfx can support special blend modes
+predefined. Though in this case the output is determined by the blending
+mode, and the details are hidden
+from the shader author. This way, Pygfx can support special blending modes
 without affecting individual shaders.
 All fragment functions in Pygfx look somewhat like this:
 

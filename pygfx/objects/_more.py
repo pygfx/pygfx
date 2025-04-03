@@ -131,7 +131,7 @@ class Line(WorldObject):
     visible : bool
         Whether the object is visible.
     render_order : int
-        The render order (when applicable for the renderer's blend mode).
+        Affects the order in which objects are rendered.
     position : Vector
         The position of the object in the world. Default (0, 0, 0).
 
@@ -159,7 +159,7 @@ class Points(WorldObject):
     visible : bool
         Whether the object is visible.
     render_order : int
-        The render order (when applicable for the renderer's blend mode).
+        Affects the order in which objects are rendered.
     position : Vector
         The position of the object in the world. Default (0, 0, 0).
 
@@ -190,7 +190,7 @@ class Mesh(WorldObject):
     visible : bool
         Whether the object is visible.
     render_order : int
-        The render order (when applicable for the renderer's blend mode).
+        Affects the order in which objects are rendered.
     position : Vector
         The position of the object in the world. Default (0, 0, 0).
 
@@ -313,7 +313,7 @@ class Image(WorldObject):
     visible : bool
         Whether the object is visible.
     render_order : int
-        The render order (when applicable for the renderer's blend mode).
+        Affects the order in which objects are rendered.
     position : Vector
         The position of the object in the world. Default (0, 0, 0).
 
@@ -354,7 +354,7 @@ class Volume(WorldObject):
     visible : bool
         Whether the object is visible.
     render_order : int
-        The render order (when applicable for the renderer's blend mode).
+        Affects the order in which objects are rendered.
     position : Vector
         The position of the object in the world. Default (0, 0, 0).
 

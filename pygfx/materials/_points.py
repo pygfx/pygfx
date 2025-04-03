@@ -110,10 +110,7 @@ class PointsMaterial(Material):
         result. Point-based aa results in additional improvement.
 
         Because semi-transparent fragments are introduced, it may affect how the
-        points blends with other (semi-transparent) objects. It can also affect
-        performance for very large datasets. In particular, when the points itself
-        are opaque, the point is (in most blend modes) drawn twice to account for
-        both the opaque and semi-transparent fragments.
+        points blends with other (semi-transparent) objects.
         """
         return self._store.aa
 

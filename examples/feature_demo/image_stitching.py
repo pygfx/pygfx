@@ -2,7 +2,7 @@
 Image stitching
 ===============
 
-Show stitching of images using the weighted blend mode. The alpha value of the
+Show stitching of images using weighted blending. The alpha value of the
 images are used as weights.
 """
 
