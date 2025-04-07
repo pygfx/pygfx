@@ -1,3 +1,16 @@
+"""
+A Method to Subtract Background from an Image
+================================================
+
+This example shows how to subtract a background from an image.
+
+The background is created via the mipmap levels of the image so that the background does not need to be
+computed per pixel during each render cycle. The mipmap level is sampled from to create the background.
+
+One can adjust the background level via the dropdown menu. Each level subtracts a subsampled background
+from the image with the subsampling increasing by a power of 2 with each level. Level 0 is the original
+image with no background subtraction.
+"""
 import imageio.v3 as iio
 import numpy as np
 from wgpu.gui.auto import WgpuCanvas, run
@@ -6,7 +19,6 @@ from pygfx.renderers.wgpu import register_wgpu_render_function
 from pygfx.renderers.wgpu.shaders.imageshader import ImageShader
 from wgpu.utils.imgui import ImguiRenderer
 from imgui_bundle import imgui
-
 
 
 # Load image
@@ -27,8 +39,8 @@ camera.local.x = canvas_size[0] / 2
 controller = gfx.PanZoomController(camera, register_events=renderer)
 
 
-image_texture = gfx.Texture(im, 
-                            dim=2, 
+image_texture = gfx.Texture(im,
+                            dim=2,
                             generate_mipmaps=True
                             )
 
@@ -53,10 +65,8 @@ class BackGroundRemovedImageMaterial(gfx.ImageBasicMaterial):
         self.uniform_buffer.data["background_level"] = int(value)
         self.uniform_buffer.update_range()
 
-class BackGroundRemovedImage(gfx.Image):
-    pass
 
-@register_wgpu_render_function(BackGroundRemovedImage, BackGroundRemovedImageMaterial)
+@register_wgpu_render_function(gfx.Image, BackGroundRemovedImageMaterial)
 class BackGroundRemovedImageShader(ImageShader):
     def __init__(self, wobject):
         super().__init__(wobject)
@@ -69,56 +79,14 @@ class BackGroundRemovedImageShader(ImageShader):
     let value = sample_im(varyings.texcoord.xy, sizef);
 """,
             """
-    let new_size = sizef.xy / pow(2., f32(u_material.background_level));
-    let texcoords_u = vec2<f32>(varyings.texcoord.xy * new_size);
-    let texcoords_img = vec2<f32>(varyings.texcoord.xy * sizef.xy);
-    var f: vec2<f32> = fract(min(texcoords_u + 0.5, vec2<f32>(new_size)));
-    var f_img: vec2<f32> = fract(min(texcoords_img + 0.5, vec2<f32>(sizef.xy)));
-
-    // Get the background value via bilinear interpolation
-    var b0: vec4<f32> = mix(
-        textureLoad(t_img, 
-            vec2<i32>(texcoords_u + vec2<f32>(-0.5, -0.5)), 
-            i32(u_material.background_level)),
-        textureLoad(t_img, 
-            vec2<i32>(texcoords_u + vec2<f32> (0.5, -0.5)), 
-            i32(u_material.background_level)),
-        f.x,
-    );
-
-    var b1: vec4<f32> = mix(
-        textureLoad(t_img, 
-            vec2<i32>(texcoords_u + vec2<f32>(-0.5, 0.5)), 
-            i32(u_material.background_level)),
-        textureLoad(t_img, 
-            vec2<i32>(texcoords_u + vec2<f32>( 0.5, 0.5)), 
-            i32(u_material.background_level)),
-        f.x,
-    );
-    let background = mix(b0, b1, f.y);
-
     // Get the image value via bilinear interpolation
-    var v0: vec4<f32> = mix(
-        textureLoad(t_img, 
-            vec2<i32>(texcoords_img + vec2<f32>(-0.5, -0.5)), 
-            0),
-        textureLoad(t_img, 
-            vec2<i32>(texcoords_img + vec2<f32> (0.5, -0.5)), 
-            0),
-        f_img.x,
-    );
+    var value: vec4<f32> = textureSampleLevel(t_img, s_img, varyings.texcoord.xy, 0.);
 
-    var v1: vec4<f32> = mix(
-        textureLoad(t_img, 
-            vec2<i32>(texcoords_img + vec2<f32>(-0.5, 0.5)), 
-            0),
-        textureLoad(t_img, 
-            vec2<i32>(texcoords_img + vec2<f32>( 0.5, 0.5)), 
-            0),
-        f_img.x,
-    );
-    var value: vec4<f32> = mix(v0, v1, f_img.y);
-    if f32(u_material.background_level) != 0.0 {
+    let background_level = f32(u_material.background_level);
+    if background_level != 0.0 {
+        // Get the background value via bilinear interpolation
+        let background = textureSampleLevel(t_img, s_img, varyings.texcoord.xy, background_level);
+
         value = vec4<f32>(
             (value.rgb - background.rgb),
             value.a
@@ -131,11 +99,11 @@ class BackGroundRemovedImageShader(ImageShader):
 
 
 
-image = BackGroundRemovedImage(
-    gfx.Geometry(grid=image_texture), 
+image = gfx.Image(
+    gfx.Geometry(grid=image_texture),
     BackGroundRemovedImageMaterial(
-        clim=(0, 255), 
-        interpolation="nearest"
+        clim=(0, 255),
+        interpolation="linear"
         )
 )
 scene.add(image)
@@ -150,7 +118,7 @@ def draw_imgui():
 
     imgui.new_frame()
 
-    imgui.set_next_window_size((300, 0), imgui.Cond_.always)
+    imgui.set_next_window_size((400, 0), imgui.Cond_.always)
     imgui.set_next_window_pos((0, 0), imgui.Cond_.always)
 
     is_expand, _ = imgui.begin("Controls", None)
