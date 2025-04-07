@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from ..utils.trackable import Trackable
-from ..utils import array_from_shadertype
+from ..utils import array_from_shadertype, ReadOnlyDict
 from ..resources import Buffer
 
 
@@ -21,13 +21,6 @@ class AutoBool(int):  # cannot inherit from bool
 
     def __repr__(self):
         return repr(bool(self)) + " (auto)"
-
-
-class ReadOnlyDict(dict):
-    # There is no FrozenDict. This comes close enough
-
-    def __setitem__(self, item, value):
-        raise TypeError("Cannot set dict item (readonly)")
 
 
 class Material(Trackable):
