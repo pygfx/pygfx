@@ -1,9 +1,15 @@
 import wgpu
-import pygfx as gfx
 import numpy as np
 import math
+from wgpu.utils.imgui import Stats
 from wgpu.gui.auto import WgpuCanvas, run
 from pathlib import Path
+from camera import OrbitCamera
+from scene import Material, parse_gfx_scene
+import pygfx as gfx
+import pylinalg as la
+
+
 
 
 IMAGE_WIDTH = 1280
@@ -11,41 +17,142 @@ IMAGE_HEIGHT = 720
 
 COMPUTE_WORKGROUP_SIZE_X = 8
 COMPUTE_WORKGROUP_SIZE_Y = 8
+MAX_BOUNCES = 50
 
-
-class Sphere(np.ndarray):
-    def __new__(cls):
-        return np.zeros(1, dtype=np.dtype([
-            ('center', np.float32, 3),
-            ('radius', np.float32),
-            ('albedo', np.float32, 3),
-            ('material_type', np.int32),
-        ])).view(cls)
 
 def create_scene():
-    spheres = []
+    gfx_scene = gfx.Scene()
+
+    gfx.Color(0.611, 0.0555, 0.062).to_physical()
+
+    # .611, .0555, .062
+    # red = Material((0.611, 0.0555, 0.062), roughness=1.0)
+    red = Material((0.65, 0.05, 0.05), roughness=1.0)
+    # .117, .4125, .115
+    # green = Material((0.117, 0.4125, 0.115), roughness=1.0)
+    green = Material((0.12, 0.45, 0.12), roughness=1.0)
+    # .7295, .7355, .729
+    # white = Material((0.7295, 0.7355, 0.729), roughness=1.0)
+    white = Material((0.73, 0.73, 0.73), roughness=1.0)
+
+    # 16.86, 8.76 +2., 3.2 + .5
+    light = Material((0.78, 0.78, 0.78), emissive=(16.86, 10.76, 3.7), roughness=1.0)
+
+    specular = Material((1., 1., 1.), roughness=0.002, metallic=1.0)
+    glass = Material((1., 1., 1.), roughness=0.0, metallic=0.0, ior=1.5)
+
+    # Cornell box scene
+
+    ROOM_SIZE = 55.5  # 556, 548.8, 559.2
+    BOX_SIZE = 16.5
+
+    HALF_ROOM_SIZE = ROOM_SIZE / 2
+
+    wall_geometry = gfx.plane_geometry(width=ROOM_SIZE, height=ROOM_SIZE)
+
+    # left wall
+    left_wall_mesh = gfx.Mesh(wall_geometry, red)
+    left_wall_mesh.local.position = (-HALF_ROOM_SIZE, 0, 0)
+    left_wall_mesh.local.rotation = la.quat_from_euler((0, math.pi/2, 0))
+    gfx_scene.add(left_wall_mesh)
+
+    # right wall
+    right_wall_mesh = gfx.Mesh(wall_geometry, green)
+    right_wall_mesh.local.position = (HALF_ROOM_SIZE, 0, 0)
+    right_wall_mesh.local.rotation = la.quat_from_euler((0, math.pi/2, 0))
+    gfx_scene.add(right_wall_mesh)
+
+    # floor
+    floor_mesh = gfx.Mesh(wall_geometry, white)
+    floor_mesh.local.position = (0, -HALF_ROOM_SIZE, 0)
+    floor_mesh.local.rotation = la.quat_from_euler((math.pi/2, 0, 0))
+    gfx_scene.add(floor_mesh)
+
+    # ceiling
+    ceiling_mesh = gfx.Mesh(wall_geometry, white)
+    ceiling_mesh.local.position = (0, HALF_ROOM_SIZE, 0)
+    ceiling_mesh.local.rotation = la.quat_from_euler((math.pi/2, 0, 0))
+    gfx_scene.add(ceiling_mesh)
+
+    # front wall
+    front_wall_mesh = gfx.Mesh(wall_geometry, white)
+    front_wall_mesh.local.position = (0, 0, HALF_ROOM_SIZE)
+    front_wall_mesh.local.rotation = la.quat_from_euler((0, 0, 0))
+    gfx_scene.add(front_wall_mesh)
+
+    # light
+    light_g = gfx.plane_geometry(width=13, height=10.5)
+    light_mesh = gfx.Mesh(light_g, light)
+    light_mesh.local.position = (0, HALF_ROOM_SIZE-0.2, 0)
+    light_mesh.local.rotation = la.quat_from_euler((math.pi/2, 0, 0))
+    gfx_scene.add(light_mesh)
+
+
+    box1_group = gfx.Group()
+
+    box1_left = gfx.plane_geometry(width=BOX_SIZE, height=BOX_SIZE*2)
+    box1_left_mesh = gfx.Mesh(box1_left, white)
+    box1_left_mesh.local.rotation = la.quat_from_euler((0, math.pi/2, 0))
+    box1_left_mesh.local.position = (-BOX_SIZE/2, 0, 0)
+
+    box1_right = gfx.plane_geometry(width=BOX_SIZE, height=BOX_SIZE*2)
+    box1_right_mesh = gfx.Mesh(box1_right, white)
+    box1_right_mesh.local.rotation = la.quat_from_euler((0, math.pi/2, 0))
+    box1_right_mesh.local.position = (BOX_SIZE/2, 0, 0)
+
+    box1_back = gfx.plane_geometry(width=BOX_SIZE, height=BOX_SIZE*2)
+    box1_back_mesh = gfx.Mesh(box1_back, white)
+    box1_back_mesh.local.rotation = la.quat_from_euler((0, 0, 0))
+    box1_back_mesh.local.position = (0, 0, BOX_SIZE/2)
+
+    box1_top = gfx.plane_geometry(width=BOX_SIZE, height=BOX_SIZE)
+    box1_top_mesh = gfx.Mesh(box1_top, white)
+    box1_top_mesh.local.rotation = la.quat_from_euler((math.pi/2, 0, 0))
+    box1_top_mesh.local.position = (0, BOX_SIZE, 0)
+
+    box1_bottom = gfx.plane_geometry(width=BOX_SIZE, height=BOX_SIZE)
+    box1_bottom_mesh = gfx.Mesh(box1_bottom, white)
+    box1_bottom_mesh.local.rotation = la.quat_from_euler((math.pi/2, 0, 0))
+    box1_bottom_mesh.local.position = (0, -BOX_SIZE, 0)
+
     
-    ground = Sphere()
-    ground['center'] = [0, -100.5, -2.0]
-    ground['radius'] = 100.0
-    ground['albedo'] = [0.8, 0.8, 0.8]
-    ground['material_type'] = 0  # 0=漫反射
-    spheres.append(ground)
-    
-    materials = [
-        ([0.8, 0.3, 0.3], 0),    # 漫反射红
-        ([0.8, 0.6, 0.2], 1),    # 金属
-        ([0.8, 0.8, 0.8], 2),    # 玻璃
-    ]
-    for i, (albedo, mat_type) in enumerate(materials):
-        sphere = Sphere()
-        sphere['center'] = [i * 2.0 - 2.0, 0.0, -2.0]
-        sphere['radius'] = 0.5
-        sphere['albedo'] = albedo
-        sphere['material_type'] = mat_type
-        spheres.append(sphere)
-    
-    return np.concatenate(spheres)
+    box1_front = gfx.plane_geometry(width=BOX_SIZE, height=BOX_SIZE*2)
+    box1_front_mesh = gfx.Mesh(box1_front, specular)
+    box1_front_mesh.local.rotation = la.quat_from_euler((0, 0, 0))
+    box1_front_mesh.local.position = (0, 0, -BOX_SIZE/2)
+
+    box1_group.add(box1_left_mesh)
+    box1_group.add(box1_right_mesh)
+    box1_group.add(box1_back_mesh)
+    box1_group.add(box1_top_mesh)
+    box1_group.add(box1_bottom_mesh)
+    box1_group.add(box1_front_mesh)
+
+    off_set = (BOX_SIZE - ROOM_SIZE) / 2
+    box1_group.local.position = (-off_set-26.5 -2.0, BOX_SIZE -HALF_ROOM_SIZE + 0.05, 29.5+off_set)
+    box1_group.local.rotation = la.quat_from_euler((0, -15 / 180 * math.pi, 0))
+    gfx_scene.add(box1_group)
+
+
+    # box1 = gfx.box_geometry(width=BOX_SIZE, height=BOX_SIZE*2, depth=BOX_SIZE)
+    # box_mesh1 = gfx.Mesh(box1, white)
+    # off_set = (BOX_SIZE - ROOM_SIZE) / 2
+    # box_mesh1.local.position = (-off_set-26.5 -2.0, BOX_SIZE - HALF_ROOM_SIZE, 29.5+off_set)
+    # box_mesh1.local.rotation = la.quat_from_euler((0, -15 / 180 * math.pi, 0))
+    # gfx_scene.add(box_mesh1)
+
+    box2 = gfx.box_geometry(width=BOX_SIZE, height=BOX_SIZE, depth=BOX_SIZE)
+    box_mesh2 = gfx.Mesh(box2, white)
+    off_set = (BOX_SIZE - ROOM_SIZE) / 2
+    box_mesh2.local.position = (-off_set -13.0 + 2.0, off_set, 6.5 + off_set)
+    box_mesh2.local.rotation = la.quat_from_euler((0, 18 / 180 * math.pi, 0))
+    gfx_scene.add(box_mesh2)
+
+
+    triangles, materials = parse_gfx_scene(gfx_scene)
+
+    return triangles, materials
+
 
 
 def load_wgsl(shader_name):
@@ -55,66 +162,79 @@ def load_wgsl(shader_name):
         return f.read().decode()
 
 
-canvas = WgpuCanvas(title="WebGPU Raytracing", size=(IMAGE_WIDTH, IMAGE_HEIGHT))
+canvas = WgpuCanvas(title="Raytracing", size=(IMAGE_WIDTH, IMAGE_HEIGHT), max_fps=-1, vsync=False)
 
 adapter = wgpu.gpu.request_adapter_sync(power_preference="high-performance")
-device = adapter.request_device_sync(required_features=["texture-adapter-specific-format-features"])
+device = adapter.request_device_sync(required_features=["texture-adapter-specific-format-features","float32-filterable"])
 present_context = canvas.get_context()
-# render_texture_format = present_context.get_preferred_format(device.adapter)
-render_texture_format = wgpu.TextureFormat.rgba8unorm
+render_texture_format = present_context.get_preferred_format(device.adapter)
+# render_texture_format = wgpu.TextureFormat.rgba8unorm
 present_context.configure(device=device, format=render_texture_format)
 
-# Create a buffer for the ray tracing result
-# frame_buffer = device.create_buffer(
-#     size=IMAGE_WIDTH * IMAGE_HEIGHT * 4 * 4,  # f32x4,
-#     usage=wgpu.BufferUsage.STORAGE | wgpu.BufferUsage.COPY_SRC,
-# )
 
 frame_texture = device.create_texture(
     size=(IMAGE_WIDTH, IMAGE_HEIGHT, 1),
     usage=wgpu.TextureUsage.STORAGE_BINDING | wgpu.TextureUsage.TEXTURE_BINDING,
-    format=render_texture_format,
+    format=wgpu.TextureFormat.rgba32float,
     dimension="2d",
 )
 
-spheres = create_scene()
-sphere_buffer = device.create_buffer_with_data(
-    data=spheres.tobytes(),
+triangles, materials = create_scene()
+
+
+triangles_buffer = device.create_buffer_with_data(
+    data=triangles.tobytes(),
     usage=wgpu.BufferUsage.STORAGE,
 )
 
-# random seed buffer
-rng_state= np.arange(0, IMAGE_WIDTH*IMAGE_HEIGHT, dtype=np.uint32)
-rng_state_buffer = device.create_buffer_with_data(
-    data=rng_state.tobytes(),
+materials_buffer = device.create_buffer_with_data(
+    data=materials.tobytes(),
     usage=wgpu.BufferUsage.STORAGE,
 )
-
 
 common_buffer_data = np.zeros(
     (),
     dtype=[
-        ("viewport_size", "uint32", (2)),
+        ("width", "uint32"),
+        ("height", "uint32"),
         ("frame_counter", "uint32"),
-        ("__padding", "uint32"),  # padding to 16 bytes
+        ("__padding2", "uint32"),  # padding to 16 bytes
     ],
 )
 
-common_buffer_data["frame_counter"] = 0
 
 common_buffer = device.create_buffer(
     size=common_buffer_data.nbytes, usage=wgpu.BufferUsage.UNIFORM | wgpu.BufferUsage.COPY_DST
 )
 
+camera = OrbitCamera(
+    canvas=canvas,
+    fov=40.0,
+    focal_length=20.0,
+    defocus_angle=0.0,
+    center=(0.0, 0.0, 0.0),
+    distance=110.0,
+    # attitude=math.pi / 24,
+    azimuth=math.pi,
+    up=(0.0, 1.0, 0.0),
+)
+
+camera_buffer_data = camera.buffer_data
+
+camera_buffer = device.create_buffer_with_data(
+    data=camera_buffer_data.tobytes(),
+    usage=wgpu.BufferUsage.UNIFORM | wgpu.BufferUsage.COPY_DST,
+)
+
 #Create raytracing compute shader
 
-COMMON = load_wgsl("common.wgsl")
 UTIL = load_wgsl("util.wgsl")
+MATERIAL = load_wgsl("material.wgsl")
 RAY = load_wgsl("ray.wgsl")
 COMPUTE_SHADER = load_wgsl("ray_tracing.wgsl")
 CAMERA = load_wgsl("camera.wgsl")
 
-ray_tracing_src = "\n".join([COMMON, UTIL, RAY, CAMERA, COMPUTE_SHADER])
+ray_tracing_src = "\n".join([UTIL, MATERIAL, RAY, CAMERA, COMPUTE_SHADER])
 
 
 ray_tracing_pipeline = device.create_compute_pipeline(
@@ -125,7 +245,8 @@ ray_tracing_pipeline = device.create_compute_pipeline(
         "constants": {
             "WORKGROUP_SIZE_X": COMPUTE_WORKGROUP_SIZE_X,
             "WORKGROUP_SIZE_Y": COMPUTE_WORKGROUP_SIZE_Y,
-            "OBJECTS_COUNT_IN_SCENE": len(spheres),
+            "OBJECTS_COUNT_IN_SCENE": len(triangles),
+            "MAX_BOUNCES": MAX_BOUNCES,
         },
     
     },
@@ -135,11 +256,11 @@ ray_tracing_pipeline = device.create_compute_pipeline(
 ray_tracing_bind_group = device.create_bind_group(
     layout=ray_tracing_pipeline.get_bind_group_layout(0),
     entries=[
-        {"binding": 0, "resource": {"buffer": sphere_buffer}},
-        # {"binding": 1, "resource": {"buffer": frame_buffer}},
-        {"binding": 1, "resource": frame_texture.create_view()},
-        {"binding": 2, "resource": {"buffer": rng_state_buffer}},   
-        {"binding": 3, "resource": {"buffer": common_buffer}},
+        {"binding": 0, "resource": {"buffer": triangles_buffer}},
+        {"binding": 1, "resource": {"buffer": materials_buffer}},
+        {"binding": 2, "resource": {"buffer": common_buffer}},
+        {"binding": 3, "resource": {"buffer": camera_buffer}},
+        {"binding": 4, "resource": frame_texture.create_view()},
     ],
 )
 
@@ -147,7 +268,7 @@ ray_tracing_bind_group = device.create_bind_group(
 # Render to the screen
 RENDER_SHADER = load_wgsl("render.wgsl")
 
-render_src = "\n".join([COMMON, RENDER_SHADER])
+render_src = "\n".join([RENDER_SHADER])
 
 render_module = device.create_shader_module(
     code=render_src,
@@ -181,19 +302,29 @@ sampler = device.create_sampler(
 render_bind_group = device.create_bind_group(
     layout=render_pipeline.get_bind_group_layout(0),
     entries=[
-        # {"binding": 0, "resource": {"buffer": common_buffer}},
-        # {"binding": 1, "resource": {"buffer": frame_buffer}},
         {"binding": 0, "resource": sampler},
         {"binding": 1, "resource": frame_texture.create_view()},
     ],
 )
 
-def on_draw():
+
+
+def do_ray_tracing():
 
     canvas_texture = present_context.get_current_texture()
 
+    # Update camera buffer
+    if camera._need_calculate_buffer:
+        camera.calculate_buffer_data()
+
+    if camera._need_update_buffer:
+        device.queue.write_buffer(camera_buffer, 0, camera_buffer_data.tobytes())
+        common_buffer_data["frame_counter"] = 0
+        camera._need_update_buffer = False
+
     # Update uniform buffer
-    common_buffer_data["viewport_size"] = (canvas_texture.size[0], canvas_texture.size[1])
+    common_buffer_data["width"] = IMAGE_WIDTH
+    common_buffer_data["height"] = IMAGE_HEIGHT
     common_buffer_data["frame_counter"] += 1
 
     device.queue.write_buffer(common_buffer, 0, common_buffer_data.tobytes())
@@ -201,15 +332,13 @@ def on_draw():
 
     command_encoder = device.create_command_encoder()
     
-    # 执行计算着色器`   `
+
     compute_pass = command_encoder.begin_compute_pass()
     compute_pass.set_pipeline(ray_tracing_pipeline)
     compute_pass.set_bind_group(0, ray_tracing_bind_group)
     compute_pass.dispatch_workgroups( math.ceil(IMAGE_WIDTH / COMPUTE_WORKGROUP_SIZE_X), math.ceil(IMAGE_HEIGHT / COMPUTE_WORKGROUP_SIZE_Y), 1)
     compute_pass.end()
 
-
-    # 执行渲染着色器
 
     render_pass = command_encoder.begin_render_pass(
         color_attachments=[{
@@ -228,8 +357,14 @@ def on_draw():
 
     device.queue.submit([command_encoder.finish()])
 
+
+stats = Stats(device, canvas)
+
+def loop():
+    with stats:
+        do_ray_tracing()
     canvas.request_draw()
 
 if __name__ == "__main__":
-    canvas.request_draw(on_draw)
+    canvas.request_draw(loop)
     run()
