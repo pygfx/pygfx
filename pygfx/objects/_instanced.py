@@ -1,28 +1,32 @@
 import numpy as np
 
 from ._base import id_provider
-from . import Mesh
+from . import WorldObject, Mesh, Line
 from ..resources import Buffer
 
+DOCSTRING_TEMPLATE = """Display a {name} multiple times using instances.
 
-class InstancedMesh(Mesh):
-    """Display a mesh multiple times using instances.
-
-    An instanced mesh with a matrix for each instance.
+    An instanced {name} with a matrix for each instance.
 
     Parameters
     ----------
     geometry : Geometry
-        The mesh's geometry data.
+        The {name}'s geometry data.
     material : Material
-        The material with which to render the mesh.
+        The material with which to render the {name}.
     count : int
         The number of instances to create.
     kwargs : Any
         Additional kwargs get forwarded to the :class:`base class
-        <pygfx.objects.Mesh>`.
+        <pygfx.objects.{base_cls}>`.
 
     """
+
+
+class InstancedObject(WorldObject):
+    __doc__ = DOCSTRING_TEMPLATE.format(name="object", base_cls="WorldObject").replace(
+        "a object", "an object"
+    )
 
     def __init__(self, geometry, material, count, **kwargs):
         super().__init__(geometry, material, **kwargs)
@@ -69,9 +73,23 @@ class InstancedMesh(Mesh):
         """get the matrix for the instance at the given index."""
         return self._store["instance_buffer"].data["matrix"][index].T
 
-    def _wgpu_get_pick_info(self, pick_value):
-        info = self.material._wgpu_get_pick_info(pick_value)
+    def _wgpu_get_pick_info(self, pick_value) -> dict:
+        info = super()._wgpu_get_pick_info(pick_value)
         # The id maps to one of our instances
         id = pick_value & 1048575  # 2**20-1
         info["instance_index"] = self._idmap.get(id)
         return info
+
+
+class InstancedMesh(Mesh, InstancedObject):
+    __doc__ = DOCSTRING_TEMPLATE.format(name="mesh", base_cls="Mesh")
+
+    def __init__(self, geometry, material, count, **kwargs):
+        super().__init__(geometry, material, count, **kwargs)
+
+
+class InstancedLine(Line, InstancedObject):
+    __doc__ = DOCSTRING_TEMPLATE.format(name="line", base_cls="Line")
+
+    def __init__(self, geometry, material, count, **kwargs):
+        super().__init__(geometry, material, count, **kwargs)
