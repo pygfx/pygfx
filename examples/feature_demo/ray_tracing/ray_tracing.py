@@ -23,27 +23,19 @@ MAX_BOUNCES = 50
 def create_scene():
     gfx_scene = gfx.Scene()
 
-    gfx.Color(0.611, 0.0555, 0.062).to_physical()
-
-    # .611, .0555, .062
-    # red = Material((0.611, 0.0555, 0.062), roughness=1.0)
     red = Material((0.63, 0.065, 0.05), roughness=1.0)
-    # .117, .4125, .115
-    # green = Material((0.117, 0.4125, 0.115), roughness=1.0)
     green = Material((0.14, 0.45, 0.091), roughness=1.0)
-    # .7295, .7355, .729
-    # white = Material((0.7295, 0.7355, 0.729), roughness=1.0)
     white = Material((0.725, 0.71, 0.68), roughness=1.0)
 
-    light_color1 = np.array([0.747 + 0.058, 0.747 + 0.258, 0.747])
+    light_color1 = np.array([0.747 + 0.058, 0.747 + 0.285, 0.747])
     light_color2 = np.array([0.740 + 0.287, 0.740 + 0.160, 0.740])
     light_color3 = np.array([0.737 + 0.642, 0.737 + 0.159, 0.737])
     light_color = 8.0 * light_color1 + 15.6 * light_color2 + 18.4 * light_color3
-    light_color = light_color / 3
-    print(light_color)
+    light_color = light_color / math.pi
+
     light = Material((0.78, 0.78, 0.78), emissive=light_color, roughness=1.0)
 
-    specular = Material((1., 1., 1.), roughness=0.002, metallic=1.0)
+    specular = Material((1., 1., 1.), roughness=0.04, metallic=1.0)
     glass = Material((1., 1., 1.), roughness=0.0, metallic=0.0, ior=1.5)
 
     # Cornell box scene
@@ -120,9 +112,9 @@ def create_scene():
     box1_bottom_mesh.local.rotation = la.quat_from_euler((math.pi/2, 0, 0))
     box1_bottom_mesh.local.position = (0, -BOX_SIZE, 0)
 
-    
+
     box1_front = gfx.plane_geometry(width=BOX_SIZE, height=BOX_SIZE*2)
-    box1_front_mesh = gfx.Mesh(box1_front, specular)
+    box1_front_mesh = gfx.Mesh(box1_front, white)
     box1_front_mesh.local.rotation = la.quat_from_euler((0, 0, 0))
     box1_front_mesh.local.position = (0, 0, -BOX_SIZE/2)
 
@@ -134,7 +126,7 @@ def create_scene():
     box1_group.add(box1_front_mesh)
 
     off_set = (BOX_SIZE - ROOM_SIZE) / 2
-    box1_group.local.position = (-off_set-26.5 -2.0, BOX_SIZE -HALF_ROOM_SIZE + 0.05, 29.5+off_set)
+    box1_group.local.position = (-off_set-26.5 -2.0, BOX_SIZE -HALF_ROOM_SIZE, 29.5+off_set)
     box1_group.local.rotation = la.quat_from_euler((0, -15 / 180 * math.pi, 0))
     gfx_scene.add(box1_group)
 

@@ -128,7 +128,7 @@ fn ray_color(primary_ray: Ray) -> vec3<f32> {
 
         // emissive light source
         if any(material.emissive > vec3f(0.)) {
-            // If the material is a light source, add its color to the radiance sample and terminate the path.
+            // If the material is a light source, add its color to the radiance sample.
             // face
             let is_front_face = dot(ray.direction, hit.normal) < 0.;
             if is_front_face {
