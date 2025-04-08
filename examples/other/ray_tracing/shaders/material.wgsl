@@ -209,23 +209,6 @@ fn ggx_pdf(normal: vec3<f32>, half_vector: vec3<f32>, view_dir: vec3<f32>, rough
     return (D * nh) / (4.0 * vh + 0.001);
 }
 
-fn roughness_lambertian_pdf(normal: vec3<f32>, light_dir: vec3<f32>, roughness: f32) -> f32 {
-    let cos_theta = max(dot(normal, light_dir), 0.0);
-    
-    if (roughness < 0.001) {
-        return select(0.001, 100.0, cos_theta > 0.999);
-    }
-    
-    // 基于roughness调整分布的"尖锐度"
-    // roughness越低，分布越集中在法线周围
-    let concentration = 1.0 / (roughness * roughness); 
-    
-    // 使用modified Phong分布来近似这种行为
-    // 当light_dir接近normal时，PDF值更高
-    let normalization_factor = (concentration + 1.0) / (2.0 * PI);
-    return normalization_factor * pow(cos_theta, concentration);
-}
-
 // fn mixed_pdf(normal: vec3<f32>, light_dir: vec3<f32>, half_vector: vec3<f32>, view_dir: vec3<f32>, material: Material) -> f32 {
 //     let lambertian = lambertian_pdf(normal, light_dir);
 //     let ggx = ggx_pdf(normal, half_vector, view_dir, max(material.roughness, 0.001));
