@@ -10,8 +10,6 @@ import pygfx as gfx
 import pylinalg as la
 
 
-
-
 IMAGE_WIDTH = 1280
 IMAGE_HEIGHT = 720
 
@@ -35,40 +33,39 @@ def create_scene():
 
     light = Material((0.78, 0.78, 0.78), emissive=light_color, roughness=1.0)
 
-    specular = Material((1., 1., 1.), roughness=0.04, metallic=1.0)
-    glass = Material((1., 1., 1.), roughness=0.0, metallic=0.0, ior=1.5)
+    # specular = Material((1.0, 1.0, 1.0), roughness=0.04, metallic=1.0)
+    # glass = Material((1.0, 1.0, 1.0), roughness=0.0, metallic=0.0, ior=1.5)
 
     # Cornell box scene
 
-    ROOM_SIZE = 55.5  # 556, 548.8, 559.2
-    BOX_SIZE = 16.5
-
-    HALF_ROOM_SIZE = ROOM_SIZE / 2
+    ROOM_SIZE = 55.5  # noqa
+    BOX_SIZE = 16.5  # noqa
+    HALF_ROOM_SIZE = ROOM_SIZE / 2  # noqa
 
     wall_geometry = gfx.plane_geometry(width=ROOM_SIZE, height=ROOM_SIZE)
 
     # left wall
     left_wall_mesh = gfx.Mesh(wall_geometry, red)
     left_wall_mesh.local.position = (-HALF_ROOM_SIZE, 0, 0)
-    left_wall_mesh.local.rotation = la.quat_from_euler((0, math.pi/2, 0))
+    left_wall_mesh.local.rotation = la.quat_from_euler((0, math.pi / 2, 0))
     gfx_scene.add(left_wall_mesh)
 
     # right wall
     right_wall_mesh = gfx.Mesh(wall_geometry, green)
     right_wall_mesh.local.position = (HALF_ROOM_SIZE, 0, 0)
-    right_wall_mesh.local.rotation = la.quat_from_euler((0, math.pi/2, 0))
+    right_wall_mesh.local.rotation = la.quat_from_euler((0, math.pi / 2, 0))
     gfx_scene.add(right_wall_mesh)
 
     # floor
     floor_mesh = gfx.Mesh(wall_geometry, white)
     floor_mesh.local.position = (0, -HALF_ROOM_SIZE, 0)
-    floor_mesh.local.rotation = la.quat_from_euler((math.pi/2, 0, 0))
+    floor_mesh.local.rotation = la.quat_from_euler((math.pi / 2, 0, 0))
     gfx_scene.add(floor_mesh)
 
     # ceiling
     ceiling_mesh = gfx.Mesh(wall_geometry, white)
     ceiling_mesh.local.position = (0, HALF_ROOM_SIZE, 0)
-    ceiling_mesh.local.rotation = la.quat_from_euler((math.pi/2, 0, 0))
+    ceiling_mesh.local.rotation = la.quat_from_euler((math.pi / 2, 0, 0))
     gfx_scene.add(ceiling_mesh)
 
     # front wall
@@ -80,43 +77,41 @@ def create_scene():
     # light
     light_g = gfx.plane_geometry(width=13, height=10.5)
     light_mesh = gfx.Mesh(light_g, light)
-    light_mesh.local.position = (0, HALF_ROOM_SIZE-0.2, 0)
-    light_mesh.local.rotation = la.quat_from_euler((math.pi/2, 0, 0))
+    light_mesh.local.position = (0, HALF_ROOM_SIZE - 0.2, 0)
+    light_mesh.local.rotation = la.quat_from_euler((math.pi / 2, 0, 0))
     gfx_scene.add(light_mesh)
-
 
     box1_group = gfx.Group()
 
-    box1_left = gfx.plane_geometry(width=BOX_SIZE, height=BOX_SIZE*2)
+    box1_left = gfx.plane_geometry(width=BOX_SIZE, height=BOX_SIZE * 2)
     box1_left_mesh = gfx.Mesh(box1_left, white)
-    box1_left_mesh.local.rotation = la.quat_from_euler((0, math.pi/2, 0))
-    box1_left_mesh.local.position = (-BOX_SIZE/2, 0, 0)
+    box1_left_mesh.local.rotation = la.quat_from_euler((0, math.pi / 2, 0))
+    box1_left_mesh.local.position = (-BOX_SIZE / 2, 0, 0)
 
-    box1_right = gfx.plane_geometry(width=BOX_SIZE, height=BOX_SIZE*2)
+    box1_right = gfx.plane_geometry(width=BOX_SIZE, height=BOX_SIZE * 2)
     box1_right_mesh = gfx.Mesh(box1_right, white)
-    box1_right_mesh.local.rotation = la.quat_from_euler((0, math.pi/2, 0))
-    box1_right_mesh.local.position = (BOX_SIZE/2, 0, 0)
+    box1_right_mesh.local.rotation = la.quat_from_euler((0, math.pi / 2, 0))
+    box1_right_mesh.local.position = (BOX_SIZE / 2, 0, 0)
 
-    box1_back = gfx.plane_geometry(width=BOX_SIZE, height=BOX_SIZE*2)
+    box1_back = gfx.plane_geometry(width=BOX_SIZE, height=BOX_SIZE * 2)
     box1_back_mesh = gfx.Mesh(box1_back, white)
     box1_back_mesh.local.rotation = la.quat_from_euler((0, 0, 0))
-    box1_back_mesh.local.position = (0, 0, BOX_SIZE/2)
+    box1_back_mesh.local.position = (0, 0, BOX_SIZE / 2)
 
     box1_top = gfx.plane_geometry(width=BOX_SIZE, height=BOX_SIZE)
     box1_top_mesh = gfx.Mesh(box1_top, white)
-    box1_top_mesh.local.rotation = la.quat_from_euler((math.pi/2, 0, 0))
+    box1_top_mesh.local.rotation = la.quat_from_euler((math.pi / 2, 0, 0))
     box1_top_mesh.local.position = (0, BOX_SIZE, 0)
 
     box1_bottom = gfx.plane_geometry(width=BOX_SIZE, height=BOX_SIZE)
     box1_bottom_mesh = gfx.Mesh(box1_bottom, white)
-    box1_bottom_mesh.local.rotation = la.quat_from_euler((math.pi/2, 0, 0))
+    box1_bottom_mesh.local.rotation = la.quat_from_euler((math.pi / 2, 0, 0))
     box1_bottom_mesh.local.position = (0, -BOX_SIZE, 0)
 
-
-    box1_front = gfx.plane_geometry(width=BOX_SIZE, height=BOX_SIZE*2)
+    box1_front = gfx.plane_geometry(width=BOX_SIZE, height=BOX_SIZE * 2)
     box1_front_mesh = gfx.Mesh(box1_front, white)
     box1_front_mesh.local.rotation = la.quat_from_euler((0, 0, 0))
-    box1_front_mesh.local.position = (0, 0, -BOX_SIZE/2)
+    box1_front_mesh.local.position = (0, 0, -BOX_SIZE / 2)
 
     box1_group.add(box1_left_mesh)
     box1_group.add(box1_right_mesh)
@@ -126,10 +121,13 @@ def create_scene():
     box1_group.add(box1_front_mesh)
 
     off_set = (BOX_SIZE - ROOM_SIZE) / 2
-    box1_group.local.position = (-off_set-26.5 -2.0, BOX_SIZE -HALF_ROOM_SIZE, 29.5+off_set)
+    box1_group.local.position = (
+        -off_set - 26.5 - 2.0,
+        BOX_SIZE - HALF_ROOM_SIZE,
+        29.5 + off_set,
+    )
     box1_group.local.rotation = la.quat_from_euler((0, -15 / 180 * math.pi, 0))
     gfx_scene.add(box1_group)
-
 
     # box1 = gfx.box_geometry(width=BOX_SIZE, height=BOX_SIZE*2, depth=BOX_SIZE)
     # box_mesh1 = gfx.Mesh(box1, white)
@@ -141,15 +139,13 @@ def create_scene():
     box2 = gfx.box_geometry(width=BOX_SIZE, height=BOX_SIZE, depth=BOX_SIZE)
     box_mesh2 = gfx.Mesh(box2, white)
     off_set = (BOX_SIZE - ROOM_SIZE) / 2
-    box_mesh2.local.position = (-off_set -13.0 + 2.0, off_set, 6.5 + off_set)
+    box_mesh2.local.position = (-off_set - 13.0 + 2.0, off_set, 6.5 + off_set)
     box_mesh2.local.rotation = la.quat_from_euler((0, 18 / 180 * math.pi, 0))
     gfx_scene.add(box_mesh2)
-
 
     triangles, materials = parse_gfx_scene(gfx_scene)
 
     return triangles, materials
-
 
 
 def load_wgsl(shader_name):
@@ -159,10 +155,14 @@ def load_wgsl(shader_name):
         return f.read().decode()
 
 
-canvas = WgpuCanvas(title="Raytracing", size=(IMAGE_WIDTH, IMAGE_HEIGHT), max_fps=-1, vsync=False)
+canvas = WgpuCanvas(
+    title="Raytracing", size=(IMAGE_WIDTH, IMAGE_HEIGHT), max_fps=-1, vsync=False
+)
 
 adapter = wgpu.gpu.request_adapter_sync(power_preference="high-performance")
-device = adapter.request_device_sync(required_features=["texture-adapter-specific-format-features","float32-filterable"])
+device = adapter.request_device_sync(
+    required_features=["texture-adapter-specific-format-features", "float32-filterable"]
+)
 present_context = canvas.get_context()
 render_texture_format = present_context.get_preferred_format(device.adapter)
 # render_texture_format = wgpu.TextureFormat.rgba8unorm
@@ -201,7 +201,8 @@ common_buffer_data = np.zeros(
 
 
 common_buffer = device.create_buffer(
-    size=common_buffer_data.nbytes, usage=wgpu.BufferUsage.UNIFORM | wgpu.BufferUsage.COPY_DST
+    size=common_buffer_data.nbytes,
+    usage=wgpu.BufferUsage.UNIFORM | wgpu.BufferUsage.COPY_DST,
 )
 
 camera = OrbitCamera(
@@ -223,7 +224,7 @@ camera_buffer = device.create_buffer_with_data(
     usage=wgpu.BufferUsage.UNIFORM | wgpu.BufferUsage.COPY_DST,
 )
 
-#Create raytracing compute shader
+# Create raytracing compute shader
 
 UTIL = load_wgsl("util.wgsl")
 MATERIAL = load_wgsl("material.wgsl")
@@ -245,7 +246,6 @@ ray_tracing_pipeline = device.create_compute_pipeline(
             "OBJECTS_COUNT_IN_SCENE": len(triangles),
             "MAX_BOUNCES": MAX_BOUNCES,
         },
-    
     },
 )
 
@@ -304,10 +304,10 @@ render_bind_group = device.create_bind_group(
     ],
 )
 
+state = {"spp": 0}
 
 
 def do_ray_tracing():
-
     canvas_texture = present_context.get_current_texture()
 
     # Update camera buffer
@@ -323,27 +323,31 @@ def do_ray_tracing():
     common_buffer_data["width"] = IMAGE_WIDTH
     common_buffer_data["height"] = IMAGE_HEIGHT
     common_buffer_data["frame_counter"] += 1
+    state["spp"] = common_buffer_data["frame_counter"]
 
     device.queue.write_buffer(common_buffer, 0, common_buffer_data.tobytes())
 
-
     command_encoder = device.create_command_encoder()
-    
 
     compute_pass = command_encoder.begin_compute_pass()
     compute_pass.set_pipeline(ray_tracing_pipeline)
     compute_pass.set_bind_group(0, ray_tracing_bind_group)
-    compute_pass.dispatch_workgroups( math.ceil(IMAGE_WIDTH / COMPUTE_WORKGROUP_SIZE_X), math.ceil(IMAGE_HEIGHT / COMPUTE_WORKGROUP_SIZE_Y), 1)
+    compute_pass.dispatch_workgroups(
+        math.ceil(IMAGE_WIDTH / COMPUTE_WORKGROUP_SIZE_X),
+        math.ceil(IMAGE_HEIGHT / COMPUTE_WORKGROUP_SIZE_Y),
+        1,
+    )
     compute_pass.end()
 
-
     render_pass = command_encoder.begin_render_pass(
-        color_attachments=[{
-            "view": canvas_texture.create_view(),
-            "load_op": "clear",
-            "store_op": "store",
-            "clear_value": (0.0, 0.0, 0.0, 1.0),
-        }],
+        color_attachments=[
+            {
+                "view": canvas_texture.create_view(),
+                "load_op": "clear",
+                "store_op": "store",
+                "clear_value": (0.0, 0.0, 0.0, 1.0),
+            }
+        ],
     )
 
     render_pass.set_pipeline(render_pipeline)
@@ -351,16 +355,19 @@ def do_ray_tracing():
     render_pass.draw(3, 1, 0, 0)
     render_pass.end()
 
-
     device.queue.submit([command_encoder.finish()])
 
 
 stats = Stats(device, canvas)
 
+stats._extra_data = state
+
+
 def loop():
     with stats:
         do_ray_tracing()
     canvas.request_draw()
+
 
 if __name__ == "__main__":
     canvas.request_draw(loop)
