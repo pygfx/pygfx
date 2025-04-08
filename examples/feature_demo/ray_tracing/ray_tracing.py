@@ -27,16 +27,21 @@ def create_scene():
 
     # .611, .0555, .062
     # red = Material((0.611, 0.0555, 0.062), roughness=1.0)
-    red = Material((0.65, 0.05, 0.05), roughness=1.0)
+    red = Material((0.63, 0.065, 0.05), roughness=1.0)
     # .117, .4125, .115
     # green = Material((0.117, 0.4125, 0.115), roughness=1.0)
-    green = Material((0.12, 0.45, 0.12), roughness=1.0)
+    green = Material((0.14, 0.45, 0.091), roughness=1.0)
     # .7295, .7355, .729
     # white = Material((0.7295, 0.7355, 0.729), roughness=1.0)
-    white = Material((0.73, 0.73, 0.73), roughness=1.0)
+    white = Material((0.725, 0.71, 0.68), roughness=1.0)
 
-    # 16.86, 8.76 +2., 3.2 + .5
-    light = Material((0.78, 0.78, 0.78), emissive=(16.86, 10.76, 3.7), roughness=1.0)
+    light_color1 = np.array([0.747 + 0.058, 0.747 + 0.258, 0.747])
+    light_color2 = np.array([0.740 + 0.287, 0.740 + 0.160, 0.740])
+    light_color3 = np.array([0.737 + 0.642, 0.737 + 0.159, 0.737])
+    light_color = 8.0 * light_color1 + 15.6 * light_color2 + 18.4 * light_color3
+    light_color = light_color / 3
+    print(light_color)
+    light = Material((0.78, 0.78, 0.78), emissive=light_color, roughness=1.0)
 
     specular = Material((1., 1., 1.), roughness=0.002, metallic=1.0)
     glass = Material((1., 1., 1.), roughness=0.0, metallic=0.0, ior=1.5)
