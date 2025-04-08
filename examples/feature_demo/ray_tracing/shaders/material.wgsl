@@ -17,11 +17,11 @@ struct Triangle {
 };
 
 struct Material {
-    color: vec3<f32>,           // 基础颜色
-    metallic: f32,              // 金属度
-    emissive: vec3<f32>,        // 自发光颜色
-    roughness: f32,             // 粗糙度
-    ior: f32,                // 折射率
+    color: vec3<f32>,       
+    metallic: f32,              
+    emissive: vec3<f32>,        
+    roughness: f32,            
+    ior: f32,              
 };
 
 struct Scatter {
@@ -107,8 +107,23 @@ fn scatter(ray: Ray, hit: Intersection, material: Material) -> Scatter {
                 }
             }else{
                 // Lambertian sampling
-                scatter_dir = normal + sample_sphere();
+                // scatter_dir = normal + sample_sphere();
                 // scatter_dir = normalize(normal + material.roughness * sample_sphere());
+                let r1 = rand_f32();
+                let r2 = rand_f32();
+                let phi = 2.0 * PI * r1;
+                let cos_theta = sqrt(r2);
+                let sin_theta = sqrt(1.0 - cos_theta * cos_theta);
+                let x = cos(phi) * sin_theta;
+                let y = sin(phi) * sin_theta;
+                let z = cos_theta;
+
+
+                let up = select(vec3f(0.0, 0.0, 1.0), vec3f(1.0, 0.0, 0.0), abs(normal.z) > 0.999);
+                let tangent = normalize(cross(up, normal));
+                let bitangent = cross(normal, tangent);
+
+                scatter_dir = tangent * x + bitangent * y + normal * z;
             }
 
             scatter_dir = select(scatter_dir, normal, all(scatter_dir == vec3f(0.0)));
