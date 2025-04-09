@@ -27,9 +27,11 @@ from imgui_bundle import imgui
 
 # Load image
 im = iio.imread("imageio:hubble_deep_field.png").astype(np.float32)
-X, Y = np.meshgrid(np.arange(im.shape[1]) - im.shape[1] / 2, np.arange(im.shape[0]) - im.shape[0] / 2)
+X, Y = np.meshgrid(
+    np.arange(im.shape[1]) - im.shape[1] / 2, np.arange(im.shape[0]) - im.shape[0] / 2
+)
 radius = np.sqrt(X**2 + Y**2)
-im *= (1 - radius[..., np.newaxis] / radius.max())
+im *= 1 - radius[..., np.newaxis] / radius.max()
 im = im.astype(np.uint8)
 
 canvas_size = im.shape[0], im.shape[1]
@@ -43,19 +45,19 @@ camera.local.x = canvas_size[0] / 2
 controller = gfx.PanZoomController(camera, register_events=renderer)
 
 
-image_texture = gfx.Texture(im,
-                            dim=2,
-                            generate_mipmaps=True
-                            )
+image_texture = gfx.Texture(im, dim=2, generate_mipmaps=True)
+
 
 class BackGroundRemovedImageMaterial(gfx.ImageBasicMaterial):
     """
     An image that has the background removed.
     """
+
     uniform_type = dict(
         gfx.ImageBasicMaterial.uniform_type,
         background_level="u4",
     )
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.background_level = 0
@@ -95,24 +97,20 @@ class BackGroundRemovedImageShader(ImageShader):
             value.a
         );
     }
-"""
+""",
         )
         return code
 
 
-
-
 image = gfx.Image(
     gfx.Geometry(grid=image_texture),
-    BackGroundRemovedImageMaterial(
-        clim=(0, 255),
-        interpolation="linear"
-        )
+    BackGroundRemovedImageMaterial(clim=(0, 255), interpolation="linear"),
 )
 scene.add(image)
 
 current_background_index = 0
 current_image_index = 0
+
 
 def draw_imgui():
     global current_background_index
@@ -127,20 +125,25 @@ def draw_imgui():
     is_expand, _ = imgui.begin("Controls", None)
 
     if is_expand:
-
-        background_levels = ['0', '1', '2', '3', '4', '5', '6', '7', '8']
+        background_levels = ["0", "1", "2", "3", "4", "5", "6", "7", "8"]
         # Background level selection dropdown
         changed, current_background_index = imgui.combo(
-            "Background Level", current_background_index, background_levels, len(background_levels)
+            "Background Level",
+            current_background_index,
+            background_levels,
+            len(background_levels),
         )
 
         if changed:
-            image.material.background_level = np.int32(background_levels[current_background_index])
+            image.material.background_level = np.int32(
+                background_levels[current_background_index]
+            )
 
     imgui.end()
     imgui.end_frame()
     imgui.render()
     return imgui.get_draw_data()
+
 
 # Create GUI renderer
 gui_renderer = ImguiRenderer(renderer.device, canvas)
