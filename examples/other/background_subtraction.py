@@ -11,6 +11,10 @@ One can adjust the background level via the dropdown menu. Each level subtracts 
 from the image with the subsampling increasing by a power of 2 with each level. Level 0 is the original
 image with no background subtraction.
 """
+
+# sphinx_gallery_pygfx_docs = 'screenshot'
+# sphinx_gallery_pygfx_test = 'run'
+
 import imageio.v3 as iio
 import numpy as np
 from wgpu.gui.auto import WgpuCanvas, run
@@ -22,7 +26,7 @@ from imgui_bundle import imgui
 
 
 # Load image
-im = iio.imread(f"imageio:hubble_deep_field.png").astype(np.float32)
+im = iio.imread("imageio:hubble_deep_field.png").astype(np.float32)
 X, Y = np.meshgrid(np.arange(im.shape[1]) - im.shape[1] / 2, np.arange(im.shape[0]) - im.shape[0] / 2)
 radius = np.sqrt(X**2 + Y**2)
 im *= (1 - radius[..., np.newaxis] / radius.max())
@@ -70,7 +74,6 @@ class BackGroundRemovedImageMaterial(gfx.ImageBasicMaterial):
 class BackGroundRemovedImageShader(ImageShader):
     def __init__(self, wobject):
         super().__init__(wobject)
-        material = wobject.material
 
     def get_code(self):
         code = super().get_code()
