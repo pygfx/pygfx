@@ -9,6 +9,8 @@ In the given example, it is all done on the CPU.
 # sphinx_gallery_pygfx_docs = 'screenshot'
 # sphinx_gallery_pygfx_test = 'run'
 
+import time
+
 import numpy as np
 import imageio.v3 as imageio
 from rendercanvas.auto import RenderCanvas, loop
@@ -96,6 +98,8 @@ camera.show_object(scene)
 
 histogram_wgsl = """
 
+
+
 @group(0) @binding(0) var imageTexture: texture_2d<f32>;
 @group(0) @binding(1) var<storage, read_write> s_positions: array<f32>;
 
@@ -107,6 +111,17 @@ fn srgbLuminance(color: vec3f) -> f32 {
 
 override bin_count: u32 = 20u;
 override flip_xy: bool = false;
+
+
+// Explain workgroup/invocation id's:
+//
+// local_invocation_id: the vec3 indicating the current invocation int the workgroup, as specified using @workgroup_size,  i.e. its position in the workgroup grid.
+// local_invocation_index: the u32 represening the 'flat' local_invocation_id.
+//
+// workgroup_id: the vec3 indicating the position of the workgroup in overall compute shader grid, as specified by dispatch_workgroups().
+//
+// global_invocation_id: workgroup_id * workgroup_size + local_invocation_id.
+
 
 @compute @workgroup_size(1)
 fn main() {
@@ -169,10 +184,19 @@ class ComputeStep:
         this argument can be omitted.
     """
 
-    def __init__(self, wgsl, *, entry_point: Optional[str] = None):
+    def __init__(
+        self,
+        wgsl,
+        *,
+        entry_point: Optional[str] = None,
+        label: str = None,
+        report_time: bool = False,
+    ):
         # Fixed
         self._wgsl = wgsl
         self._entry_point = entry_point
+        self._label = label
+        self._report_time = report_time
 
         # Things that can be changed via the API
         self._resources = {}
@@ -291,12 +315,15 @@ class ComputeStep:
         # Compile the shader
         if self._shader_module is None:
             self._pipeline = None
-            self._shader_module = device.create_shader_module(code=self._wgsl)
+            self._shader_module = device.create_shader_module(
+                label=self._label, code=self._wgsl
+            )
 
         # Get the pipeline object
         if self._pipeline is None:
             self._bind_group = None
             self._pipeline = device.create_compute_pipeline(
+                label=self._label,
                 layout="auto",
                 compute={
                     "module": self._shader_module,
@@ -310,15 +337,17 @@ class ComputeStep:
             bind_group_layout = self._pipeline.get_bind_group_layout(0)
             bindings = self._get_bindings_from_resources()
             self._bind_group = device.create_bind_group(
-                layout=bind_group_layout, entries=bindings
+                label=self._label, layout=bind_group_layout, entries=bindings
             )
 
         # Make sure that all used resources have a wgpu-representation, and are synced
         for resource in self._resources.values():
             gfx.renderers.wgpu.engine.update.update_resource(resource)
 
+        t0 = time.perf_counter()
+
         # Run ...
-        command_encoder = device.create_command_encoder()
+        command_encoder = device.create_command_encoder(label=self._label)
         compute_pass = command_encoder.begin_compute_pass()
         compute_pass.set_pipeline(self._pipeline)
         compute_pass.set_bind_group(0, self._bind_group)
@@ -326,8 +355,15 @@ class ComputeStep:
         compute_pass.end()
         device.queue.submit([command_encoder.finish()])
 
+        # Timeit
+        if self._report_time:
+            device._poll_wait()  # wait for the GPU to finish
+            t1 = time.perf_counter()
+            what = f"Computing {self._label!r}" if self._label else "Computing"
+            print(f"{what} took {(t1 - t0) * 1000:0.1f} ms")
 
-histogram_compute = ComputeStep(histogram_wgsl)
+
+histogram_compute = ComputeStep(histogram_wgsl, label="histogram", report_time=True)
 histogram_compute.set_resource(0, image_object.geometry.grid)
 histogram_compute.set_resource(1, histogram_buffer)
 
