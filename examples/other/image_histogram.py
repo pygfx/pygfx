@@ -106,11 +106,13 @@ fn srgbLuminance(color: vec3f) -> f32 {
     return saturate(dot(color, kSRGBLuminanceFactors));
 }
 
+override bin_count: u32 = 20u;
+
 @compute @workgroup_size(1)
 fn main() {
     let size = textureDimensions(imageTexture, 0);
     //let hist_size = textureDimensions(histTexture, 0);
-    let numBins = 20;//hist_size.x;
+    let numBins = i32(bin_count);  //hist_size.x;
     let numLevels = 100;//hist_size.y;
 
     // Compute hist
@@ -137,7 +139,7 @@ fn main() {
     }
 
     // Fill output image
-    for (var x = 0; x < numBins; x++) {
+    for (var x = 0; x < 20; x++) {
         let count = bins[x];
         let max_y = i32(round( f32(numLevels) * f32(count) / f32(maxCount) ));
         for (var y = 0; y < max_y; y++) {
@@ -169,14 +171,13 @@ class ComputeStep:
         this argument can be omitted.
     """
 
-    # todo: shader constants
-    # todo: uniform variables
-
     def __init__(self, wgsl, *, entry_point=None):
         self._wgsl = wgsl
         self._resources = {}
-        self._dispatch_counts = None
+        self._constants = {}
         self._entry_point = entry_point
+
+        self._changed = True
 
         # Internal variables
         self._device = None
@@ -184,16 +185,32 @@ class ComputeStep:
         self._pipeline = None
         self._bind_group = None
 
-    def clear_resources(self):
-        self._bindings.clear()
-        self._bind_group = None
+    @property
+    def changed(self):
+        return self._changed
 
     def set_resource(self, index, resource):
-        self._resources[index] = resource
-        self._bind_group = None
+        old_resource = self._resources.get(index)
+        if resource is not old_resource:
+            if resource is None:
+                self._resources.pop(index, None)
+            else:
+                self._resources[index] = resource
+            self._bind_group = None
+            self._changed = True
 
-    def set_workgroup_counts(self, nx, ny, nz):
-        self._dispatch_counts = int(nx), int(ny), int(nz)
+    def set_constant(self, name, value):
+        # NOTE: we could also provide support for uniform variables.
+        # The override constants are nice and simple, but require the pipeline
+        # to be re-created whenever a contant changes.
+        old_value = self._constants.get(name)
+        if value != old_value:
+            if value is None:
+                self._constants.pop(name, None)
+            else:
+                self._constants[name] = value
+            self._pipeline = None
+            self._changed = True
 
     def _get_bindings_from_resources(self):
         bindings = []
@@ -221,7 +238,9 @@ class ComputeStep:
                 raise RuntimeError(f"Unexpected resource: {resource}")
         return bindings
 
-    def dispatch(self):
+    def dispatch(self, nx, ny=1, nz=1):
+        nx, ny, nz = int(nx), int(ny), int(nz)
+
         # Get device
         if self._device is None:
             self._shader_module = None
@@ -241,7 +260,7 @@ class ComputeStep:
                 compute={
                     "module": self._shader_module,
                     "entry_point": self._entry_point,
-                    "constants": {},
+                    "constants": self._constants,
                 },
             )
 
@@ -262,7 +281,7 @@ class ComputeStep:
         compute_pass = command_encoder.begin_compute_pass()
         compute_pass.set_pipeline(self._pipeline)
         compute_pass.set_bind_group(0, self._bind_group)
-        compute_pass.dispatch_workgroups(*self._dispatch_counts)
+        compute_pass.dispatch_workgroups(nx, ny, nz)
         compute_pass.end()
         device.queue.submit([command_encoder.finish()])
 
@@ -271,18 +290,15 @@ histogram_compute = ComputeStep(histogram_wgsl)
 
 # TODO: this could be histogram_compute[0] = image_texture
 histogram_compute.set_resource(1, histogram_texture)
-histogram_compute.set_workgroup_counts(100, 1, 1)
 
 
 ## ------
 
 current_image_index = 0
-hist_needs_update = True
 
 
 def draw_imgui():
     global current_image_index
-    global hist_needs_update
 
     imgui.new_frame()
 
@@ -307,9 +323,6 @@ def draw_imgui():
             )
             image_object.geometry.grid = image_texture
 
-            # Trigger recomputation of the histogram
-            hist_needs_update = True
-
         # imgui.text(f"Histogram computation time: {computation_time * 1000:.1f} ms")
 
     imgui.end()
@@ -324,13 +337,9 @@ gui_renderer.set_gui(draw_imgui)
 
 
 def animate():
-    global hist_needs_update
-
-    if hist_needs_update:
-        hist_needs_update = False
+    if histogram_compute.changed:
         histogram_compute.set_resource(0, image_object.geometry.grid)
-        # histogram_compute.set_workgroup_counts()
-        histogram_compute.dispatch()
+        histogram_compute.dispatch(1)
 
     renderer.render(scene, camera)
     gui_renderer.render()
