@@ -71,21 +71,20 @@ image_object.local.scale_y = -1
 scene.add(image_object)
 
 
-# Create an image object to contain the histogram
+# Create a buffer to store the line representing the histogram
 nbins = 20
-histogram_texture = gfx.Texture(
-    data=None,
-    dim=2,
-    size=(nbins, 100, 1),
-    format="rgba8unorm",
-    usage=wgpu.TextureUsage.STORAGE_BINDING | wgpu.TextureUsage.TEXTURE_BINDING,
+histogram_buffer = gfx.Buffer(
+    nbytes=nbins * 3 * 4, nitems=nbins, format="3xf4", usage=wgpu.BufferUsage.STORAGE
 )
-histogram_object = gfx.Image(
-    gfx.Geometry(grid=histogram_texture),
-    gfx.ImageBasicMaterial(clim=(0, 255), interpolation="nearest"),
+
+# Create the line object with that buffer
+histogram_object = gfx.Line(
+    gfx.Geometry(positions=histogram_buffer),
+    gfx.LineMaterial(color="yellow"),
 )
 histogram_object.local.y += 10
-histogram_object.local.scale_x = 512 / nbins
+histogram_object.local.scale_y = 50
+histogram_object.local.scale_x = image_texture.size[0] / (nbins - 1)
 scene.add(histogram_object)
 
 
@@ -98,7 +97,7 @@ camera.show_object(scene)
 histogram_wgsl = """
 
 @group(0) @binding(0) var imageTexture: texture_2d<f32>;
-@group(0) @binding(1) var histTexture: texture_storage_2d<rgba8unorm,write>;
+@group(0) @binding(1) var<storage, read_write> s_positions: array<f32>;
 
 // from: https://www.w3.org/WAI/GL/wiki/Relative_luminance
 const kSRGBLuminanceFactors = vec3f(0.2126, 0.7152, 0.0722);
@@ -107,6 +106,7 @@ fn srgbLuminance(color: vec3f) -> f32 {
 }
 
 override bin_count: u32 = 20u;
+override flip_xy: bool = false;
 
 @compute @workgroup_size(1)
 fn main() {
@@ -138,18 +138,13 @@ fn main() {
         maxCount = max(maxCount, bins[x]);
     }
 
-    // Fill output image
-    for (var x = 0; x < 20; x++) {
-        let count = bins[x];
-        let max_y = i32(round( f32(numLevels) * f32(count) / f32(maxCount) ));
-        for (var y = 0; y < max_y; y++) {
-            let value = vec4<f32>(1.0, 1.0, 0.0, 1.0);
-            textureStore(histTexture, vec2<i32>(x, y), value);
-        }
-        for (var y = max_y; y < numLevels; y++) {
-            let value = vec4<f32>(0.0, 0.0, 0.0, 0.0);
-            textureStore(histTexture, vec2<i32>(x, y), value);
-        }
+    // Fill output positions buffer
+    for (var i = 0; i < 20; i++) {
+        let count = bins[i];
+        let x = f32(i);
+        let y = f32(count) / f32(maxCount);
+        s_positions[i*3] = select(x, y, flip_xy);
+        s_positions[i*3+1] = select(y, x, flip_xy);
     }
 }
 """
@@ -216,13 +211,16 @@ class ComputeStep:
         bindings = []
         for index, resource in self._resources.items():
             wgpu_object = gfx.renderers.wgpu.engine.update.ensure_wgpu_object(resource)
+            # todo: maybe check usage here so we can provide more useful message?
             if isinstance(resource, gfx.Buffer):
-                # todo: maybe check usage here so we can provide more useful message?
                 bindings.append(
                     {
                         "binding": index,
-                        "resource": wgpu_object,
-                        # todo: more needed
+                        "resource": {
+                            "buffer": wgpu_object,
+                            "offset": 0,
+                            "size": wgpu_object.size,
+                        },
                     }
                 )
             elif isinstance(resource, gfx.Texture):
@@ -240,6 +238,9 @@ class ComputeStep:
 
     def dispatch(self, nx, ny=1, nz=1):
         nx, ny, nz = int(nx), int(ny), int(nz)
+
+        # Reset
+        self._changed = False
 
         # Get device
         if self._device is None:
@@ -287,9 +288,9 @@ class ComputeStep:
 
 
 histogram_compute = ComputeStep(histogram_wgsl)
-
-# TODO: this could be histogram_compute[0] = image_texture
-histogram_compute.set_resource(1, histogram_texture)
+# TODO: this could be histogram_compute[0] = histogram_buffer
+histogram_compute.set_resource(0, image_object.geometry.grid)
+histogram_compute.set_resource(1, histogram_buffer)
 
 
 ## ------
@@ -313,7 +314,7 @@ def draw_imgui():
             "Image", current_image_index, standard_images, len(standard_images)
         )
         if changed:
-            # Create new texture object, and attach it to the image object.
+            # Create new texture object
             img = load_image(standard_images[current_image_index])
             image_texture = gfx.Texture(
                 img,
@@ -321,7 +322,11 @@ def draw_imgui():
                 usage=wgpu.TextureUsage.STORAGE_BINDING
                 | wgpu.TextureUsage.TEXTURE_BINDING,
             )
+            # Update the image
             image_object.geometry.grid = image_texture
+            # Update histogram
+            histogram_compute.set_resource(0, image_object.geometry.grid)
+            histogram_object.local.scale_x = image_texture.size[0] / (nbins - 1)
 
         # imgui.text(f"Histogram computation time: {computation_time * 1000:.1f} ms")
 
@@ -338,7 +343,6 @@ gui_renderer.set_gui(draw_imgui)
 
 def animate():
     if histogram_compute.changed:
-        histogram_compute.set_resource(0, image_object.geometry.grid)
         histogram_compute.dispatch(1)
 
     renderer.render(scene, camera)
