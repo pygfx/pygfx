@@ -224,7 +224,6 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     $$ endif
 
     // No aa. This is something we need to decide on. See line renderer.
-    // Making this < 1 would affect the suggested_render_mask.
     let alpha = 1.0;
     // Set color
     let physical_color = srgb2physical(albeido);

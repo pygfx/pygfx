@@ -18,11 +18,11 @@ shadows. Renderer specific state is also part of the renderstate.
        Uniform-Buffer         │
               ▲           ┌───┴────┐      ┌──────────────┐    ┌─────────────┐
               │        ┌──┤Material│      │Renderstate:  │    │Global:      │
-        ┌─────┴─────┐  │  └────────┘      │- blend mode  │    │- glyph atlas│
-        │WorldObject├──┤                  │- light slots │    │- stdinfo    │
-        └───────────┘  │  ┌────────┐      │- shadow maps │    │             │
-                       └──┤Geometry│      │- clip planes?│    └──────┬──────┘
-                          └───┬────┘      └──────┬───────┘           │
+        ┌─────┴─────┐  │  └────────┘      │- light slots │    │- glyph atlas│
+        │WorldObject├──┤                  │- shadow maps │    │- stdinfo    │
+        └───────────┘  │  ┌────────┐      │- clip planes?│    │             │
+                       └──┤Geometry│      └──────┬───────┘    └──────┬──────┘
+                          └───┬────┘             │                   │
                               │                  │                   ▼
                               ▼                  ▼              Uniform-Buffer
                             Buffers &        Affects wgsl         and Texture

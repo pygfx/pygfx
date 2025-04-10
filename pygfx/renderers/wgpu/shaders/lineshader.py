@@ -20,7 +20,6 @@ from .. import (
     register_wgpu_render_function,
     BaseShader,
     Binding,
-    RenderMask,
     load_wgsl,
     nchannels_from_format,
 )
@@ -93,8 +92,8 @@ class LineShader(BaseShader):
         # if (
         #     self["color_mode"] == "uniform"
         #     and not self["dashing"]
-        #     and not material.is_transparent
-        #     and not material.color_is_transparent
+        #     and material.transparent == False
+        #     and not_using_colors_that_may_have_alpha
         # ):
         #     # self["line_type"] = "quickline"
 
@@ -310,45 +309,13 @@ class LineShader(BaseShader):
         return offset * 6, size * 6
 
     def get_render_info(self, wobject, shared):
-        material = wobject.material
         # Determine how many vertices are needed
         offset, size = self._get_n(wobject.geometry.positions)
-
         n_instances = 1
         if self["instanced"]:
             n_instances = wobject.instance_buffer.nitems
-
-        render_mask = 0
-        if wobject.render_mask:
-            render_mask = wobject.render_mask
-        elif material.is_transparent:
-            render_mask = RenderMask.transparent
-        else:
-            # Get what passes are needed for the color
-            if self["color_mode"] == "uniform":
-                if material.color_is_transparent:
-                    render_mask |= RenderMask.transparent
-                else:
-                    render_mask |= RenderMask.opaque
-            elif self["color_mode"] in ("vertex", "face"):
-                if self["color_buffer_channels"] in (2, 4):
-                    render_mask |= RenderMask.all
-                else:
-                    render_mask |= RenderMask.opaque
-            elif self["color_mode"] in ("vertex_map", "face_map"):
-                if self["colormap_nchannels"] in (2, 4):
-                    render_mask |= RenderMask.all
-                else:
-                    render_mask |= RenderMask.opaque
-            else:
-                raise RuntimeError(f"Unexpected color mode {self['color_mode']}")
-            # Need transparency for aa
-            if material.aa:
-                render_mask |= RenderMask.transparent
-
         return {
             "indices": (size, n_instances, offset, 0),
-            "render_mask": render_mask,
         }
 
     def get_code(self):
@@ -435,31 +402,9 @@ class ThinLineShader(LineShader):
         }
 
     def get_render_info(self, wobject, shared):
-        material = wobject.material
         offset, size = wobject.geometry.positions.draw_range
-        render_mask = wobject.render_mask
-        if not render_mask:
-            render_mask = RenderMask.all
-            if material.is_transparent:
-                render_mask = RenderMask.transparent
-            elif self["color_mode"] == "uniform":
-                if material.color_is_transparent:
-                    render_mask = RenderMask.transparent
-                else:
-                    render_mask = RenderMask.opaque
-            elif self["color_mode"] == "vertex":
-                if self["color_buffer_channels"] in (2, 4):
-                    render_mask = RenderMask.all
-                else:
-                    render_mask = RenderMask.opaque
-            elif self["color_mode"] == "vertex_map":
-                if self["colormap_nchannels"] in (2, 4):
-                    render_mask = RenderMask.all
-                else:
-                    render_mask = RenderMask.opaque
         return {
             "indices": (size, 1, offset, 0),
-            "render_mask": render_mask,
         }
 
     def get_code(self):

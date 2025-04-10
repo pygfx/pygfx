@@ -80,7 +80,6 @@ class WireframeShader(BaseShader):
         n = geometry.indices.data.size
         return {
             "indices": (n, 1),
-            "render_mask": 3,
         }
 
     def get_code(self):
