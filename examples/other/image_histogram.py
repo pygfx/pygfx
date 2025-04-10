@@ -54,7 +54,11 @@ def load_image(image_name):
 
 # Create initial image
 img = load_image(standard_images[0])
-image_texture = gfx.Texture(img, dim=2, usage=wgpu.TextureUsage.STORAGE_BINDING)
+image_texture = gfx.Texture(
+    img,
+    dim=2,
+    usage=wgpu.TextureUsage.STORAGE_BINDING | wgpu.TextureUsage.TEXTURE_BINDING,
+)
 image_object = gfx.Image(
     gfx.Geometry(grid=image_texture),
     gfx.ImageBasicMaterial(clim=(0, 255)),
@@ -70,7 +74,7 @@ histogram_texture = gfx.Texture(
     dim=2,
     size=(nbins, 100, 1),
     format="rgba8unorm",
-    usage=wgpu.TextureUsage.STORAGE_BINDING,
+    usage=wgpu.TextureUsage.STORAGE_BINDING | wgpu.TextureUsage.TEXTURE_BINDING,
 )
 histogram_object = gfx.Image(
     gfx.Geometry(grid=histogram_texture),
@@ -147,57 +151,164 @@ fn main() {
 """
 
 
-def compute_histogram():
-    nx, ny, nz = 100, 1, 1
+class Compute:
+    def __init__(self, wgsl):
+        self._wgsl = wgsl
+        self._device = None
+        self._shader_module = None
+        self._pipeline = None
+        self._resources = {}
+        self._dispatch_counts = None
 
-    # Get Pygfx's wgu device object
-    device = gfx.renderers.wgpu.Shared.get_instance().device
+    def clear_resources(self):
+        self._resources.clear()
+        self._bindings = None
 
-    # TODO: accessing internal _wgpu_object attribute
-    image_wgpu_texture = image_object.geometry.grid._wgpu_object
-    histogram_wgpu_texture = histogram_texture._wgpu_object
+    def set_resource(self, index, resource):
+        self._resources[index] = resource
+        self._bindings = None
 
-    # Compile our shader
-    # TODO: don't do this every time!
-    cshader = device.create_shader_module(code=histogram_wgsl)
-    compute = {
-        "module": cshader,
-        "entry_point": "main",
-    }
-    # compute["constants"] = constants
+    def set_workgroup_counts(self, nx, ny, nz):
+        self._dispatch_counts = int(nx), int(ny), int(nz)
 
-    # Create a pipeline
-    compute_pipeline = device.create_compute_pipeline(
-        layout="auto",
-        compute=compute,
-    )
+    def dispatch(self):
+        # Get device
+        if self._device is None:
+            # Get Pygfx's wgu device object
+            self._device = gfx.renderers.wgpu.Shared.get_instance().device
+            self._shader_module = None
+        device = self._device
 
-    # Create bindings
-    bindings = [
-        {
-            "binding": 0,
-            "resource": image_wgpu_texture.create_view(
-                usage=wgpu.TextureUsage.STORAGE_BINDING
-            ),
-        },
-        {
-            "binding": 1,
-            "resource": histogram_wgpu_texture.create_view(
-                usage=wgpu.TextureUsage.STORAGE_BINDING
-            ),
-        },
-    ]
-    bind_group_layout = compute_pipeline.get_bind_group_layout(0)
-    bind_group = device.create_bind_group(layout=bind_group_layout, entries=bindings)
+        # Compile the shader
+        if self._shader_module is None:
+            self._shader_module = device.create_shader_module(code=self._wgsl)
+            self._pipeline = None
 
-    # Run
-    command_encoder = device.create_command_encoder()
-    compute_pass = command_encoder.begin_compute_pass()
-    compute_pass.set_pipeline(compute_pipeline)
-    compute_pass.set_bind_group(0, bind_group)
-    compute_pass.dispatch_workgroups(nx, ny, nz)
-    compute_pass.end()
-    device.queue.submit([command_encoder.finish()])
+        # Get the pipeline object
+        if self._pipeline is None:
+            self._pipeline = device.create_compute_pipeline(
+                layout="auto",
+                compute={
+                    "module": self._shader_module,
+                    "entry_point": "main",  # TODO: can this be omitted?
+                    "constants": {},
+                },
+            )
+
+        # Create bindings
+        bind_group_layout = self._pipeline.get_bind_group_layout(0)
+        bindings = []
+        for index, resource in self._resources.items():
+            wgpu_object = gfx.renderers.wgpu.engine.update.ensure_wgpu_object(resource)
+            if isinstance(resource, gfx.Buffer):
+                # todo: maybe check usage here so we can provide more useful message?
+                bindings.append(
+                    {
+                        "binding": index,
+                        "resource": wgpu_object,
+                        # todo: more needed
+                    }
+                )
+            elif isinstance(resource, gfx.Texture):
+                bindings.append(
+                    {
+                        "binding": index,
+                        "resource": wgpu_object.create_view(
+                            usage=wgpu.TextureUsage.STORAGE_BINDING
+                        ),
+                    }
+                )
+            else:
+                raise RuntimeError(f"Unexpected resource: {resource}")
+
+        # Todo: re-use bind group
+        bind_group = device.create_bind_group(
+            layout=bind_group_layout, entries=bindings
+        )
+
+        # Make sure that all used resources have a wgpu-representation, and are synced
+        for resource in self._resources.values():
+            gfx.renderers.wgpu.engine.update.update_resource(resource)
+
+        # Run
+        command_encoder = device.create_command_encoder()
+        compute_pass = command_encoder.begin_compute_pass()
+        compute_pass.set_pipeline(self._pipeline)
+        compute_pass.set_bind_group(0, bind_group)
+        compute_pass.dispatch_workgroups(*self._dispatch_counts)
+        compute_pass.end()
+        device.queue.submit([command_encoder.finish()])
+        print("dispatch!")
+
+
+# class HistogramCompute(Compute):
+#     workgroup_counts = 100, 0, 0
+
+#     def __init__(self, nbins=20):
+#         super().__init__()
+#         self._nbins = 20
+
+
+# TODO: maybe rename to Shader?
+histogram_compute = Compute(histogram_wgsl)
+
+# TODO: this could be histogram_compute[0] = image_texture
+histogram_compute.set_resource(0, image_texture)
+histogram_compute.set_resource(1, histogram_texture)
+histogram_compute.set_workgroup_counts(100, 1, 1)
+
+
+# def compute_histogram():
+#     nx, ny, nz = 100, 1, 1
+
+#     # Get Pygfx's wgu device object
+#     device = gfx.renderers.wgpu.Shared.get_instance().device
+
+#     # TODO: accessing internal _wgpu_object attribute
+#     image_wgpu_texture = image_object.geometry.grid._wgpu_object
+#     histogram_wgpu_texture = histogram_texture._wgpu_object
+
+#     # Compile our shader
+#     # TODO: don't do this every time!
+#     cshader = device.create_shader_module(code=histogram_wgsl)
+#     compute = {
+#         "module": cshader,
+#         "entry_point": "main",
+#     }
+#     # compute["constants"] = constants
+
+#     # Create a pipeline
+#     compute_pipeline = device.create_compute_pipeline(
+#         layout="auto",
+#         compute=compute,
+#     )
+
+#     # Create bindings
+#     bindings = [
+#         {
+#             "binding": 0,
+#             "resource": image_wgpu_texture.create_view(
+#                 usage=wgpu.TextureUsage.STORAGE_BINDING
+#             ),
+#         },
+#         {
+#             "binding": 1,
+#             "resource": histogram_wgpu_texture.create_view(
+#                 usage=wgpu.TextureUsage.STORAGE_BINDING
+#             ),
+#         },
+#     ]
+#     bind_group_layout = compute_pipeline.get_bind_group_layout(0)
+#     bind_group = device.create_bind_group(layout=bind_group_layout, entries=bindings)
+
+#     # Run
+#     command_encoder = device.create_command_encoder()
+#     compute_pass = command_encoder.begin_compute_pass()
+#     compute_pass.set_pipeline(compute_pipeline)
+#     compute_pass.set_bind_group(0, bind_group)
+#     compute_pass.dispatch_workgroups(nx, ny, nz)
+#     compute_pass.end()
+#     device.queue.submit([command_encoder.finish()])
 
 
 ## ------
@@ -252,7 +363,8 @@ def animate():
 
     if hist_needs_update:
         hist_needs_update = False
-        compute_histogram()
+        # histogram_compute.set_workgroup_counts()
+        histogram_compute.dispatch()
 
     gui_renderer.render()
     canvas.request_draw()
