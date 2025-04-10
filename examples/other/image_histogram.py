@@ -150,6 +150,9 @@ fn main() {
 """
 
 
+from typing import Optional, Union
+
+
 # TODO: ability to concatenate multiple steps
 # TODO: not sure about the name.
 # TODO: move this into Pygfx
@@ -166,12 +169,17 @@ class ComputeStep:
         this argument can be omitted.
     """
 
-    def __init__(self, wgsl, *, entry_point=None):
+    def __init__(self, wgsl, *, entry_point: Optional[str] = None):
+        # Fixed
         self._wgsl = wgsl
-        self._resources = {}
-        self._constants = {}
         self._entry_point = entry_point
 
+        # Things that can be changed via the API
+        self._resources = {}
+        self._constants = {}
+
+        # Flag to keep track whether this object changed.
+        # Note that this says nothing about the contents of buffers/textures used as input.
         self._changed = True
 
         # Internal variables
@@ -181,10 +189,25 @@ class ComputeStep:
         self._bind_group = None
 
     @property
-    def changed(self):
+    def changed(self) -> bool:
         return self._changed
 
-    def set_resource(self, index, resource):
+    def set_resource(
+        self,
+        index: int,
+        resource: Union[gfx.Buffer, gfx.Texture, wgpu.GPUBuffer, wgpu.GPUTexture],
+    ):
+        # Check
+        if not isinstance(index, int):
+            raise TypeError(f"ComputeStep resource index must be int, not {index!r}.")
+        if not isinstance(
+            resource, (gfx.Buffer, gfx.Texture, wgpu.GPUBuffer, wgpu.GPUTexture)
+        ):
+            raise TypeError(
+                f"ComputeStep resource value must be gfx.Buffer, gfx.Texture, wgpu.GPUBuffer, or wgpu.GPUTexture, not {resource!r}"
+            )
+
+        # Update if different
         old_resource = self._resources.get(index)
         if resource is not old_resource:
             if resource is None:
@@ -194,10 +217,20 @@ class ComputeStep:
             self._bind_group = None
             self._changed = True
 
-    def set_constant(self, name, value):
+    def set_constant(self, name: str, value: Union[bool, int, float, None]):
         # NOTE: we could also provide support for uniform variables.
         # The override constants are nice and simple, but require the pipeline
         # to be re-created whenever a contant changes.
+
+        # Check
+        if not isinstance(name, str):
+            raise TypeError(f"ComputeStep constant name must be str, not {name!r}.")
+        if not (value is None or isinstance(value, (bool, int, float))):
+            raise TypeError(
+                f"ComputeStep constant value must be bool, int, float, or None, not {value!r}."
+            )
+
+        # Update if different
         old_value = self._constants.get(name)
         if value != old_value:
             if value is None:
@@ -210,9 +243,16 @@ class ComputeStep:
     def _get_bindings_from_resources(self):
         bindings = []
         for index, resource in self._resources.items():
-            wgpu_object = gfx.renderers.wgpu.engine.update.ensure_wgpu_object(resource)
+            # Get native buffer or texture
+            if isinstance(resource, gfx.Resource):
+                wgpu_object = gfx.renderers.wgpu.engine.update.ensure_wgpu_object(
+                    resource
+                )
+            else:
+                wgpu_object = resource  # wgpu.GPUBuffer or wgpu.GPUTexture
+
             # todo: maybe check usage here so we can provide more useful message?
-            if isinstance(resource, gfx.Buffer):
+            if isinstance(wgpu_object, wgpu.GPUBuffer):
                 bindings.append(
                     {
                         "binding": index,
@@ -223,7 +263,7 @@ class ComputeStep:
                         },
                     }
                 )
-            elif isinstance(resource, gfx.Texture):
+            elif isinstance(wgpu_object, wgpu.GPUTexture):
                 bindings.append(
                     {
                         "binding": index,
@@ -288,7 +328,6 @@ class ComputeStep:
 
 
 histogram_compute = ComputeStep(histogram_wgsl)
-# TODO: this could be histogram_compute[0] = histogram_buffer
 histogram_compute.set_resource(0, image_object.geometry.grid)
 histogram_compute.set_resource(1, histogram_buffer)
 
