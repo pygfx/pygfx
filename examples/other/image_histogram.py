@@ -52,13 +52,17 @@ def load_image(image_name):
     return im
 
 
-# Create initial image
-img = load_image(standard_images[0])
+# Create initial image texture.
+# Note how we set the usage. We set STORAGE_BINDING so we can use it in a compute  shader.
+# We also set TEXTURE_BINDING because we also want to rendet the image.
 image_texture = gfx.Texture(
-    img,
+    load_image(standard_images[0]),
     dim=2,
     usage=wgpu.TextureUsage.STORAGE_BINDING | wgpu.TextureUsage.TEXTURE_BINDING,
 )
+
+# Create image object from the texture.
+# The image object stays the same, we swap out its texture when the user selects an image.
 image_object = gfx.Image(
     gfx.Geometry(grid=image_texture),
     gfx.ImageBasicMaterial(clim=(0, 255)),
@@ -144,59 +148,54 @@ fn main() {
             let value = vec4<f32>(0.0, 0.0, 0.0, 0.0);
             textureStore(histTexture, vec2<i32>(x, y), value);
         }
-
     }
 }
-
 """
 
 
-class Compute:
-    def __init__(self, wgsl):
+# TODO: ability to concatenate multiple steps
+# TODO: not sure about the name.
+# TODO: move this into Pygfx
+class ComputeStep:
+    """Abstraction for a compute shader.
+
+    Parameters
+    ----------
+    wgsl : str
+        The compute shader's code as WGSL.
+    entry_point : str | None
+        The name of the wgsl function that must be called.
+        If the wgsl code has only one entry-point (a function marked with ``@compute``)
+        this argument can be omitted.
+    """
+
+    # todo: shader constants
+    # todo: uniform variables
+
+    def __init__(self, wgsl, *, entry_point=None):
         self._wgsl = wgsl
+        self._resources = {}
+        self._dispatch_counts = None
+        self._entry_point = entry_point
+
+        # Internal variables
         self._device = None
         self._shader_module = None
         self._pipeline = None
-        self._resources = {}
-        self._dispatch_counts = None
+        self._bind_group = None
 
     def clear_resources(self):
-        self._resources.clear()
-        self._bindings = None
+        self._bindings.clear()
+        self._bind_group = None
 
     def set_resource(self, index, resource):
         self._resources[index] = resource
-        self._bindings = None
+        self._bind_group = None
 
     def set_workgroup_counts(self, nx, ny, nz):
         self._dispatch_counts = int(nx), int(ny), int(nz)
 
-    def dispatch(self):
-        # Get device
-        if self._device is None:
-            # Get Pygfx's wgu device object
-            self._device = gfx.renderers.wgpu.Shared.get_instance().device
-            self._shader_module = None
-        device = self._device
-
-        # Compile the shader
-        if self._shader_module is None:
-            self._shader_module = device.create_shader_module(code=self._wgsl)
-            self._pipeline = None
-
-        # Get the pipeline object
-        if self._pipeline is None:
-            self._pipeline = device.create_compute_pipeline(
-                layout="auto",
-                compute={
-                    "module": self._shader_module,
-                    "entry_point": "main",  # TODO: can this be omitted?
-                    "constants": {},
-                },
-            )
-
-        # Create bindings
-        bind_group_layout = self._pipeline.get_bind_group_layout(0)
+    def _get_bindings_from_resources(self):
         bindings = []
         for index, resource in self._resources.items():
             wgpu_object = gfx.renderers.wgpu.engine.update.ensure_wgpu_object(resource)
@@ -220,95 +219,59 @@ class Compute:
                 )
             else:
                 raise RuntimeError(f"Unexpected resource: {resource}")
+        return bindings
 
-        # Todo: re-use bind group
-        bind_group = device.create_bind_group(
-            layout=bind_group_layout, entries=bindings
-        )
+    def dispatch(self):
+        # Get device
+        if self._device is None:
+            self._shader_module = None
+            self._device = gfx.renderers.wgpu.Shared.get_instance().device
+        device = self._device
+
+        # Compile the shader
+        if self._shader_module is None:
+            self._pipeline = None
+            self._shader_module = device.create_shader_module(code=self._wgsl)
+
+        # Get the pipeline object
+        if self._pipeline is None:
+            self._bind_group = None
+            self._pipeline = device.create_compute_pipeline(
+                layout="auto",
+                compute={
+                    "module": self._shader_module,
+                    "entry_point": self._entry_point,
+                    "constants": {},
+                },
+            )
+
+        # Get the bind group object
+        if self._bind_group is None:
+            bind_group_layout = self._pipeline.get_bind_group_layout(0)
+            bindings = self._get_bindings_from_resources()
+            self._bind_group = device.create_bind_group(
+                layout=bind_group_layout, entries=bindings
+            )
 
         # Make sure that all used resources have a wgpu-representation, and are synced
         for resource in self._resources.values():
             gfx.renderers.wgpu.engine.update.update_resource(resource)
 
-        # Run
+        # Run ...
         command_encoder = device.create_command_encoder()
         compute_pass = command_encoder.begin_compute_pass()
         compute_pass.set_pipeline(self._pipeline)
-        compute_pass.set_bind_group(0, bind_group)
+        compute_pass.set_bind_group(0, self._bind_group)
         compute_pass.dispatch_workgroups(*self._dispatch_counts)
         compute_pass.end()
         device.queue.submit([command_encoder.finish()])
-        print("dispatch!")
 
 
-# class HistogramCompute(Compute):
-#     workgroup_counts = 100, 0, 0
-
-#     def __init__(self, nbins=20):
-#         super().__init__()
-#         self._nbins = 20
-
-
-# TODO: maybe rename to Shader?
-histogram_compute = Compute(histogram_wgsl)
+histogram_compute = ComputeStep(histogram_wgsl)
 
 # TODO: this could be histogram_compute[0] = image_texture
-histogram_compute.set_resource(0, image_texture)
 histogram_compute.set_resource(1, histogram_texture)
 histogram_compute.set_workgroup_counts(100, 1, 1)
-
-
-# def compute_histogram():
-#     nx, ny, nz = 100, 1, 1
-
-#     # Get Pygfx's wgu device object
-#     device = gfx.renderers.wgpu.Shared.get_instance().device
-
-#     # TODO: accessing internal _wgpu_object attribute
-#     image_wgpu_texture = image_object.geometry.grid._wgpu_object
-#     histogram_wgpu_texture = histogram_texture._wgpu_object
-
-#     # Compile our shader
-#     # TODO: don't do this every time!
-#     cshader = device.create_shader_module(code=histogram_wgsl)
-#     compute = {
-#         "module": cshader,
-#         "entry_point": "main",
-#     }
-#     # compute["constants"] = constants
-
-#     # Create a pipeline
-#     compute_pipeline = device.create_compute_pipeline(
-#         layout="auto",
-#         compute=compute,
-#     )
-
-#     # Create bindings
-#     bindings = [
-#         {
-#             "binding": 0,
-#             "resource": image_wgpu_texture.create_view(
-#                 usage=wgpu.TextureUsage.STORAGE_BINDING
-#             ),
-#         },
-#         {
-#             "binding": 1,
-#             "resource": histogram_wgpu_texture.create_view(
-#                 usage=wgpu.TextureUsage.STORAGE_BINDING
-#             ),
-#         },
-#     ]
-#     bind_group_layout = compute_pipeline.get_bind_group_layout(0)
-#     bind_group = device.create_bind_group(layout=bind_group_layout, entries=bindings)
-
-#     # Run
-#     command_encoder = device.create_command_encoder()
-#     compute_pass = command_encoder.begin_compute_pass()
-#     compute_pass.set_pipeline(compute_pipeline)
-#     compute_pass.set_bind_group(0, bind_group)
-#     compute_pass.dispatch_workgroups(nx, ny, nz)
-#     compute_pass.end()
-#     device.queue.submit([command_encoder.finish()])
 
 
 ## ------
@@ -334,9 +297,13 @@ def draw_imgui():
             "Image", current_image_index, standard_images, len(standard_images)
         )
         if changed:
+            # Create new texture object, and attach it to the image object.
             img = load_image(standard_images[current_image_index])
             image_texture = gfx.Texture(
-                img, dim=2, usage=wgpu.TextureUsage.STORAGE_BINDING
+                img,
+                dim=2,
+                usage=wgpu.TextureUsage.STORAGE_BINDING
+                | wgpu.TextureUsage.TEXTURE_BINDING,
             )
             image_object.geometry.grid = image_texture
 
@@ -359,13 +326,13 @@ gui_renderer.set_gui(draw_imgui)
 def animate():
     global hist_needs_update
 
-    renderer.render(scene, camera)
-
     if hist_needs_update:
         hist_needs_update = False
+        histogram_compute.set_resource(0, image_object.geometry.grid)
         # histogram_compute.set_workgroup_counts()
         histogram_compute.dispatch()
 
+    renderer.render(scene, camera)
     gui_renderer.render()
     canvas.request_draw()
 
