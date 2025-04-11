@@ -1,9 +1,8 @@
 """
 Image Histogram Analysis
-=======================
+========================
 
-The goal is to move the histogram computation to the GPU.
-In the given example, it is all done on the CPU.
+Compute the histogram of an image, on the GPU, using compute shaders.
 """
 
 # sphinx_gallery_pygfx_docs = 'screenshot'
@@ -27,10 +26,9 @@ from typing import Optional, Union
 
 
 # TODO: move this into wgpu/pygfx/new lib
-# TODO: not sure about the name.
 # TODO: ability to concatenate multiple steps
 # TODO: add support for uniforms
-class ComputeStep:
+class ComputeShader:
     """Abstraction for a compute shader.
 
     Parameters
@@ -43,7 +41,7 @@ class ComputeStep:
         this argument can be omitted.
     label : str | None
         The label for this shader. Used to set labels of underlying wgpu objects,
-        and in debugging messages.
+        and in debugging messages. If not set, use the entry_point.
     report_time : bool
         When set to True, will print the spent time to run the shader.
     """
@@ -53,13 +51,13 @@ class ComputeStep:
         wgsl,
         *,
         entry_point: Optional[str] = None,
-        label: str = Optional[None],
+        label: Optional[str] = None,
         report_time: bool = False,
     ):
         # Fixed
         self._wgsl = wgsl
         self._entry_point = entry_point
-        self._label = label
+        self._label = label or entry_point or ""
         self._report_time = report_time
 
         # Things that can be changed via the API
@@ -107,12 +105,12 @@ class ComputeStep:
         """
         # Check
         if not isinstance(index, int):
-            raise TypeError(f"ComputeStep resource index must be int, not {index!r}.")
+            raise TypeError(f"ComputeShader resource index must be int, not {index!r}.")
         if not isinstance(
             resource, (gfx.Buffer, gfx.Texture, wgpu.GPUBuffer, wgpu.GPUTexture)
         ):
             raise TypeError(
-                f"ComputeStep resource value must be gfx.Buffer, gfx.Texture, wgpu.GPUBuffer, or wgpu.GPUTexture, not {resource!r}"
+                f"ComputeShader resource value must be gfx.Buffer, gfx.Texture, wgpu.GPUBuffer, or wgpu.GPUTexture, not {resource!r}"
             )
         clear = bool(clear)
         if clear and not isinstance(
@@ -146,10 +144,10 @@ class ComputeStep:
 
         # Check
         if not isinstance(name, str):
-            raise TypeError(f"ComputeStep constant name must be str, not {name!r}.")
+            raise TypeError(f"ComputeShader constant name must be str, not {name!r}.")
         if not (value is None or isinstance(value, (bool, int, float))):
             raise TypeError(
-                f"ComputeStep constant value must be bool, int, float, or None, not {value!r}."
+                f"ComputeShader constant value must be bool, int, float, or None, not {value!r}."
             )
 
         # Update if different
@@ -423,7 +421,7 @@ fn srgbLuminance(color: vec3f) -> f32 {
 
 
 @compute @workgroup_size(chunkWidth, chunkHeight, chunkDepth)
-fn compute_histogram(
+fn calc_histogram(
     @builtin(global_invocation_id) global_invocation_id: vec3u,
     @builtin(local_invocation_index) local_invocation_index: u32,
     @builtin(local_invocation_id) local_invocation_id: vec3u,
@@ -504,23 +502,21 @@ fn write_histogram(
 """
 
 
-histogram_compute = ComputeStep(
+hist_calc_shader = ComputeShader(
     histogram_wgsl,
-    entry_point="compute_histogram",
-    label="compute_histogram",
+    entry_point="calc_histogram",
     report_time=True,
 )
-histogram_compute.set_resource(0, image_object.geometry.grid)
-histogram_compute.set_resource(1, histogram_bins_buffer, clear=True)
+hist_calc_shader.set_resource(0, image_object.geometry.grid)
+hist_calc_shader.set_resource(1, histogram_bins_buffer, clear=True)
 
-histogram_write = ComputeStep(
+hist_write_shader = ComputeShader(
     histogram_wgsl,
     entry_point="write_histogram",
-    label="write_histogram",
     report_time=True,
 )
-histogram_write.set_resource(2, histogram_bins_buffer)
-histogram_write.set_resource(3, histogram_line_buffer)
+hist_write_shader.set_resource(2, histogram_bins_buffer)
+hist_write_shader.set_resource(3, histogram_line_buffer)
 
 current_image_index = 0
 
@@ -552,7 +548,7 @@ def draw_imgui():
             # Update the image
             image_object.geometry.grid = image_texture
             # Update histogram
-            histogram_compute.set_resource(0, image_object.geometry.grid)
+            hist_calc_shader.set_resource(0, image_object.geometry.grid)
             histogram_object.local.scale_x = image_texture.size[0] / (nbins - 1)
 
         # imgui.text(f"Histogram computation time: {computation_time * 1000:.1f} ms")
@@ -569,12 +565,12 @@ gui_renderer.set_gui(draw_imgui)
 
 
 def animate():
-    if histogram_compute.changed:
+    if hist_calc_shader.changed:
         size = image_object.geometry.grid.size
-        histogram_compute.dispatch(
+        hist_calc_shader.dispatch(
             int(size[0] / 16 + 0.499999), int(size[1] / 16 + 0.499999)
         )
-        histogram_write.dispatch(1)
+        hist_write_shader.dispatch(1)
 
     renderer.render(scene, camera)
     gui_renderer.render()
