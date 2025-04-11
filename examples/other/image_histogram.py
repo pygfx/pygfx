@@ -21,156 +21,15 @@ from imgui_bundle import imgui
 import pygfx as gfx
 
 
-# Get list of available standard images
-standard_images = [
-    "astronaut",
-    "camera",
-    "checkerboard",
-    "clock",
-    "coffee",
-    "horse",
-    "hubble_deep_field",
-    "immunohistochemistry",
-    "moon",
-    "page",
-    "text",
-]
-
-# Initialize canvas and renderer
-canvas = RenderCanvas(size=(800, 600))
-renderer = gfx.renderers.WgpuRenderer(canvas)
-
-# Scene, camera, controller
-scene = gfx.Scene()
-scene.add(gfx.Background.from_color("#777"))
-camera = gfx.OrthographicCamera()
-controller = gfx.PanZoomController(camera, register_events=renderer)
-
-
-def load_image(image_name):
-    im = imageio.imread(f"imageio:{image_name}.png")
-    if im.ndim == 2:
-        im = np.stack([im, im, im], axis=2)
-    return im
-
-
-# Create initial image texture.
-# Note how we set the usage. We set STORAGE_BINDING so we can use it in a compute  shader.
-# We also set TEXTURE_BINDING because we also want to rendet the image.
-image_texture = gfx.Texture(
-    load_image(standard_images[0]),
-    dim=2,
-    usage=wgpu.TextureUsage.STORAGE_BINDING | wgpu.TextureUsage.TEXTURE_BINDING,
-)
-
-# Create image object from the texture.
-# The image object stays the same, we swap out its texture when the user selects an image.
-image_object = gfx.Image(
-    gfx.Geometry(grid=image_texture),
-    gfx.ImageBasicMaterial(clim=(0, 255)),
-)
-image_object.local.scale_y = -1
-scene.add(image_object)
-
-
-# Create a buffer to store the line representing the histogram
-nbins = 20
-histogram_buffer = gfx.Buffer(
-    nbytes=nbins * 3 * 4, nitems=nbins, format="3xf4", usage=wgpu.BufferUsage.STORAGE
-)
-
-# Create the line object with that buffer
-histogram_object = gfx.Line(
-    gfx.Geometry(positions=histogram_buffer),
-    gfx.LineMaterial(color="yellow"),
-)
-histogram_object.local.y += 10
-histogram_object.local.scale_y = 50
-histogram_object.local.scale_x = image_texture.size[0] / (nbins - 1)
-scene.add(histogram_object)
-
-
-# Update camera to show the image and histogram
-camera.show_object(scene)
-
-
-## GPU Compute
-
-histogram_wgsl = """
-
-
-
-@group(0) @binding(0) var imageTexture: texture_2d<f32>;
-@group(0) @binding(1) var<storage, read_write> s_positions: array<f32>;
-
-// from: https://www.w3.org/WAI/GL/wiki/Relative_luminance
-const kSRGBLuminanceFactors = vec3f(0.2126, 0.7152, 0.0722);
-fn srgbLuminance(color: vec3f) -> f32 {
-    return saturate(dot(color, kSRGBLuminanceFactors));
-}
-
-override bin_count: u32 = 20u;
-override flip_xy: bool = false;
-
-
-// Explain workgroup/invocation id's:
-//
-// local_invocation_id: the vec3 indicating the current invocation int the workgroup, as specified using @workgroup_size,  i.e. its position in the workgroup grid.
-// local_invocation_index: the u32 represening the 'flat' local_invocation_id.
-//
-// workgroup_id: the vec3 indicating the position of the workgroup in overall compute shader grid, as specified by dispatch_workgroups().
-//
-// global_invocation_id: workgroup_id * workgroup_size + local_invocation_id.
-
-
-@compute @workgroup_size(1)
-fn main() {
-    let size = textureDimensions(imageTexture, 0);
-    //let hist_size = textureDimensions(histTexture, 0);
-    let numBins = i32(bin_count);  //hist_size.x;
-    let numLevels = 100;//hist_size.y;
-
-    // Compute hist
-
-    var bins: array<i32,20>;
-
-    let lastBinIndex = u32(numBins - 1);
-    for (var y = 0u; y < size.y; y++) {
-        for (var x = 0u; x < size.x; x++) {
-        let position = vec2u(x, y);
-        let color = textureLoad(imageTexture, position, 0);
-        let v = srgbLuminance(color.rgb);
-        let bin = min(u32(v * f32(numBins)), lastBinIndex);
-        bins[bin] += 1;
-        }
-    }
-
-    // Draw hist
-
-    // Detect maximum count
-    var maxCount = 0;
-    for (var x = 0; x < numBins; x++) {
-        maxCount = max(maxCount, bins[x]);
-    }
-
-    // Fill output positions buffer
-    for (var i = 0; i < 20; i++) {
-        let count = bins[i];
-        let x = f32(i);
-        let y = f32(count) / f32(maxCount);
-        s_positions[i*3] = select(x, y, flip_xy);
-        s_positions[i*3+1] = select(y, x, flip_xy);
-    }
-}
-"""
-
+## Compute API to be moved elsewhere
 
 from typing import Optional, Union
 
 
-# TODO: ability to concatenate multiple steps
+# TODO: move this into wgpu/pygfx/new lib
 # TODO: not sure about the name.
-# TODO: move this into Pygfx
+# TODO: ability to concatenate multiple steps
+# TODO: add support for uniforms
 class ComputeStep:
     """Abstraction for a compute shader.
 
@@ -182,6 +41,11 @@ class ComputeStep:
         The name of the wgsl function that must be called.
         If the wgsl code has only one entry-point (a function marked with ``@compute``)
         this argument can be omitted.
+    label : str | None
+        The label for this shader. Used to set labels of underlying wgpu objects,
+        and in debugging messages.
+    report_time : bool
+        When set to True, will print the spent time to run the shader.
     """
 
     def __init__(
@@ -189,7 +53,7 @@ class ComputeStep:
         wgsl,
         *,
         entry_point: Optional[str] = None,
-        label: str = None,
+        label: str = Optional[None],
         report_time: bool = False,
     ):
         # Fixed
@@ -214,13 +78,33 @@ class ComputeStep:
 
     @property
     def changed(self) -> bool:
+        """Whether the shader has been changed.
+
+        This can be a new value for a constant, or a different resource.
+        Note that this says nothing about the values inside a buffer or texture resource.
+        This value is reset when ``dispatch()`` is called.
+        """
         return self._changed
 
     def set_resource(
         self,
         index: int,
         resource: Union[gfx.Buffer, gfx.Texture, wgpu.GPUBuffer, wgpu.GPUTexture],
+        *,
+        clear=False,
     ):
+        """Set a resource.
+
+        Parameters
+        ----------
+        index : int
+            The binding index to connect this resource to. (The group is hardcoded to zero for now.)
+        resource : buffer | texture
+            The buffer or texture to attach. Can be a wgpu or pygfx resource.
+        clear : bool
+            When set to True (only possible for a buffer), the resource is cleared to zeros
+            right before running the shader.
+        """
         # Check
         if not isinstance(index, int):
             raise TypeError(f"ComputeStep resource index must be int, not {index!r}.")
@@ -230,18 +114,32 @@ class ComputeStep:
             raise TypeError(
                 f"ComputeStep resource value must be gfx.Buffer, gfx.Texture, wgpu.GPUBuffer, or wgpu.GPUTexture, not {resource!r}"
             )
+        clear = bool(clear)
+        if clear and not isinstance(
+            resource, (gfx.Buffer, gfx.Texture, wgpu.GPUBuffer)
+        ):
+            raise ValueError("Can only clear a buffer, not a texture.")
+
+        # Value to store
+        new_value = resource, bool(clear)
 
         # Update if different
-        old_resource = self._resources.get(index)
-        if resource is not old_resource:
+        old_value = self._resources.get(index)
+        if new_value != old_value:
             if resource is None:
                 self._resources.pop(index, None)
             else:
-                self._resources[index] = resource
+                self._resources[index] = new_value
             self._bind_group = None
             self._changed = True
 
     def set_constant(self, name: str, value: Union[bool, int, float, None]):
+        """Set override constant.
+
+        Setting override constants don't require shader recompilation, but does
+        require re-creating the pipeline object. So it's less suited for things
+        that change on every draw.
+        """
         # NOTE: we could also provide support for uniform variables.
         # The override constants are nice and simple, but require the pipeline
         # to be re-created whenever a contant changes.
@@ -264,18 +162,16 @@ class ComputeStep:
             self._pipeline = None
             self._changed = True
 
+    def _get_native_resource(self, resource):
+        if isinstance(resource, gfx.Resource):
+            return gfx.renderers.wgpu.engine.update.ensure_wgpu_object(resource)
+        return resource
+
     def _get_bindings_from_resources(self):
         bindings = []
-        for index, resource in self._resources.items():
-            # Get native buffer or texture
-            if isinstance(resource, gfx.Resource):
-                wgpu_object = gfx.renderers.wgpu.engine.update.ensure_wgpu_object(
-                    resource
-                )
-            else:
-                wgpu_object = resource  # wgpu.GPUBuffer or wgpu.GPUTexture
-
-            # todo: maybe check usage here so we can provide more useful message?
+        for index, (resource, _) in self._resources.items():
+            # Get wgpu.GPUBuffer or wgpu.GPUTexture
+            wgpu_object = self._get_native_resource(resource)
             if isinstance(wgpu_object, wgpu.GPUBuffer):
                 bindings.append(
                     {
@@ -301,6 +197,7 @@ class ComputeStep:
         return bindings
 
     def dispatch(self, nx, ny=1, nz=1):
+        """Dispatch the workgroups, i.e. run the shader."""
         nx, ny, nz = int(nx), int(ny), int(nz)
 
         # Reset
@@ -341,18 +238,28 @@ class ComputeStep:
             )
 
         # Make sure that all used resources have a wgpu-representation, and are synced
-        for resource in self._resources.values():
-            gfx.renderers.wgpu.engine.update.update_resource(resource)
+        for resource, _ in self._resources.values():
+            if isinstance(resource, gfx.Resource):
+                gfx.renderers.wgpu.engine.update.update_resource(resource)
 
         t0 = time.perf_counter()
 
-        # Run ...
+        # Start!
         command_encoder = device.create_command_encoder(label=self._label)
+
+        # Maybe clear some buffers
+        for resource, clear in self._resources.values():
+            if clear:
+                command_encoder.clear_buffer(self._get_native_resource(resource))
+
+        # Do the compute pass
         compute_pass = command_encoder.begin_compute_pass()
         compute_pass.set_pipeline(self._pipeline)
         compute_pass.set_bind_group(0, self._bind_group)
         compute_pass.dispatch_workgroups(nx, ny, nz)
         compute_pass.end()
+
+        # Submit!
         device.queue.submit([command_encoder.finish()])
 
         # Timeit
@@ -363,12 +270,257 @@ class ComputeStep:
             print(f"{what} took {(t1 - t0) * 1000:0.1f} ms")
 
 
-histogram_compute = ComputeStep(histogram_wgsl, label="histogram", report_time=True)
+## End of compute API
+
+
+# Get list of available standard images
+standard_images = [
+    "astronaut",
+    "camera",
+    "checkerboard",
+    "clock",
+    "coffee",
+    "horse",
+    "hubble_deep_field",
+    "immunohistochemistry",
+    "moon",
+    "page",
+    "text",
+]
+
+# Hard-coded number of bins
+nbins = 256
+
+# Initialize canvas and renderer
+canvas = RenderCanvas(size=(800, 600))
+renderer = gfx.renderers.WgpuRenderer(canvas)
+
+# Scene, camera, controller
+scene = gfx.Scene()
+scene.add(gfx.Background.from_color("#777"))
+camera = gfx.OrthographicCamera()
+controller = gfx.PanZoomController(camera, register_events=renderer)
+
+
+def load_image(image_name):
+    im = imageio.imread(f"imageio:{image_name}.png")
+    if im.ndim == 2:
+        im = np.stack([im, im, im], axis=2)
+    return im
+
+
+# Create initial image texture.
+# Note how we set the usage. We set STORAGE_BINDING so we can use it in a compute  shader.
+# We also set TEXTURE_BINDING because we also want to render the image.
+image_texture = gfx.Texture(
+    load_image(standard_images[0]),
+    dim=2,
+    usage=wgpu.TextureUsage.STORAGE_BINDING | wgpu.TextureUsage.TEXTURE_BINDING,
+)
+
+# Create image object from the texture.
+# The image object stays the same, we swap out its texture when the user selects an image.
+image_object = gfx.Image(
+    gfx.Geometry(grid=image_texture),
+    gfx.ImageBasicMaterial(clim=(0, 255)),
+)
+image_object.local.scale_y = -1
+scene.add(image_object)
+
+
+# Create a buffer to store bins for the histogram, separately for rgb and luminance.
+# The COPY_DST usage is needed to be able to clear the buffer (to zeros).
+histogram_bins_buffer = gfx.Buffer(
+    nbytes=nbins * 4 * 4,
+    nitems=nbins,
+    format="4xu4",
+    usage=wgpu.BufferUsage.STORAGE | wgpu.BufferUsage.COPY_DST,
+)
+
+# Create a buffer that holds the line positions. This is written to by a compute shader.
+# It consists of 4 pieces (red, green, blue, luminance), with nans in between.
+histogram_line_buffer = gfx.Buffer(
+    nbytes=(4 * nbins + 3) * 3 * 4,
+    nitems=(4 * nbins + 3),
+    format="3xf4",
+    usage=wgpu.BufferUsage.STORAGE,
+)
+
+# Color each line-piece
+histogram_colors = np.zeros(((4 * nbins + 3), 3), np.float32)
+histogram_colors[0 * nbins + 0 : 1 * nbins + 0] = (1, 0, 0)
+histogram_colors[1 * nbins + 1 : 2 * nbins + 1] = (0, 1, 0)
+histogram_colors[2 * nbins + 2 : 3 * nbins + 2] = (0, 0, 1)
+histogram_colors[3 * nbins + 3 : 4 * nbins + 3] = (1, 1, 1)
+
+# Create the line object with that buffer
+histogram_object = gfx.Line(
+    gfx.Geometry(positions=histogram_line_buffer, colors=histogram_colors),
+    gfx.LineMaterial(color="yellow", color_mode="vertex"),
+)
+histogram_object.local.y += 10
+histogram_object.local.scale_y = 1
+histogram_object.local.scale_x = image_texture.size[0] / (nbins - 1)
+scene.add(histogram_object)
+
+
+# Update camera to show the image and histogram
+camera.show_object(scene)
+
+
+# --- Create compute shaders
+#
+# We use two shaders: one to calculate the histogram and store the
+# result in an uint32 buffer, the other to use that buffer to set the
+# positions buffer of a line object. Making stuff like this fast is not
+# trivial. Basically you want to paralellize as much as you can, and
+# avoid locking when multiple threads write to the same memory.
+
+# In the current implementation, this is partially solved by using a
+# workgroup, which has its own temporary histogram, so that the
+# different workgroups don't get in each-others way. After that. each
+# thread in a workgroup is then responsible for adding a single
+# histogram value to the final histogram buffer.
+#
+# The second shader simply copies values from the histogram into the
+# positions buffer, where we can use 1024 cores, so it's parellized
+# pretty well.
+#
+# Took inspiration from https://webgpufundamentals.org/webgpu/lessons/webgpu-compute-shaders-histogram.html
+# but implemented a slightly simpler variant of its final one.
+# It is very likely that a more performant implementation exists. But it's also
+# likely that what its the most efficient version depends on the hardware.
+#
+# About workgroup/invocation id's:
+#
+# * local_invocation_id: the vec3 indicating the current invocation into the
+#   workgroup, as specified using @workgroup_size,  i.e. its position in the
+#   workgroup grid.
+# * local_invocation_index: the u32 represening the 'flat' local_invocation_id.
+# * workgroup_id: the vec3 indicating the position of the workgroup in overall
+#   compute shader grid, as specified by dispatch_workgroups().
+# * global_invocation_id: workgroup_id * workgroup_size + local_invocation_id.
+
+
+histogram_wgsl = """
+
+const chunkWidth = 16u;
+const chunkHeight = 16u;
+const chunkDepth = 4u;
+
+const chunkSize = chunkWidth * chunkHeight * chunkDepth;
+const binCount = chunkWidth * chunkHeight;
+var<workgroup> bins: array<atomic<u32>, chunkSize>;
+
+
+@group(0) @binding(0) var imageTexture: texture_2d<f32>;
+@group(0) @binding(1) var<storage, read_write> sa_bins: array<atomic<u32>>;
+
+const kSRGBLuminanceFactors = vec3f(0.2126, 0.7152, 0.0722);
+fn srgbLuminance(color: vec3f) -> f32 {
+    return saturate(dot(color, kSRGBLuminanceFactors));
+}
+
+
+@compute @workgroup_size(chunkWidth, chunkHeight, chunkDepth)
+fn compute_histogram(
+    @builtin(global_invocation_id) global_invocation_id: vec3u,
+    @builtin(local_invocation_index) local_invocation_index: u32,
+    @builtin(local_invocation_id) local_invocation_id: vec3u,
+) {
+
+    // Write zeros to the workgroup array
+    let binIndex = local_invocation_index;
+    atomicStore(&bins[binIndex], 0u);
+
+    workgroupBarrier();
+
+    // Collect pixels, and store in workgroup array
+    let size = textureDimensions(imageTexture, 0);
+    let position = global_invocation_id.xy;
+    if (all(position < size)) {
+        let lastBinIndex = u32(binCount - 1);
+        let color = textureLoad(imageTexture, position, 0);
+        let channel = u32(local_invocation_id.z);
+        var v: f32;
+        if (channel == 3u) {
+            v = srgbLuminance(color.rgb);
+        } else {
+            v = color[channel];
+        }
+        let binIndex = min(u32(v * f32(binCount)), lastBinIndex) * 4u + channel;
+        atomicAdd(&bins[binIndex], 1u);
+    }
+
+    workgroupBarrier();
+
+    // Copy the bin values from our workgroup array to the storage buffer.
+    let binValue = atomicLoad(&bins[binIndex]);
+    if (binValue > 0) {
+        atomicAdd(&sa_bins[binIndex], binValue);
+    }
+}
+
+
+@group(0) @binding(2) var<storage, read> s_bins: array<u32>;
+@group(0) @binding(3) var<storage, read_write> s_positions: array<f32>;
+
+// The scale is hard-coded, but we could add another pass to calculate it
+const scale = 1.0 / 100.0;
+
+@compute @workgroup_size(binCount, chunkDepth)
+fn write_histogram(
+    @builtin(global_invocation_id) global_invocation_id: vec3u,
+) {
+
+    let i = global_invocation_id.x; // 0..binCount-1
+    let channel = global_invocation_id.y;  // 0..4
+
+    let binValue = s_bins[i* 4 + channel];
+
+    // The line consists of 4 pieces, one for each channel.
+    // The '+ channel' is there because we need to put a nan-vertex in between
+    // the line pieces.
+    let vertex_index = ((channel * binCount) + channel + i) * 3u;
+
+    // Write a nan value between line pieces.
+    if (i == 0u && channel > 0u) {
+        let nan = bitcast<f32>(0x7fc00000u);  // nan;
+        s_positions[vertex_index-3] = nan;
+        s_positions[vertex_index-2] = nan;
+        s_positions[vertex_index-1] = nan;
+    }
+
+    // Write the value
+    let ix = vertex_index;
+    let iy = vertex_index + 1;
+    let iz = vertex_index + 2;
+    s_positions[ix] = f32(i);
+    s_positions[iy] = f32(binValue) * scale;
+    s_positions[iz] = 0.0;
+}
+
+
+"""
+
+
+histogram_compute = ComputeStep(
+    histogram_wgsl,
+    entry_point="compute_histogram",
+    label="compute_histogram",
+    report_time=True,
+)
 histogram_compute.set_resource(0, image_object.geometry.grid)
-histogram_compute.set_resource(1, histogram_buffer)
+histogram_compute.set_resource(1, histogram_bins_buffer, clear=True)
 
-
-## ------
+histogram_write = ComputeStep(
+    histogram_wgsl,
+    entry_point="write_histogram",
+    label="write_histogram",
+    report_time=True,
+)
+histogram_write.set_resource(2, histogram_bins_buffer)
+histogram_write.set_resource(3, histogram_line_buffer)
 
 current_image_index = 0
 
@@ -418,7 +570,11 @@ gui_renderer.set_gui(draw_imgui)
 
 def animate():
     if histogram_compute.changed:
-        histogram_compute.dispatch(1)
+        size = image_object.geometry.grid.size
+        histogram_compute.dispatch(
+            int(size[0] / 16 + 0.499999), int(size[1] / 16 + 0.499999)
+        )
+        histogram_write.dispatch(1)
 
     renderer.render(scene, camera)
     gui_renderer.render()
