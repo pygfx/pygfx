@@ -243,7 +243,9 @@ class LineShader(BaseShader):
         # are padded to 16 bytes. So we either have to require our users
         # to provide Nx4 data, or read them as an array of f32.
         # Anyway, extra check here to make sure the data matches!
-        if positions1.data.shape[1] != 3:
+        if positions1.data is None:
+            pass  # assume the user knows that it must be 3D vertices
+        elif positions1.data.shape[1] != 3:
             raise ValueError(
                 "For rendering (thick) lines, the geometry.positions must be Nx3."
             )
