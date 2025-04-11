@@ -1,4 +1,7 @@
+import numpy as np
 from ..utils.trackable import Trackable
+from ..resources import Buffer
+from ..utils import array_from_shadertype
 
 
 class TextureMap(Trackable):
@@ -33,6 +36,10 @@ class TextureMap(Trackable):
         The wrap mode for the t coordinate. Defaults to the value of ``wrap``.
     """
 
+    uniform_type = dict(
+        transform="3x4xf4",
+    )
+
     def __init__(
         self,
         texture,
@@ -54,6 +61,15 @@ class TextureMap(Trackable):
         self.mipmap_filter = mipmap_filter or filter
         self.wrap_s = wrap_s or wrap
         self.wrap_t = wrap_t or wrap
+
+        self._offset = (0, 0)
+        self._scale = (1, 1)
+        self._rotation = 0
+
+        self._store.uniform_buffer = Buffer(
+            array_from_shadertype(self.uniform_type), force_contiguous=True
+        )
+        self.update_matrix()
 
     @property
     def texture(self):
@@ -117,3 +133,93 @@ class TextureMap(Trackable):
     @wrap_t.setter
     def wrap_t(self, value):
         self._store.wrap_t = value
+
+    @property
+    def offset(self):
+        """The offset of the texture map.
+
+        Note: You should call `update_matrix` after changing this value to update the matrix.
+        For now, it is only affective for 2D textures in Mesh Rendering.
+        """
+        return self._offset
+
+    @offset.setter
+    def offset(self, value):
+        self._offset = value
+
+    @property
+    def scale(self):
+        """The scale of the texture map.
+
+        Note: You should call `update_matrix` after changing this value to update the matrix.
+        For now, it is only affective for 2D textures in Mesh Rendering.
+        """
+        return self._scale
+
+    @scale.setter
+    def scale(self, value):
+        self._scale = value
+
+    @property
+    def rotation(self):
+        """The rotation of the texture map.
+
+        Note: You should call `update_matrix` after changing this value to update the matrix.
+        For now, it is only affective for 2D textures in Mesh Rendering.
+        """
+        return self._rotation
+
+    @rotation.setter
+    def rotation(self, value):
+        self._rotation = value
+
+    def update_matrix_components(self, offset=None, scale=None, rotation=None):
+        """Update the texture map's matrix with the given offset, scale and rotation.
+
+        Parameters
+        ----------
+        offset : tuple of float, optional
+            The offset of the texture map.
+        scale : tuple of float, optional
+            The scale of the texture map.
+        rotation : float, optional
+            The rotation of the texture map.
+        """
+
+        if offset is not None:
+            self._offset = offset
+
+        if scale is not None:
+            self._scale = scale
+
+        if rotation is not None:
+            self._rotation = rotation
+
+        self.update_matrix()
+
+    # Currently, we let users to manage the matrix update timing themselves.
+    # todo: auto update matrix when offset, scale, rotation are changed before the next draw call.
+    def update_matrix(self):
+        """Update the matrix of the texture map."""
+
+        cos_r = np.cos(self._rotation)
+        sin_r = np.sin(self._rotation)
+
+        matrix = np.array(
+            [
+                [cos_r * self._scale[0], sin_r * self._scale[0], self._offset[0]],
+                [-sin_r * self._scale[1], cos_r * self._scale[1], self._offset[1]],
+                [0, 0, 1],
+            ]
+        )
+
+        matrix = matrix.T
+        # 3x3 -> padding to 3x4
+        matrix = np.pad(matrix, ((0, 0), (0, 1)))
+        self.uniform_buffer.data["transform"].flat = matrix.flat
+        self.uniform_buffer.update_full()
+
+    @property
+    def uniform_buffer(self):
+        """The uniform buffer of the texture map."""
+        return self._store.uniform_buffer
