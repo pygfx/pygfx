@@ -428,6 +428,7 @@ fn calc_histogram(
 ) {
 
     // Write zeros to the workgroup array
+    // There is no risk on race conditions here, but the WGSL spec requires using an atomic operation.
     let binIndex = local_invocation_index;
     atomicStore(&bins[binIndex], 0u);
 
@@ -551,8 +552,6 @@ def draw_imgui():
             hist_calc_shader.set_resource(0, image_object.geometry.grid)
             histogram_object.local.scale_x = image_texture.size[0] / (nbins - 1)
 
-        # imgui.text(f"Histogram computation time: {computation_time * 1000:.1f} ms")
-
     imgui.end()
     imgui.end_frame()
     imgui.render()
@@ -567,9 +566,7 @@ gui_renderer.set_gui(draw_imgui)
 def animate():
     if hist_calc_shader.changed:
         size = image_object.geometry.grid.size
-        hist_calc_shader.dispatch(
-            int(size[0] / 16 + 0.499999), int(size[1] / 16 + 0.499999)
-        )
+        hist_calc_shader.dispatch((size[0] + 15) // 16, (size[1] + 15) // 16)
         hist_write_shader.dispatch(1)
 
     renderer.render(scene, camera)
