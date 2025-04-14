@@ -60,7 +60,7 @@ bind_group_layout_entry = {
 global_bind_group_layout = None
 
 
-def render_shadow_maps(lights, wobjects, command_encoder):
+def render_shadow_maps(lights, wobjects, command_encoder, time_measurer):
     """Render the wobjects into the shadow maps for the given lights."""
 
     global global_bind_group_layout
@@ -75,6 +75,17 @@ def render_shadow_maps(lights, wobjects, command_encoder):
     # Filter shadow-able objects once beforehand.
     wobjects = [w for w in wobjects if w.cast_shadow and w.geometry is not None]
 
+    time_group = None
+    if time_measurer:
+        pass_count = 0
+        for light in lights:
+            if light.cast_shadow:
+                light_has_6_sides = isinstance(light, objects.PointLight)
+                pass_count += 6 if light_has_6_sides else 1
+        if pass_count > 0:
+            time_group = time_measurer.create_group(device, "shadow", pass_count)
+
+    pass_index = -1
     for light in lights:
         if not light.cast_shadow:
             continue
@@ -89,6 +100,7 @@ def render_shadow_maps(lights, wobjects, command_encoder):
             shadow_maps = light.shadow._wgpu_tex_view
             shadow_buffers = light.shadow._gfx_matrix_buffer
             for i in range(6):
+                pass_index += 1
                 render_shadow_map(
                     device,
                     light,
@@ -96,18 +108,35 @@ def render_shadow_maps(lights, wobjects, command_encoder):
                     shadow_buffers[i],
                     wobjects,
                     command_encoder,
+                    time_group.get_timestamp_writes(pass_index) if time_group else None,
                 )
         else:
             # Render this one shadow map
+            pass_index += 1
             shadow_map = light.shadow._wgpu_tex_view
             shadow_buffer = light.shadow._gfx_matrix_buffer
             render_shadow_map(
-                device, light, shadow_map, shadow_buffer, wobjects, command_encoder
+                device,
+                light,
+                shadow_map,
+                shadow_buffer,
+                wobjects,
+                command_encoder,
+                time_group.get_timestamp_writes(pass_index) if time_group else None,
             )
+
+    if time_group:
+        time_group.resolve(command_encoder)
 
 
 def render_shadow_map(
-    device, light, shadow_map, shadow_buffer, wobjects, command_encoder
+    device,
+    light,
+    shadow_map,
+    shadow_buffer,
+    wobjects,
+    command_encoder,
+    timestamp_writes,
 ):
     """Render the wobjects into the given shadow map."""
 
@@ -124,6 +153,7 @@ def render_shadow_map(
             # "stencil_load_op": wgpu.LoadOp.clear,
             # "stencil_store_op": wgpu.StoreOp.discard,
         },
+        timestamp_writes=timestamp_writes,
     )
 
     light_bind_group = get_shadow_bind_group(device, shadow_buffer)
