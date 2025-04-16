@@ -91,6 +91,27 @@ fn rotate_vec2(v:vec2<f32>, angle:f32) -> vec2<f32> {
     return vec2<f32>(cos(angle) * v.x - sin(angle) * v.y, sin(angle) * v.x + cos(angle) * v.y);
 }
 
+fn project_point_to_edge_ndc(p1: vec4f, p2: vec4f) -> vec4f {
+    // The line is defined by points p1 and p2.
+    // We shift p1 over the line with p1' = p1 - factor * v
+    // We find the factor such that p1' will be at the edge of the screen.
+    // It selects the furthest of the two horizontal edges, and same the for vertical edges.
+    // Then it selects either horizontal or vertical edge, depending on whether the line is more horizontal or vertical.
+    var v = p2 - p1;
+    if (length(v) < 1e-9) { return p1; }
+    v = normalize(v);
+    let factor1 = (p1.xy + 1.0) / v.xy;
+    let factor2 = (p1.xy - 1.0) / v.xy;
+    var factor = 0.0;
+    if (abs(v.x) > abs(v.y)) {
+        factor = max(factor1.x, factor2.x);
+    } else {
+        factor = max(factor1.y, factor2.y);
+    }
+    factor = max(factor, 0.0);
+    return p1 - factor * v;
+}
+
 
 // -------------------- vertex shader --------------------
 
@@ -164,25 +185,34 @@ fn vs_main(in: VertexInput) -> Varyings {
 
     // Sample the current node and it's two neighbours. Model coords.
     // Note that if we sample out of bounds, this affects the shader in mysterious ways (21-12-2021).
-    let pos_m_prev = load_s_positions(node_index_prev);
-    let pos_m_node = load_s_positions(node_index);
-    let pos_m_next = load_s_positions(node_index_next);
+    var pos_m_prev = load_s_positions(node_index_prev);
+    var pos_m_node = load_s_positions(node_index);
+    var pos_m_next = load_s_positions(node_index_next);
     // Convert to world
-    let pos_w_prev = world_transform * vec4<f32>(pos_m_prev.xyz, 1.0);
-    let pos_w_node = world_transform * vec4<f32>(pos_m_node.xyz, 1.0);
-    let pos_w_next = world_transform * vec4<f32>(pos_m_next.xyz, 1.0);
+    var pos_w_prev = world_transform * vec4<f32>(pos_m_prev.xyz, 1.0);
+    var pos_w_node = world_transform * vec4<f32>(pos_m_node.xyz, 1.0);
+    var pos_w_next = world_transform * vec4<f32>(pos_m_next.xyz, 1.0);
     // Convert to camera view
-    let pos_c_prev = u_stdinfo.cam_transform * pos_w_prev;
-    let pos_c_node = u_stdinfo.cam_transform * pos_w_node;
-    let pos_c_next = u_stdinfo.cam_transform * pos_w_next;
+    var pos_c_prev = u_stdinfo.cam_transform * pos_w_prev;
+    var pos_c_node = u_stdinfo.cam_transform * pos_w_node;
+    var pos_c_next = u_stdinfo.cam_transform * pos_w_next;
     // convert to NDC
-    let pos_n_prev = u_stdinfo.projection_transform * pos_c_prev;
-    let pos_n_node = u_stdinfo.projection_transform * pos_c_node;
-    let pos_n_next = u_stdinfo.projection_transform * pos_c_next;
+    var pos_n_prev = u_stdinfo.projection_transform * pos_c_prev;
+    var pos_n_node = u_stdinfo.projection_transform * pos_c_node;
+    var pos_n_next = u_stdinfo.projection_transform * pos_c_next;
     // Convert to logical screen coordinates, because that's where the lines work
-    let pos_s_prev = (pos_n_prev.xy / pos_n_prev.w + 1.0) * screen_factor;
-    let pos_s_node = (pos_n_node.xy / pos_n_node.w + 1.0) * screen_factor;
-    let pos_s_next = (pos_n_next.xy / pos_n_next.w + 1.0) * screen_factor;
+    var pos_s_prev = (pos_n_prev.xy / pos_n_prev.w + 1.0) * screen_factor;
+    var pos_s_node = (pos_n_node.xy / pos_n_node.w + 1.0) * screen_factor;
+    var pos_s_next = (pos_n_next.xy / pos_n_next.w + 1.0) * screen_factor;
+
+    $$ if line_type == 'infsegment'
+    if (node_index_is_even) {
+        pos_n_node = project_point_to_edge_ndc(pos_n_node, pos_n_next);
+    } else {
+        pos_n_node = project_point_to_edge_ndc(pos_n_node, pos_n_prev);
+    }
+    pos_s_node = (pos_n_node.xy / pos_n_node.w + 1.0) * screen_factor;
+    $$ endif
 
     // Get vectors representing the two incident line segments (screen coords)
     var vec_s_prev: vec2<f32> = pos_s_node.xy - pos_s_prev.xy;  // from node 1 (to node 2)
@@ -320,7 +350,7 @@ fn vs_main(in: VertexInput) -> Varyings {
     var left_is_cap = !is_finite_vec(pos_m_prev) || length(vec_s_prev) <= select(minor_dist_threshold, major_dist_threshold, vec_s_prev_has_significant_depth_component);
     var right_is_cap = !is_finite_vec(pos_m_next) || length(vec_s_next) <= select(minor_dist_threshold, major_dist_threshold, vec_s_next_has_significant_depth_component);
 
-    $$ if line_type in ['segment', 'arrow']
+    $$ if line_type in ['segment', 'infsegment', 'arrow']
     left_is_cap = left_is_cap || node_index_is_even;
     right_is_cap = right_is_cap || !node_index_is_even;
     $$ endif
