@@ -57,13 +57,10 @@ def on_key_down(event):
 
     if event.key == "s":
         camera_state = camera.get_state()
-        print("save")
     elif event.key == "l":
         camera.set_state(camera_state)
-        print("load")
     elif event.key == "r":
         camera.show_object(scene)
-        print("reset")
 
     controller.enabled = True
 
