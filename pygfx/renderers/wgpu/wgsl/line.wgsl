@@ -207,9 +207,13 @@ fn vs_main(in: VertexInput) -> Varyings {
 
     $$ if line_type == 'infsegment'
     if (node_index_is_even) {
+        $$ if start_is_infinite
         pos_n_node = project_point_to_edge_ndc(pos_n_node, pos_n_next);
+        $$ endif
     } else {
+        $$ if end_is_infinite
         pos_n_node = project_point_to_edge_ndc(pos_n_node, pos_n_prev);
+        $$ endif
     }
     pos_s_node = (pos_n_node.xy / pos_n_node.w + 1.0) * screen_factor;
     $$ endif

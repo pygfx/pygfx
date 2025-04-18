@@ -381,7 +381,10 @@ class LineInfSegmentShader(LineShader):
 
     def __init__(self, wobject):
         super().__init__(wobject)
+        material = wobject.material
         self["line_type"] = "infsegment"
+        self["start_is_infinite"] = material.start_is_infinite
+        self["end_is_infinite"] = material.end_is_infinite
 
 
 @register_wgpu_render_function(Line, LineArrowMaterial)
