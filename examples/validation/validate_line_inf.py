@@ -44,7 +44,7 @@ colors1[:, 1] = np.linspace(0, 1, len(colors1))
 
 line1 = gfx.Line(
     gfx.Geometry(positions=positions1, colors=colors1),
-    gfx.LineInfSegmentMaterial(
+    gfx.LineInfiniteSegmentMaterial(
         thickness=5.0, color_mode="face", start_is_infinite=False
     ),
 )
@@ -52,7 +52,7 @@ scene.add(line1)
 
 line2 = gfx.Line(
     gfx.Geometry(positions=positions2),
-    gfx.LineInfSegmentMaterial(thickness=10.0, color="cyan"),
+    gfx.LineInfiniteSegmentMaterial(thickness=10.0, color="cyan"),
 )
 scene.add(line2)
 
