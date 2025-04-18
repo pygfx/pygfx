@@ -22,10 +22,10 @@ scene = gfx.Scene()
 t = np.linspace(0, 2 * np.pi, 22, endpoint=False, dtype=np.float32)
 x = np.sin(t) * 4
 y = np.cos(t) * 4
-circle_positions = np.column_stack([x, y, np.zeros_like(x)])
+positions1 = np.column_stack([x, y, np.zeros_like(x)])
 
 # More points
-more_positions = np.array(
+positions2 = np.array(
     [
         [-1, 0, 1],  # Two points in the same position stay a single point
         [-1, 0, 1],
@@ -35,21 +35,26 @@ more_positions = np.array(
     np.float32,
 )
 
-# Combine
-positions = np.vstack([circle_positions, more_positions])
 
 # Assign color to the different line segments
-colors = np.zeros_like(positions)
-colors[: len(circle_positions)] = (0, 0, 0.8)
-colors[-4:-2] = (1, 1, 1)
-colors[-2:] = (1, 1, 0)
+colors1 = np.zeros_like(positions1)
+colors1[:, 0] = 1
+colors1[:, 1] = np.linspace(0, 1, len(colors1))
 
 
-line = gfx.Line(
-    gfx.Geometry(positions=positions, colors=colors),
-    gfx.LineInfSegmentMaterial(thickness=10.0, color_mode="face", map=gfx.cm.viridis),
+line1 = gfx.Line(
+    gfx.Geometry(positions=positions1, colors=colors1),
+    gfx.LineInfSegmentMaterial(
+        thickness=5.0, color_mode="face", start_is_infinite=False
+    ),
 )
-scene.add(line)
+scene.add(line1)
+
+line2 = gfx.Line(
+    gfx.Geometry(positions=positions2),
+    gfx.LineInfSegmentMaterial(thickness=10.0, color="cyan"),
+)
+scene.add(line2)
 
 camera = gfx.OrthographicCamera(maintain_aspect=True)
 camera.show_object(scene, match_aspect=True, scale=2)
