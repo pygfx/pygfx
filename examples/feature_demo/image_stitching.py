@@ -17,7 +17,7 @@ import numpy as np
 canvas = WgpuCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene1 = gfx.Scene()
-scene1.add(gfx.Background.from_color("#fff"))
+scene1.add(gfx.Background.from_color("#000"))
 
 # add image
 
@@ -65,8 +65,9 @@ for image_name in ["wood.jpg", "bricks.jpg"]:
 
 scene2 = gfx.Scene()
 text = gfx.Text("Image stitching", font_size=64, anchor="top-left")
+text.render_order = 1  # render the text on top
 text.local.scale_y = -1
-scene2.add(text)
+scene1.add(text)
 
 camera = gfx.OrthographicCamera()
 camera.local.scale_y = -1
@@ -76,8 +77,7 @@ controller = gfx.PanZoomController(camera, register_events=renderer)
 
 
 def animate():
-    renderer.render(scene1, camera, flush=False)
-    renderer.render(scene2, camera)
+    renderer.render(scene1, camera)
 
 
 if __name__ == "__main__":

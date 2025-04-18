@@ -60,6 +60,129 @@ def _get_sort_function(camera: Camera):
     return sort_func
 
 
+class WobjectWrapper:
+    """To temporary wrap each wobject for each draw."""
+
+    __slots__ = ["wobject", "sort_key", "pass_type", "render_containers"]
+
+    def __init__(self, wobject, sort_key, pass_type):
+        self.wobject = wobject
+        self.sort_key = sort_key
+        self.pass_type = pass_type
+        self.render_containers = None
+
+
+class FlatScene:
+    def __init__(self, scene, view_matrix=None):
+        self._view_matrix = view_matrix
+        self._wobjects = []  # WobjectWrapper's
+        self.lights = {
+            "point_lights": [],
+            "directional_lights": [],
+            "spot_lights": [],
+            "ambient_color": [0, 0, 0],
+        }
+        self.add_scene(scene)
+
+    def add_scene(self, scene):
+        # Flags for sorting
+        category_opaque = 1
+        category_semi_opaque = 2
+        category_fully_transparent = 3
+        category_weighted = 4
+
+        for wobject in scene.iter(skip_invisible=True):
+            # Update things like transform and uniform buffers
+            wobject._update_object()
+
+            if isinstance(wobject, Light):
+                if isinstance(wobject, PointLight):
+                    self.lights["point_lights"].append(wobject)
+                elif isinstance(wobject, DirectionalLight):
+                    self.lights["directional_lights"].append(wobject)
+                elif isinstance(wobject, SpotLight):
+                    self.lights["spot_lights"].append(wobject)
+                elif isinstance(wobject, AmbientLight):
+                    r, g, b = wobject.color.to_physical()
+                    ambient_color = self.lights["ambient_color"]
+                    ambient_color[0] += r * wobject.intensity
+                    ambient_color[1] += g * wobject.intensity
+                    ambient_color[2] += b * wobject.intensity
+
+            elif (material := wobject._material) is not None:
+                blending_mode = material.blending["mode"]
+                pass_type = "normal"  # one of 'normal' or 'weighted'
+
+                if blending_mode == "weighted":
+                    z_sort_sign = 0
+                    category_flag = category_weighted
+                    pass_type = "weighted"
+                elif blending_mode == "dither":
+                    z_sort_sign = +1
+                    category_flag = category_opaque
+                else:  # blending_mode == 'classic'
+                    transparent = material.transparent
+                    if transparent:
+                        # TODO: threeJS renders double-sided objects twice, maybe we should too? (we can look at this later)
+                        z_sort_sign = -1
+                        category_flag = category_fully_transparent
+                    elif transparent is None:
+                        z_sort_sign = -1
+                        category_flag = category_semi_opaque
+                    else:
+                        z_sort_sign = +1
+                        category_flag = category_opaque
+                        # TODO: does it make sense to draw objects that have discard later later/earlier?
+
+                # Get depth sorting flag
+                z_flag = 0
+                if self._view_matrix is not None and z_sort_sign:
+                    z = la.vec_transform(wobject.world.position, self._view_matrix)[2]
+                    z_flag = z * z_sort_sign
+
+                sort_key = (wobject.render_order, category_flag, z_flag)
+                self._wobjects.append(WobjectWrapper(wobject, sort_key, pass_type))
+
+    def sort(self):
+        """Sort the world objects."""
+        self._wobjects.sort(key=lambda ob: ob.sort_key)
+
+    def collect_pipelines_container_groups(self, renderstate):
+        self._compute_pipeline_containers = compute_pipeline_containers = []
+        self._bake_functions = bake_functions = []
+        for wrapper in self._wobjects:
+            container_group = get_pipeline_container_group(wrapper.wobject, renderstate)
+            compute_pipeline_containers.extend(container_group.compute_containers)
+            wrapper.render_containers = container_group.render_containers
+            for func in container_group.bake_functions:
+                bake_functions.append((wrapper.wobject, func))
+
+    def call_bake_functions(self, camera, logical_size):
+        # Enable pipelines to update data on the CPU. This usually includes
+        # baking data into buffers. This is CPU intensive, but in practice
+        # it is only used by a few materials.
+        for wobject, func in self._bake_functions:
+            func(wobject, camera, logical_size)
+
+    def iter_compute_pipelines(self):
+        for pipeline_container in self._compute_pipeline_containers:
+            yield pipeline_container
+
+    def iter_render_pipelines_per_pass_type(self):
+        """Generator that yields (pass_type, wobjects)."""
+        current_pass_type = ""
+        current_pipeline_containers = []
+        for wrapper in self._wobjects:
+            if wrapper.pass_type != current_pass_type:
+                if current_pipeline_containers:
+                    yield (current_pass_type, current_pipeline_containers)
+                current_pass_type = wrapper.pass_type
+                current_pipeline_containers = []
+            current_pipeline_containers.extend(wrapper.render_containers)
+        if current_pipeline_containers:
+            yield (current_pass_type, current_pipeline_containers)
+
+
 class WgpuRenderer(RootEventHandler, Renderer):
     """Turns Scenes into rasterized images using wgpu.
 
@@ -312,90 +435,6 @@ class WgpuRenderer(RootEventHandler, Renderer):
         if isinstance(self._target, AnyBaseCanvas):
             self._target.request_draw()
 
-    def _get_flat_scene(self, scene, camera):
-        """Traverse the scene graph to get a flat representation of the scene,
-        and during this traversal, do syncs and updates and collect various information.
-
-        The idea is to do this in a single traversal to reduce the overhead
-        of iterating over a large number of objects.
-        """
-
-        class Flat:
-            def __init__(self):
-                self.fully_opaque_objects = []
-                self.semi_opaque_objects = []
-                self.fully_transparent_objects = []
-                self.weighted_objects = []
-                self.lights = {
-                    "point_lights": [],
-                    "directional_lights": [],
-                    "spot_lights": [],
-                    "ambient_color": [0, 0, 0],
-                }
-
-        # Prepare z-sorting info
-        sort_by_depth = bool(self._sort_objects)
-        view_matrix = camera.view_matrix  # == camera.world.inverse_matrix
-
-        # Collect objects
-        flat = Flat()
-        for ob in scene.iter(skip_invisible=True):
-            # Update things like transform and uniform buffers
-            ob._update_object()
-
-            if isinstance(ob, Light):
-                if isinstance(ob, PointLight):
-                    flat.lights["point_lights"].append(ob)
-                elif isinstance(ob, DirectionalLight):
-                    flat.lights["directional_lights"].append(ob)
-                elif isinstance(ob, SpotLight):
-                    flat.lights["spot_lights"].append(ob)
-                elif isinstance(ob, AmbientLight):
-                    r, g, b = ob.color.to_physical()
-                    ambient_color = flat.lights["ambient_color"]
-                    ambient_color[0] += r * ob.intensity
-                    ambient_color[1] += g * ob.intensity
-                    ambient_color[2] += b * ob.intensity
-
-            elif (material := ob._material) is not None:
-                z_sort_sign = 0
-
-                blending_mode = material.blending["mode"]
-                if blending_mode == "weighted":
-                    z_sort_sign = 0
-                    flat.weighted_objects.append(ob)
-                elif blending_mode == "dither":
-                    z_sort_sign = +1
-                    flat.fully_opaque_objects.append(ob)
-                else:  # blending_mode == 'classic'
-                    transparent = material.transparent
-                    if transparent:
-                        # TODO: threeJS renders double-sided objects twice, maybe we should too? (we can look at this later)
-                        z_sort_sign = -1
-                        flat.fully_transparent_objects.append(ob)
-                    elif transparent is None:
-                        z_sort_sign = -1
-                        flat.semi_opaque_objects.append(ob)
-                    else:
-                        z_sort_sign = +1
-                        flat.fully_opaque_objects.append(ob)
-                        # TODO: does it make sense to draw objects that have discard later later/earlier?
-
-                # Set sort key
-                if sort_by_depth and z_sort_sign:
-                    z = la.vec_transform(ob.world.position, view_matrix)[2]
-                    ob._gfx_sort_key = ob.render_order, z * z_sort_sign
-                else:
-                    ob._gfx_sort_key = ob.render_order
-
-        # Sort the objects
-        flat.fully_opaque_objects.sort(key=lambda ob: ob._gfx_sort_key)
-        flat.semi_opaque_objects.sort(key=lambda ob: ob._gfx_sort_key)
-        flat.fully_transparent_objects.sort(key=lambda ob: ob._gfx_sort_key)
-        # flat.weighted_objects.sort(key=lambda: ob: ob._gfx_sort_key) -> the whole points is that weighted does not need sorting
-
-        return flat
-
     def render(
         self,
         scene: WorldObject,
@@ -488,7 +527,13 @@ class WgpuRenderer(RootEventHandler, Renderer):
             )
             self.dispatch_event(ev)
 
-        flat = self._get_flat_scene(scene, camera)
+        # Get a flat and sorted version of the scene.
+        # This is also where wobject._update_object() is called
+        view_matrix = None
+        if self._sort_objects:
+            view_matrix = camera.view_matrix  # == camera.world.inverse_matrix
+        flat = FlatScene(scene, view_matrix)
+        flat.sort()
 
         # Prepare the shared object
         self._shared.pre_render_hook()
@@ -500,19 +545,11 @@ class WgpuRenderer(RootEventHandler, Renderer):
         renderstate = get_renderstate(flat.lights, self._blender)
         self._renderstates_per_flush[0].append(renderstate)
 
-        # Collect all pipeline container objects
-        # todo: can we get this into _get_flat_scene?
-        compute_pipeline_containers = []
-        render_pipeline_containers = []
-        for wobject in flat.fully_opaque_objects:
-            container_group = get_pipeline_container_group(wobject, renderstate)
-            compute_pipeline_containers.extend(container_group.compute_containers)
-            render_pipeline_containers.extend(container_group.render_containers)
-            # Enable pipelines to update data on the CPU. This usually includes
-            # baking data into buffers. This is CPU intensive, but in practice
-            # it is only used by a few materials.
-            for func in container_group.bake_functions:
-                func(wobject, camera, logical_size)
+        # Make sure pipeline objects exist for all wobjects. This also collects the bake functons.
+        flat.collect_pipelines_container_groups(renderstate)
+
+        # Enable pipelines to update data on the CPU.
+        flat.call_bake_functions(camera, logical_size)
 
         # Update *all* buffers and textures that have changed
         for resource in resource_update_registry.get_syncable_resources(flush=True):
@@ -528,8 +565,6 @@ class WgpuRenderer(RootEventHandler, Renderer):
         command_buffers += self._render_recording(
             renderstate,
             flat,
-            compute_pipeline_containers,
-            render_pipeline_containers,
             physical_viewport,
             clear_color,
         )
@@ -598,8 +633,6 @@ class WgpuRenderer(RootEventHandler, Renderer):
         self,
         renderstate,
         flat,
-        compute_pipeline_containers,
-        render_pipeline_containers,
         physical_viewport,
         clear_color,
     ):
@@ -620,8 +653,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # ----- compute pipelines
 
         compute_pass = command_encoder.begin_compute_pass()
-
-        for compute_pipeline_container in compute_pipeline_containers:
+        for compute_pipeline_container in flat.iter_compute_pipelines():
             compute_pipeline_container.dispatch(compute_pass)
         compute_pass.end()
 
@@ -633,54 +665,40 @@ class WgpuRenderer(RootEventHandler, Renderer):
             + renderstate.lights["directional_lights"]
         )
         # TODO: collect as flat.shadow_objects?
-        render_shadow_maps(
-            lights,
-            flat.fully_opaque_objects + flat.fully_transparent_objects,
-            command_encoder,
-        )
+        # render_shadow_maps(
+        #     lights,
+        #     flat.fully_opaque_objects + flat.fully_transparent_objects,
+        #     command_encoder,
+        # )
 
         # ----- render in stages
-
-        self._render_wobjects(
-            flat.fully_opaque_objects,
-            renderstate,
-            physical_viewport,
-            command_encoder,
-            "fully_opaque",
-        )
-
-        self._render_wobjects(
-            flat.semi_opaque_objects,
-            renderstate,
-            physical_viewport,
-            command_encoder,
-            "semi_opaque",
-        )
-
-        self._render_wobjects(
-            flat.fully_transparent_objects,
-            renderstate,
-            physical_viewport,
-            command_encoder,
-            "fully_transparent",
-        )
-
-        if flat.weighted_objects:
+        print("---")
+        for (
+            pass_type,
+            render_pipeline_containers,
+        ) in flat.iter_render_pipelines_per_pass_type():
+            print(pass_type, len(render_pipeline_containers))
             self._render_wobjects(
-                flat.weighted_objects,
+                render_pipeline_containers,
                 renderstate,
                 physical_viewport,
                 command_encoder,
-                "weighted",
+                pass_type,
             )
-            self._blender.perform_combine_pass(command_encoder)
+            if pass_type == "weighted":
+                self._blender.perform_combine_pass(command_encoder)
 
         return [command_encoder.finish()]
 
     def _render_wobjects(
-        self, wobjects, renderstate, physical_viewport, command_encoder, pass_type
+        self,
+        render_pipeline_containers,
+        renderstate,
+        physical_viewport,
+        command_encoder,
+        pass_type,
     ):
-        if not wobjects:
+        if not render_pipeline_containers:
             return
 
         blender = (
@@ -696,11 +714,8 @@ class WgpuRenderer(RootEventHandler, Renderer):
         )
         render_pass.set_viewport(*physical_viewport)
 
-        for wobject in wobjects:
-            # TODO: avoid duplicate call to get_pipeline_container_group?
-            container_group = get_pipeline_container_group(wobject, renderstate)
-            for render_pipeline_container in container_group.render_containers:
-                render_pipeline_container.draw(render_pass, renderstate)
+        for render_pipeline_container in render_pipeline_containers:
+            render_pipeline_container.draw(render_pass, renderstate)
 
         render_pass.end()
 
