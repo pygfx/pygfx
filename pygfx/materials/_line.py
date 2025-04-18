@@ -258,7 +258,11 @@ class LineSegmentMaterial(LineMaterial):
 class LineInfiniteSegmentMaterial(LineSegmentMaterial):
     """Infinite line segment material.
 
-    A material that renders infenitely long line segments between each two subsequent points.
+    A material that renders infenitely long line segments between each two
+    subsequent points. The end-points of each segment are displaced (along the
+    vector defined by the two points) such that the points are at the edge of
+    the viewport. Other than that, dashing, vertex colors, etc. should work as
+    expected (interpolating between the points that are now on the viewport edge).
 
     Parameters
     ----------
