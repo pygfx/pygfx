@@ -10,6 +10,7 @@ from ....objects import Line, InstancedLine
 from ....materials._line import (
     LineMaterial,
     LineSegmentMaterial,
+    LineInfiniteSegmentMaterial,
     LineArrowMaterial,
     LineThinMaterial,
     LineThinSegmentMaterial,
@@ -372,6 +373,18 @@ class LineSegmentShader(LineShader):
     def __init__(self, wobject):
         super().__init__(wobject)
         self["line_type"] = "segment"
+
+
+@register_wgpu_render_function(Line, LineInfiniteSegmentMaterial)
+class LineInfiniteSegmentShader(LineShader):
+    """Shader to draw infinite line segments. Since the line's ends are always off-screen, there is no need to draw caps."""
+
+    def __init__(self, wobject):
+        super().__init__(wobject)
+        material = wobject.material
+        self["line_type"] = "infsegment"
+        self["start_is_infinite"] = material.start_is_infinite
+        self["end_is_infinite"] = material.end_is_infinite
 
 
 @register_wgpu_render_function(Line, LineArrowMaterial)
