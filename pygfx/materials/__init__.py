@@ -32,7 +32,7 @@ colormaps, the strength of specular reflections, etc.
 
     LineMaterial
     LineSegmentMaterial
-    LineInfSegmentMaterial
+    LineInfiniteSegmentMaterial
     LineArrowMaterial
     LineThinMaterial
     LineThinSegmentMaterial
@@ -81,7 +81,7 @@ from ._points import (
 from ._line import (
     LineMaterial,
     LineSegmentMaterial,
-    LineInfSegmentMaterial,
+    LineInfiniteSegmentMaterial,
     LineArrowMaterial,
     LineThinMaterial,
     LineThinSegmentMaterial,

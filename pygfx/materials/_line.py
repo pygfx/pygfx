@@ -255,7 +255,7 @@ class LineSegmentMaterial(LineMaterial):
     """
 
 
-class LineInfSegmentMaterial(LineSegmentMaterial):
+class LineInfiniteSegmentMaterial(LineSegmentMaterial):
     """Infinite line segment material.
 
     A material that renders infenitely long line segments between each two subsequent points.
