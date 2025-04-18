@@ -8,7 +8,6 @@ from .. import (
     register_wgpu_render_function,
     BaseShader,
     Binding,
-    RenderMask,
     to_texture_format,
     GfxSampler,
     GfxTextureView,
@@ -69,7 +68,6 @@ class BackgroundShader(BaseShader):
     def get_render_info(self, wobject, shared):
         return {
             "indices": (4, 1),
-            "render_mask": RenderMask.opaque,
         }
 
     def get_code(self):

@@ -14,16 +14,22 @@ import pylinalg as la
 
 canvas = WgpuCanvas(size=(600, 600))
 renderer = gfx.renderers.WgpuRenderer(canvas)
-renderer.blend_mode = "weighted_plus"
+renderer.blend_mode = "weighted_plus"  # TODO: weighted_plus is no more
 
 scene = gfx.Scene()
 
 sphere = gfx.Mesh(gfx.sphere_geometry(10), gfx.MeshPhongMaterial())
 
 geometry = gfx.plane_geometry(50, 50)
-plane1 = gfx.Mesh(geometry, gfx.MeshBasicMaterial(color=(1, 0, 0, 0.3)))
-plane2 = gfx.Mesh(geometry, gfx.MeshBasicMaterial(color=(0, 1, 0, 0.5)))
-plane3 = gfx.Mesh(geometry, gfx.MeshBasicMaterial(color=(0, 0, 1, 0.7)))
+plane1 = gfx.Mesh(
+    geometry, gfx.MeshBasicMaterial(color=(1, 0, 0, 0.3), transparent=True)
+)
+plane2 = gfx.Mesh(
+    geometry, gfx.MeshBasicMaterial(color=(0, 1, 0, 0.5), transparent=True)
+)
+plane3 = gfx.Mesh(
+    geometry, gfx.MeshBasicMaterial(color=(0, 0, 1, 0.7), transparent=True)
+)
 
 plane1.local.rotation = la.quat_from_axis_angle((1, 0, 0), 1.571)
 plane2.local.rotation = la.quat_from_axis_angle((0, 1, 0), 1.571)

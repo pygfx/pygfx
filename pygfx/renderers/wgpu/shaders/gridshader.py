@@ -7,7 +7,6 @@ from .. import (
     register_wgpu_render_function,
     BaseShader,
     Binding,
-    RenderMask,
     load_wgsl,
 )
 
@@ -49,7 +48,6 @@ class GridShader(BaseShader):
         nverts = 30 if self["inf_grid"] else 6
         return {
             "indices": (nverts, 1),
-            "render_mask": RenderMask.all,
         }
 
     def get_code(self):

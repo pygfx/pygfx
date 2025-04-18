@@ -97,12 +97,6 @@ class PointsMaterial(Material):
         color = Color(color)
         self.uniform_buffer.data["color"] = color
         self.uniform_buffer.update_full()
-        self._store.color_is_transparent = color.a < 1
-
-    @property
-    def color_is_transparent(self):
-        """Whether the color is (semi) transparent (i.e. not fully opaque)."""
-        return self._store.color_is_transparent
 
     @property
     def aa(self):
@@ -116,10 +110,7 @@ class PointsMaterial(Material):
         result. Point-based aa results in additional improvement.
 
         Because semi-transparent fragments are introduced, it may affect how the
-        points blends with other (semi-transparent) objects. It can also affect
-        performance for very large datasets. In particular, when the points itself
-        are opaque, the point is (in most blend modes) drawn twice to account for
-        both the opaque and semi-transparent fragments.
+        points blends with other (semi-transparent) objects.
         """
         return self._store.aa
 
@@ -319,12 +310,6 @@ class PointsMarkerMaterial(PointsMaterial):
         edge_color = Color(edge_color)
         self.uniform_buffer.data["edge_color"] = edge_color
         self.uniform_buffer.update_full()
-        self._store.edge_color_is_transparent = edge_color.a < 1
-
-    @property
-    def edge_color_is_transparent(self):
-        """Whether the edge_color is (semi) transparent (i.e. not fully opaque)."""
-        return self._store.edge_color_is_transparent
 
     @property
     def edge_width(self):
