@@ -91,25 +91,35 @@ fn rotate_vec2(v:vec2<f32>, angle:f32) -> vec2<f32> {
     return vec2<f32>(cos(angle) * v.x - sin(angle) * v.y, sin(angle) * v.x + cos(angle) * v.y);
 }
 
-fn project_point_to_edge_ndc(p1: vec4f, p2: vec4f) -> vec4f {
+fn project_point_to_edge_ndc(point1: vec4f, point2: vec4f, can_move_backwards: bool) -> vec4f {
     // The line is defined by points p1 and p2.
     // We shift p1 over the line with p1' = p1 - factor * v
     // We find the factor such that p1' will be at the edge of the screen.
-    // It selects the furthest of the two horizontal edges, and same the for vertical edges.
+    // It selects the furthest of the two horizontal edges, and same for the vertical edges.
     // Then it selects either horizontal or vertical edge, depending on whether the line is more horizontal or vertical.
-    var v = p2 - p1;
-    if (length(v) < 1e-9) { return p1; }
-    v = normalize(v);
-    let factor1 = (p1.xy + 1.0) / v.xy;
-    let factor2 = (p1.xy - 1.0) / v.xy;
+
+    // Move to 2D
+    let p1: vec2f = point1.xy / point1.w;
+    let p2: vec2f = point2.xy / point2.w;
+    var v: vec2f = p2 - p1;
+    // Early exit
+    if (length(v) < 1e-9) { return point1; }
+    // Get factors to shift to edge
+    let factor1 = (p1 + 1.0) / v;  // Solve: p1 - factor * v = -1
+    let factor2 = (p1 - 1.0) / v;  // Solve: p1 - factor * v = +1
+    // Select the factor
     var factor = 0.0;
     if (abs(v.x) > abs(v.y)) {
         factor = max(factor1.x, factor2.x);
     } else {
         factor = max(factor1.y, factor2.y);
     }
-    factor = max(factor, 0.0);
-    return p1 - factor * v;
+    // Constrain moving backwards
+    if (!can_move_backwards) {
+        factor = max(factor, 0.0);
+    }
+    // Return as vec4
+    return point1 - factor * (point2 - point1);
 }
 
 
@@ -206,16 +216,40 @@ fn vs_main(in: VertexInput) -> Varyings {
     var pos_s_next = (pos_n_next.xy / pos_n_next.w + 1.0) * screen_factor;
 
     $$ if line_type == 'infsegment'
+    let can_move_backwards = {{ 'true' if (start_is_infinite and end_is_infinite) else 'false' }};
+    let prev_node_ori = pos_n_node;
+    let pos_n_next_ori = pos_n_next;
+    let pos_n_prev_ori = pos_n_prev;
+    $$ if start_is_infinite
     if (node_index_is_even) {
-        $$ if start_is_infinite
-        pos_n_node = project_point_to_edge_ndc(pos_n_node, pos_n_next);
-        $$ endif
+        pos_n_node = project_point_to_edge_ndc(prev_node_ori, pos_n_next_ori, can_move_backwards);
+        pos_s_node = (pos_n_node.xy / pos_n_node.w + 1.0) * screen_factor;
+        pos_c_node = u_stdinfo.projection_transform_inv * pos_n_node;
+        pos_w_node = u_stdinfo.cam_transform_inv * pos_c_node;
+        pos_m_node = (world_transform_inv * pos_w_node).xyz;
     } else {
-        $$ if end_is_infinite
-        pos_n_node = project_point_to_edge_ndc(pos_n_node, pos_n_prev);
-        $$ endif
+        pos_n_prev = project_point_to_edge_ndc(pos_n_prev_ori, prev_node_ori, can_move_backwards);
+        pos_s_prev = (pos_n_prev.xy / pos_n_prev.w + 1.0) * screen_factor;
+        pos_c_prev = u_stdinfo.projection_transform_inv * pos_n_prev;
+        pos_w_prev = u_stdinfo.cam_transform_inv * pos_c_prev;
+        pos_m_prev = (world_transform_inv * pos_w_prev).xyz;
     }
-    pos_s_node = (pos_n_node.xy / pos_n_node.w + 1.0) * screen_factor;
+    $$ endif
+    $$ if end_is_infinite
+    if (node_index_is_even) {
+        pos_n_next = project_point_to_edge_ndc(pos_n_next_ori, prev_node_ori, can_move_backwards);
+        pos_s_next = (pos_n_next.xy / pos_n_next.w + 1.0) * screen_factor;
+        pos_c_next = u_stdinfo.projection_transform_inv * pos_n_next;
+        pos_w_next = u_stdinfo.cam_transform_inv * pos_c_next;
+        pos_m_next = (world_transform_inv * pos_w_next).xyz;
+    } else {
+        pos_n_node = project_point_to_edge_ndc(prev_node_ori, pos_n_prev_ori, can_move_backwards);
+        pos_s_node = (pos_n_node.xy / pos_n_node.w + 1.0) * screen_factor;
+        pos_c_node = u_stdinfo.projection_transform_inv * pos_n_node;
+        pos_w_node = u_stdinfo.cam_transform_inv * pos_c_node;
+        pos_m_node = (world_transform_inv * pos_w_node).xyz;
+    }
+    $$ endif
     $$ endif
 
     // Get vectors representing the two incident line segments (screen coords)
