@@ -14,7 +14,7 @@ jinja_env = jinja2.Environment(
 )
 
 
-def register_wgsl_loader(context, func):
+def register_wgsl_loader(context, package):
     """Register a source for shader snippets.
 
     When code is encountered that looks like::
@@ -28,17 +28,16 @@ def register_wgsl_loader(context, func):
     ----------
     context : str
         The context of the loader.
-    func: callable
-        The function that will be called when a shader is loaded for the given context.
-        The function must accept one positional argument (the name to include).
+    package: str
+        The path of the package that contains the shader snippets.
     """
     if not (isinstance(context, str) and "." not in context):
-        raise TypeError("Wgsl load context must be a string witout dots.")
-    if not callable(func):
-        raise TypeError("The given wgsl load func must be callable.")
+        raise TypeError("Wgsl load context must be a string without dots.")
+    if not isinstance(package, str):
+        raise TypeError("The given package must be a string.")
     if context in loader.mapping:
         raise RuntimeError(f"A loader is already registered for '{context}'.")
-    loader.mapping[context] = func
+    loader.mapping[context] = jinja2.PackageLoader(package, ".")
 
 
 def apply_templating(code, **kwargs):
