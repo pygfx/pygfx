@@ -497,7 +497,11 @@ class WorldObject(EventTarget, Trackable):
             self._bounds_geometry = None
             # Get array and check expected shape
             positions_array = positions_buf.data
-            if positions_array.ndim == 2 and positions_array.shape[1] in (2, 3):
+            if (
+                positions_array is not None
+                and positions_array.ndim == 2
+                and positions_array.shape[1] in (2, 3)
+            ):
                 self._bounds_geometry = Bounds.from_points(positions_array)
                 self._bounds_geometry_rev = positions_buf.rev
         elif isinstance(grid_buf := getattr(geometry, "grid", None), Texture):
