@@ -70,12 +70,10 @@ class ShaderInterface:
           * "indices" (3 ints)
 
         Fields for a render shader:
-          * "render_mask"
           * "indices" (list of 2 or 4 ints).
         """
         return {
             "indices": (1, 1),
-            "render_mask": 0,
         }
 
 

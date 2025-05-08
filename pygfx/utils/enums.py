@@ -13,7 +13,6 @@ The enums used in pygfx. The enums are all available from the root ``pygfx`` nam
     EdgeMode
     ElementFormat
     MarkerShape
-    RenderMask
     SizeMode
     TextAlign
     TextAnchor
@@ -31,7 +30,6 @@ __all__ = [
     "EdgeMode",
     "ElementFormat",
     "MarkerShape",
-    "RenderMask",
     "SizeMode",
     "TextAlign",
     "TextAnchor",
@@ -43,13 +41,12 @@ class Enum(BaseEnum):
     """Enum base class for pygfx."""
 
 
-class RenderMask(Enum):
-    """The RenderMask enum specifies the render passes in which an object participates."""
-
-    auto = 0  #: Select the appropriate render passes automatically.
-    opaque = 1  #: Only render in the opaque pass.
-    transparent = 2  #: Only render in the transparancy pass.
-    all = 3  #: Render in both passes.
+# TODO: remove
+class TransparencyMode(Enum):
+    opaque = None  #: The object is (considered) fully opaque. The renderer draws these first, and sorts front-to-back to avoid drawing hidden fragments.
+    transparent = None  # The object is (considered) fully transparent. The renderer draws these after opaque objects, and sorts back-to-front for proper blending.
+    mixed = None  # The object is considered to have both opaque and transparent objects. The renderer draws these in between opaque and transparent objects, back-to-front.
+    auto = None  # Select the mode based on the value of ``opacity`` and ``color.a``.
 
 
 class EdgeMode(Enum):

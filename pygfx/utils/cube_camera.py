@@ -12,10 +12,10 @@ def _is_cube_texture(texture):
 
 
 class _CubeCameraRenderer(WgpuRenderer):
-    def __init__(self, target, blend_mode="default"):
+    def __init__(self, target):
         assert _is_cube_texture(target), "target must be a cube texture"
 
-        super().__init__(target, blend_mode=blend_mode)
+        super().__init__(target)
 
         # Pre generate views of different layers of the cube texture
         self._target_views = []
@@ -41,10 +41,10 @@ class CubeCamera(WorldObject):
     not to the "data" attribute of target. That is, its data cannot be accessed from the CPU.
     """
 
-    def __init__(self, target, near=0.1, far=1000, blend_mode="default"):
+    def __init__(self, target, near=0.1, far=1000):
         super().__init__()
 
-        self._renderer = _CubeCameraRenderer(target, blend_mode=blend_mode)
+        self._renderer = _CubeCameraRenderer(target)
 
         fov = 90
         aspect = 1

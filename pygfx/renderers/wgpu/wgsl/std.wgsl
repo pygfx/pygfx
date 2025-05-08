@@ -9,7 +9,7 @@
 //
 // Also adds auto-generated code for:
 //
-// * FragmentOutput (implementation depends on blend mode and picking)
+// * FragmentOutput (implementation depends on blending mode and picking)
 // * Bindings (as specified via shader.define_binding())
 //
 // In addition to this, the shader will also:
