@@ -108,6 +108,12 @@ class MeshShader(BaseShader):
             Binding(f"t_{name}", "texture/auto", view, "FRAGMENT"),
         ]
 
+        if view_dim == "2d":
+            # only 2D textures (todo: and UVMapping mode) have transform
+            bindings.append(
+                Binding(f"u_{name}", "buffer/uniform", map.uniform_buffer, "FRAGMENT"),
+            )
+
         if map.uv_channel not in self["used_uv"]:
             texcoords = getattr(geometry, f"texcoords{map.uv_channel or ''}", None)
             if texcoords is not None:
