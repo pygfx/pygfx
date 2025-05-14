@@ -33,8 +33,9 @@ class PerspectiveCamera(Camera):
         Default True. If false, the dimensions are stretched to fit the window.
     depth_range: 2-tuple
         The values for the near and far clipping planes. If not given
-        or None, the clip planes will be calculated automatically based
-        on the fov, width, and height.
+        or None, the clip planes will be calculated automatically.
+    depth_multiplier: float
+        The multiplier to automatically calculate the depth range from the scene extent.
 
     Note
     ----
@@ -58,6 +59,7 @@ class PerspectiveCamera(Camera):
         zoom=1,
         maintain_aspect=True,
         depth_range=None,
+        depth_multiplier=1000,
     ):
         super().__init__()
 
@@ -78,6 +80,9 @@ class PerspectiveCamera(Camera):
         self.zoom = zoom
         self.maintain_aspect = maintain_aspect
         self.depth_range = depth_range
+        self.depth_multiplier = depth_multiplier
+
+        self._ref_extent = None
 
         self.set_view_size(1, 1)
 
@@ -182,8 +187,14 @@ class PerspectiveCamera(Camera):
 
     @property
     def depth_range(self):
-        """The values for the near and far clip planes. If None, these values
-        are calculated from fov, width, amd heiht.
+        """The user-defined values for the near and far clip planes.
+
+        If None, the near and far planes are calculated from fov, depth_multiplier, and
+        the reference 'extent' set in the ``show_`` methods.
+        See ``.near`` and ``.far`` for the current values.
+
+        See ``depth_multiplier`` to use automatic depth-range while still being able to control
+        the depth of view.
         """
         return self._depth_range
 
@@ -197,21 +208,53 @@ class PerspectiveCamera(Camera):
             raise TypeError("depth_range must be None or a 2-tuple.")
         self.flag_update()
 
+    @property
+    def reference_bbox(self):
+        pass  # TODO: instead of ref_extent? allows more functionality, like camera.reset?
+
+    @property
+    def depth_multiplier(self):
+        """The multiplier to calculate the depth range from the scene extent.
+
+        If the scene is 100 units, and the depth_multiplier is 1000 (default),
+        the far clipping plane is 100_000 units away if fov > 0, and 50_000 when fov == 0.
+
+        This value is ignored if ``depth_range`` is set.
+        """
+        return self._depth_multiplier
+
+    @depth_multiplier.setter
+    def depth_multiplier(self, depth_multiplier):
+        depth_multiplier = float(depth_multiplier)
+        if depth_multiplier <= 0.0:
+            raise ValueError("Camera.depth_multiplier must be > 0")
+        self._depth_multiplier = depth_multiplier
+
     def _get_near_and_far_plane(self):
         # Dept range explicitly given?
         if self._depth_range:
             return self._depth_range
 
-        # Put 1000 units between the near and far plane, scaled by extent
-        extent = 0.5 * (self._width + self._height)
+        # Get parameters
+        if self._ref_extent:
+            # TODO: there is currently no way to turn this "off", should it be settable? Should it be 1 initially?
+            ref_extent = self._ref_extent
+        else:
+            ref_extent = 0.5 * (self._width + self._height)
+        depth_multiplier = self._depth_multiplier
+
         if self.fov > 0:
             # Scale near plane with the fov to compensate for the fact
             # that with very small fov you're probably looking at something
             # in the far distance.
             f = fov_distance_factor(self.fov)
-            return (extent * f) / 1000, 1000 * extent
+            return (ref_extent * f) / depth_multiplier, ref_extent * depth_multiplier
         else:
-            return -500 * extent, 500 * extent
+            # Look behind and in front in equal distance
+            return (
+                -ref_extent * depth_multiplier / 2,
+                +ref_extent * depth_multiplier / 2,
+            )
 
     @property
     def near(self) -> float:
@@ -250,6 +293,8 @@ class PerspectiveCamera(Camera):
             "zoom": self.zoom,
             "maintain_aspect": self.maintain_aspect,
             "depth_range": self.depth_range,
+            "depth_multiplier": self.depth_multiplier,
+            "ref_extent": self._ref_extent,
         }
 
     def set_state(self, state):
@@ -272,6 +317,8 @@ class PerspectiveCamera(Camera):
                 self.local.rotation = value
             elif key == "reference_up":
                 self.world.reference_up = value
+            elif key == "ref_extent":
+                self._ref_extent = value
             elif key in (
                 "fov",
                 "width",
@@ -303,12 +350,11 @@ class PerspectiveCamera(Camera):
             height = 2 * size / (1 + self.aspect)
             width = height * self.aspect
             # Increase either the width or height, depending on the view size
-            if not self._maintain_aspect:
-                pass
-            elif self.aspect < view_aspect:
-                width *= view_aspect / self.aspect
-            else:
-                height *= self.aspect / view_aspect
+            if self._maintain_aspect:
+                if self.aspect < view_aspect:
+                    width *= view_aspect / self.aspect
+                else:
+                    height *= self.aspect / view_aspect
             # Calculate bounds
             top = +0.5 * height
             bottom = -0.5 * height
@@ -325,12 +371,11 @@ class PerspectiveCamera(Camera):
             height = self.height / zoom_factor
             # Increase either the width or height, depending on the viewport shape
             aspect = width / height
-            if not self._maintain_aspect:
-                pass
-            elif aspect < view_aspect:
-                width *= view_aspect / aspect
-            else:
-                height *= aspect / view_aspect
+            if self._maintain_aspect:
+                if aspect < view_aspect:
+                    width *= view_aspect / aspect
+                else:
+                    height *= aspect / view_aspect
             # Calculate bounds
             bottom = -0.5 * height
             top = +0.5 * height
@@ -377,7 +422,11 @@ class PerspectiveCamera(Camera):
 
         # Update extent
         distance = la.vec_dist(pos, self.local.position)
-        self._set_extent(distance / fov_distance_factor(self.fov))
+        extent = distance / fov_distance_factor(self.fov)
+        self._set_extent(extent)
+
+        # Lock the reference extent for consistent deph range
+        self._ref_extent = extent
 
     def show_object(
         self,
@@ -473,6 +522,9 @@ class PerspectiveCamera(Camera):
             distance = fov_distance_factor(self.fov) * extent
             self.local.position = view_pos - view_dir * distance
 
+        # Lock the reference extent for consistent deph range
+        self._ref_extent = extent
+
     def show_rect(self, left, right, top, bottom, *, view_dir=None, up=None):
         """Position the camera such that the given rectangle is in view.
 
@@ -532,6 +584,9 @@ class PerspectiveCamera(Camera):
         offset = 0.5 * (left + right), 0.5 * (top + bottom), 0
         new_position = position + la.vec_transform_quat(offset, rotation)
         self.world.position = new_position
+
+        # Lock the reference extent for consistent deph range
+        self._ref_extent = extent
 
     @cached
     def frustum(self):
