@@ -522,6 +522,11 @@ class PerspectiveCamera(Camera):
             distance = fov_distance_factor(self.fov) * extent
             self.local.position = view_pos - view_dir * distance
 
+        # Ortho camera's don't have to 'back up' from what they look at.
+        # In fact it can have bad effect on depth when width >> height (e.g. time series data)
+        if max(self._fov_range) == 0:  # I.e. is an OrthographicCamera
+            self.local.position = view_pos
+
         # Lock the reference extent for consistent deph range
         self._ref_extent = extent
 
@@ -578,8 +583,12 @@ class PerspectiveCamera(Camera):
         self.look_at((0, 0, 0))
 
         # Now we have a rotation that we can use to orient our rect
-        position = self.world.position
         rotation = self.world.rotation
+        if max(self._fov_range) == 0:
+            # I.e. is an OrthographicCamera, no need to 'back up'
+            position = (0, 0, 0)
+        else:
+            position = self.world.position
 
         offset = 0.5 * (left + right), 0.5 * (top + bottom), 0
         new_position = position + la.vec_transform_quat(offset, rotation)
