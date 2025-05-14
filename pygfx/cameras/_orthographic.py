@@ -25,7 +25,7 @@ class OrthographicCamera(PerspectiveCamera):
         on the fov, width, and height.
     """
 
-    _fov_range = 0, 0
+    _fov_range = 0, 0  # Disallow fov other than zero
 
     def __init__(
         self, width=1, height=1, *, zoom=1, maintain_aspect=True, depth_range=None
