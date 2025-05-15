@@ -259,22 +259,20 @@ class PerspectiveCamera(Camera):
         if self._depth_range:
             return self._depth_range
 
-        # Get parameters
         depth = self._depth
-        depth_multiplier = 1000.0
 
         if self.fov > 0:
-            # Scale near plane with the fov to compensate for the fact
-            # that with very small fov you're probably looking at something
-            # in the far distance.
+            # Scale near plane with the fov to compensate for the fact that with very small
+            # fov you're probably looking at something in the far distance.
             f = fov_distance_factor(self.fov)
-            return depth * f / depth_multiplier, depth * depth_multiplier
+            # We want to be gentle with the factor for the near plane; making that value small will cost a lot of bits in the depth buffer.
+            # The value for the far buffer affects the precision near the camerea much less.
+            return depth * f / 100, depth * 10000
         else:
-            # Look behind and in front in equal distance
-            return (
-                -depth_multiplier * depth / 2,
-                +depth_multiplier * depth / 2,
-            )
+            # Look behind and in front in equal distance.
+            # With a fov of 0, the depth precision is divided equally over the whole range. So being able to look
+            # far in the distance, is *much* more costly than it is for perpective projection.
+            return (-100 * depth, +100 * depth)
 
     @property
     def near(self) -> float:
@@ -310,10 +308,10 @@ class PerspectiveCamera(Camera):
             "fov": self.fov,
             "width": self.width,
             "height": self.height,
+            "depth": self.depth,
             "zoom": self.zoom,
             "maintain_aspect": self.maintain_aspect,
             "depth_range": self.depth_range,
-            "depth": self.depth,
         }
 
     def set_state(self, state):
@@ -340,10 +338,10 @@ class PerspectiveCamera(Camera):
                 "fov",
                 "width",
                 "height",
+                "depth",
                 "zoom",
                 "maintain_aspect",
                 "depth_range",
-                "depth",
             ):
                 # Simple props
                 setattr(self, key, value)
