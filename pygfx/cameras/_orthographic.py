@@ -25,18 +25,13 @@ class OrthographicCamera(PerspectiveCamera):
     maintain_aspect: bool
         Whether the aspect ration is maintained as the window size changes.
         Default True. If false, the dimensions are stretched to fit the window.
-    depth_multiplier: float
-        The multiplier used to calculate the near and far clip planes.
-        The range of depth is the ``depth_extent`` times the ``depth_multiplier``.
-        Ignored if ``depth_range`` is set.
-    depth_extent: float
-        The reference size of the scene in the depth dimension. By default this value is auto-determined
-        using ``width`` and ``height``, and it gets set by ``show_pos()``, ``show_object()`` and ``show_rect()``.
-        Ignored if ``depth_range`` is set.
-    depth_range: 2-tuple
+     depth: float | None
+        The reference size of the scene in the depth dimension. By default this value gets set
+        to the average of ``width`` and ``height``. This happens on initialization and by ``show_pos()``, ``show_object()`` and ``show_rect()``.
+        It is used to calculate a sensible depth range when ``depth_range`` is not set.
+    depth_range: 2-tuple | None
         The explicit values for the near and far clip planes. If not given
-        or None (the default), the clip planes ware calculated using
-        ``fov``, ``depth_multiplier``, and ``depth_extent``.
+        or None (the default), the clip planes ware calculated using ``fov`` and ``depth``.
 
     """
 
@@ -49,8 +44,7 @@ class OrthographicCamera(PerspectiveCamera):
         *,
         zoom=1,
         maintain_aspect=True,
-        depth_multiplier=1000.0,
-        depth_extent=None,
+        depth=None,
         depth_range=None,
     ):
         super().__init__(
@@ -60,7 +54,6 @@ class OrthographicCamera(PerspectiveCamera):
             height=height,
             zoom=zoom,
             maintain_aspect=maintain_aspect,
-            depth_multiplier=depth_multiplier,
-            depth_extent=depth_extent,
+            depth=depth,
             depth_range=depth_range,
         )

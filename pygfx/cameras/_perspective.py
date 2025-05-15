@@ -47,18 +47,14 @@ class PerspectiveCamera(Camera):
     maintain_aspect: bool
         Whether the aspect ration is maintained as the window size changes.
         Default True. If false, the dimensions are stretched to fit the window.
-    depth_multiplier: float
-        The multiplier used to calculate the near and far clip planes.
-        The range of depth is the ``depth_extent`` times the ``depth_multiplier``.
-        Ignored if ``depth_range`` is set.
-    depth_extent: float | None
-        The reference size of the scene in the depth dimension. By default this value is auto-determined
-        using ``width`` and ``height``, and it gets set by ``show_pos()``, ``show_object()`` and ``show_rect()``.
-        Ignored if ``depth_range`` is set.
-    depth_range: 2-tuple
+    depth: float | None
+        The reference size of the scene in the depth dimension. By default this value gets set
+        to the average of ``width`` and ``height``. This happens on initialization and by ``show_pos()``, ``show_object()`` and ``show_rect()``.
+        It is used to calculate a sensible depth range when ``depth_range`` is not set.
+    depth_range: 2-tuple | None
         The explicit values for the near and far clip planes. If not given
-        or None (the default), the clip planes ware calculated using
-        ``fov``, ``depth_multiplier``, and ``depth_extent``.
+        or None (the default), the clip planes ware calculated using ``fov`` and ``depth``.
+
     Notes
     -----
 
@@ -70,7 +66,7 @@ class PerspectiveCamera(Camera):
     When you use ``show_pos()``, ``show_object()``, or ``show_rect()``, there is no
     need to set the width or height.
 
-    When you don't use the show methods, and the fov is zero, you need to set the width and height, and optionally the depth_extent.
+    When you don't use the show methods, and the fov is zero, you need to set the width and height, and optionally the depth.
     """
 
     _fov_range = 0, 179
@@ -84,8 +80,7 @@ class PerspectiveCamera(Camera):
         height=None,
         zoom=1,
         maintain_aspect=True,
-        depth_multiplier=1000.0,
-        depth_extent=None,
+        depth=None,
         depth_range=None,
     ):
         super().__init__()
@@ -106,9 +101,10 @@ class PerspectiveCamera(Camera):
 
         self.zoom = zoom
         self.maintain_aspect = maintain_aspect
-        self.depth_multiplier = depth_multiplier
-        self.depth_extent = depth_extent or float(0.5 * (width + height))
+        self.depth = depth or float(0.5 * (width + height))
         self.depth_range = depth_range
+
+        # depth_range_auto =
 
         self.set_view_size(1, 1)
 
@@ -212,27 +208,7 @@ class PerspectiveCamera(Camera):
         self.flag_update()
 
     @property
-    def depth_multiplier(self):
-        """The multipler used to scale the depth range, it determines how far the camera can see.
-
-        This is only used if ``depth_range`` is not set.
-
-        Details: if the ``fov`` is zero, the far plane is at ``depth_extent * depth_multiplier / 2``,
-        and the near plane has the same value but negative.
-        If the ``fov``is nonzero, the far plane is  ``depth_extent * depth_multiplier``,
-        and the near plane is ``f * depth_extent / depth_multiplier``, with ``f`` a distance-factor based on the ``fov``.
-        """
-        return self._depth_multiplier
-
-    @depth_multiplier.setter
-    def depth_multiplier(self, depth_multiplier):
-        depth_multiplier = float(depth_multiplier)
-        if depth_multiplier <= 0.0:
-            raise ValueError("Camera.depth_multiplier must both be > 0")
-        self._depth_multiplier = depth_multiplier
-
-    @property
-    def depth_extent(self):
+    def depth(self):
         """The reference size for the scene in the depth dimension.
 
         This is only used if ``depth_range`` is not set.
@@ -240,30 +216,31 @@ class PerspectiveCamera(Camera):
         This value is set by ``show_pos()``, ``show_object()`` and ``show_rect()``.
         It can be set by the user, but this is only recommended if you don't use any of the show methods.
         """
-        return self._depth_extent
+        return self._depth
 
-    @depth_extent.setter
-    def depth_extent(self, depth_extent):
-        depth_extent = float(depth_extent)
-        if depth_extent <= 0:
-            raise ValueError("Camera.depth_extent must both be > 0")
-        self._depth_extent = depth_extent
+    @depth.setter
+    def depth(self, depth):
+        depth = float(depth)
+        if depth <= 0:
+            raise ValueError("Camera.depth must both be > 0")
+        self._depth = depth
 
     @property
     def depth_range(self):
         """The user-defined values for the near and far clip planes.
 
-        By default this is None, causing the near and far planes to be calculated from ``fov`` and ``depth_multiplier``.
-        This is recommended in general. See ``.near`` and ``.far`` for the real depth-clipping values.
+        By default this is None, causing the near and far planes to be calculated from ``fov`` and ``depth``.
+        This is a convenience that works well for simple cases. The automatic depth range calculation assumes
+        that the scene is confined, containing one or more objects to be inspected. The depth range is set quite
+        a bit larger than the scene, so the scene does not disappear as you zoom out, and e.g. grids have a proper horizon.
 
         Cases where explicitly setting ``depth_range`` makes sense:
 
-        * When you manually position the camera (possibly without using any of the ``show_`` methods),
-          although it may be simpler to use ``depth_multiplier`` in this case.
-        * If you use one of the ``show_`` methods, but the automatically calculated depth range is suboptimal.
-        * A specific case of the above is when your scene is *very* elongated, e.g. for time-series data. In that case, the
-          scene's 'extent' is huge, causing the depth range to be unessarily large, which may cause issues
-          due to limited precision in the depth buffer. Just set ``the depth_range`` to say ``(-1000, 1000)`` in this case.
+        * When you know your scene well, and just want to be explicit.
+        * When the scene represents a larger world where there are near and distant objects.
+        * When the automatically calculated depth range is suboptimal.
+        * When the depth of your scene is much smaller/larger than (the average of the) width and height,
+          e.g. in plotting. Although you can also set ``depth`` in this case.
         """
         return self._depth_range
 
@@ -283,19 +260,20 @@ class PerspectiveCamera(Camera):
             return self._depth_range
 
         # Get parameters
-        depth_extent, depth_multiplier = self._depth_extent, self._depth_multiplier
+        depth = self._depth
+        depth_multiplier = 1000.0
 
         if self.fov > 0:
             # Scale near plane with the fov to compensate for the fact
             # that with very small fov you're probably looking at something
             # in the far distance.
             f = fov_distance_factor(self.fov)
-            return depth_extent * f / depth_multiplier, depth_extent * depth_multiplier
+            return depth * f / depth_multiplier, depth * depth_multiplier
         else:
             # Look behind and in front in equal distance
             return (
-                -depth_extent * depth_multiplier / 2,
-                +depth_extent * depth_multiplier / 2,
+                -depth_multiplier * depth / 2,
+                +depth_multiplier * depth / 2,
             )
 
     @property
@@ -335,8 +313,7 @@ class PerspectiveCamera(Camera):
             "zoom": self.zoom,
             "maintain_aspect": self.maintain_aspect,
             "depth_range": self.depth_range,
-            "depth_multiplier": self.depth_multiplier,
-            "depth_extent": self.depth_extent,
+            "depth": self.depth,
         }
 
     def set_state(self, state):
@@ -366,8 +343,7 @@ class PerspectiveCamera(Camera):
                 "zoom",
                 "maintain_aspect",
                 "depth_range",
-                "depth_multiplier",
-                "depth_extent",
+                "depth",
             ):
                 # Simple props
                 setattr(self, key, value)
@@ -431,7 +407,7 @@ class PerspectiveCamera(Camera):
         projection_matrix.flags.writeable = False
         return projection_matrix
 
-    def show_pos(self, target, *, up=None):
+    def show_pos(self, target, *, up=None, depth=None):
         """Look at the given position or object.
 
         This is similar to `look_at()` but it also sets the width and height
@@ -468,7 +444,7 @@ class PerspectiveCamera(Camera):
         self._set_extent(extent)
 
         # Lock the reference extent for consistent deph range
-        self.depth_extent = extent
+        self.depth = extent if depth is None else depth
 
     def show_object(
         self,
@@ -478,6 +454,7 @@ class PerspectiveCamera(Camera):
         up=None,
         scale=1,
         match_aspect=False,
+        depth=None,
     ):
         """Position and orientate the camera such that the given target in is in view.
 
@@ -570,9 +547,11 @@ class PerspectiveCamera(Camera):
             self.local.position = view_pos
 
         # Lock the reference extent for consistent deph range
-        self.depth_extent = extent
+        self.depth = extent if depth is None else depth
 
-    def show_rect(self, left, right, top, bottom, *, view_dir=None, up=None):
+    def show_rect(
+        self, left, right, top, bottom, *, view_dir=None, up=None, depth=None
+    ):
         """Position the camera such that the given rectangle is in view.
 
         The rectangle represents a plane in world coordinates, centered
@@ -637,7 +616,7 @@ class PerspectiveCamera(Camera):
         self.world.position = new_position
 
         # Lock the reference extent for consistent deph range
-        self.depth_extent = extent
+        self.depth = extent if depth is None else depth
 
     @cached
     def frustum(self):
