@@ -628,7 +628,6 @@ class PointLightShadow(LightShadow):
         # align this depth_range with that of the other cameras.
         super().__init__(PerspectiveCamera(90, depth_range=(0.5, 100000)))
 
-        breakpoint()
         self._gfx_matrix_buffer = []
 
         for _ in range(6):
