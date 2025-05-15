@@ -7,7 +7,7 @@ from ._base import WorldObject
 from ..utils.color import Color
 from ..cameras import Camera
 from ..resources import Buffer
-from ..cameras import OrthographicCamera, PerspectiveCamera
+from ..cameras import PerspectiveCamera
 from ..utils import array_from_shadertype
 
 
@@ -574,8 +574,10 @@ class DirectionalLightShadow(LightShadow):
     """Shadow map utility for directional lights."""
 
     def __init__(self) -> None:
-        # OrthographicCamera for directional light
-        super().__init__(OrthographicCamera(1000, 1000, depth_range=(-500, 500)))
+        # orhto projection (fov==0) for directional light
+        super().__init__(
+            PerspectiveCamera(0, width=1000, height=1000, depth_range=(-500, 500))
+        )
 
     def _update_matrix(self, light):
         super()._update_matrix(light)
@@ -620,7 +622,7 @@ class PointLightShadow(LightShadow):
     )
 
     def __init__(self) -> None:
-        super().__init__(PerspectiveCamera(90))
+        super().__init__(PerspectiveCamera(90, depth_range=(0.5, 500)))
 
         self._gfx_matrix_buffer = []
 

@@ -30,8 +30,8 @@ class OrthographicCamera(PerspectiveCamera):
         The range of depth is the ``depth_extent`` times the ``depth_multiplier``.
         Ignored if ``depth_range`` is set.
     depth_extent: float
-        The reference size of the scene in the depth dimension. This value is initially 1.0
-        by default, and gets set by ``show_pos()``, ``show_object()`` and ``show_rect()``.
+        The reference size of the scene in the depth dimension. By default this value is auto-determined
+        using ``width`` and ``height``, and it gets set by ``show_pos()``, ``show_object()`` and ``show_rect()``.
         Ignored if ``depth_range`` is set.
     depth_range: 2-tuple
         The explicit values for the near and far clip planes. If not given
@@ -50,7 +50,7 @@ class OrthographicCamera(PerspectiveCamera):
         zoom=1,
         maintain_aspect=True,
         depth_multiplier=1000.0,
-        depth_extent=1.0,
+        depth_extent=None,
         depth_range=None,
     ):
         super().__init__(
