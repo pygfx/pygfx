@@ -624,8 +624,8 @@ class PointLightShadow(LightShadow):
     def __init__(self) -> None:
         # Note, this initially did not set depth_range. The depth_range is now
         # set explicitly to the range the camera calculated automatically, so
-        # that the validation examples don't change. But we may at some point want to
-        # align this depth_range with that of the other cameras.
+        # that the validation examples don't change. It would probably be best
+        # to set all depth_ranges consistently, and based on the size of the scene.
         super().__init__(PerspectiveCamera(90, depth_range=(0.5, 100000)))
 
         self._gfx_matrix_buffer = []
