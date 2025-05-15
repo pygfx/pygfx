@@ -272,6 +272,7 @@ class PerspectiveCamera(Camera):
             # Look behind and in front in equal distance.
             # With a fov of 0, the depth precision is divided equally over the whole range. So being able to look
             # far in the distance, is *much* more costly than it is for perpective projection.
+            # With a factor 100, you can zoom out until the scene is just a few pixes before it disappears.
             return (-100 * depth, +100 * depth)
 
     @property
