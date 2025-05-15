@@ -622,7 +622,7 @@ class PointLightShadow(LightShadow):
     )
 
     def __init__(self) -> None:
-        super().__init__(PerspectiveCamera(90, depth_range=(0.5, 500)))
+        super().__init__(PerspectiveCamera(90))  # todo: set depth_range=(0.5, 500) ?
 
         self._gfx_matrix_buffer = []
 
