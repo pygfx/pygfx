@@ -8,6 +8,22 @@ from ..utils.transform import cached
 from ._base import Camera
 
 
+# Some general remarks on how the camera works:
+#
+# The width and height have a special meaning as they represent the size of the scene.
+# Internally, we use the concept of 'extent', which is the mean of the width and height.
+# The orbit camera uses the extent to determine the point around which to rotate, and the
+# fly camera uses the extent to determine the movement speed.
+#
+# So although, with a fov > 0, the width and height do not affect the projection matrix,
+# they still play a role. The controllers actually set both the distance and the width/height.
+# That way the user can change the fov at any time and transition smoothly.
+#
+# The orthograpic camera constraints the vof to zero. It is therefore not necessary to move that
+# camera away from the scene in order to see it. This avoids depth issues for very long scenes like
+# time-series plots.
+
+
 class PerspectiveCamera(Camera):
     """A generic 3D camera with a configurable field of view (fov).
 
@@ -31,10 +47,6 @@ class PerspectiveCamera(Camera):
     maintain_aspect: bool
         Whether the aspect ration is maintained as the window size changes.
         Default True. If false, the dimensions are stretched to fit the window.
-    depth_range: 2-tuple
-        The explicit values for the near and far clip planes. If not given
-        or None (the default), the clip planes ware calculated using
-        ``fov``, ``depth_multiplier``, and ``depth_extent``.
     depth_multiplier: float
         The multiplier used to calculate the near and far clip planes.
         The range of depth is the ``depth_extent`` times the ``depth_multiplier``.
@@ -43,15 +55,22 @@ class PerspectiveCamera(Camera):
         The reference size of the scene in the depth dimension. This value is initially 1.0
         by default, and gets set by ``show_pos()``, ``show_object()`` and ``show_rect()``.
         Ignored if ``depth_range`` is set.
+    depth_range: 2-tuple
+        The explicit values for the near and far clip planes. If not given
+        or None (the default), the clip planes ware calculated using
+        ``fov``, ``depth_multiplier``, and ``depth_extent``.
+    Notes
+    -----
 
-    Note
-    ----
-    The width and/or height should be set when using a fov of zero,
-    when you want to manipulate the camera with a controller, or when
-    you want to make use of the automatic depth_range. However, if you
-    also call ``show_pos``, ``show_object``, or ``show_rect`` you can omit
-    width and height, because these methods set them for you.
+    When the fov is zero, the width and height determine the view of the camera.
+    When the fov is nonzero, the width and height only specify the aspect ratio.
+    However, the width and height still represent the size of the scene, and the controllers
+    uses it to e.g. determine the orbit-point, or the speed of motion.
 
+    When you use ``show_pos()``, ``show_object()``, or ``show_rect()``, there is no
+    need to set the width or height.
+
+    When you don't use the show methods, and the fov is zero, you need to set the width and height, and optionally the depth_extent.
     """
 
     _fov_range = 0, 179
@@ -65,9 +84,9 @@ class PerspectiveCamera(Camera):
         height=None,
         zoom=1,
         maintain_aspect=True,
-        depth_range=None,
         depth_multiplier=1000.0,
         depth_extent=1.0,
+        depth_range=None,
     ):
         super().__init__()
 
@@ -87,9 +106,9 @@ class PerspectiveCamera(Camera):
 
         self.zoom = zoom
         self.maintain_aspect = maintain_aspect
-        self.depth_range = depth_range
         self.depth_multiplier = depth_multiplier
         self.depth_extent = depth_extent
+        self.depth_range = depth_range
 
         self.set_view_size(1, 1)
 
@@ -193,34 +212,6 @@ class PerspectiveCamera(Camera):
         self.flag_update()
 
     @property
-    def depth_range(self):
-        """The user-defined values for the near and far clip planes.
-
-        By default this is None, causing the near and far planes to be calculated from ``fov`` and ``depth_multiplier``.
-        This is recommended in general. See ``.near`` and ``.far`` for the real depth-clipping values.
-
-        Cases where explicitly setting ``depth_range`` makes sense:
-
-        * When you manually position the camera (possibly without using any of the ``show_`` methods),
-          although it may be simpler to use ``depth_multiplier`` in this case.
-        * If you use one of the ``show_`` methods, but the automatically calculated depth range is suboptimal.
-        * A specific case of the above is when your scene is *very* elongated, e.g. for time-series data. In that case, the
-          scene's 'extent' is huge, causing the depth range to be unessarily large, which may cause issues
-          due to limited precision in the depth buffer. Just set ``the depth_range`` to say ``(-1000, 1000)`` in this case.
-        """
-        return self._depth_range
-
-    @depth_range.setter
-    def depth_range(self, value):
-        if value is None:
-            self._depth_range = None
-        elif isinstance(value, (tuple, list)) and len(value) == 2:
-            self._depth_range = float(value[0]), float(value[1])
-        else:
-            raise TypeError("depth_range must be None or a 2-tuple.")
-        self.flag_update()
-
-    @property
     def depth_multiplier(self):
         """The multipler used to scale the depth range, it determines how far the camera can see.
 
@@ -257,6 +248,34 @@ class PerspectiveCamera(Camera):
         if depth_extent <= 0:
             raise ValueError("Camera.depth_extent must both be > 0")
         self._depth_extent = depth_extent
+
+    @property
+    def depth_range(self):
+        """The user-defined values for the near and far clip planes.
+
+        By default this is None, causing the near and far planes to be calculated from ``fov`` and ``depth_multiplier``.
+        This is recommended in general. See ``.near`` and ``.far`` for the real depth-clipping values.
+
+        Cases where explicitly setting ``depth_range`` makes sense:
+
+        * When you manually position the camera (possibly without using any of the ``show_`` methods),
+          although it may be simpler to use ``depth_multiplier`` in this case.
+        * If you use one of the ``show_`` methods, but the automatically calculated depth range is suboptimal.
+        * A specific case of the above is when your scene is *very* elongated, e.g. for time-series data. In that case, the
+          scene's 'extent' is huge, causing the depth range to be unessarily large, which may cause issues
+          due to limited precision in the depth buffer. Just set ``the depth_range`` to say ``(-1000, 1000)`` in this case.
+        """
+        return self._depth_range
+
+    @depth_range.setter
+    def depth_range(self, value):
+        if value is None:
+            self._depth_range = None
+        elif isinstance(value, (tuple, list)) and len(value) == 2:
+            self._depth_range = float(value[0]), float(value[1])
+        else:
+            raise TypeError("depth_range must be None or a 2-tuple.")
+        self.flag_update()
 
     def _get_near_and_far_plane(self):
         # Dept range explicitly given?
