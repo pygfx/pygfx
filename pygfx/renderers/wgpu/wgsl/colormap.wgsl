@@ -1,7 +1,7 @@
 // Colormap support
 
 fn sample_colormap(texcoord: {{ colormap_coord_type }}) -> vec4<f32> {
-
+    
     $$ if use_colormap is defined
         // apply the colormap transform
         let map_transform = mat3x3<f32>(u_colormap.transform[0].xyz, u_colormap.transform[1].xyz, u_colormap.transform[2].xyz);
@@ -14,6 +14,8 @@ fn sample_colormap(texcoord: {{ colormap_coord_type }}) -> vec4<f32> {
             let transformed_uv = (map_transform * vec3<f32>(texcoord.xy, 1.0));
             let map_uv = vec3f(transformed_uv.xy, texcoord.z);
         $$ endif
+    $$ else
+        let map_uv = texcoord;
     $$ endif
 
     // Sample in the colormap. We get a vec4 color, but not all channels may be used.

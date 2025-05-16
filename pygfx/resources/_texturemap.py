@@ -136,10 +136,9 @@ class TextureMap(Trackable):
 
     @property
     def offset(self):
-        """The offset of the texture map.
+        """The uv offset of the texture map.
 
         Note: You should call `update_matrix` after changing this value to update the matrix.
-        For now, it is only affective for 2D textures in Mesh Rendering.
         """
         return self._offset
 
@@ -149,10 +148,9 @@ class TextureMap(Trackable):
 
     @property
     def scale(self):
-        """The scale of the texture map.
+        """The uv scale of the texture map.
 
         Note: You should call `update_matrix` after changing this value to update the matrix.
-        For now, it is only affective for 2D textures in Mesh Rendering.
         """
         return self._scale
 
@@ -162,10 +160,9 @@ class TextureMap(Trackable):
 
     @property
     def rotation(self):
-        """The rotation of the texture map.
+        """The rotation of the texture map in uv plane.
 
         Note: You should call `update_matrix` after changing this value to update the matrix.
-        For now, it is only affective for 2D textures in Mesh Rendering.
         """
         return self._rotation
 
