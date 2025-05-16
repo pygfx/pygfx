@@ -11,8 +11,8 @@ fn sample_colormap(texcoord: {{ colormap_coord_type }}) -> vec4<f32> {
         $$ elif colormap_coord_type == "vec2<f32>"
             let map_uv = (map_transform * vec3<f32>(texcoord, 1.0)).xy;
         $$ elif colormap_coord_type == "vec3<f32>"
-            let transformed_uv = (map_transform * vec3<f32>(texcoord, 1.0));
-            let map_uv = vec3f(transformed_uv.xy, 1.0);
+            let transformed_uv = (map_transform * vec3<f32>(texcoord.xy, 1.0));
+            let map_uv = vec3f(transformed_uv.xy, texcoord.z);
         $$ endif
     $$ endif
 
