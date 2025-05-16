@@ -108,11 +108,11 @@ class MeshShader(BaseShader):
             Binding(f"t_{name}", "texture/auto", view, "FRAGMENT"),
         ]
 
-        if view_dim == "2d":
-            # only 2D textures (todo: and UVMapping mode) have transform
-            bindings.append(
-                Binding(f"u_{name}", "buffer/uniform", map.uniform_buffer, "FRAGMENT"),
-            )
+        # todo: Only "UVMapping mode" have "transform" and "uv_channel"
+        # todo: introduce "MappingMode" in TextureMap
+        bindings.append(
+            Binding(f"u_{name}", "buffer/uniform", map.uniform_buffer, "FRAGMENT"),
+        )
 
         if map.uv_channel not in self["used_uv"]:
             texcoords = getattr(geometry, f"texcoords{map.uv_channel or ''}", None)
@@ -125,7 +125,11 @@ class MeshShader(BaseShader):
                         "VERTEX",
                     )
                 )
-                self["used_uv"][map.uv_channel] = texcoords.data.ndim
+
+                if texcoords.data.ndim == 1:
+                    self["used_uv"][map.uv_channel] = 1
+                else:
+                    self["used_uv"][map.uv_channel] = texcoords.data.shape[-1]
 
         return bindings
 
