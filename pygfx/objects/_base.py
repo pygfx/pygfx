@@ -598,7 +598,7 @@ class WorldObject(EventTarget, Trackable):
         aabb = self.get_world_bounding_box()
         return None if aabb is None else la.aabb_to_sphere(aabb)
 
-    def _wgpu_get_pick_info(self, pick_value):
+    def _wgpu_get_pick_info(self, pick_value) -> dict:
         # In most cases the material handles this.
         return self.material._wgpu_get_pick_info(pick_value)
 

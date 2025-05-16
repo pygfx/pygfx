@@ -117,13 +117,10 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     let world_pos = u_wobject.world_transform * vec4<f32>(data_pos, 1.0);
     let ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos;
 
-    // Maybe we did the work for nothing
-
-    // Get fragment output. Note that the depth arg only affects the
-    // blending - setting the depth attribute actually sets the fragment depth.
-    let depth = ndc_pos.z / ndc_pos.w;
-    var out = get_fragment_output(vec4<f32>(ndc_pos.xy, depth, 1.0), render_out.color);
-    out.depth = depth;
+    // Create fragment output.
+    var out: FragmentOutput;
+    out.color = render_out.color;
+    out.depth = ndc_pos.z / ndc_pos.w;
 
     $$ if write_pick
     // The wobject-id must be 20 bits. In total it must not exceed 64 bits.

@@ -6,10 +6,11 @@ import pylinalg as la
 
 from ....utils import array_from_shadertype
 from ....resources import Buffer
-from ....objects import Line
+from ....objects import Line, InstancedLine
 from ....materials._line import (
     LineMaterial,
     LineSegmentMaterial,
+    LineInfiniteSegmentMaterial,
     LineArrowMaterial,
     LineThinMaterial,
     LineThinSegmentMaterial,
@@ -38,10 +39,14 @@ class LineShader(BaseShader):
         material = wobject.material
         geometry = wobject.geometry
 
+        # Is this an instanced line?
+        self["instanced"] = isinstance(wobject, InstancedLine)
+
         self["line_type"] = "line"
         self["dashing"] = False
         self["thickness_space"] = material.thickness_space
         self["aa"] = material.aa
+        self["loop"] = False
         self["debug"] = False
 
         # Handle color
@@ -94,6 +99,15 @@ class LineShader(BaseShader):
         # ):
         #     # self["line_type"] = "quickline"
 
+        # Handle looping. The line_loop_buffer is one larger to enable looping the last point.
+        if material.loop:
+            self["loop"] = True
+            self.line_loop_buffer = Buffer(
+                np.zeros((geometry.positions.nitems + 1,), np.uint32)
+            )
+            self._loop_hash = None
+            self.needs_bake_function = True
+
         # Handle dashing
         if material.dash_pattern:
             # Set dash props
@@ -104,12 +118,64 @@ class LineShader(BaseShader):
             # For normal lines, we need a cumulative distance.
             if not isinstance(material, LineSegmentMaterial):
                 self.needs_bake_function = True
-                self._positions_hash = None
+                self._cumdist_hash = None
                 self.line_distance_buffer = Buffer(
                     np.zeros((geometry.positions.nitems,), np.float32)
                 )
 
     def bake_function(self, wobject, camera, logical_size):
+        if hasattr(self, "line_loop_buffer"):
+            self._bake_line_loops(wobject)
+        if hasattr(self, "line_distance_buffer"):
+            self._bake_line_distance(wobject, camera, logical_size)
+
+    def _bake_line_loops(self, wobject):
+        # Early exit?
+        positions_buffer = wobject.geometry.positions
+        loop_hash = (id(positions_buffer), positions_buffer.rev)
+        if loop_hash == self._loop_hash:
+            return
+        self._loop_hash = loop_hash
+
+        # Get arrays
+        loop_buffer = self.line_loop_buffer
+        r_offset, r_size = positions_buffer.draw_range
+        positions_array = positions_buffer.data
+        loop_array = loop_buffer.data
+
+        # Get indices of points that are nan
+        (nan_indices,) = np.where(
+            np.isnan(positions_array[r_offset : r_offset + r_size]).any(axis=1)
+        )
+
+        is_first = 0x10000000
+        is_last = 0x20000000
+        is_connector = 0x30000000
+
+        # Mark these indices in the loop array
+        loop_array[r_offset : r_offset + r_size] = 0.0
+        i1 = r_offset - 1
+        i2 = -1
+        for i2 in nan_indices:
+            n_nodes = i2 - i1 - 1
+            if n_nodes >= 3:
+                loop_array[i1 + 1] = is_first + n_nodes
+                loop_array[i2 - 1] = is_last + n_nodes
+                loop_array[i2] = is_connector + n_nodes
+            i1 = i2
+
+        # Connect final node to last loop-start. Note that the comparison with i1 and
+        # n_nodes makes sure that if the last node is already nan, this step is skipped.
+        i2 = r_offset + r_size
+        n_nodes = i2 - i1 - 1
+        if n_nodes >= 3:
+            loop_array[i1 + 1] = is_first + n_nodes
+            loop_array[i2 - 1] = is_last + n_nodes
+            loop_array[i2] = is_connector + n_nodes
+
+        loop_buffer.update_range(r_offset, r_size)
+
+    def _bake_line_distance(self, wobject, camera, logical_size):
         # Prepare
         positions_buffer = wobject.geometry.positions
         r_offset, r_size = positions_buffer.draw_range
@@ -121,10 +187,10 @@ class LineShader(BaseShader):
         # Get vertices in the appropriate coordinate frame
         if wobject.material.thickness_space == "model":
             # Skip this step if the position data has not changed
-            positions_hash = (id(positions_buffer), positions_buffer.rev)
-            if positions_hash == self._positions_hash:
+            cumdist_hash = (id(positions_buffer), positions_buffer.rev)
+            if cumdist_hash == self._cumdist_hash:
                 return
-            self._positions_hash = positions_hash
+            self._cumdist_hash = cumdist_hash
             vertex_array = positions_array
         else:
             # Prep
@@ -208,7 +274,9 @@ class LineShader(BaseShader):
                 self.define_generic_colormap(material.map, geometry.texcoords)
             )
 
-        # Need a buffer for the cumdist?
+        # Need a buffer for the loop and/or cumdist?
+        if hasattr(self, "line_loop_buffer"):
+            bindings.append(Binding("s_loop", rbuffer, self.line_loop_buffer, "VERTEX"))
         if hasattr(self, "line_distance_buffer"):
             bindings.append(
                 Binding("s_cumdist", rbuffer, self.line_distance_buffer, "VERTEX")
@@ -217,8 +285,16 @@ class LineShader(BaseShader):
         bindings = {i: b for i, b in enumerate(bindings)}
         self.define_bindings(0, bindings)
 
+        # Instanced lines have an extra storage buffer that we add manually
+        bindings1 = {}  # non-auto-generated bindings
+        if self["instanced"]:
+            bindings1[0] = Binding(
+                "s_instance_infos", rbuffer, wobject.instance_buffer, "VERTEX"
+            )
+
         return {
             0: bindings,
+            1: bindings1,
         }
 
     def get_pipeline_info(self, wobject, shared):
@@ -230,12 +306,18 @@ class LineShader(BaseShader):
 
     def _get_n(self, positions):
         offset, size = positions.draw_range
+        if self["loop"]:
+            size += 1
         return offset * 6, size * 6
 
     def get_render_info(self, wobject, shared):
         material = wobject.material
         # Determine how many vertices are needed
         offset, size = self._get_n(wobject.geometry.positions)
+
+        n_instances = 1
+        if self["instanced"]:
+            n_instances = wobject.instance_buffer.nitems
 
         render_mask = 0
         if wobject.render_mask:
@@ -266,7 +348,7 @@ class LineShader(BaseShader):
                 render_mask |= RenderMask.transparent
 
         return {
-            "indices": (size, 1, offset, 0),
+            "indices": (size, n_instances, offset, 0),
             "render_mask": render_mask,
         }
 
@@ -291,6 +373,18 @@ class LineSegmentShader(LineShader):
     def __init__(self, wobject):
         super().__init__(wobject)
         self["line_type"] = "segment"
+
+
+@register_wgpu_render_function(Line, LineInfiniteSegmentMaterial)
+class LineInfiniteSegmentShader(LineShader):
+    """Shader to draw infinite line segments. Since the line's ends are always off-screen, there is no need to draw caps."""
+
+    def __init__(self, wobject):
+        super().__init__(wobject)
+        material = wobject.material
+        self["line_type"] = "infsegment"
+        self["start_is_infinite"] = material.start_is_infinite
+        self["end_is_infinite"] = material.end_is_infinite
 
 
 @register_wgpu_render_function(Line, LineArrowMaterial)
@@ -448,7 +542,9 @@ class ThinLineShader(LineShader):
             let opacity = color.a * u_material.opacity;
             let out_color = vec4<f32>(physical_color, opacity);
 
-            return get_fragment_output(varyings.position, out_color);
+            var out: FragmentOutput;
+            out.color = out_color;
+            return out;
         }
         """
 

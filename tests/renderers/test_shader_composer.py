@@ -1,9 +1,10 @@
+import pygfx
 from pygfx.renderers.wgpu.shader import BaseShader
-from pygfx.renderers.wgpu.shader.base import resolve_depth_output
-from pygfx.renderers.wgpu import Binding
+from pygfx.renderers.wgpu import Binding, register_wgsl_loader
 from pygfx.utils import array_from_shadertype
 from pygfx import Buffer
 from pytest import raises
+import jinja2
 import numpy as np
 
 
@@ -188,41 +189,43 @@ def test_uniform_definitions():
         shader.define_binding(0, 0, Binding("zz", "buffer/uniform", struct))
 
 
-def test_resolve_depth_output():
-    code1 = """
-    struct FragmentOutput {
-        @location(0) color: vec4<f32>,
-    }
-    fn fs_main() {
-    }
-    """.strip()
-    code2 = code1
-    assert resolve_depth_output(code1).strip() == code2
+def test_custom_wgsl_loaders():
+    class MyLoader(jinja2.BaseLoader):
+        def get_source(self, environment, x):
+            return f"// loader: {x}", None, None
+
+    my_loader = MyLoader()
+
+    def my_func(x):
+        return f"// func: {x}"
+
+    my_dict = {"foo.wgsl": "// dict: foo.wgsl"}
+
+    register_wgsl_loader("testloader1", my_loader)
+    register_wgsl_loader("testloader2", my_func)
+    register_wgsl_loader("testloader3", my_dict)
+
+    with raises(RuntimeError):
+        register_wgsl_loader("testloader3", {})
 
     code1 = """
-    struct FragmentOutput {
-        @location(0) color: vec4<f32>,
-    }
-    fn fs_main() {
-        out.depth = 0.0;
-    }
+    {$ include 'testloader1.foo.wgsl' $}
+    {$ include 'testloader2.foo.wgsl' $}
+    {$ include 'testloader3.foo.wgsl' $}
     """
 
     code2 = """
-    struct FragmentOutput {
-        @builtin(frag_depth) depth : f32,
-        @location(0) color: vec4<f32>,
-    }
-    fn fs_main() {
-        out.depth = 0.0;
-    }
-    """.strip()
+    // loader: foo.wgsl
+    // func: foo.wgsl
+    // dict: foo.wgsl
+    """
 
-    assert resolve_depth_output(code1).strip() == code2
+    code3 = pygfx.renderers.wgpu.shader.templating.apply_templating(code1)
+    assert code3 == code2
 
 
 if __name__ == "__main__":
     test_templating()
     test_logic_beyond_templating()
     test_uniform_definitions()
-    test_resolve_depth_output()
+    test_custom_wgsl_loaders()

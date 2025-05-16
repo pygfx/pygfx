@@ -54,9 +54,8 @@ there is no persistent knowledge of hierarchy.
 
 """
 
-import weakref
 import threading
-
+import weakref
 
 global_id_counter = 0
 global_lock = threading.RLock()
@@ -71,7 +70,10 @@ def get_comp_value(value):
     elif isinstance(value, tuple):
         return tuple(get_comp_value(v) for v in value)
     else:
-        return f"id:{id(value)}"
+        try:
+            return "hash:" + str(hash(value))
+        except TypeError:
+            return "id:" + str(id(value))
 
 
 class Undefined:
@@ -150,7 +152,7 @@ class Store(dict):
             value = self[key]
             return value
         except KeyError:
-            raise AttributeError(key) from None
+            return dict.__getattribute__(self, key)
         finally:
             if global_context:
                 global_context.tracker._track_get(

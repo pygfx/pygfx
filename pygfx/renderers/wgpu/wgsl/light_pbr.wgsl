@@ -236,7 +236,7 @@ fn computeMultiscatteringIridescence(normal: vec3<f32>, view_dir: vec3<f32>, spe
         specular_f90: f32, roughness: f32, iridescence_f0: vec3<f32>, iridescence: f32,
         single_scatter: ptr<function, vec3f>, multi_scatter: ptr<function, vec3f>) {
 $$ else
-fn computeMultiscattering(normal: vec3<f32>, view_dir: vec3<f32>, specular_color: vec3<f32>, specular_f90: f32, roughness: f32, 
+fn computeMultiscattering(normal: vec3<f32>, view_dir: vec3<f32>, specular_color: vec3<f32>, specular_f90: f32, roughness: f32,
         single_scatter: ptr<function, vec3f>, multi_scatter: ptr<function, vec3f>) {
 $$ endif
 
@@ -260,7 +260,7 @@ $$ endif
 
 fn RE_IndirectSpecular(radiance: vec3<f32>, irradiance: vec3<f32>, clearcoat_radiance: vec3<f32>,
         geometry: GeometricContext, material: PhysicalMaterial, reflected_light: ptr<function, ReflectedLight>){
-        
+
     $$ if USE_CLEARCOAT is defined
         clearcoat_specular_indirect += clearcoat_radiance * EnvironmentBRDF( geometry.clearcoat_normal, geometry.view_dir, material.clearcoat_f0, material.clearcoat_f90, material.clearcoat_roughness );
     $$ endif
@@ -291,9 +291,9 @@ fn RE_IndirectDiffuse(irradiance: vec3<f32>, geometry: GeometricContext, materia
 }
 
 fn RE_Direct(
-    direct_light: IncidentLight, 
-    geometry: GeometricContext, 
-    material: PhysicalMaterial, 
+    direct_light: IncidentLight,
+    geometry: GeometricContext,
+    material: PhysicalMaterial,
     reflected_light: ptr<function, ReflectedLight>
 ) {
     let dot_nl = saturate( dot( geometry.normal, direct_light.direction ));
