@@ -110,7 +110,7 @@ class Controller:
         'depth_range'.
         """
         if not isinstance(camera, Camera):
-            raise TypeError("Controller.set_camera expects a Camera object.")
+            raise TypeError("Controller.add_camera expects a Camera object.")
         if not isinstance(camera, PerspectiveCamera):
             raise TypeError(
                 "Controller.add_camera expects a perspective or orthographic camera."
