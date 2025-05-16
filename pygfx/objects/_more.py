@@ -121,7 +121,9 @@ class Line(WorldObject):
     Parameters
     ----------
     geometry : Geometry
-        The data defining the shape of the object.
+        The data defining the shape of the object. Must contain at least a
+        "positions" buffer. Depending on the usage of the material, can also
+        include buffers "texcoords", "colors", and "sizes".
     material : Material
         The data defining the appearance of the object.
     visible : bool
@@ -150,7 +152,9 @@ class Points(WorldObject):
     Parameters
     ----------
     geometry : Geometry
-        The data defining the shape of the object.
+        The data defining the shape of the object. Must contain at least a
+        "positions" buffer. Depending on the usage of the material, can also
+        include buffers "texcoords", "colors", "sizes", "edge_colors", "rotations".
     material : Material
         The data defining the appearance of the object.
     visible : bool
@@ -181,7 +185,10 @@ class Mesh(WorldObject):
     Parameters
     ----------
     geometry : Geometry
-        The data defining the shape of the object.
+        The data defining the shape of the object. Must contain at least a
+        "positions" and "indices" buffers. Depending on the usage of the material, can also
+        include buffers "normals", "colors", "texcoords", "texcoords2", etc.
+        Advanced use of meshes also support "tangents", "skin_indices",  and "skin_weights".
     material : Material
         The data defining the appearance of the object.
     visible : bool
@@ -213,49 +220,46 @@ class Mesh(WorldObject):
 
     @morph_target_influences.setter
     def morph_target_influences(self, value):
-        morph_attrs = (
-            getattr(self.geometry, "morph_positions", None)
-            or getattr(self.geometry, "morph_normals", None)
-            or getattr(self.geometry, "morph_colors", None)
-            or []
-        )
+        value = np.asarray(value, dtype=np.float32)
 
+        # Get the number of morph targets from the morph data on the geometry
+        morph_attrs = [
+            getattr(self.geometry, name, None)
+            for name in ["morph_positions", "morph_normals", "morph_colors"]
+        ]
+        morph_attrs = [x for x in morph_attrs if x is not None]
         if not morph_attrs:
             return
+        morph_count = min(len(x) for x in morph_attrs)
 
-        morph_target_count = len(morph_attrs)
+        # Check with the size of the given data
+        if len(value) != morph_count:
+            raise ValueError(
+                f"Length of morph target influences must match the number of morph targets. Expected {morph_count}, got {len(value)}."
+            )
 
-        assert len(value) == morph_target_count, (
-            f"Length of morph target influences must match the number of morph targets. "
-            f"Expected {morph_target_count}, got {len(value)}."
-        )
-
+        buffer_size = morph_count + 1  # add roon for base influence
         if (
             self._morph_target_influences is None
-            or self._morph_target_influences.nitems != morph_target_count + 1
+            or self._morph_target_influences.nitems != buffer_size
         ):
             self._morph_target_influences = Buffer(
                 array_from_shadertype(
                     {
                         "influence": "f4",
                     },
-                    morph_target_count + 1,
+                    buffer_size,
                 )
             )
-
-        if not isinstance(value, np.ndarray):
-            value = np.array(value, dtype=np.float32)
 
         if getattr(self.geometry, "morph_targets_relative", False):
             base_influence = 1.0
         else:
             base_influence = 1 - value.sum()
 
-        # Add the base influence to the end of the array
-        value = np.concatenate([value, [base_influence]], axis=0)
-
-        self._morph_target_influences.data["influence"] = value
-        self._morph_target_influences.update_range()
+        self._morph_target_influences.data["influence"][:-1] = value
+        self._morph_target_influences.data["influence"][-1] = base_influence
+        self._morph_target_influences.update_full()
 
     @property
     def morph_target_names(self):
@@ -264,7 +268,8 @@ class Mesh(WorldObject):
         """
         return self._morph_target_names
 
-    def _wgpu_get_pick_info(self, pick_value):
+    def _wgpu_get_pick_info(self, pick_value) -> dict:
+        info = super()._wgpu_get_pick_info(pick_value)
         values = unpack_bitfield(
             pick_value, wobject_id=20, index=26, coord1=6, coord2=6, coord3=6
         )
@@ -288,8 +293,9 @@ class Mesh(WorldObject):
                 # face_coord slot of index 1, (see meshshader.py), so
                 # we put that at the end and put a zero in its place.
                 face_coord = face_coord[0], 0.0, face_coord[2], face_coord[1]
-
-        return {"face_index": face_index, "face_coord": tuple(face_coord)}
+        info["face_index"] = face_index
+        info["face_coord"] = tuple(face_coord)
+        return info
 
 
 class Image(WorldObject):
@@ -309,7 +315,8 @@ class Image(WorldObject):
     Parameters
     ----------
     geometry : Geometry
-        The data defining the shape of the object.
+        The data defining the shape of the object. Must contain at least a
+        "grid" attribute for a 2D texture.
     material : Material
         The data defining the appearance of the object.
     visible : bool
@@ -324,7 +331,8 @@ class Image(WorldObject):
 
     """
 
-    def _wgpu_get_pick_info(self, pick_value):
+    def _wgpu_get_pick_info(self, pick_value) -> dict:
+        info = super()._wgpu_get_pick_info(pick_value)
         tex = self.geometry.grid
         if hasattr(tex, "texture"):
             tex = tex.texture  # tex was a view
@@ -333,10 +341,9 @@ class Image(WorldObject):
         x = values["x"] / 4194303 * tex.size[0] - 0.5
         y = values["y"] / 4194303 * tex.size[1] - 0.5
         ix, iy = int(x + 0.5), int(y + 0.5)
-        return {
-            "index": (ix, iy),
-            "pixel_coord": (x - ix, y - iy),
-        }
+        info["index"] = (ix, iy)
+        info["pixel_coord"] = (x - ix, y - iy)
+        return info
 
 
 class Volume(WorldObject):
@@ -352,7 +359,8 @@ class Volume(WorldObject):
     Parameters
     ----------
     geometry : Geometry
-        The data defining the shape of the object.
+        The data defining the shape of the object. Must contain at least a
+        "grid" attribute for a 3D texture.
     material : Material
         The data defining the appearance of the object.
     visible : bool
@@ -367,7 +375,8 @@ class Volume(WorldObject):
 
     """
 
-    def _wgpu_get_pick_info(self, pick_value):
+    def _wgpu_get_pick_info(self, pick_value) -> dict:
+        info = super()._wgpu_get_pick_info(pick_value)
         tex = self.geometry.grid
         if hasattr(tex, "texture"):
             tex = tex.texture  # tex was a view
@@ -377,7 +386,6 @@ class Volume(WorldObject):
         size = tex.size
         x, y, z = [(v / 16383) * s - 0.5 for v, s in zip(texcoords_encoded, size)]
         ix, iy, iz = int(x + 0.5), int(y + 0.5), int(z + 0.5)
-        return {
-            "index": (ix, iy, iz),
-            "voxel_coord": (x - ix, y - iy, z - iz),
-        }
+        info["index"] = (ix, iy, iz)
+        info["voxel_coord"] = (x - ix, y - iy, z - iz)
+        return info

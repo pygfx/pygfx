@@ -27,6 +27,11 @@ struct PhysicalMaterial {
         iridescence_f0: vec3<f32>,
     $$ endif
 
+    $$ if USE_SHEEN is defined
+        sheen_color: vec3<f32>,
+        sheen_roughness: f32,
+    $$ endif
+
     $$ if USE_ANISOTROPY is defined
         anisotropy: f32,
         alpha_t: f32,
@@ -37,6 +42,8 @@ struct PhysicalMaterial {
 
 var<private> clearcoat_specular_direct: vec3f = vec3f(0.0);
 var<private> clearcoat_specular_indirect: vec3f = vec3f(0.0);
+var<private> sheen_specular_direct: vec3f = vec3f(0.0);
+var<private> sheen_specular_indirect: vec3f = vec3f(0.0);
 
 fn Schlick_to_F0( f: vec3<f32>, f90: f32, dot_vh: f32 ) -> vec3<f32> {
     let x = clamp( 1.0 - dot_vh, 0.0, 1.0 );
@@ -123,6 +130,52 @@ fn BRDF_GGX(light_dir: vec3<f32>, view_dir: vec3<f32>, normal: vec3<f32>, f0: ve
     return F * ( V * D );
 }
 
+$$ if USE_SHEEN is defined
+
+// https://github.com/google/filament/blob/main/shaders/src/surface_brdf.fs
+fn D_Charlie( roughness: f32, dot_nh: f32 ) -> f32 {
+    let alpha = pow2( roughness );
+
+    // Estevez and Kulla 2017, "Production Friendly Microfacet Sheen BRDF"
+    let inv_alpha = 1.0 / alpha;
+    let cos2h = dot_nh * dot_nh;
+    let sin2h = max( 1.0 - cos2h, 0.0078125 ); // 2^(-14/2), so sin2h^2 > 0 in fp16
+    return ( 2.0 + inv_alpha ) * pow( sin2h, inv_alpha * 0.5 ) / ( 2.0 * PI );
+}
+
+// https://github.com/google/filament/blob/main/shaders/src/surface_brdf.fs
+fn V_Neubelt( dot_nv: f32, dot_nl: f32 ) -> f32 {
+    // Neubelt and Pettineo 2013, "Crafting a Next-gen Material Pipeline for The Order: 1886"
+    return saturate( 1.0 / ( 4.0 * ( dot_nl + dot_nv - dot_nl * dot_nv ) ) );
+}
+
+fn BRDF_Sheen(light_dir: vec3<f32>, view_dir: vec3<f32>, normal: vec3<f32>, sheen_color: vec3<f32>, sheen_roughness: f32) -> vec3<f32> {
+    let half_dir = normalize( light_dir + view_dir );
+
+    let dot_nl = saturate( dot( normal, light_dir ) );
+    let dot_nv = saturate( dot( normal, view_dir ) );
+    let dot_nh = saturate( dot( normal, half_dir ) );
+
+    let D = D_Charlie( sheen_roughness, dot_nh );
+    let V = V_Neubelt( dot_nv, dot_nl );
+
+    return sheen_color * ( D * V );
+}
+
+// This is a curve-fit approximation to the "Charlie sheen" BRDF integrated over the hemisphere from
+// Estevez and Kulla 2017, "Production Friendly Microfacet Sheen BRDF". The analysis can be found
+// in the Sheen section of https://drive.google.com/file/d/1T0D1VSyR4AllqIJTQAraEIzjlb5h4FKH/view?usp=sharing
+fn IBLSheenBRDF(normal: vec3<f32>, view_dir: vec3<f32>, roughness: f32) -> f32 {
+    let dot_nv = saturate( dot( normal, view_dir ) );
+    let r2 = roughness * roughness;
+    let a = select( (-8.48 * r2 + 14.3 * roughness - 9.95), (-339.2 * r2 + 161.4 * roughness - 25.9), roughness < 0.25 );
+    let b = select( (1.97 * r2 - 3.27 * roughness + 0.72), (44.0 * r2 - 23.7 * roughness + 3.26), roughness < 0.25 );
+    let DG = exp( a * dot_nv + b ) + select( 0.1 * (roughness - 0.25), 0.0, roughness < 0.25 );
+    return saturate( DG * RECIPROCAL_PI );
+}
+
+$$ endif
+
 fn DFGApprox( normal: vec3<f32>, view_dir: vec3<f32>, roughness: f32 ) -> vec2<f32>{
     let dot_nv = saturate( dot( normal, view_dir ) );
     let c0 = vec4<f32>(- 1.0, - 0.0275, - 0.572, 0.022);
@@ -183,7 +236,7 @@ fn computeMultiscatteringIridescence(normal: vec3<f32>, view_dir: vec3<f32>, spe
         specular_f90: f32, roughness: f32, iridescence_f0: vec3<f32>, iridescence: f32,
         single_scatter: ptr<function, vec3f>, multi_scatter: ptr<function, vec3f>) {
 $$ else
-fn computeMultiscattering(normal: vec3<f32>, view_dir: vec3<f32>, specular_color: vec3<f32>, specular_f90: f32, roughness: f32, 
+fn computeMultiscattering(normal: vec3<f32>, view_dir: vec3<f32>, specular_color: vec3<f32>, specular_f90: f32, roughness: f32,
         single_scatter: ptr<function, vec3f>, multi_scatter: ptr<function, vec3f>) {
 $$ endif
 
@@ -207,10 +260,15 @@ $$ endif
 
 fn RE_IndirectSpecular(radiance: vec3<f32>, irradiance: vec3<f32>, clearcoat_radiance: vec3<f32>,
         geometry: GeometricContext, material: PhysicalMaterial, reflected_light: ptr<function, ReflectedLight>){
-        
+
     $$ if USE_CLEARCOAT is defined
         clearcoat_specular_indirect += clearcoat_radiance * EnvironmentBRDF( geometry.clearcoat_normal, geometry.view_dir, material.clearcoat_f0, material.clearcoat_f90, material.clearcoat_roughness );
     $$ endif
+
+    $$ if USE_SHEEN is defined
+        sheen_specular_indirect += irradiance * material.sheen_color * IBLSheenBRDF( geometry.normal, geometry.view_dir, material.sheen_roughness );
+    $$ endif
+
     let cosine_weighted_irradiance: vec3<f32> = irradiance * RECIPROCAL_PI;
     var single_scatter: vec3<f32>;
     var multi_scatter: vec3<f32>;
@@ -233,9 +291,9 @@ fn RE_IndirectDiffuse(irradiance: vec3<f32>, geometry: GeometricContext, materia
 }
 
 fn RE_Direct(
-    direct_light: IncidentLight, 
-    geometry: GeometricContext, 
-    material: PhysicalMaterial, 
+    direct_light: IncidentLight,
+    geometry: GeometricContext,
+    material: PhysicalMaterial,
     reflected_light: ptr<function, ReflectedLight>
 ) {
     let dot_nl = saturate( dot( geometry.normal, direct_light.direction ));
@@ -245,6 +303,10 @@ fn RE_Direct(
         let dot_nl_cc = saturate( dot( geometry.clearcoat_normal, direct_light.direction ));
         let clearcoat_irradiance = dot_nl_cc * direct_light.color;
         clearcoat_specular_direct += clearcoat_irradiance * BRDF_GGX_CC( direct_light.direction, geometry.view_dir, geometry.clearcoat_normal, material.specular_color, material.clearcoat_f90, material.clearcoat_roughness );
+    $$ endif
+
+    $$ if USE_SHEEN is defined
+        sheen_specular_direct += irradiance * BRDF_Sheen( direct_light.direction, geometry.view_dir, geometry.normal, material.sheen_color, material.sheen_roughness );
     $$ endif
 
     (*reflected_light).direct_specular += irradiance * BRDF_GGX( direct_light.direction, geometry.view_dir, geometry.normal, material.specular_color, material.specular_f90, material.roughness, material );

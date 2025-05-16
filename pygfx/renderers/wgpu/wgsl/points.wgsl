@@ -370,7 +370,8 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
         let out_color = vec4<f32>(srgb2physical(the_color.rgb), the_color.a * u_material.opacity);
     $$ endif
 
-    var out = get_fragment_output(varyings.position, out_color);
+    var out: FragmentOutput;
+    out.color = out_color;
 
     $$ if write_pick
     // The wobject-id must be 20 bits. In total it must not exceed 64 bits.

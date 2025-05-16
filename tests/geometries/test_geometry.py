@@ -1,6 +1,7 @@
 import numpy as np
-import pygfx as gfx
 import pytest
+
+import pygfx as gfx
 
 
 def test_different_data_types():
@@ -48,3 +49,9 @@ def test_check_positions():
     a = np.zeros((10, 2), np.float32)
     with pytest.raises(ValueError):
         gfx.Geometry(positions=a)
+
+
+def test_check_common_dict_attributes():
+    g = gfx.Geometry(positions=[[0, 1, 0], [1, 0, 1]])
+    assert "positions" in g.keys()
+    assert len(g.keys()) == len(g.values())

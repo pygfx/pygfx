@@ -11,7 +11,6 @@ struct VertexInput {
 
 @vertex
 fn vs_main(in: VertexInput) -> Varyings {
-    var varyings: Varyings;
 
     // Calculate reference points
     let p0 = (u_wobject.world_transform * vec4<f32>(0.0, 0.0, 0.0, 1.0)).xyz;  // "origin" of the plane
@@ -151,6 +150,7 @@ fn vs_main(in: VertexInput) -> Varyings {
 
     var pos_ndc = u_stdinfo.projection_transform * u_stdinfo.cam_transform * vec4<f32>(pos, 1.0);
 
+    var varyings: Varyings;
     // Store positions and the view direction in the world
     varyings.position = vec4<f32>(pos_ndc);
     varyings.world_pos = vec3<f32>(ndc_to_world_pos(out.position));
@@ -279,7 +279,8 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     // We can apply clipping planes, but maybe a grid should not be clipped?
     // apply_clipping_planes(in.world_pos);
 
-    var out = get_fragment_output(varyings.position, out_color);
+    var out: FragmentOutput;
+    out.color = out_color;
     $$ if write_pick
         // Just the object id for now
         out.pick = pick_pack(u32(u_wobject.id), 20);

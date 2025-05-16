@@ -2,7 +2,8 @@ import gc
 import time
 import weakref
 
-from pygfx.utils.trackable import Trackable, PropTracker
+from pygfx.utils.trackable import Trackable, Store, PropTracker
+from pygfx.utils import ReadOnlyDict
 
 # ruff: noqa: B018 - in these tests we access values for their side-effect
 
@@ -294,6 +295,8 @@ def test_tuple_values():
 
 
 def test_list_values():
+    # Lists are not hashable, so are tracked by id
+
     rt = MyRootTrackable()
 
     v1 = [1, 2]
@@ -331,6 +334,35 @@ def test_list_values():
     rt.foo = [0, 2]  # on this line, the previous list is freed
     rt.foo = [0, 3]  # a new list object is allocated
     # assert rt.pop_changed() == {"foo"}
+
+
+def test_dict_and_readonlydict():
+    rt = MyRootTrackable()
+
+    with rt.track_usage("foo"):
+        rt.foo
+    assert rt.pop_changed() == set()
+
+    # Can set a dict
+    d = {"foo": 42}
+    rt.foo = d
+    assert rt.pop_changed() == {"foo"}
+
+    # Which tracks by id ...
+    rt.foo = d
+    assert rt.pop_changed() == set()
+
+    # ... not by value
+    rt.foo = {"foo": 42}
+    assert rt.pop_changed() == {"foo"}
+
+    # But ReadOnlyDict is tracked by value, because it is hashable
+    rt.foo = ReadOnlyDict({"foo": 42})
+    assert rt.pop_changed() == {"foo"}
+
+    # Changing again with the same value
+    rt.foo = ReadOnlyDict({"foo": 42})
+    assert rt.pop_changed() == set()
 
 
 def test_whole_tree_get_removed():
@@ -604,6 +636,98 @@ def test_track_trackables2():
     tree2 = MyTrackable()
     tree1.sub1 = t1 = MyTrackable()
     tree2.sub1 = t2 = MyTrackable()
+
+    tree1.sub1.foo = tree2.sub1.foo = 42
+
+    root.sub1 = tree1
+
+    with root.track_usage("format"):
+        root.sub1.sub1.foo
+
+    with root.track_usage("!resources"):
+        root.sub1.sub1
+
+    t1.foo = 43
+    assert root.pop_changed() == {"format"}
+
+    root.sub1 = tree2
+    assert root.pop_changed() == {"format", "resources"}
+
+    t2.foo = 43
+    assert root.pop_changed() == {"format"}
+
+    root.sub1 = tree1
+    assert root.pop_changed() == {"resources"}
+
+
+def test_track_substore0():
+    # This represents tracking the resource objects themselves - without "!"
+
+    root = MyRootTrackable()
+    t1 = Store()
+    t2 = Store()
+
+    t1.foo = t2.foo = 42
+
+    root.sub1 = t1
+
+    with root.track_usage("format"):
+        root.sub1.foo
+
+    with root.track_usage("resources"):
+        root.sub1
+
+    t1.foo = 43
+    assert root.pop_changed() == {"format"}
+
+    root.sub1 = t2
+    assert root.pop_changed() == {"format"}  # no resources
+
+    t2.foo = 43
+    assert root.pop_changed() == {"format"}
+
+    root.sub1 = t1
+    assert root.pop_changed() == set()  # no resources
+
+
+def test_track_substore1():
+    # This represents tracking the resource objects themselves - with "!"
+
+    root = MyRootTrackable()
+    t1 = Store()
+    t2 = Store()
+
+    t1.foo = t2.foo = 42
+
+    root.sub1 = t1
+
+    with root.track_usage("format"):
+        root.sub1.foo
+
+    with root.track_usage("!resources"):
+        root.sub1
+
+    t1.foo = 43
+    assert root.pop_changed() == {"format"}
+
+    root.sub1 = t2
+    assert root.pop_changed() == {"format", "resources"}
+
+    t2.foo = 43
+    assert root.pop_changed() == {"format"}
+
+    root.sub1 = t1
+    assert root.pop_changed() == {"resources"}
+
+
+def test_track_substore2():
+    # This represents tracking the resource objects themselves - deeper
+
+    root = MyRootTrackable()
+    tree1 = Store()
+    tree2 = Store()
+    tree1.sub1 = t1 = Store()
+    tree2.sub1 = t2 = Store()
 
     tree1.sub1.foo = tree2.sub1.foo = 42
 

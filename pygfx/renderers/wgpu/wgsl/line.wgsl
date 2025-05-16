@@ -91,13 +91,56 @@ fn rotate_vec2(v:vec2<f32>, angle:f32) -> vec2<f32> {
     return vec2<f32>(cos(angle) * v.x - sin(angle) * v.y, sin(angle) * v.x + cos(angle) * v.y);
 }
 
+fn project_point_to_edge_ndc(point1: vec4f, point2: vec4f, can_move_backwards: bool) -> vec4f {
+    // The line is defined by points p1 and p2.
+    // We shift p1 over the line with p1' = p1 - factor * v
+    // We find the factor such that p1' will be at the edge of the screen.
+    // It selects the furthest of the two horizontal edges, and same for the vertical edges.
+    // Then it selects either horizontal or vertical edge, depending on whether the line is more horizontal or vertical.
+
+    // Move to 2D
+    let p1: vec2f = point1.xy / point1.w;
+    let p2: vec2f = point2.xy / point2.w;
+    var v: vec2f = p2 - p1;
+    // Early exit
+    if (length(v) < 1e-9) { return point1; }
+    // Get factors to shift to edge
+    let factor1 = (p1 + 1.0) / v;  // Solve: p1 - factor * v = -1
+    let factor2 = (p1 - 1.0) / v;  // Solve: p1 - factor * v = +1
+    // Select the factor
+    var factor = 0.0;
+    if (abs(v.x) > abs(v.y)) {
+        factor = max(factor1.x, factor2.x);
+    } else {
+        factor = max(factor1.y, factor2.y);
+    }
+    // Constrain moving backwards
+    if (!can_move_backwards) {
+        factor = max(factor, 0.0);
+    }
+    // Return as vec4
+    return point1 - factor * (point2 - point1);
+}
+
 
 // -------------------- vertex shader --------------------
 
 
 struct VertexInput {
     @builtin(vertex_index) index : u32,
+    $$ if instanced
+    @builtin(instance_index) instance_index : u32,
+    $$ endif
 };
+
+$$ if instanced
+struct InstanceInfo {
+    transform: mat4x4<f32>,
+    id: u32,
+};
+@group(1) @binding(0)
+var<storage,read> s_instance_infos: array<InstanceInfo>;
+$$ endif
 
 @vertex
 fn vs_main(in: VertexInput) -> Varyings {
@@ -105,35 +148,109 @@ fn vs_main(in: VertexInput) -> Varyings {
     let screen_factor:vec2<f32> = u_stdinfo.logical_size.xy / 2.0;
     let l2p:f32 = u_stdinfo.physical_size.x / u_stdinfo.logical_size.x;
 
+    // Get world transform
+    $$ if instanced
+        // NOTE: Only orthogonal instance transforms are supported
+        let instance_info = s_instance_infos[in.instance_index];
+        let world_transform = u_wobject.world_transform * instance_info.transform;
+        let world_transform_inv = transpose(instance_info.transform) * u_wobject.world_transform_inv;
+    $$ else
+        let world_transform = u_wobject.world_transform;
+        let world_transform_inv = u_wobject.world_transform_inv;
+    $$ endif
+
     // Indexing
     let index = i32(in.index);
-    let node_index = index / 6;
+    var node_index = index / 6;
     let vertex_index = index % 6;
     let vertex_num = vertex_index + 1;
     var face_index = node_index;  // corrected below if necessary, depending on configuration
     let node_index_is_even = node_index % 2 == 0;
 
+    var node_index_prev = max(0, node_index - 1);
+    var node_index_next = min(u_renderer.last_i, node_index + 1);
+
+    $$ if loop
+    var is_first_node_in_loop = false;
+    var is_connecting_node_in_loop = false;
+
+    let loop_state: u32 = load_s_loop(node_index);
+    if (loop_state > 0x0fffffffu) {
+        let loop_node_kind = loop_state >> 28;
+        let loop_node_count = i32(loop_state & 0x0fffffff);
+        if (loop_node_kind == 1u) { // first node
+            is_first_node_in_loop = true;
+            node_index_prev = node_index + (loop_node_count - 1);
+        } else if (loop_node_kind == 2u) { // last node
+            node_index_next = node_index - (loop_node_count - 1);
+        } else { // if (loop_node_kind == 3u) { // connecting node
+            node_index = node_index - loop_node_count;
+            node_index_next = node_index + 1;
+            is_connecting_node_in_loop = true;
+        }
+    } else {
+        node_index = min(u_renderer.last_i, node_index);
+    }
+    $$ endif
+
     // Sample the current node and it's two neighbours. Model coords.
     // Note that if we sample out of bounds, this affects the shader in mysterious ways (21-12-2021).
-    let pos_m_prev = load_s_positions(max(0, node_index - 1));
-    let pos_m_node = load_s_positions(node_index);
-    let pos_m_next = load_s_positions(min(u_renderer.last_i, node_index + 1));
+    var pos_m_prev = load_s_positions(node_index_prev);
+    var pos_m_node = load_s_positions(node_index);
+    var pos_m_next = load_s_positions(node_index_next);
     // Convert to world
-    let pos_w_prev = u_wobject.world_transform * vec4<f32>(pos_m_prev.xyz, 1.0);
-    let pos_w_node = u_wobject.world_transform * vec4<f32>(pos_m_node.xyz, 1.0);
-    let pos_w_next = u_wobject.world_transform * vec4<f32>(pos_m_next.xyz, 1.0);
+    var pos_w_prev = world_transform * vec4<f32>(pos_m_prev.xyz, 1.0);
+    var pos_w_node = world_transform * vec4<f32>(pos_m_node.xyz, 1.0);
+    var pos_w_next = world_transform * vec4<f32>(pos_m_next.xyz, 1.0);
     // Convert to camera view
-    let pos_c_prev = u_stdinfo.cam_transform * pos_w_prev;
-    let pos_c_node = u_stdinfo.cam_transform * pos_w_node;
-    let pos_c_next = u_stdinfo.cam_transform * pos_w_next;
+    var pos_c_prev = u_stdinfo.cam_transform * pos_w_prev;
+    var pos_c_node = u_stdinfo.cam_transform * pos_w_node;
+    var pos_c_next = u_stdinfo.cam_transform * pos_w_next;
     // convert to NDC
-    let pos_n_prev = u_stdinfo.projection_transform * pos_c_prev;
-    let pos_n_node = u_stdinfo.projection_transform * pos_c_node;
-    let pos_n_next = u_stdinfo.projection_transform * pos_c_next;
+    var pos_n_prev = u_stdinfo.projection_transform * pos_c_prev;
+    var pos_n_node = u_stdinfo.projection_transform * pos_c_node;
+    var pos_n_next = u_stdinfo.projection_transform * pos_c_next;
     // Convert to logical screen coordinates, because that's where the lines work
-    let pos_s_prev = (pos_n_prev.xy / pos_n_prev.w + 1.0) * screen_factor;
-    let pos_s_node = (pos_n_node.xy / pos_n_node.w + 1.0) * screen_factor;
-    let pos_s_next = (pos_n_next.xy / pos_n_next.w + 1.0) * screen_factor;
+    var pos_s_prev = (pos_n_prev.xy / pos_n_prev.w + 1.0) * screen_factor;
+    var pos_s_node = (pos_n_node.xy / pos_n_node.w + 1.0) * screen_factor;
+    var pos_s_next = (pos_n_next.xy / pos_n_next.w + 1.0) * screen_factor;
+
+    $$ if line_type == 'infsegment'
+    let can_move_backwards = {{ 'true' if (start_is_infinite and end_is_infinite) else 'false' }};
+    let prev_node_ori = pos_n_node;
+    let pos_n_next_ori = pos_n_next;
+    let pos_n_prev_ori = pos_n_prev;
+    $$ if start_is_infinite
+    if (node_index_is_even) {
+        pos_n_node = project_point_to_edge_ndc(prev_node_ori, pos_n_next_ori, can_move_backwards);
+        pos_s_node = (pos_n_node.xy / pos_n_node.w + 1.0) * screen_factor;
+        pos_c_node = u_stdinfo.projection_transform_inv * pos_n_node;
+        pos_w_node = u_stdinfo.cam_transform_inv * pos_c_node;
+        pos_m_node = (world_transform_inv * pos_w_node).xyz;
+    } else {
+        pos_n_prev = project_point_to_edge_ndc(pos_n_prev_ori, prev_node_ori, can_move_backwards);
+        pos_s_prev = (pos_n_prev.xy / pos_n_prev.w + 1.0) * screen_factor;
+        pos_c_prev = u_stdinfo.projection_transform_inv * pos_n_prev;
+        pos_w_prev = u_stdinfo.cam_transform_inv * pos_c_prev;
+        pos_m_prev = (world_transform_inv * pos_w_prev).xyz;
+    }
+    $$ endif
+    $$ if end_is_infinite
+    if (node_index_is_even) {
+        pos_n_next = project_point_to_edge_ndc(pos_n_next_ori, prev_node_ori, can_move_backwards);
+        pos_s_next = (pos_n_next.xy / pos_n_next.w + 1.0) * screen_factor;
+        pos_c_next = u_stdinfo.projection_transform_inv * pos_n_next;
+        pos_w_next = u_stdinfo.cam_transform_inv * pos_c_next;
+        pos_m_next = (world_transform_inv * pos_w_next).xyz;
+    } else {
+        pos_n_node = project_point_to_edge_ndc(prev_node_ori, pos_n_prev_ori, can_move_backwards);
+        pos_s_node = (pos_n_node.xy / pos_n_node.w + 1.0) * screen_factor;
+        pos_c_node = u_stdinfo.projection_transform_inv * pos_n_node;
+        pos_w_node = u_stdinfo.cam_transform_inv * pos_c_node;
+        pos_m_node = (world_transform_inv * pos_w_node).xyz;
+    }
+    $$ endif
+    $$ endif
 
     // Get vectors representing the two incident line segments (screen coords)
     var vec_s_prev: vec2<f32> = pos_s_node.xy - pos_s_prev.xy;  // from node 1 (to node 2)
@@ -164,8 +281,8 @@ fn vs_main(in: VertexInput) -> Varyings {
         let pos_w_node_shiftedy = u_stdinfo.cam_transform_inv * u_stdinfo.projection_transform_inv * pos_n_node_shiftedy;
         $$ if thickness_space == 'model'
             // Transform back to model space
-            let pos_m_node_shiftedx = u_wobject.world_transform_inv * pos_w_node_shiftedx;
-            let pos_m_node_shiftedy = u_wobject.world_transform_inv * pos_w_node_shiftedy;
+            let pos_m_node_shiftedx = world_transform_inv * pos_w_node_shiftedx;
+            let pos_m_node_shiftedy = world_transform_inv * pos_w_node_shiftedy;
             // Distance in model space
             let thickness_ratio = (1.0 / shift_factor) * 0.5 * (distance(pos_m_node.xyz, pos_m_node_shiftedx.xyz) + distance(pos_m_node.xyz, pos_m_node_shiftedy.xyz));
         $$ else
@@ -271,7 +388,7 @@ fn vs_main(in: VertexInput) -> Varyings {
     var left_is_cap = !is_finite_vec(pos_m_prev) || length(vec_s_prev) <= select(minor_dist_threshold, major_dist_threshold, vec_s_prev_has_significant_depth_component);
     var right_is_cap = !is_finite_vec(pos_m_next) || length(vec_s_next) <= select(minor_dist_threshold, major_dist_threshold, vec_s_next_has_significant_depth_component);
 
-    $$ if line_type in ['segment', 'arrow']
+    $$ if line_type in ['segment', 'infsegment', 'arrow']
     left_is_cap = left_is_cap || node_index_is_even;
     right_is_cap = right_is_cap || !node_index_is_even;
     $$ endif
@@ -311,7 +428,7 @@ fn vs_main(in: VertexInput) -> Varyings {
         pos_s_other = pos_s_next;
         pos_n_other = pos_n_next;
         $$ if dashing and line_type == 'line'
-        cumdist_other = f32(load_s_cumdist(node_index + 1));
+        cumdist_other = f32(load_s_cumdist(node_index_next));
         $$ endif
 
     } else if (right_is_cap)  {
@@ -334,7 +451,7 @@ fn vs_main(in: VertexInput) -> Varyings {
         pos_s_other = pos_s_prev;
         pos_n_other = pos_n_prev;
         $$ if dashing and line_type == 'line'
-        cumdist_other = f32(load_s_cumdist(node_index - 1));
+        cumdist_other = f32(load_s_cumdist(node_index_prev));
         $$ endif
 
     } else {
@@ -343,12 +460,12 @@ fn vs_main(in: VertexInput) -> Varyings {
         pos_s_other = select(pos_s_prev, pos_s_next, vertex_num >= 4);
         pos_n_other = select(pos_n_prev, pos_n_next, vertex_num >= 4);
         $$ if dashing and line_type == 'line'
-        cumdist_other = load_s_cumdist(node_index + select(-1, 1, vertex_num >= 4));
+        cumdist_other = load_s_cumdist(select(node_index_prev, node_index_next, vertex_num >= 4));
         $$ endif
         $$ if color_mode == 'vertex'
-        color_other = load_s_colors(node_index + select(-1, 1, vertex_num >= 4));
+        color_other = load_s_colors(select(node_index_prev, node_index_next, vertex_num >= 4));
         $$ elif color_mode == 'vertex_map'
-        texcoord_other = load_s_texcoords(node_index + select(-1, 1, vertex_num >= 4));
+        texcoord_other = load_s_texcoords(select(node_index_prev, node_index_next, vertex_num >= 4));
         $$ endif
 
         $$ if line_type == 'quickline'
@@ -379,8 +496,16 @@ fn vs_main(in: VertexInput) -> Varyings {
 
         // Determine the angle of the corner. If this angle is smaller than zero,
         // the inside of the join is at vert2/vert6, otherwise it is at vert1/vert5.
-        let angle = atan2( vec_s_prev.x * vec_s_next.y - vec_s_prev.y * vec_s_next.x,
-                            vec_s_prev.x * vec_s_next.x + vec_s_prev.y * vec_s_next.y );
+        let atan_arg1 = vec_s_prev.x * vec_s_next.y - vec_s_prev.y * vec_s_next.x;
+        var atan_arg2 = vec_s_prev.x * vec_s_next.x + vec_s_prev.y * vec_s_next.y;
+        // Atan is unstable/undefined when the denominator is zero. For our case this
+        // can happen when the vectors are orthogonal and aligned with the coordinate system.
+        // We can fix this numerical issue by simply adding a bit to one of the vectors.
+        if (atan_arg2 == 0) {
+            let vec_s_alt = vec_s_prev + vec2<f32>(1e-9);
+            atan_arg2 = vec_s_alt.x * vec_s_next.x + vec_s_alt.y * vec_s_next.y;
+        }
+        let angle = atan2(atan_arg1, atan_arg2);
 
         // Which way does the join bent?
         let inner_corner_is_at_15 = angle >= 0.0;
@@ -509,7 +634,25 @@ fn vs_main(in: VertexInput) -> Varyings {
 
     // Calculate vertex position in NDC.The z and w are inter/extra-polated.
     let the_pos_s = pos_s_node + relative_vert_s;
-    let the_pos_n = vec4<f32>((the_pos_s / screen_factor - 1.0) * w, z, w);
+    var the_pos_n = vec4<f32>((the_pos_s / screen_factor - 1.0) * w, z, w);
+
+    $$ if loop
+    // In a loop, only two vertices of the connecting node (the one that has position nan) are needed
+    // to connect it to the join of the first node of the loop. The others should be degenerate triangles.
+    // There is no degenerate triangle at the first node of a loop, because we don't have spare vertices.
+    // This causes a triangle to appear from the connecting node of a loop to the first node of the *next* loop.
+    // To avoid this, we create nan positions. However, some hardware may not actually have nans, so we
+    // *also* drop these triagles using the valid_array.
+    if (is_first_node_in_loop) {
+        valid_array[0] = 0.0;
+        valid_array[1] = 0.0;
+    } else if (is_connecting_node_in_loop) {
+        valid_array[vertex_index] = 0.0;
+        if (vertex_index > 1) {
+            the_pos_n = vec4<f32>(bitcast<f32>(0x7fc00000u));  // nan
+        }
+    }
+    $$ endif
 
     // Build varyings output
     var varyings: Varyings;
@@ -605,12 +748,12 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
 
     // clipping planes
     {$ include 'pygfx.clipping_planes.wgsl' $}
-    
+
     // Get the half-thickness in physical coordinates. This is the reference thickness.
     // If aa is used, the line is actually a bit thicker, leaving space to do aa.
     let half_thickness_p = 0.5 * varyings.thickness_pw / varyings.w;
 
-    // Discard invalid faces. These are faces for which *all* 3 verts are set to zero. (trick 5b)
+    // Discard invalid faces. These are faces for which *all* 3 verts are set to zero. (trick 5b and 7c)
     if (varyings.valid_if_nonzero == 0.0) {
         discard;
     }
@@ -840,7 +983,8 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
     let opacity = min(1.0, color.a) * alpha * u_material.opacity;
     let out_color = vec4<f32>(physical_color, opacity);
 
-    var out = get_fragment_output(varyings.position, out_color);
+    var out: FragmentOutput;
+    out.color = out_color;
 
     // Set picking info.
     $$ if write_pick

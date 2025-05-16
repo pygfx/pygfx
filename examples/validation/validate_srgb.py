@@ -61,7 +61,7 @@ scene.add(image1, image2, image3, image4)
 
 camera = gfx.OrthographicCamera()
 camera.local.scale_y = -1
-camera.show_rect(-1, 6, -1, 8)
+camera.show_object(scene, match_aspect=True, scale=1.05)
 
 renderer.request_draw(lambda: renderer.render(scene, camera))
 

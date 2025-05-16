@@ -18,8 +18,8 @@ class PerspectiveCamera(Camera):
         wide-angle lens effect. This value is limited between 0 and
         179. If zero, it operates in orthographic mode. Default 50.
     aspect: float
-        The desired aspect ratio, which is used to determine the vision pyramid's
-        boundaries depending on the viewport size. Common values are 16/9 or 4/3. Default 1.
+        The desired aspect ratio (width divided by height), which determines the
+        vision pyramid's boundaries. Default 1.
     width: float
         The width of the scene to view. If omitted or None, the width
         is derived from aspect and height.
@@ -123,8 +123,16 @@ class PerspectiveCamera(Camera):
 
     @property
     def aspect(self):
-        """The aspect ratio (the ratio between width and height).
-        Setting the aspect updates width and height such that their mean is unchanged.
+        """The aspect ratio (width divided by height).
+
+        The aspect determines the vision pyramid's boundaries. It can help fit
+        the scene better to the window, and keep it fitting as the window is
+        resized.
+
+        Setting the aspect updates width and height such that their mean is
+        unchanged.
+
+        Note that ``show_object(match_aspect=True)`` also sets the aspect.
         """
         return self._width / self._height
 
@@ -160,9 +168,10 @@ class PerspectiveCamera(Camera):
 
     @property
     def maintain_aspect(self):
-        """Whether the aspect ration is maintained as the window size
-        changes. Default True. Note that it only make sense to set this
-        to False in combination with a panzoom controller.
+        """Whether the aspect ration is maintained as the window size changes.
+
+        Default True. Note that it only make sense to set this to False in
+        combination with a panzoom controller.
         """
         return self._maintain_aspect
 
@@ -231,10 +240,10 @@ class PerspectiveCamera(Camera):
 
         """
         return {
-            "position": self.local.position,
-            "rotation": self.local.rotation,
-            "scale": self.local.scale,
-            "reference_up": self.world.reference_up,
+            "position": self.local.position.copy(),
+            "rotation": self.local.rotation.copy(),
+            "scale": self.local.scale.copy(),
+            "reference_up": self.world.reference_up.copy(),
             "fov": self.fov,
             "width": self.width,
             "height": self.height,
@@ -338,9 +347,10 @@ class PerspectiveCamera(Camera):
     def show_pos(self, target, *, up=None):
         """Look at the given position or object.
 
-        This is similar to `look_at()`, but it also sets the width and
-        height (while honoring aspect). So if you e.g. use an orbit
-        controller on this camera, it rotates around the given target.
+        This is similar to `look_at()` but it also sets the width and height
+        (while honoring aspect). The camera's position is not changed, but it's
+        'reference point' does. E.g. with an orbit controller, it orbits around
+        the given target.
 
         Parameters
         ----------
@@ -369,19 +379,31 @@ class PerspectiveCamera(Camera):
         distance = la.vec_dist(pos, self.local.position)
         self._set_extent(distance / fov_distance_factor(self.fov))
 
-    def show_object(self, target: WorldObject, view_dir=None, *, up=None, scale=1):
-        """Orientate the camera such that the given target in is in view.
+    def show_object(
+        self,
+        target: WorldObject,
+        view_dir=None,
+        *,
+        up=None,
+        scale=1,
+        match_aspect=False,
+    ):
+        """Position and orientate the camera such that the given target in is in view.
 
         Sets the position and rotation of the camera, and adjusts
-        width and height to the target's size (while honoring aspect).
+        its width and height to the target's size (while honoring aspect).
 
-        This method is mainly intended for viewing 3D data. For 2D data
-        it is not uncommon that the margins may feel somewhat large. Also
-        see `show_rect()`.
+        The fit is such that as the object is rotated (or as the camera rotates around the object)
+        the object still fits inside the viewport, which is usually good for 3D scenes.
+
+        When setting ``match_aspect``, the bounding box of the object is matched
+        to the screen, and the camera's ``aspect`` adjusted accordingly. This
+        gives a tight fit that is usually preferred for 2D scenes (with the
+        panzoom-controller).
 
         Parameters
         ----------
-        target: WorldObject or a sphere (x, y, z, r)
+        target: WorldObject or sphere (x, y, z, r)
             The object to look at.
         view_dir: 3-tuple of float
             Look at the object from this direction. If not given or None,
@@ -390,7 +412,10 @@ class PerspectiveCamera(Camera):
             If given, set ``camera.world.reference_up`` to the given value.
         scale: float
             Scale the size of what's shown. Default 1.
-
+        match_aspect: bool
+            Whether to match the camera's ``width`` and ``height`` to the
+            target's bounding box so it tighly fits the viewport. Useful with a
+            PanZoomController, less so with a 3D scene.
         """
 
         if up is None:
@@ -400,8 +425,10 @@ class PerspectiveCamera(Camera):
             self.world.reference_up = up
 
         # Get bounding sphere from target
+        bbox = None
         if isinstance(target, WorldObject):
             bsphere = target.get_world_bounding_sphere()
+            bbox = target.get_world_bounding_box()
             if bsphere is None:
                 raise ValueError(
                     "Given target does not have a bounding sphere, you should probably just provide a sphere (x, y, z, r) yourself."
@@ -427,13 +454,24 @@ class PerspectiveCamera(Camera):
         view_pos = bsphere[:3]
         radius = max(0.0, bsphere[3]) or 1.0
         extent = radius * 2 * scale
+
+        # Apply
         distance = fov_distance_factor(self.fov) * extent
-
-        camera_pos = view_pos - view_dir * distance
-
-        self.local.position = camera_pos
+        self.local.position = view_pos - view_dir * distance
         self.look_at(view_pos)
         self._set_extent(extent)
+
+        if match_aspect and bbox is not None:
+            # Re-calculate width and height using the aligned bbox, so that the
+            # contents keep fitting snugly as the viewport is resized.
+            bbox = la.aabb_transform(bbox, self.world.inverse_matrix)
+            extent_xy = (bbox[1, :2] - bbox[0, :2]) * scale
+            self.width = float(extent_xy[0])
+            self.height = float(extent_xy[1])
+            # Adust distance to match the new extent (the direction is unchanged)
+            extent = 0.5 * (self._width + self._height)
+            distance = fov_distance_factor(self.fov) * extent
+            self.local.position = view_pos - view_dir * distance
 
     def show_rect(self, left, right, top, bottom, *, view_dir=None, up=None):
         """Position the camera such that the given rectangle is in view.
@@ -448,6 +486,8 @@ class PerspectiveCamera(Camera):
         This method is mainly intended for viewing 2D data, especially
         when `maintain_aspect` is set to False, and is convenient
         for setting the initial view before attaching a PanZoomController.
+
+        See ``show_object(..., match_aspect=True)`` for a more automatic approach.
 
         Parameters
         ----------
