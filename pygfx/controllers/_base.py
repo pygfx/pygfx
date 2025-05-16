@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 from typing import Tuple, Union
 from time import perf_counter
 
@@ -152,6 +153,30 @@ class Controller:
         self._enabled = bool(value)
         if not self._enabled:
             self._actions = {}  # cancel any in-progress actions
+
+    @contextmanager
+    def pause(self):
+        """
+        Context manager to temporarily disable the controller. Controller is set back to the original enabled/disabled
+        state when leaving the context.
+
+        Usage
+        -----
+
+        with controller.pause():
+            # do things while controller.enabled is False
+
+        # outside context manager, controller.enabled is set back to the original value
+
+        """
+        is_enabled = self.enabled
+
+        self.enabled = False
+
+        try:
+            yield
+        finally:
+            self.enabled = is_enabled
 
     @property
     def damping(self):
