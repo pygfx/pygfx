@@ -173,9 +173,10 @@ class Controller:
 
         self.enabled = False
 
-        yield
-
-        self.enabled = is_enabled
+        try:
+            yield
+        finally:
+            self.enabled = is_enabled
 
     @property
     def damping(self):
