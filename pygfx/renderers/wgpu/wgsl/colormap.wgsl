@@ -2,7 +2,7 @@
 
 fn sample_colormap(texcoord: {{ colormap_coord_type }}) -> vec4<f32> {
 
-    $$ if u_colormap is defined
+    $$ if use_colormap is defined
         // apply the colormap transform
         let map_transform = mat3x3<f32>(u_colormap.transform[0].xyz, u_colormap.transform[1].xyz, u_colormap.transform[2].xyz);
         $$ if colormap_coord_type == "f32"
@@ -20,17 +20,17 @@ fn sample_colormap(texcoord: {{ colormap_coord_type }}) -> vec4<f32> {
     $$ if not colormap_dim
         let color_value = vec4<f32>(0.0);
     $$ elif colormap_format == 'f32'
-        let color_value = textureSample(t_colormap, s_colormap, texcoord);
+        let color_value = textureSample(t_colormap, s_colormap, map_uv);
     $$ else
         $$ if colormap_dim == '1d'
         let texcoords_dim = f32(textureDimensions(t_colormap));
-        let ti = i32(texcoord * texcoords_dim % texcoords_dim);
+        let ti = i32(map_uv * texcoords_dim % texcoords_dim);
         $$ elif colormap_dim == '2d'
         let texcoords_dim = vec2<f32>(textureDimensions(t_colormap));
-        let ti = vec2<i32>(texcoord * texcoords_dim % texcoords_dim);
+        let ti = vec2<i32>(map_uv * texcoords_dim % texcoords_dim);
         $$ elif colormap_dim == '3d'
         let texcoords_dim = vec3<f32>(textureDimensions(t_colormap));
-        let ti = vec3<i32>(texcoord * texcoords_dim % texcoords_dim);
+        let ti = vec3<i32>(map_uv * texcoords_dim % texcoords_dim);
         $$ endif
         let color_value = vec4<f32>(textureLoad(t_colormap, ti, 0));
     $$ endif
