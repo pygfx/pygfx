@@ -1,3 +1,15 @@
+"""
+Ray Tracing Camera
+==================
+
+This is a simple camera class for ray tracing.
+It has a few additional features, such as defocus blur and focal length.
+And it can be controlled by mouse and keyboard events as orbit camera.
+"""
+
+# sphinx_gallery_pygfx_docs = 'code'
+# sphinx_gallery_pygfx_test = 'off'
+
 import numpy as np
 import math
 

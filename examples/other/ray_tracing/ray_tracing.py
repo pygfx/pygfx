@@ -1,3 +1,14 @@
+"""
+Ray Tracing
+===========
+
+This example demonstrates a simple ray tracing implementation using wgpu and pygfx.
+It renders a Cornell box scene with a few objects and a light source.
+"""
+
+# sphinx_gallery_pygfx_docs = 'code'
+# sphinx_gallery_pygfx_test = 'off'
+
 import wgpu
 import numpy as np
 import math
@@ -33,8 +44,8 @@ def create_scene():
 
     light = Material((0.78, 0.78, 0.78), emissive=light_color, roughness=1.0)
 
-    # specular = Material((1.0, 1.0, 1.0), roughness=0.04, metallic=1.0)
-    # glass = Material((1.0, 1.0, 1.0), roughness=0.0, metallic=0.0, ior=1.5)
+    specular = Material((1.0, 1.0, 1.0), roughness=0.04, metallic=1.0)
+    glass = Material((1.0, 1.0, 1.0), roughness=0.0, metallic=0.0, ior=1.5)
 
     # Cornell box scene
 
@@ -109,7 +120,7 @@ def create_scene():
     box1_bottom_mesh.local.position = (0, -BOX_SIZE, 0)
 
     box1_front = gfx.plane_geometry(width=BOX_SIZE, height=BOX_SIZE * 2)
-    box1_front_mesh = gfx.Mesh(box1_front, white)
+    box1_front_mesh = gfx.Mesh(box1_front, specular)
     box1_front_mesh.local.rotation = la.quat_from_euler((0, 0, 0))
     box1_front_mesh.local.position = (0, 0, -BOX_SIZE / 2)
 
@@ -137,7 +148,7 @@ def create_scene():
     # gfx_scene.add(box_mesh1)
 
     box2 = gfx.box_geometry(width=BOX_SIZE, height=BOX_SIZE, depth=BOX_SIZE)
-    box_mesh2 = gfx.Mesh(box2, white)
+    box_mesh2 = gfx.Mesh(box2, glass)
     off_set = (BOX_SIZE - ROOM_SIZE) / 2
     box_mesh2.local.position = (-off_set - 13.0 + 2.0, off_set, 6.5 + off_set)
     box_mesh2.local.rotation = la.quat_from_euler((0, 18 / 180 * math.pi, 0))
@@ -165,7 +176,6 @@ device = adapter.request_device_sync(
 )
 present_context = canvas.get_context()
 render_texture_format = present_context.get_preferred_format(device.adapter)
-# render_texture_format = wgpu.TextureFormat.rgba8unorm
 present_context.configure(device=device, format=render_texture_format)
 
 
@@ -360,7 +370,7 @@ def do_ray_tracing():
 
 stats = Stats(device, canvas)
 
-stats._extra_data = state
+stats.extra_data = state
 
 
 def loop():
