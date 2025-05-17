@@ -255,6 +255,47 @@ class LineSegmentMaterial(LineMaterial):
     """
 
 
+class LineInfiniteSegmentMaterial(LineSegmentMaterial):
+    """Infinite line segment material.
+
+    A material that renders infenitely long line segments between each two
+    subsequent points. The end-points of each segment are displaced (along the
+    vector defined by the two points) such that the points are at the edge of
+    the viewport. Other than that, dashing, vertex colors, etc. should work as
+    expected (interpolating between the points that are now on the viewport edge).
+
+    Parameters
+    ----------
+    start_is_infinite : bool
+        Whether start of each segment is made infinitely long. Default True.
+    end_is_infinite : bool
+        Whether end of each segment is made infinitely long. Default True.
+    """
+
+    def __init__(self, start_is_infinite=True, end_is_infinite=True, **kwargs):
+        super().__init__(**kwargs)
+        self.start_is_infinite = start_is_infinite
+        self.end_is_infinite = end_is_infinite
+
+    @property
+    def start_is_infinite(self):
+        """Whether start of each segment is made infinitely long."""
+        return self._store.start_is_infinite
+
+    @start_is_infinite.setter
+    def start_is_infinite(self, value):
+        self._store.start_is_infinite = bool(value)
+
+    @property
+    def end_is_infinite(self):
+        """Whether end of each segment is made infinitely long."""
+        return self._store.end_is_infinite
+
+    @end_is_infinite.setter
+    def end_is_infinite(self, value):
+        self._store.end_is_infinite = bool(value)
+
+
 class LineArrowMaterial(LineSegmentMaterial):
     """Arrow (vector) line material.
 

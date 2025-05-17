@@ -41,13 +41,30 @@ camera.show_object(scene)
 controller = gfx.PanZoomController(camera, register_events=renderer)
 
 
+# initial camera state
+camera_state = camera.get_state()
+
+
 def on_key_down(event):
+    if event.key not in ["s", "l", "r"]:
+        return
+
+    global camera_state
+
+    # without disabling the controller any in-progress action
+    # during this function call will overwrite the camera state
+    controller.enabled = False
+
     if event.key == "s":
-        controller.save_state()
+        camera_state = camera.get_state()
     elif event.key == "l":
-        controller.load_state()
+        camera.set_state(camera_state)
     elif event.key == "r":
-        controller.show_object(camera, plane)
+        camera.show_object(scene)
+
+    controller.enabled = True
+
+    canvas.request_draw()  # not required if you are continuously rendering
 
 
 renderer.add_event_handler(on_key_down, "key_down")

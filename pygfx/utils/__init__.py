@@ -219,3 +219,43 @@ def assert_type(name, value, *classes):
 
         # Raise message with alt traceback
         raise TypeError(msg).with_traceback(tb) from None
+
+
+class ReadOnlyDict(dict):
+    """A read-only dict, for storing structured data that can be hashed."""
+
+    __slots__ = ["_hash"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Calculate hash in a way that requires any value to also be hashable
+        parts = []
+        for k in sorted(self.keys()):
+            v = self[k]
+            parts.append(str(hash(k)))
+            parts.append(str(hash(v)))
+        self._hash = hash(" ".join(parts))
+
+    def __setitem__(self, *args, **kwargs):
+        raise TypeError("Cannot modify ReadOnlyDict")
+
+    def __delitem__(self, *args, **kwargs):
+        raise TypeError("Cannot modify ReadOnlyDict")
+
+    def clear(self, *args, **kwargs):
+        raise TypeError("Cannot modify ReadOnlyDict")
+
+    def pop(self, *args, **kwargs):
+        raise TypeError("Cannot modify ReadOnlyDict")
+
+    def popitem(self, *args, **kwargs):
+        raise TypeError("Cannot modify ReadOnlyDict")
+
+    def setdefault(self, *args, **kwargs):
+        raise TypeError("Cannot modify ReadOnlyDict")
+
+    def update(self, *args, **kwargs):
+        raise TypeError("Cannot modify ReadOnlyDict")
+
+    def __hash__(self):
+        return self._hash

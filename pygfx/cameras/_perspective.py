@@ -240,10 +240,10 @@ class PerspectiveCamera(Camera):
 
         """
         return {
-            "position": self.local.position,
-            "rotation": self.local.rotation,
-            "scale": self.local.scale,
-            "reference_up": self.world.reference_up,
+            "position": self.local.position.copy(),
+            "rotation": self.local.rotation.copy(),
+            "scale": self.local.scale.copy(),
+            "reference_up": self.world.reference_up.copy(),
             "fov": self.fov,
             "width": self.width,
             "height": self.height,
