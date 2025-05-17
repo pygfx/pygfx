@@ -1,3 +1,14 @@
+"""
+Ray Tracing Scene
+=================
+
+Here we define the metadata for the ray tracing scene.
+And we parse the gfx scene to work with it.
+"""
+
+# sphinx_gallery_pygfx_docs = 'code'
+# sphinx_gallery_pygfx_test = 'off'
+
 import numpy as np
 import pygfx as gfx
 
