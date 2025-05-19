@@ -149,18 +149,10 @@ class PanZoomController(Controller):
             new_height = height / fy
 
         # Get new position
-        if self._cameras and all(
-            max(cam_tuple[0]._fov_range) == 0 for cam_tuple in self._cameras
-        ):
-            # OrthographicCamera's don't need to update their position to zoom, because their fov is fixed to zero.
-            new_position = position
-        else:
-            # If any of the attached cameras can have a fov > 0, even if its fov is currently 0, we should also the position.
-            # For these , setting width/height is also necessary, to set the extent, i.e. the distance to the center.
-            new_extent = 0.5 * (new_width + new_height)
-            pos2target1 = self._get_target_vec(cam_state, extent=extent)
-            pos2target2 = self._get_target_vec(cam_state, extent=new_extent)
-            new_position = position + pos2target1 - pos2target2
+        new_extent = 0.5 * (new_width + new_height)
+        pos2target1 = self._get_target_vec(cam_state, extent=extent)
+        pos2target2 = self._get_target_vec(cam_state, extent=new_extent)
+        new_position = position + pos2target1 - pos2target2
 
         return {
             "width": new_width,
