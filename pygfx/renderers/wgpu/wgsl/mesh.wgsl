@@ -123,7 +123,7 @@ fn vs_main(in: VertexInput) -> Varyings {
 
     $$ if use_tangent is defined
         let raw_tangent = load_s_tangents(i0);
-        let object_tangent = raw_tangent.xyz;
+        var object_tangent = raw_tangent.xyz;
     $$ endif
 
     // morph targets
