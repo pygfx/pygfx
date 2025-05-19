@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 from typing import Tuple, Union
 from time import perf_counter
 
@@ -95,16 +96,18 @@ class Controller:
     def add_camera(self, camera, *, include_state=None, exclude_state=None):
         """Add a camera to control.
 
-        The ``include_state`` and ``exclude_state`` arguments can be
-        used to specify a set of camera state fields to include/exclude,
-        when updating this camera. This can be used to "partially link"
-        a camera. These args are None by default (i.e. no filtering).
+        If the camera is already registered, it only updates the include_state
+        and exclude_state (without changing the order of the cameras).
 
-        See ``camera.get_state()`` for available fields. Useful state
-        names for the perspective and orthographhic camera are: 'x',
-        'y', 'z' (or 'position' for all three), 'width', 'height',
-        'rotation', 'zoom', and 'depth_range'.
+        The ``include_state`` and ``exclude_state`` arguments represent the
+        camera state fields to include/exclude, when updating this camera. This
+        can be used to "partially link" a camera. These args are None by default
+        (i.e. no filtering).
 
+        See ``camera.get_state()`` for available fields. Useful state names for
+        the perspective and orthographhic camera are: 'x', 'y', 'z' (or
+        'position' for all three), 'width', 'height', 'rotation', 'zoom', and
+        'depth_range'.
         """
         if not isinstance(camera, Camera):
             raise TypeError("Controller.add_camera expects a Camera object.")
@@ -116,6 +119,7 @@ class Controller:
         if include_state is not None:
             if not isinstance(include_state, set):
                 raise TypeError("add_camera() include_state must be a set.")
+            include_state = set(include_state)  # copy
             if "position" in include_state:
                 include_state.discard("position")
                 include_state.update({"x", "y", "z"})
@@ -123,15 +127,26 @@ class Controller:
         if exclude_state is not None:
             if not isinstance(exclude_state, set):
                 raise TypeError("add_camera() exclude_state must be a set.")
+            exclude_state = set(exclude_state)  # copy
             if "position" in exclude_state:
                 exclude_state.discard("position")
                 exclude_state.update({"x", "y", "z"})
 
-        self.remove_camera(camera)
-        self._cameras.append((camera, include_state, exclude_state))
+        new_entry = camera, include_state, exclude_state
+
+        # Replace or append
+        for i in range(len(self._cameras)):
+            if self._cameras[i][0] is camera:
+                self._cameras[i] = new_entry
+                break
+        else:
+            self._cameras.append(new_entry)
 
     def remove_camera(self, camera):
-        """Remove a camera from the list of cameras to control."""
+        """Remove a camera from the list of cameras to control.
+
+        If the camera is not registered, this does nothing.
+        """
         if not isinstance(camera, Camera):
             raise TypeError("Controller.remove_camera expects a Camera object.")
         new_cameras = []
@@ -152,6 +167,30 @@ class Controller:
         self._enabled = bool(value)
         if not self._enabled:
             self._actions = {}  # cancel any in-progress actions
+
+    @contextmanager
+    def pause(self):
+        """
+        Context manager to temporarily disable the controller. Controller is set back to the original enabled/disabled
+        state when leaving the context.
+
+        Usage
+        -----
+
+        with controller.pause():
+            # do things while controller.enabled is False
+
+        # outside context manager, controller.enabled is set back to the original value
+
+        """
+        is_enabled = self.enabled
+
+        self.enabled = False
+
+        try:
+            yield
+        finally:
+            self.enabled = is_enabled
 
     @property
     def damping(self):
