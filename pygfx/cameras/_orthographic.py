@@ -8,10 +8,6 @@ class OrthographicCamera(PerspectiveCamera):
     You can use this instead of a PerspectiveCamera if you have data that does
     not make sense to view with a nonzero fov.
 
-    When used with the show methods and/or a controller, the ``OrthographicCamera``'s
-    position does not move along the view-axis (to zoom in/out), unlike the
-    ``PerspectiveCamera``, which does this even when fov is 0.
-
     Parameters
     ----------
     width: float
@@ -25,7 +21,7 @@ class OrthographicCamera(PerspectiveCamera):
     maintain_aspect: bool
         Whether the aspect ration is maintained as the window size changes.
         Default True. If false, the dimensions are stretched to fit the window.
-     depth: float | None
+    depth: float | None
         The reference size of the scene in the depth dimension. By default this value gets set
         to the average of ``width`` and ``height``. This happens on initialization and by ``show_pos()``, ``show_object()`` and ``show_rect()``.
         It is used to calculate a sensible depth range when ``depth_range`` is not set.

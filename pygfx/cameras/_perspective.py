@@ -16,12 +16,12 @@ from ._base import Camera
 # fly camera uses the extent to determine the movement speed.
 #
 # So although, with a fov > 0, the width and height do not affect the projection matrix,
-# they still play a role. The controllers actually set both the distance and the width/height.
+# they still play a role. The controllers actually sets both the distance and the width/height.
 # That way the user can change the fov at any time and transition smoothly.
 #
-# The orthograpic camera constraints the vof to zero. It is therefore not necessary to move that
+# The orthograpic camera constraints the vof to zero. With a fov of zero it is not necessary to move the
 # camera away from the scene in order to see it. This avoids depth issues for very long scenes like
-# time-series plots.
+# time-series plots. And avoids the scene clipping away (becoming invisible) of you zoom out too much.
 
 
 class PerspectiveCamera(Camera):
@@ -117,10 +117,7 @@ class PerspectiveCamera(Camera):
     def fov(self, value):
         fov = float(value)
         fov = min(max(fov, self._fov_range[0]), self._fov_range[1])
-        # Don't allow values between 0 and 1, as it becomes numerically unstable
-        # For the record, zero is allowed, meaning orthographic projection
-        if 0 < fov < 1:
-            fov = 1
+        fov = fov_limit(fov)  # Constraint to numerically stable values
         self._fov = fov
         self.flag_update()
 
@@ -267,7 +264,7 @@ class PerspectiveCamera(Camera):
             f = fov_distance_factor(self.fov)
             # We want to be gentle with the factor for the near plane; making that value small will cost a lot of bits in the depth buffer.
             # The value for the far buffer affects the precision near the camerea much less.
-            return depth * f / 100, depth * 10000
+            return depth * f / 100, depth * f * 10000
         else:
             # Look behind and in front in equal distance.
             # With a fov of 0, the depth precision is divided equally over the whole range. So being able to look
@@ -439,7 +436,11 @@ class PerspectiveCamera(Camera):
 
         # Update extent
         distance = la.vec_dist(pos, self.local.position)
-        extent = distance / fov_distance_factor(self.fov)
+        f = fov_distance_factor(self.fov)
+        if f == 0:
+            extent = distance
+        else:
+            extent = distance / f
         self._set_extent(extent)
 
         # Lock the reference extent for consistent deph range
@@ -524,8 +525,8 @@ class PerspectiveCamera(Camera):
 
         # Apply
         distance = fov_distance_factor(self.fov) * extent
-        self.local.position = view_pos - view_dir * distance
-        self.look_at(view_pos)
+        self.world.position = view_pos - view_dir * distance
+        self.world.forward = view_dir
         self._set_extent(extent)
 
         if match_aspect and bbox is not None:
@@ -538,12 +539,9 @@ class PerspectiveCamera(Camera):
             # Adust distance to match the new extent (the direction is unchanged)
             extent = 0.5 * (self._width + self._height)
             distance = fov_distance_factor(self.fov) * extent
-            self.local.position = view_pos - view_dir * distance
+            self.world.position = view_pos - view_dir * distance
 
-        # Ortho camera's don't have to 'back up' from what they look at.
-        # In fact it can have a bad effect on depth when width >> height (e.g. time-series data)
-        if max(self._fov_range) == 0:  # I.e. is an OrthographicCamera
-            self.local.position = view_pos
+        # Note that when fov == 0, distance == 0, and thus self.world.position == view_pos
 
         # Lock the reference extent for consistent deph range
         self.depth = extent if depth is None else depth
@@ -598,18 +596,14 @@ class PerspectiveCamera(Camera):
         self.height = bottom - top
         extent = 0.5 * (self.width + self.height)
         # First move so we view towards the origin with the correct vector
+        # Note that when fov == 0, distance == 0, and thus self.world.position == (0, 0, 0)
         distance = fov_distance_factor(self.fov) * extent
         self.world.position = (0, 0, 0) - view_dir * distance
-        self.look_at((0, 0, 0))
+        self.world.forward = view_dir
 
         # Now we have a rotation that we can use to orient our rect
         rotation = self.world.rotation
-        if max(self._fov_range) == 0:
-            # I.e. is an OrthographicCamera, no need to 'back up'
-            position = (0, 0, 0)
-        else:
-            position = self.world.position
-
+        position = self.world.position
         offset = 0.5 * (left + right), 0.5 * (top + bottom), 0
         new_position = position + la.vec_transform_quat(offset, rotation)
         self.world.position = new_position
@@ -640,11 +634,25 @@ class PerspectiveCamera(Camera):
         return world_corners
 
 
+def fov_limit(fov):
+    # Don't allow values between 0 and 1, as it becomes numerically unstable.
+    # Same for values beyond 179.
+    # Zero is allowed, meaning orthographic projection
+    if fov < 0.5:
+        fov = 0.0
+    elif fov < 1.0:
+        fov = 1.0
+    elif fov > 179:
+        fov = 179
+    return fov
+
+
 def fov_distance_factor(fov):
     # It's important that controller and camera use the same distance calculations
     if fov > 0:
         fov_rad = fov * pi / 180
         factor = 0.5 / tan(0.5 * fov_rad)
+        factor = max(factor, 0.0)  #  prevent negative numbers
     else:
-        factor = 1.0
+        factor = 0.0
     return factor

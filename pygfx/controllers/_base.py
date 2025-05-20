@@ -6,7 +6,7 @@ import numpy as np
 import pylinalg as la
 
 from ..cameras import Camera, PerspectiveCamera
-from ..cameras._perspective import fov_distance_factor
+from ..cameras._perspective import fov_limit, fov_distance_factor
 from ..renderers import Renderer
 from ..utils.viewport import Viewport
 
@@ -303,7 +303,7 @@ class Controller:
         extent = kwargs.get("extent", extent)
         fov = kwargs.get("fov", camera_state.get("fov"))
 
-        distance = fov_distance_factor(fov) * extent
+        distance = fov_distance_factor(fov_limit(fov)) * extent
         return la.vec_transform_quat((0, 0, -distance), rotation)
 
     def _get_camera_vecs(self, rect):
@@ -559,6 +559,7 @@ class Controller:
 
         # Update fov and position
         new_fov = min(max(fov + delta, fov_range[0]), fov_range[1])
+        new_fov = fov_limit(new_fov)
         pos2target1 = self._get_target_vec(cam_state, fov=fov)
         pos2target2 = self._get_target_vec(cam_state, fov=new_fov)
         new_position = position + pos2target1 - pos2target2
