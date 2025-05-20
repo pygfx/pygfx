@@ -168,6 +168,9 @@ def array_from_shadertype(shadertype, count=None):
         struct_alignment = max(struct_alignment, field.align)
 
     def fill_bytes(ref_align, nbytes):
+        # This function only gets called when using a vec3<x32> or vec3<f16>. Since the
+        # fields are sorted by alignment (big to small) this only applies to types that
+        # align weirdly. But mot for the nx3 matrices, because they have intrinsic padding.
         nonlocal pad_index
         j = ref_align - nbytes
         # See if we can fill the gap with other fields
