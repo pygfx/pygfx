@@ -80,43 +80,138 @@ def array_from_shadertype(shadertype, count=None):
     assert isinstance(shadertype, dict)
     assert count is None or count > 0
 
+    # Note: we have yet to add f2 (16 bit float)
     primitives = {
         "i4": "int32",
         "u4": "uint32",
         "f4": "float32",
     }
 
+    class Field:
+        def __init__(self, name, format):
+            self.name = name
+            if format[-2:] not in primitives:
+                raise RuntimeError(
+                    f"Values in a uniform must have a 32bit primitive type, not {format}"
+                )
+            self.primitive = primitives[format[-2:]]
+            primitive_size = 4  # no support for f2 yet
+            # Get shape, excluding array part
+            arraystr, _, shapestr = format[:-2].rpartition("*")
+            shape = [int(i) for i in shapestr.split("x") if i]
+            shape = shape or [1]
+            # Include array size
+            self.array_size = None
+            if arraystr:
+                array_names.append(name)
+                self.array_size = int(arraystr)
+            # Calculate size and alignment, in bytes
+            self.shape = shape = tuple(int(i) for i in shape)
+            self.size = int(np.prod(shape)) * primitive_size
+            self.align = shape[-1] * primitive_size
+            # Snap align to factors of 2.
+            # 3xf2 -> 6 -> 8
+            # 3x3xf4 -> 12 -> 16
+            for ref_align in [2, 4, 8, 16]:
+                if self.align <= ref_align:
+                    self.align = ref_align
+                    break
+            # Matrices of shape nx3 need padding. As in the GPU wants to read more bytes than needed,
+            # so we can't fill that space up with other fields, but need empty bytes.
+            self.intrinsic_padding = 0
+            if len(shape) > 1 and shape[-1] == 3:
+                full_size = int(np.prod(shape[:1] + (4,))) * primitive_size
+                self.intrinsic_padding = full_size - self.size
+                self.size = full_size
+
+        def use(self):
+            nonlocal pad_index
+            shape = self.shape
+            if self.array_size is not None:
+                shape = (*shape, self.array_size)
+            shape = tuple(reversed(shape))
+            result = []
+            result.append((self.name, self.primitive, shape))
+            if self.intrinsic_padding:
+                pad_index += 1
+                result.append(
+                    (f"__padding{pad_index}", "uint8", (self.intrinsic_padding,))
+                )
+            self.name += "-already used"  # break when used twice
+            return result
+
+    pad_index = 0
+    array_names = []
+    fields_per_align = {16: [], 8: [], 4: [], 2: []}
+    dtype_fields = []
+    packed_fields = []  # what fields fill up space to fix alignment
+    struct_alignment = 0
+
     # Unravel the dict, turning it into a numpy array.
     # We also sort the fields so that the uniforms are properly aligned.
     # See https://www.w3.org/TR/WGSL/#structure-layout-rules
     # Note that 3x4xf4 matches a mat3x4<f32>
-    array_names = []
-    dtype_fields = []
-    for name, format in shadertype.items():
-        if format[-2:] not in primitives:
-            raise RuntimeError(
-                f"Values in a uniform must have a 32bit primitive type, not {format}"
-            )
-        primitive = primitives[format[-2:]]
-        # Get shape, excluding array part
-        shapestr = format[:-2].split("*")[-1]
-        shape = [int(i) for i in shapestr.split("x") if i]
-        align_size = shape[-1] if shape else 1  # in mat2x4 we need the 4
-        if align_size == 3:  # vec3 and matnx3 are forbidden for now
-            raise ValueError(
-                f"Uniform format {format} forbidden for now due to alignment."
-            )
-        shape.reverse()  # reverse because numpy is row-major
-        # Include array size
-        if "*" in format:
-            array_names.append(name)
-            shape.insert(0, int(format.split("*")[0]))
-        # Create field, include align_size for sorting
-        dtype_fields.append((name, primitive, tuple(shape), align_size))
 
-    # Sort by alignment, then strip the align_size (helper element) from the tuple
-    dtype_fields.sort(key=lambda field: -field[-1])
-    dtype_fields = [field[:-1] for field in dtype_fields]
+    for name, format in shadertype.items():
+        field = Field(name, format)
+        fields_per_align[field.align].append(field)
+        struct_alignment = max(struct_alignment, field.align)
+
+    def fill_bytes(ref_align, nbytes):
+        nonlocal pad_index
+        j = ref_align - nbytes
+        # See if we can fill the gap with other fields
+        for align in [4, 2]:
+            if align >= ref_align or j % align > 0:
+                continue
+            fields = fields_per_align[align]
+            checked_all = False
+            while nbytes >= align and not checked_all:
+                selected_field = None
+                for field in fields:
+                    if field.size <= nbytes:
+                        selected_field = field
+                        packed_fields.append(field.name)
+                        dtype_fields.extend(field.use())
+                        nbytes -= field.size
+                        j += field.size
+                        break
+                if selected_field:
+                    fields.remove(selected_field)
+                else:
+                    checked_all = True
+        # Fill remaining space with padding
+        if nbytes:
+            pad_index += 1
+            dtype_fields.append((f"__padding{pad_index}", "uint8", (need_bytes,)))
+
+    i = 0  # bytes processed
+    for ref_align in [16, 8, 4, 2]:
+        for field in fields_per_align[ref_align]:
+            too_many_bytes = i % field.align
+            if too_many_bytes:
+                need_bytes = field.align - too_many_bytes
+                assert need_bytes < 16
+                assert ref_align in (16, 8)
+                fill_bytes(ref_align, need_bytes)
+                i += need_bytes
+            # Add the field itself
+            dtype_fields.extend(field.use())
+            i += field.size
+
+    # Add padding: uniform buffers must align to the max alignment of its members
+    too_many_bytes = i % struct_alignment
+    if too_many_bytes:
+        need_bytes = struct_alignment - too_many_bytes
+        pad_index += 1
+        dtype_fields.append((f"__padding{pad_index}", "uint8", (need_bytes,)))
+        i += need_bytes
+
+    # Nice for debugging:
+    # if packed_fields or pad_index > 1:
+    #     print("fields:")
+    #     for field in dtype_fields:
+    #         print("   ", field)
 
     # Add meta field (zero bytes)
     # This isn't particularly pretty, but this way our metadata is attached
@@ -125,17 +220,14 @@ def array_from_shadertype(shadertype, count=None):
     array_names.append("")
     dtype_fields.append(("__".join(array_names), "uint8", (0,)))
 
-    # Add padding: uniform buffers must align to 16 bytes.
-    size = np.dtype(dtype_fields).itemsize
-    n16 = int(np.ceil(size / 16))
-    padding = n16 * 16 - size
-    dtype_fields.append(("__padding", "uint8", (padding,)))
-
     # Create a scalar of this type
     if count is not None:
         uniform_data = np.zeros((count,), dtype=dtype_fields)
     else:
         uniform_data = np.zeros((), dtype=dtype_fields)
+
+    # If this fails we did something wrong above
+    assert uniform_data.nbytes % struct_alignment == 0
 
     return uniform_data
 
