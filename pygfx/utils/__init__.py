@@ -70,6 +70,10 @@ _set_log_level()
 
 def array_from_shadertype(shadertype, count=None):
     """Get a numpy array object from a dict shadertype.
+
+    The fields are re-ordered and padded as necessary to fulfil alignment rules.
+    See https://www.w3.org/TR/WGSL/#structure-layout-rules
+
     params:
         shadertype: dict
             A dict containing the shadertype.
@@ -136,7 +140,7 @@ def array_from_shadertype(shadertype, count=None):
 
         def use(self):
             nonlocal pad_index
-            shape = self.shape
+            shape = () if self.shape == (1,) else self.shape
             if self.array_size is not None:
                 shape = (*shape, self.array_size)
             shape = tuple(reversed(shape))
@@ -155,13 +159,14 @@ def array_from_shadertype(shadertype, count=None):
     fields_per_align = {16: [], 8: [], 4: [], 2: []}
     dtype_fields = []
     packed_fields = []  # what fields fill up space to fix alignment
+
+    # The size/alignment of a struct is the max alignment of its members.
+    # But when a uniform buffer is an array of structs, the striding of the array must be a multiple of 16 (std140-like rules).
     struct_alignment = 0
+    if count is not None:
+        struct_alignment = 16
 
-    # Unravel the dict, turning it into a numpy array.
-    # We also sort the fields so that the uniforms are properly aligned.
-    # See https://www.w3.org/TR/WGSL/#structure-layout-rules
-    # Note that 3x4xf4 matches a mat3x4<f32>
-
+    # Collect fields per alignment, so we can process from big to small to avoid padding.
     for name, format in shadertype.items():
         field = Field(name, format)
         fields_per_align[field.align].append(field)
@@ -198,6 +203,7 @@ def array_from_shadertype(shadertype, count=None):
             pad_index += 1
             dtype_fields.append((f"__padding{pad_index}", "uint8", (need_bytes,)))
 
+    # Process the fields, from big to small
     i = 0  # bytes processed
     for ref_align in [16, 8, 4, 2]:
         for field in fields_per_align[ref_align]:
@@ -212,7 +218,7 @@ def array_from_shadertype(shadertype, count=None):
             dtype_fields.extend(field.use())
             i += field.size
 
-    # Add padding: uniform buffers must align to the max alignment of its members
+    # Add padding to the struct
     too_many_bytes = i % struct_alignment
     if too_many_bytes:
         need_bytes = struct_alignment - too_many_bytes
