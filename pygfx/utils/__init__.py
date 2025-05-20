@@ -88,6 +88,16 @@ def array_from_shadertype(shadertype, count=None):
     }
 
     class Field:
+        __slots__ = [
+            "align",
+            "array_size",
+            "intrinsic_padding",
+            "name",
+            "primitive",
+            "shape",
+            "size",
+        ]
+
         def __init__(self, name, format):
             self.name = name
             if format[-2:] not in primitives:
