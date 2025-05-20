@@ -8,6 +8,22 @@ from ..utils.transform import cached
 from ._base import Camera
 
 
+# Some general remarks on how the camera works:
+#
+# The width and height have a special meaning as they represent the size of the scene.
+# Internally, we use the concept of 'extent', which is the mean of the width and height.
+# The orbit camera uses the extent to determine the point around which to rotate, and the
+# fly camera uses the extent to determine the movement speed.
+#
+# So although, with a fov > 0, the width and height do not affect the projection matrix,
+# they still play a role. The controllers actually sets both the distance and the width/height.
+# That way the user can change the fov at any time and transition smoothly.
+#
+# The orthograpic camera constraints the vof to zero. With a fov of zero it is not necessary to move the
+# camera away from the scene in order to see it. This avoids depth issues for very long scenes like
+# time-series plots. And avoids the scene clipping away (becoming invisible) of you zoom out too much.
+
+
 class PerspectiveCamera(Camera):
     """A generic 3D camera with a configurable field of view (fov).
 
@@ -31,19 +47,26 @@ class PerspectiveCamera(Camera):
     maintain_aspect: bool
         Whether the aspect ration is maintained as the window size changes.
         Default True. If false, the dimensions are stretched to fit the window.
-    depth_range: 2-tuple
-        The values for the near and far clipping planes. If not given
-        or None, the clip planes will be calculated automatically based
-        on the fov, width, and height.
+    depth: float | None
+        The reference size of the scene in the depth dimension. By default this value gets set
+        to the average of ``width`` and ``height``. This happens on initialization and by ``show_pos()``, ``show_object()`` and ``show_rect()``.
+        It is used to calculate a sensible depth range when ``depth_range`` is not set.
+    depth_range: 2-tuple | None
+        The explicit values for the near and far clip planes. If not given
+        or None (the default), the clip planes ware calculated using ``fov`` and ``depth``.
 
-    Note
-    ----
-    The width and/or height should be set when using a fov of zero,
-    when you want to manipulate the camera with a controller, or when
-    you want to make use of the automatic depth_range. However, if you
-    also call ``show_pos``, ``show_object``, or ``show_rect`` you can omit
-    width and height, because these methods set them for you.
+    Notes
+    -----
 
+    When the fov is zero, the width and height determine the view of the camera.
+    When the fov is nonzero, the width and height only specify the aspect ratio.
+    However, the width and height still represent the size of the scene, and the controllers
+    uses it to e.g. determine the orbit-point, or the speed of motion.
+
+    When you use ``show_pos()``, ``show_object()``, or ``show_rect()``, there is no
+    need to set the width or height.
+
+    When you don't use the show methods, and the fov is zero, you need to set the width and height, and optionally the depth.
     """
 
     _fov_range = 0, 179
@@ -57,6 +80,7 @@ class PerspectiveCamera(Camera):
         height=None,
         zoom=1,
         maintain_aspect=True,
+        depth=None,
         depth_range=None,
     ):
         super().__init__()
@@ -77,7 +101,10 @@ class PerspectiveCamera(Camera):
 
         self.zoom = zoom
         self.maintain_aspect = maintain_aspect
+        self.depth = depth or float(0.5 * (width + height))
         self.depth_range = depth_range
+
+        # depth_range_auto =
 
         self.set_view_size(1, 1)
 
@@ -90,10 +117,7 @@ class PerspectiveCamera(Camera):
     def fov(self, value):
         fov = float(value)
         fov = min(max(fov, self._fov_range[0]), self._fov_range[1])
-        # Don't allow values between 0 and 1, as it becomes numerically unstable
-        # For the record, zero is allowed, meaning orthographic projection
-        if 0 < fov < 1:
-            fov = 1
+        fov = fov_limit(fov)  # Constraint to numerically stable values
         self._fov = fov
         self.flag_update()
 
@@ -181,9 +205,39 @@ class PerspectiveCamera(Camera):
         self.flag_update()
 
     @property
+    def depth(self):
+        """The reference size for the scene in the depth dimension.
+
+        This is only used if ``depth_range`` is not set.
+
+        This value is set by ``show_pos()``, ``show_object()`` and ``show_rect()``.
+        It can be set by the user, but this is only recommended if you don't use any of the show methods.
+        """
+        return self._depth
+
+    @depth.setter
+    def depth(self, depth):
+        depth = float(depth)
+        if depth <= 0:
+            raise ValueError("Camera.depth must both be > 0")
+        self._depth = depth
+
+    @property
     def depth_range(self):
-        """The values for the near and far clip planes. If None, these values
-        are calculated from fov, width, amd heiht.
+        """The user-defined values for the near and far clip planes.
+
+        By default this is None, causing the near and far planes to be calculated from ``fov`` and ``depth``.
+        This is a convenience that works well for simple cases. The automatic depth range calculation assumes
+        that the scene is confined, containing one or more objects to be inspected. The depth range is set quite
+        a bit larger than the scene, so the scene does not disappear as you zoom out, and e.g. grids have a proper horizon.
+
+        Cases where explicitly setting ``depth_range`` makes sense:
+
+        * When you know your scene well, and just want to be explicit.
+        * When the scene represents a larger world where there are near and distant objects.
+        * When the automatically calculated depth range is suboptimal.
+        * When the depth of your scene is much smaller/larger than (the average of the) width and height,
+          e.g. in plotting. Although you can also set ``depth`` in this case.
         """
         return self._depth_range
 
@@ -202,16 +256,21 @@ class PerspectiveCamera(Camera):
         if self._depth_range:
             return self._depth_range
 
-        # Put 1000 units between the near and far plane, scaled by extent
-        extent = 0.5 * (self._width + self._height)
+        depth = self._depth
+
         if self.fov > 0:
-            # Scale near plane with the fov to compensate for the fact
-            # that with very small fov you're probably looking at something
-            # in the far distance.
+            # Scale near plane with the fov to compensate for the fact that with very small
+            # fov you're probably looking at something in the far distance.
             f = fov_distance_factor(self.fov)
-            return (extent * f) / 1000, 1000 * extent
+            # We want to be gentle with the factor for the near plane; making that value small will cost a lot of bits in the depth buffer.
+            # The value for the far buffer affects the precision near the camerea much less.
+            return depth * f / 100, depth * f * 10000
         else:
-            return -500 * extent, 500 * extent
+            # Look behind and in front in equal distance.
+            # With a fov of 0, the depth precision is divided equally over the whole range. So being able to look
+            # far in the distance, is *much* more costly than it is for perpective projection.
+            # With a factor 100, you can zoom out until the scene is just a few pixes before it disappears.
+            return (-100 * depth, +100 * depth)
 
     @property
     def near(self) -> float:
@@ -247,6 +306,7 @@ class PerspectiveCamera(Camera):
             "fov": self.fov,
             "width": self.width,
             "height": self.height,
+            "depth": self.depth,
             "zoom": self.zoom,
             "maintain_aspect": self.maintain_aspect,
             "depth_range": self.depth_range,
@@ -276,6 +336,7 @@ class PerspectiveCamera(Camera):
                 "fov",
                 "width",
                 "height",
+                "depth",
                 "zoom",
                 "maintain_aspect",
                 "depth_range",
@@ -303,12 +364,11 @@ class PerspectiveCamera(Camera):
             height = 2 * size / (1 + self.aspect)
             width = height * self.aspect
             # Increase either the width or height, depending on the view size
-            if not self._maintain_aspect:
-                pass
-            elif self.aspect < view_aspect:
-                width *= view_aspect / self.aspect
-            else:
-                height *= self.aspect / view_aspect
+            if self._maintain_aspect:
+                if self.aspect < view_aspect:
+                    width *= view_aspect / self.aspect
+                else:
+                    height *= self.aspect / view_aspect
             # Calculate bounds
             top = +0.5 * height
             bottom = -0.5 * height
@@ -325,12 +385,11 @@ class PerspectiveCamera(Camera):
             height = self.height / zoom_factor
             # Increase either the width or height, depending on the viewport shape
             aspect = width / height
-            if not self._maintain_aspect:
-                pass
-            elif aspect < view_aspect:
-                width *= view_aspect / aspect
-            else:
-                height *= aspect / view_aspect
+            if self._maintain_aspect:
+                if aspect < view_aspect:
+                    width *= view_aspect / aspect
+                else:
+                    height *= aspect / view_aspect
             # Calculate bounds
             bottom = -0.5 * height
             top = +0.5 * height
@@ -344,7 +403,7 @@ class PerspectiveCamera(Camera):
         projection_matrix.flags.writeable = False
         return projection_matrix
 
-    def show_pos(self, target, *, up=None):
+    def show_pos(self, target, *, up=None, depth=None):
         """Look at the given position or object.
 
         This is similar to `look_at()` but it also sets the width and height
@@ -377,7 +436,15 @@ class PerspectiveCamera(Camera):
 
         # Update extent
         distance = la.vec_dist(pos, self.local.position)
-        self._set_extent(distance / fov_distance_factor(self.fov))
+        f = fov_distance_factor(self.fov)
+        if f == 0:
+            extent = distance
+        else:
+            extent = distance / f
+        self._set_extent(extent)
+
+        # Lock the reference extent for consistent deph range
+        self.depth = extent if depth is None else depth
 
     def show_object(
         self,
@@ -387,6 +454,7 @@ class PerspectiveCamera(Camera):
         up=None,
         scale=1,
         match_aspect=False,
+        depth=None,
     ):
         """Position and orientate the camera such that the given target in is in view.
 
@@ -457,8 +525,8 @@ class PerspectiveCamera(Camera):
 
         # Apply
         distance = fov_distance_factor(self.fov) * extent
-        self.local.position = view_pos - view_dir * distance
-        self.look_at(view_pos)
+        self.world.position = view_pos - view_dir * distance
+        self.world.forward = view_dir
         self._set_extent(extent)
 
         if match_aspect and bbox is not None:
@@ -471,9 +539,16 @@ class PerspectiveCamera(Camera):
             # Adust distance to match the new extent (the direction is unchanged)
             extent = 0.5 * (self._width + self._height)
             distance = fov_distance_factor(self.fov) * extent
-            self.local.position = view_pos - view_dir * distance
+            self.world.position = view_pos - view_dir * distance
 
-    def show_rect(self, left, right, top, bottom, *, view_dir=None, up=None):
+        # Note that when fov == 0, distance == 0, and thus self.world.position == view_pos
+
+        # Lock the reference extent for consistent deph range
+        self.depth = extent if depth is None else depth
+
+    def show_rect(
+        self, left, right, top, bottom, *, view_dir=None, up=None, depth=None
+    ):
         """Position the camera such that the given rectangle is in view.
 
         The rectangle represents a plane in world coordinates, centered
@@ -521,17 +596,20 @@ class PerspectiveCamera(Camera):
         self.height = bottom - top
         extent = 0.5 * (self.width + self.height)
         # First move so we view towards the origin with the correct vector
+        # Note that when fov == 0, distance == 0, and thus self.world.position == (0, 0, 0)
         distance = fov_distance_factor(self.fov) * extent
         self.world.position = (0, 0, 0) - view_dir * distance
-        self.look_at((0, 0, 0))
+        self.world.forward = view_dir
 
         # Now we have a rotation that we can use to orient our rect
-        position = self.world.position
         rotation = self.world.rotation
-
+        position = self.world.position
         offset = 0.5 * (left + right), 0.5 * (top + bottom), 0
         new_position = position + la.vec_transform_quat(offset, rotation)
         self.world.position = new_position
+
+        # Lock the reference extent for consistent deph range
+        self.depth = extent if depth is None else depth
 
     @cached
     def frustum(self):
@@ -556,11 +634,25 @@ class PerspectiveCamera(Camera):
         return world_corners
 
 
+def fov_limit(fov):
+    # Don't allow values between 0 and 1, as it becomes numerically unstable.
+    # Same for values beyond 179.
+    # Zero is allowed, meaning orthographic projection
+    if fov < 0.5:
+        fov = 0.0
+    elif fov < 1.0:
+        fov = 1.0
+    elif fov > 179:
+        fov = 179
+    return fov
+
+
 def fov_distance_factor(fov):
     # It's important that controller and camera use the same distance calculations
     if fov > 0:
         fov_rad = fov * pi / 180
         factor = 0.5 / tan(0.5 * fov_rad)
+        factor = max(factor, 0.0)  #  prevent negative numbers
     else:
-        factor = 1.0
+        factor = 0.0
     return factor

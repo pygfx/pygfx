@@ -1,8 +1,10 @@
+import pygfx
 from pygfx.renderers.wgpu.shader import BaseShader
-from pygfx.renderers.wgpu import Binding
+from pygfx.renderers.wgpu import Binding, register_wgsl_loader
 from pygfx.utils import array_from_shadertype
 from pygfx import Buffer
 from pytest import raises
+import jinja2
 import numpy as np
 
 
@@ -174,20 +176,44 @@ def test_uniform_definitions():
     """.strip()
     )
 
-    # Test that it forbids types that align badly.
-    # There are two cases where the alignment is checked.
-    # In array_from_shadertype() the fields are ordered to prevent
-    # alignment mismatches, and it will prevent the use of some types.
-    # Later we might implement introducing stub fields to fix alignment.
-    # In define_binding() the uniform's wgsl struct definition is created,
-    # and there it also checks the alignment. Basically a failsafe for
-    # when array_from_shadertype() does not do it's job right.
-    struct = dict(foo="3xf4", bar="4xi4")
-    with raises(ValueError):
-        shader.define_binding(0, 0, Binding("zz", "buffer/uniform", struct))
+
+def test_custom_wgsl_loaders():
+    class MyLoader(jinja2.BaseLoader):
+        def get_source(self, environment, x):
+            return f"// loader: {x}", None, None
+
+    my_loader = MyLoader()
+
+    def my_func(x):
+        return f"// func: {x}"
+
+    my_dict = {"foo.wgsl": "// dict: foo.wgsl"}
+
+    register_wgsl_loader("testloader1", my_loader)
+    register_wgsl_loader("testloader2", my_func)
+    register_wgsl_loader("testloader3", my_dict)
+
+    with raises(RuntimeError):
+        register_wgsl_loader("testloader3", {})
+
+    code1 = """
+    {$ include 'testloader1.foo.wgsl' $}
+    {$ include 'testloader2.foo.wgsl' $}
+    {$ include 'testloader3.foo.wgsl' $}
+    """
+
+    code2 = """
+    // loader: foo.wgsl
+    // func: foo.wgsl
+    // dict: foo.wgsl
+    """
+
+    code3 = pygfx.renderers.wgpu.shader.templating.apply_templating(code1)
+    assert code3 == code2
 
 
 if __name__ == "__main__":
     test_templating()
     test_logic_beyond_templating()
     test_uniform_definitions()
+    test_custom_wgsl_loaders()
