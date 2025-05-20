@@ -1448,4 +1448,7 @@ class GLTFTextureTransformExtension(GLTFExtension):
             rotation=extension.get("rotation", None),
             scale=extension.get("scale", None),
         )
-        texture_map.update_matrix()
+
+        texcoord = extension.get("texCoord", None)
+        if texcoord is not None:
+            texture_map.uv_channel = texcoord
