@@ -1443,20 +1443,9 @@ class GLTFTextureTransformExtension(GLTFExtension):
 
         extension = extensions[self.EXTENSION_NAME]
 
-        offset = extension.get("offset", None)
-        if offset is not None:
-            texture_map.offset = offset
-
-        rotation = extension.get("rotation", None)
-        if rotation is not None:
-            texture_map.rotation = rotation
-
-        scale = extension.get("scale", None)
-        if scale is not None:
-            texture_map.scale = scale
-
-        texcoord = extension.get("texCoord", None)
-        if texcoord is not None:
-            texture_map.uv_channel = texcoord
-
+        texture_map.update_matrix_components(
+            offset=extension.get("offset", None),
+            rotation=extension.get("rotation", None),
+            scale=extension.get("scale", None),
+        )
         texture_map.update_matrix()
