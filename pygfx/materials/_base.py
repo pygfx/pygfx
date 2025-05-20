@@ -13,6 +13,53 @@ if TYPE_CHECKING:
     ABCDTuple: TypeAlias = tuple[float, float, float, float]
 
 
+# The blending presets
+# note: we assume alpha is not pre-multiplied
+preset_blending_dicts = {
+    "no": {
+        "mode": "classic",
+        "color_src": "one",
+        "color_dst": "zero",
+        "alpha_src": "one",
+        "alpha_dst": "zero",
+    },
+    "normal": {
+        "mode": "classic",
+        "color_src": "src-alpha",
+        "color_dst": "one-minus-src-alpha",
+        "alpha_src": "one",
+        "alpha_dst": "one-minus-src-alpha",
+    },
+    "additive": {
+        "mode": "classic",
+        "color_src": "src-alpha",
+        "color_dst": "one",
+        "alpha_src": "src-alpha",
+        "alpha_dst": "one",
+    },
+    "subtractive": {
+        "mode": "classic",
+        "color_src": "zero",
+        "color_dst": "one-minus-src",
+        "alpha_src": "zero",
+        "alpha_dst": "one",
+    },
+    "multiply": {
+        "mode": "classic",
+        "color_src": "zero",
+        "color_dst": "src",
+        "alpha_src": "zero",
+        "alpha_dst": "src",
+    },
+    "dither": {
+        "mode": "dither",
+    },
+    "weighted": {
+        "mode": "weighted",
+    },
+}
+
+
 # Little class that allows us to return a bool for .transparent and .depth_write
 # while showing that it was automatically determined. Not super-elegant, but
 # effective and it avoids extra API surface.
@@ -46,11 +93,11 @@ class Material(Trackable):
         Default (None) tries to derive this from the shader.
     blending : str | dict
         The way to blend semi-transparent fragments  (alpha < 1) for this material.
-    depth_test : bool
+    depth_test :  bool
         Whether the object takes the depth buffer into account.
         Default True. If False, the object is like a ghost: not testing
         against the depth buffer and also not writing to it.
-    depth_write :  bool | None
+    depth_write : bool | None
         Whether the object writes to the depth buffer. With None (default) this
         is determined automatically.
     """
@@ -73,10 +120,10 @@ class Material(Trackable):
         opacity: float = 1,
         clipping_planes: Sequence[ABCDTuple] = (),
         clipping_mode: Literal["ANY", "ALL"] = "ANY",
-        transparent: Union[bool, None] = None,
+        transparent: Literal[None, False, True] = None,
         blending: Union[str, dict] = "normal",
         depth_test: bool = True,
-        depth_write: Union[bool, None] = None,
+        depth_write: Literal[None, False, True] = None,
         pick_write: bool = False,
     ):
         super().__init__()
@@ -221,7 +268,7 @@ class Material(Trackable):
             raise ValueError(f"Unexpected clipping_mode: {value}")
 
     @property
-    def transparent(self) -> Union[bool, None]:
+    def transparent(self) -> Literal[None, False, True]:
         """Defines whether this material is transparent or opaque.
 
         If set to None, the transparency is autodetermined
@@ -229,10 +276,10 @@ class Material(Trackable):
 
         The final transparency value is one of:
 
-        * True: the object is (considered) fully opaque. The renderer draws
-          these first, and sorts front-to-back to avoid drawing hidden fragments.
-        * False: the object is (considered) fully transparent. The renderer draws
-          these after opaque objects, and sorts back-to-front for proper blending.
+        * False: the object is (considered) fully opaque. The renderer draws
+          these first, and sorts front-to-back to avoid overdrawing.
+        * True: the object is (considered) fully transparent. The renderer draws
+          these after opaque objects, and sorts back-to-front to increase the chance of correct blending.
         * None: the object is considered to have both opaque and transparent
           fragments. The renderer draws these in between opaque and transparent
           passes, back-to-front.
@@ -243,7 +290,7 @@ class Material(Trackable):
         return transparent
 
     @transparent.setter
-    def transparent(self, value: Union[bool, None]):
+    def transparent(self, value: Literal[None, False, True]):
         if value is None:
             self._store.user_transparent = None
         elif isinstance(value, bool):
@@ -286,7 +333,7 @@ class Material(Trackable):
           of a fragment being discared (invisible) is one minus alpha.
         * "weighted": use weighted blending, where the order of objects does not matter for the end-result.
 
-        The blending property returns (and can be set with) a dict, with the following fields:
+        The blending property returns a dict. It can also be set as a dict. Such a dict has the following fields:
 
         * "name": the preset name of this blending, or 'custom'. (This field is ignored when setting the ``blending``.)
         * "mode": the blend-mode, one of "classic", "dither", "weighted".
@@ -301,7 +348,7 @@ class Material(Trackable):
           * "alpha_constant": as ``color_constant`` but for alpha (default 0).
         * When ``mode`` is "dither": there are (currently) no extra fields.
         * When ``mode`` is "weighted":
-          * "weight": the weight factor as wgsl. Default 'alpha', which means use the color's alpha value.
+          * "weight": the weight factor as wgsl code. Default 'alpha', which means use the color's alpha value.
           * "alpha": the used alpha value. Default 'alpha', which means use as-is. Can e.g. be set to 1.0
             so that the alpha channel can be used as the weight factor, while the object is otherwise opaque.
 
@@ -312,51 +359,6 @@ class Material(Trackable):
     def blending(self, blending):
         if blending is None:
             blending = "normal"
-
-        # Note: we assume alpha is not pre-multiplied
-        preset_blending_dicts = {
-            "no": {
-                "mode": "classic",
-                "color_src": "one",
-                "color_dst": "zero",
-                "alpha_src": "one",
-                "alpha_dst": "zero",
-            },
-            "normal": {
-                "mode": "classic",
-                "color_src": "src-alpha",
-                "color_dst": "one-minus-src-alpha",
-                "alpha_src": "one",
-                "alpha_dst": "one-minus-src-alpha",
-            },
-            "additive": {
-                "mode": "classic",
-                "color_src": "src-alpha",
-                "color_dst": "one",
-                "alpha_src": "src-alpha",
-                "alpha_dst": "one",
-            },
-            "subtractive": {
-                "mode": "classic",
-                "color_src": "zero",
-                "color_dst": "one-minus-src",
-                "alpha_src": "zero",
-                "alpha_dst": "one",
-            },
-            "multiply": {
-                "mode": "classic",
-                "color_src": "zero",
-                "color_dst": "src",
-                "alpha_src": "zero",
-                "alpha_dst": "src",
-            },
-            "dither": {
-                "mode": "dither",
-            },
-            "weighted": {
-                "mode": "weighted",
-            },
-        }
 
         if isinstance(blending, str):
             preset_keys = set(preset_blending_dicts.keys())
@@ -452,7 +454,7 @@ class Material(Trackable):
         return depth_write
 
     @depth_write.setter
-    def depth_write(self, value: Union[bool, None]) -> None:
+    def depth_write(self, value: Literal[None, False, True]) -> None:
         if value is None:
             self._store.depth_write = None
         elif isinstance(value, bool):

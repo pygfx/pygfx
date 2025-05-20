@@ -37,10 +37,10 @@ def create_pyramid_weights(ny, nx):
 # Define the blending using a dict. We use weighted blending, using the alpha
 # channel as weights, and setting the final alpha to 1.
 #
-# The commented line shows how we could use the shader texcoord to create
-# the same effect. This avoids having to create the pyramid alpha channel for the image,
-# but it's a less portable solution because it assumes that the shader has a
-# texcoor on its varying.
+# The commented line shows how we could use the shader texcoord to create the
+# same effect. This avoids having to create the pyramid alpha channel for the
+# image, but it's a less portable solution because it assumes that the shader
+# has a 'texcoord' on its varying.
 blending = {
     "mode": "weighted",
     "weight": "alpha",
