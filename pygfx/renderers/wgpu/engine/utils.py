@@ -155,7 +155,7 @@ def generate_uniform_struct(dtype_struct, structname):
     # name that starts with '__meta_xx__'
     array_names = []
     mat3_names = []
-    for fieldname in dtype_struct.fields.keys():
+    for fieldname in dtype_struct.names:
         if fieldname.startswith("__meta_"):
             if fieldname.startswith("__meta_array_names__"):
                 array_names.extend(fieldname.replace("__", " ").split()[1:])
@@ -164,6 +164,8 @@ def generate_uniform_struct(dtype_struct, structname):
 
     # Process fields
     for fieldname, (dtype, offset) in dtype_struct.fields.items():
+        # Note that dtype.names is a list of str names, but the dtype.fields also
+        # includes keys for the field titles. We don't use titles, but keep in mind.
         if fieldname.startswith("__"):
             continue
         # Resolve primitive type

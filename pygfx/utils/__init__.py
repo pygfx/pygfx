@@ -74,6 +74,21 @@ def array_from_shadertype(shadertype, count=None):
     The fields are re-ordered and padded as necessary to fulfil alignment rules.
     See https://www.w3.org/TR/WGSL/#structure-layout-rules
 
+    A note on matrices (e.g. "4x4xf4" or "2x3xf4"): from the Python side, the
+    matrices in a uniform array are transposed, and nx3 matrices are actually nx4.
+
+    To deal with this, setting a matrix in a uniform:
+
+        uniform.data["a_matrix"] = numpy_array.T
+        uniform.data["an_nx3_matrix"][:, :3] = numpy_array.T
+
+    The reason is that WGSL matrices are column-major, while Numpy arrays are
+    row-major (i.e. C-order) by default. Although numpy does support
+    column-major arrays (F-order), it looks like we cannot apply this to the
+    sub-arrays in the uniform struct. Ad for the nx3 matrices, WGSL's alignment
+    constraint requires padding for each column in an nx3 matrix, so it takes up
+    the same space as an nx4 matrix.
+
     params:
         shadertype: dict
             A dict containing the shadertype.
@@ -131,9 +146,9 @@ def array_from_shadertype(shadertype, count=None):
                 shape.insert(0, int(arraystr))
             # Calculate size, the number of bytes that this field occupies
             self.size = int(np.prod(shape)) * primitive_size
-            # Convert shape to tuple for the numpy sub array
+            # Convert shape to tuple for the numpy sub array.
+            # We do NOT reverse the shape, see function docstring.
             self.shape = () if (len(shape) == 1 and shape[0] == 1) else tuple(shape)
-            # self.shape = tuple(reversed(shape))
 
         def use(self):
             result = self.name, self.primitive, self.shape
