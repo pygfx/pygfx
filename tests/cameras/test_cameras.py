@@ -53,7 +53,7 @@ def test_generic_camera_change_aspect():
     assert camera.height == 150
 
 
-def test_camera_show_methods():
+def test_camera_show_methods_fov0():
     camera = gfx.PerspectiveCamera(0)
 
     # Show position
@@ -66,7 +66,7 @@ def test_camera_show_methods():
     camera.show_object((0, 0, 0, 200), view_dir=(0, 0, -1))
     assert camera.width == 400
     assert camera.height == 400
-    assert np.allclose(camera.local.position, [0, 0, 400])
+    assert np.allclose(camera.local.position, [0, 0, 0])
 
     camera.local.rotation = (0, 0, 0, 1)  # reset rotation
 
@@ -74,7 +74,32 @@ def test_camera_show_methods():
     camera.show_rect(0, 500, 0, 600, view_dir=(0, 0, -1))
     assert camera.width == 500
     assert camera.height == 600
-    assert np.allclose(camera.local.position, [250, 300, 550])
+    assert np.allclose(camera.local.position, [250, 300, 0])
+
+
+def test_camera_show_methods_fov53():
+    # Why 53? because fov_distance_factor(53) ~= 1
+    camera = gfx.PerspectiveCamera(53)
+
+    # Show position
+    camera.show_pos((100, 0, 0))
+    assert 99 < camera.width <= 100
+    assert 99 < camera.height <= 100
+    assert np.allclose(camera.local.position, [0, 0, 0])
+
+    # Show sphere with radius 200
+    camera.show_object((0, 0, 0, 200), view_dir=(0, 0, -1))
+    assert camera.width == 400
+    assert camera.height == 400
+    assert np.allclose(camera.local.position, [0, 0, 400], rtol=0.004)
+
+    camera.local.rotation = (0, 0, 0, 1)  # reset rotation
+
+    # Show rectangle
+    camera.show_rect(0, 500, 0, 600, view_dir=(0, 0, -1))
+    assert camera.width == 500
+    assert camera.height == 600
+    assert np.allclose(camera.local.position, [250, 300, 550], rtol=0.004)
 
 
 def test_camera_reference_up():

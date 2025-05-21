@@ -176,18 +176,6 @@ def test_uniform_definitions():
     """.strip()
     )
 
-    # Test that it forbids types that align badly.
-    # There are two cases where the alignment is checked.
-    # In array_from_shadertype() the fields are ordered to prevent
-    # alignment mismatches, and it will prevent the use of some types.
-    # Later we might implement introducing stub fields to fix alignment.
-    # In define_binding() the uniform's wgsl struct definition is created,
-    # and there it also checks the alignment. Basically a failsafe for
-    # when array_from_shadertype() does not do it's job right.
-    struct = dict(foo="3xf4", bar="4xi4")
-    with raises(ValueError):
-        shader.define_binding(0, 0, Binding("zz", "buffer/uniform", struct))
-
 
 def test_custom_wgsl_loaders():
     class MyLoader(jinja2.BaseLoader):

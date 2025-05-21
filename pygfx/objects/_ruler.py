@@ -56,6 +56,10 @@ class Ruler(WorldObject):
 
         # todo: a material to draw proper tick marks
 
+    def get_bounding_box(self):
+        # A ruler does not have a bounding box by itself
+        return None
+
     # -- Properties to easily access sub-objects
 
     @property
