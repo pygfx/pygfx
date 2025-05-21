@@ -45,7 +45,7 @@ class Material(Trackable):
 
     uniform_type: ClassVar[dict[str, str]] = dict(
         opacity="f4",
-        clipping_planes="0*4xf4",  # array<vec4<f32>,3>
+        clipping_planes="0*4x3xf4",  # array<vec4<f32>,3>
     )
 
     def __init__(
@@ -176,7 +176,7 @@ class Material(Trackable):
         self._set_size_of_uniform_array("clipping_planes", len(planes2))
         self._store.clipping_plane_count = len(planes2)
         for i in range(len(planes2)):
-            self.uniform_buffer.data["clipping_planes"][i] = planes2[i]
+            self.uniform_buffer.data["clipping_planes"][i, :, 1] = planes2[i]
         self.uniform_buffer.update_full()
 
     @property

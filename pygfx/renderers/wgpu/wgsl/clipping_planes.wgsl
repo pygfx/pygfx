@@ -5,12 +5,13 @@ $$ if n_clipping_planes
             let plane = u_material.clipping_planes[i];
             if (dot(varyings.world_pos, plane.xyz) < plane.w) {
                 discard;
-            } 
+            }
         }
     $$ else
         var clipped: bool = true;
         for (var i=0; i<{{ n_clipping_planes }}; i=i+1) {
-            let plane = u_material.clipping_planes[i];
+            let raw = u_material.clipping_planes[i];
+            let plane =vec4f(raw[0].y, raw[1].y, raw[2].y, raw[3].y);
             if (dot(varyings.world_pos, plane.xyz) > plane.w) {
                 clipped = false;
                 break;  //at least one plane is outside, so we can keep the fragment

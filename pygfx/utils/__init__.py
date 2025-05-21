@@ -94,8 +94,6 @@ def array_from_shadertype(shadertype, count=None):
     class Field:
         __slots__ = [
             "align",
-            "array_size",
-            "intrinsic_padding",
             "name",
             "primitive",
             "shape",
@@ -114,14 +112,7 @@ def array_from_shadertype(shadertype, count=None):
             arraystr, _, shapestr = format[:-2].rpartition("*")
             shape = [int(i) for i in shapestr.split("x") if i]
             shape = shape or [1]
-            # Include array size
-            self.array_size = None
-            if arraystr:
-                array_names.append(name)
-                self.array_size = int(arraystr)
-            # Calculate size and alignment, in bytes
-            self.shape = shape = tuple(int(i) for i in shape)
-            self.size = int(np.prod(shape)) * primitive_size
+            # The alignment is based on the last element of te (original) shape
             self.align = shape[-1] * primitive_size
             # Snap align to factors of 2.
             # 3xf2 -> 6 -> 8
@@ -130,35 +121,35 @@ def array_from_shadertype(shadertype, count=None):
                 if self.align <= ref_align:
                     self.align = ref_align
                     break
-            # Matrices of shape nx3 need padding. As in the GPU wants to read more bytes than needed,
-            # so we can't fill that space up with other fields, but need empty bytes.
-            self.intrinsic_padding = 0
+            # Deal with nx3 matrices; they are nx4 internally
             if len(shape) > 1 and shape[-1] == 3:
-                full_size = int(np.prod(shape[:1] + (4,))) * primitive_size
-                self.intrinsic_padding = full_size - self.size
-                self.size = full_size
+                mat3_names.append(name)
+                shape[-1] = 4
+            # Include array size in shape
+            if arraystr:
+                array_names.append(name)
+                shape.insert(0, int(arraystr))
+            # Calculate size, the number of bytes that this field occupies
+            self.size = int(np.prod(shape)) * primitive_size
+            # Convert shape to tuple for the numpy sub array
+            self.shape = () if (len(shape) == 1 and shape[0] == 1) else tuple(shape)
+            # self.shape = tuple(reversed(shape))
 
         def use(self):
-            nonlocal pad_index
-            shape = () if self.shape == (1,) else self.shape
-            if self.array_size is not None:
-                shape = (*shape, self.array_size)
-            shape = tuple(reversed(shape))
-            result = []
-            result.append((self.name, self.primitive, shape))
-            if self.intrinsic_padding:
-                pad_index += 1
-                result.append(
-                    (f"__padding{pad_index}", "uint8", (self.intrinsic_padding,))
-                )
+            result = self.name, self.primitive, self.shape
             self.name += "-already used"  # break when used twice
             return result
 
     pad_index = 0
     array_names = []
+    mat3_names = []
     fields_per_align = {16: [], 8: [], 4: [], 2: []}
-    dtype_fields = []
     packed_fields = []  # what fields fill up space to fix alignment
+
+    # The definition of the dtype of the structured array, as a list of tuples: (name, primitive-dtype, shape)
+    # We could also use the dict flavor, setting explicit offsets for each field instead of stub padding fields,
+    # but its also an advantage during debugging that the padding is explicit/visible.
+    dtype_fields = []
 
     # The size/alignment of a struct is the max alignment of its members.
     # But when a uniform buffer is an array of structs, the striding of the array must be a multiple of 16 (std140-like rules).
@@ -190,7 +181,7 @@ def array_from_shadertype(shadertype, count=None):
                     if field.size <= nbytes:
                         selected_field = field
                         packed_fields.append(field.name)
-                        dtype_fields.extend(field.use())
+                        dtype_fields.append(field.use())
                         nbytes -= field.size
                         j += field.size
                         break
@@ -215,7 +206,7 @@ def array_from_shadertype(shadertype, count=None):
                 fill_bytes(ref_align, need_bytes)
                 i += need_bytes
             # Add the field itself
-            dtype_fields.extend(field.use())
+            dtype_fields.append(field.use())
             i += field.size
 
     # Add padding to the struct
@@ -232,12 +223,17 @@ def array_from_shadertype(shadertype, count=None):
     #     for field in dtype_fields:
     #         print("   ", field)
 
-    # Add meta field (zero bytes)
+    # Add meta fields (zero bytes)
     # This isn't particularly pretty, but this way our metadata is attached
     # to the dtype without affecting its size.
-    array_names.insert(0, "")
-    array_names.append("")
-    dtype_fields.append(("__".join(array_names), "uint8", (0,)))
+    if array_names:
+        dtype_fields.append(
+            ("__meta_array_names__" + "__".join(array_names), "uint8", (0,))
+        )
+    if mat3_names:
+        dtype_fields.append(
+            ("__meta_mat3_names__" + "__".join(mat3_names), "uint8", (0,))
+        )
 
     # Create a scalar of this type
     if count is not None:
