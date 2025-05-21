@@ -74,10 +74,10 @@ def array_from_shadertype(shadertype, count=None):
     The fields are re-ordered and padded as necessary to fulfil alignment rules.
     See https://www.w3.org/TR/WGSL/#structure-layout-rules
 
-    A note on matrices (e.g. "4x4xf4" or "2x3xf4"): from the Python side, the
-    matrices in a uniform array are transposed, and nx3 matrices are actually nx4.
+    A note on matrices (e.g. "4x4xf4" or "2x3xf4"): from the perspective of Python,
+    the matrices in a uniform array are transposed, and nx3 matrices are actually nx4.
 
-    To deal with this, setting a matrix in a uniform:
+    To deal with this, setting a matrix in a uniform goes like this:
 
         uniform.data["a_matrix"] = numpy_array.T
         uniform.data["an_nx3_matrix"][:, :3] = numpy_array.T
@@ -85,7 +85,7 @@ def array_from_shadertype(shadertype, count=None):
     The reason is that WGSL matrices are column-major, while Numpy arrays are
     row-major (i.e. C-order) by default. Although numpy does support
     column-major arrays (F-order), it looks like we cannot apply this to the
-    sub-arrays in the uniform struct. Ad for the nx3 matrices, WGSL's alignment
+    sub-arrays in the uniform struct. And for the nx3 matrices, WGSL's alignment
     constraint requires padding for each column in an nx3 matrix, so it takes up
     the same space as an nx4 matrix.
 
