@@ -37,7 +37,7 @@ class TextureMap(Trackable):
     """
 
     uniform_type = dict(
-        transform="3x4xf4",
+        transform="3x3xf4",
     )
 
     def __init__(
@@ -210,10 +210,7 @@ class TextureMap(Trackable):
             ]
         )
 
-        matrix = matrix.T
-        # 3x3 -> padding to 3x4
-        matrix = np.pad(matrix, ((0, 0), (0, 1)))
-        self.uniform_buffer.data["transform"].flat = matrix.flat
+        self.uniform_buffer.data["transform"][:, :3] = matrix.T
         self.uniform_buffer.update_full()
 
     @property
