@@ -2,17 +2,17 @@
 Blending ordered2
 =================
 
-The 'ordered2' was a previously supported blend mode (when blendingw as defined on the renderer).
-This example mimics it's behaviour.
+The 'ordered2' was a previously supported blend mode (when blending as
+defined on the renderer). This example mimics it's behaviour.
 
 This example draws a red (top) and a green (bottom) circle. The circles
 are opaque but have a transparent edge. I.e. the objects have both
-opaque and transparent fragments, which is a case that can result in
+opaque and transparent fragments, which is a case that easily results in
 wrong blending.
 
-The green circle is drawn after the red one, but it is also behind the red one.
-This means that without proper care, the edge of the red circle hides
-the green circle.
+We deliberately cause wrong blending: the green circle is drawn after
+the red one, but it is also behind the red one. This means that without
+proper care, the edge of the red circle hides the green circle.
 
 By first rendering only the opaque fragments, and then rendering the transparent
 fragments, this can be fixed. To do this, we use the alpha test.
@@ -58,25 +58,38 @@ camera = gfx.PerspectiveCamera(0)
 camera.show_object(scene)
 
 
-def animate():
-    # Draw opaque fragments (alpha > 0.999)
-    for ob in scene.iter():
-        if ob.material:
-            ob.material.alpha_test = 0.999
-            ob.material.depth_write = True
-    renderer.render(scene, camera, flush=False)
-
-    # Draw transparent fragments (alpha < 0.999)
-    for ob in scene.iter():
-        if ob.material:
-            ob.material.alpha_test = -0.999
-            ob.material.depth_write = False
-    renderer.render(scene, camera, flush=False)
-
-    renderer.flush()
+def clone(ob):
+    # Pygfx does not have a method to clone an object/material yet,
+    # so we do a cruder version.
+    # See https://github.com/pygfx/pygfx/issues/1095
+    keys = ["size_space", "edge_mode", "size", "edge_width", "color", "edge_color"]
+    props = {key: getattr(ob.material, key) for key in keys}
+    material = type(ob.material)(**props)
+    return type(ob)(ob.geometry, material)
 
 
-canvas.request_draw(animate)
+def make_object_ordered2(ob1):
+    ob2 = clone(ob1)
+
+    # The original object is used to draw only opaque fragments (alpha == 1)
+    ob1.material.transparent = False
+    ob1.material.depth_write = True
+    ob1.material.alpha_test = 0.999
+
+    # The clone is used to draw only transparent fragments (alpha < 1)
+    ob2.material.transparent = True
+    ob2.material.depth_write = False
+    ob2.material.alpha_test = -0.999
+
+    ob1.add(ob2)
+
+
+# Comment these lines to see the normal (but wrong) blending
+make_object_ordered2(points1)
+make_object_ordered2(points2)
+
+
+canvas.request_draw(lambda: renderer.render(scene, camera))
 
 if __name__ == "__main__":
     loop.run()
