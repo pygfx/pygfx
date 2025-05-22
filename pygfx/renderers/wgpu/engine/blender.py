@@ -100,9 +100,10 @@ class Blender:
         for key in self._texture_info.keys():
             setattr(self, key + "_clear", True)
 
-    def clear_depth(self):
-        """Clear the deph buffer only."""
-        self.depth_clear = True
+    # TODO: remove?
+    # def clear_depth(self):
+    #     """Clear the deph buffer only."""
+    #     self.depth_clear = True
 
     def ensure_target_size(self, size):
         """If necessary, resize render-textures to match the target size."""

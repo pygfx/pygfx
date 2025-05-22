@@ -138,7 +138,7 @@ class FlatScene:
                 z_flag = 0
                 if self._view_matrix is not None and z_sort_sign:
                     z = la.vec_transform(wobject.world.position, self._view_matrix)[2]
-                    z_flag = z * z_sort_sign
+                    z_flag = float(z) * z_sort_sign
 
                 sort_key = (wobject.render_order, category_flag, z_flag)
                 self._wobjects.append(WobjectWrapper(wobject, sort_key, pass_type))
@@ -647,8 +647,6 @@ class WgpuRenderer(RootEventHandler, Renderer):
         blender = self._blender
         if clear_color:
             blender.clear()
-        else:
-            blender.clear_depth()
 
         # ----- compute pipelines
 
