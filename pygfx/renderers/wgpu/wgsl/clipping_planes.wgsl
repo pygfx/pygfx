@@ -5,7 +5,7 @@ $$ if n_clipping_planes
             let plane = u_material.clipping_planes[i];
             if (dot(varyings.world_pos, plane.xyz) < plane.w) {
                 discard;
-            } 
+            }
         }
     $$ else
         var clipped: bool = true;
