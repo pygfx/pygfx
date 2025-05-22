@@ -684,7 +684,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
                 pass_type,
             )
             if pass_type == "weighted":
-                self._blender.perform_combine_pass(command_encoder)
+                self._blender.perform_weighted_resolve_pass(command_encoder)
 
         return [command_encoder.finish()]
 

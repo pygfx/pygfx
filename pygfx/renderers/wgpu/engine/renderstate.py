@@ -403,7 +403,7 @@ class BlendRenderState(BaseRenderState):
 
     @classmethod
     def state_to_hash(cls, blender):
-        return (blender.name,)
+        return ("theblender",)  # (blender.name,)
 
     def __init__(self, blend_mode):
         self.blend_mode = blend_mode

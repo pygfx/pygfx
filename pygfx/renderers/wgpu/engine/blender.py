@@ -1,5 +1,5 @@
 """
-The blender manages output targets, and blending configuration, based on material.blending.
+The blender is the part of the renderer that manages output targets and blending configuration, based on material.blending.
 """
 
 import wgpu  # only for flags/enums
@@ -28,21 +28,16 @@ class Blender:
     Each renderer has one blender object.
     """
 
-    # Each blender should define a unique name so that it may be
-    # correctly registered in the renderer.
-    name = None
-    passes = []
-
     def __init__(self):
         self.device = get_shared().device
 
-        # The size (2D in pixels) of the frame textures.
+        # The size (2D in pixels) of the textures.
         self.size = (0, 0)
 
         # Objects for the combination pass
         self._weighted_blending_was_used = False
-        self._combine_pass_pipeline = None
-        self._combine_pass_bind_group = None
+        self._weighted_resolve_pass_pipeline = None
+        self._weighted_resolve_pass_bind_group = None
 
         # A dict that contains the metadata for all render targets.
         self._texture_info = {}
@@ -118,7 +113,7 @@ class Blender:
         tex_size = (*size, 1)
 
         # Any bind group is now invalid because they include source textures.
-        self._combine_pass_bind_group = None
+        self._weighted_resolve_pass_bind_group = None
 
         # Recreate internal textures
         for name, (format, usage) in self._texture_info.items():
@@ -135,9 +130,12 @@ class Blender:
     # The five methods below represent the API that the render system uses.
 
     def get_color_descriptors(self, material_write_pick, blending):
+        """Get the dict color-descriptors that pipeline.py needs to create the render pipeline."""
         bf, bo = wgpu.BlendFactor, wgpu.BlendOperation
 
         blending_mode = blending["mode"]
+
+        # Get the color_blend mini-dict
         if blending_mode == "classic":
             color_blend = {
                 "color": blend_dict(
@@ -151,7 +149,6 @@ class Blender:
                     blending.get("alpha_op", "add"),
                 ),
             }
-
         elif blending_mode == "dither":
             color_blend = {
                 "alpha": blend_dict(bf.one, bf.zero, bo.add),
@@ -162,6 +159,7 @@ class Blender:
         else:
             raise RuntimeError(f"Unexpected blending mode {blending_mode:!r}")
 
+        # Build descriptors
         color_descriptor = {
             "format": self.color_format,
             "blend": color_blend,
@@ -174,6 +172,7 @@ class Blender:
         }
         descriptors = [color_descriptor, pick_descriptor]
 
+        # More work for weighted blending
         if blending_mode == "weighted":
             accum_descriptor = {
                 "format": self.accum_format,
@@ -196,6 +195,8 @@ class Blender:
         return descriptors
 
     def get_depth_descriptor(self, depth_test=True, depth_write=True):
+        """Get the dict depth-descriptors that pipeline.py needs to create the render pipeline."""
+
         depth_write = bool(depth_write)
         depth_compare = (
             wgpu.CompareFunction.less if depth_test else wgpu.CompareFunction.always
@@ -211,6 +212,8 @@ class Blender:
         }
 
     def get_color_attachments(self, pass_type):
+        """Get the texture render targets for color. These are dynamically attached right before rendering a batch of objects."""
+
         color_load_op = pick_load_op = wgpu.LoadOp.load
         if self.color_clear:
             self.color_clear = False
@@ -263,6 +266,8 @@ class Blender:
         return attachments
 
     def get_depth_attachment(self):
+        """Get the texture render targets for depth/stencil. These are dynamically attached right before rendering a batch of objects."""
+
         # We don't use the stencil yet, but when we do, we will also have to specify
         # "stencil_read_only", "stencil_load_op", and "stencil_store_op"
         depth_load_op = wgpu.LoadOp.load
@@ -277,7 +282,7 @@ class Blender:
         }
 
     def get_shader_kwargs(self, blending):
-        # Take depth into account, but don't treat transparent fragments differently
+        """Get the shader templating variables for the given blending."""
 
         blending_mode = blending["mode"]
 
@@ -369,27 +374,25 @@ class Blender:
             "write_pick": True,  # todo: factore this out
         }
 
-    def get_pass_count(self):
-        """Get the number of passes for this blender."""
-        return 1
+    def perform_weighted_resolve_pass(self, command_encoder):
+        """Perform a render-pass to resolve the result of weighted blending."""
 
-    def perform_combine_pass(self, command_encoder):
-        """Perform a render-pass to combine any multi-pass results, if needed."""
-
-        # This is only needed for weighted blending
+        # This is only needed if objects were rendered with weighted blending
         if not self._weighted_blending_was_used:
             return
 
         # Get bindgroup and pipeline. The creation should only happens once per blender lifetime.
-        if not self._combine_pass_pipeline:
-            self._combine_pass_pipeline = self._create_combination_pipeline()
-        if not self._combine_pass_pipeline:
+        if not self._weighted_resolve_pass_pipeline:
+            self._weighted_resolve_pass_pipeline = self._create_combination_pipeline()
+        if not self._weighted_resolve_pass_pipeline:
             return []
 
         # Get the bind group. A new one is needed when the source textures resize.
-        if not self._combine_pass_bind_group:
-            self._combine_pass_bind_group = self._create_combination_bind_group(
-                self._combine_pass_pipeline.get_bind_group_layout(0)
+        if not self._weighted_resolve_pass_bind_group:
+            self._weighted_resolve_pass_bind_group = (
+                self._create_combination_bind_group(
+                    self._weighted_resolve_pass_pipeline.get_bind_group_layout(0)
+                )
             )
 
         # Render
@@ -405,8 +408,8 @@ class Blender:
             depth_stencil_attachment=None,
             occlusion_query_set=None,
         )
-        render_pass.set_pipeline(self._combine_pass_pipeline)
-        render_pass.set_bind_group(0, self._combine_pass_bind_group, [], 0, 99)
+        render_pass.set_pipeline(self._weighted_resolve_pass_pipeline)
+        render_pass.set_bind_group(0, self._weighted_resolve_pass_bind_group, [], 0, 99)
         render_pass.draw(4, 1)
         render_pass.end()
 
