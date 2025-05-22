@@ -151,15 +151,21 @@ def generate_uniform_struct(dtype_struct, structname):
         struct {structname} {{
     """.rstrip()
 
-    # Obtain names of fields that are arrays. This is encoded as an empty field with a
-    # name that has the array-fields-names separated with double underscores.
+    # Obtain names of fields that are arrays or mat3. This is encoded as an empty field with a
+    # name that starts with '__meta_xx__'
     array_names = []
-    for fieldname in dtype_struct.fields.keys():
-        if fieldname.startswith("__") and fieldname.endswith("__"):
-            array_names.extend(fieldname.replace("__", " ").split())
+    mat3_names = []
+    for fieldname in dtype_struct.names:
+        if fieldname.startswith("__meta_"):
+            if fieldname.startswith("__meta_array_names__"):
+                array_names.extend(fieldname.replace("__", " ").split()[1:])
+            elif fieldname.startswith("__meta_mat3_names__"):
+                mat3_names.extend(fieldname.replace("__", " ").split()[1:])
 
     # Process fields
     for fieldname, (dtype, offset) in dtype_struct.fields.items():
+        # Note that dtype.names is a list of str names, but the dtype.fields also
+        # includes keys for the field titles. We don't use titles, but keep in mind.
         if fieldname.startswith("__"):
             continue
         # Resolve primitive type
@@ -186,11 +192,16 @@ def generate_uniform_struct(dtype_struct, structname):
             wgsl_type = align_type = f"vec{n}<{primitive_type}>"
         elif len(shape) == 2:
             # A matNxM is Matrix of N columns and M rows
-            n, m = shape[1], shape[0]
+            # In wgsl, matrices are column-major; each vector in the matrix is a column.
+            n, m = shape[0], shape[1]
+            m_wgsl = m
             if n < 2 or n > 4 or m < 2 or m > 4:
                 raise TypeError(f"Type {dtype} looks like an unsupported mat{n}x{m}.")
+            if fieldname in mat3_names:
+                assert m == 4
+                m_wgsl = 3
             align_type = f"vec{m}<{primitive_type}>"
-            wgsl_type = f"mat{n}x{m}<{primitive_type}>"
+            wgsl_type = f"mat{n}x{m_wgsl}<{primitive_type}>"
         else:
             raise TypeError(f"Unsupported type {dtype}")
         # If an array, wrap it
