@@ -60,16 +60,6 @@ preset_blending_dicts = {
 }
 
 
-# Little class that allows us to return a bool for .transparent and .depth_write
-# while showing that it was automatically determined. Not super-elegant, but
-# effective and it avoids extra API surface.
-class AutoBool(int):  # cannot inherit from bool
-    __class__ = bool  # makes it pass isinstance(.., bool)
-
-    def __repr__(self):
-        return repr(bool(self)) + " (auto)"
-
-
 class Material(Trackable):
     """Material base class.
 
@@ -136,6 +126,8 @@ class Material(Trackable):
         self._store.uniform_buffer = Buffer(
             array_from_shadertype(self.uniform_type), force_contiguous=True
         )
+
+        self._user_transparent = None
 
         self.opacity = opacity
         self.clipping_planes = clipping_planes
@@ -286,24 +278,35 @@ class Material(Trackable):
           these first, and sorts front-to-back to avoid overdrawing.
         * True: the object is (considered) fully transparent. The renderer draws
           these after opaque objects, and sorts back-to-front to increase the chance of correct blending.
-        * None: the object is considered to have both opaque and transparent
+        * None: the object is considered to (possibly) have both opaque and transparent
           fragments. The renderer draws these in between opaque and transparent
           passes, back-to-front.
         """
-        transparent = self._store.transparent
-        if transparent is not None and self._store["user_transparent"] is None:
-            transparent = AutoBool(transparent)
-        return transparent
+        return self._store.transparent
 
     @transparent.setter
     def transparent(self, value: Literal[None, False, True]):
         if value is None:
-            self._store.user_transparent = None
+            self._user_transparent = None
         elif isinstance(value, bool):
-            self._store.user_transparent = bool(value)
+            self._user_transparent = bool(value)
         else:
             raise TypeError("material.transparent must be bool or None.")
         self._resolve_transparent()
+
+    @property
+    def transparent_is_set(self):
+        """Whether the ``transparent`` property is set. Otherwise it's auto-determined."""
+        return self._user_transparent is not None
+
+    def _resolve_transparent(self):
+        # This method must be called from the appropriate places
+        transparent = self._user_transparent
+        if transparent is None:
+            looks_transparent = self._looks_transparent()
+            if looks_transparent is not None:
+                transparent = bool(looks_transparent)
+        self._store.transparent = transparent
 
     def _looks_transparent(self):
         # This could be overloaded in subclasses.
@@ -311,18 +314,6 @@ class Material(Trackable):
         if self.opacity < 1:
             transparent = True
         return transparent
-
-    def _resolve_transparent(self):
-        # This method must be called from the appropriate places
-        try:
-            transparent = self._store["user_transparent"]
-        except KeyError:
-            return  # initializing
-        if transparent is None:
-            looks_transparent = self._looks_transparent()
-            if looks_transparent is not None:
-                transparent = bool(looks_transparent)
-        self._store.transparent = transparent
 
     @property
     def blending(self):
@@ -453,10 +444,10 @@ class Material(Trackable):
         if depth_write is None:
             if self._store.blending_mode == "dither":
                 # The great thing with stochastic transparency is that everything is opaque (from a depth testing perspective)
-                depth_write = AutoBool(True)
+                depth_write = True
             else:
                 # Write depth when transparent is False or None
-                depth_write = AutoBool(not bool(self._store.transparent))
+                depth_write = not bool(self._store.transparent)
         return depth_write
 
     @depth_write.setter
@@ -467,6 +458,11 @@ class Material(Trackable):
             self._store.depth_write = bool(value)
         else:
             raise TypeError("material.depth_write must be bool or None.")
+
+    @property
+    def depth_write_is_set(self):
+        """Whether the ``depth_write`` property is set. Otherwise it's auto-determined."""
+        return self._store.depth_write is not None
 
     @property
     def alpha_test(self) -> bool:
@@ -488,6 +484,7 @@ class Material(Trackable):
 
     @property
     def _gfx_uses_alpha_test(self) -> bool:
+        """For internal use; if the alpha test is used, the shader must discard, which we don't want to do unless needed."""
         return self._store.uses_alpha_test
 
     @property
