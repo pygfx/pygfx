@@ -100,6 +100,9 @@ class Material(Trackable):
     depth_write : bool | None
         Whether the object writes to the depth buffer. With None (default) this
         is determined automatically.
+    alpha_test : float
+        The alpha test value for this material. Default 0.0, meaning no alpha
+        test is performed.
     """
 
     # Note that in the material classes we define what properties are stored as
@@ -111,6 +114,7 @@ class Material(Trackable):
 
     uniform_type: ClassVar[dict[str, str]] = dict(
         opacity="f4",
+        alpha_test="f4",
         clipping_planes="0*4xf4",  # array<vec4<f32>,3>
     )
 
@@ -125,6 +129,7 @@ class Material(Trackable):
         depth_test: bool = True,
         depth_write: Literal[None, False, True] = None,
         pick_write: bool = False,
+        alpha_test: float = 0.0,
     ):
         super().__init__()
 
@@ -140,6 +145,7 @@ class Material(Trackable):
         self.depth_test = depth_test
         self.depth_write = depth_write
         self.pick_write = pick_write
+        self.alpha_test = alpha_test
 
     def _set_size_of_uniform_array(self, key: str, new_length: int) -> None:
         """Resize the given array field in the uniform struct if the
@@ -461,6 +467,28 @@ class Material(Trackable):
             self._store.depth_write = bool(value)
         else:
             raise TypeError("material.depth_write must be bool or None.")
+
+    @property
+    def alpha_test(self) -> bool:
+        """The alpha test value for this material.
+
+        When ``alpha_test`` is set to a value > 0, the fragment is discarded if ``alpha < alpha_test``.
+        This is useful for e.g. grass or foliage textures, where the texture has a lot of transparent
+        areas. When it is set to a value < 0, the fragment is discarded if ``alpha > abs(alpha_test)``.
+        """
+        return self.uniform_buffer.data["alpha_test"]
+
+    @alpha_test.setter
+    def alpha_test(self, value: float) -> None:
+        value = min(max(float(value), -1), 1)
+        self.uniform_buffer.data["alpha_test"] = value
+        self.uniform_buffer.update_full()
+        # Store whether the alpha test is active, so we can invalidate shaders
+        self._store.uses_alpha_test = value != 0
+
+    @property
+    def _gfx_uses_alpha_test(self) -> bool:
+        return self._store.uses_alpha_test
 
     @property
     def pick_write(self) -> bool:

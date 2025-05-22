@@ -108,6 +108,7 @@ class BaseShader(ShaderInterface):
         if wobject is not None:
             self["n_clipping_planes"] = wobject.material.clipping_plane_count
             self["clipping_mode"] = wobject.material.clipping_mode
+            self["uses_alpha_test"] = wobject.material._gfx_uses_alpha_test
 
         # Init other common variables so we don't need jinja2's defined()
         self["colormap_dim"] = None
@@ -217,7 +218,7 @@ class BaseShader(ShaderInterface):
             # Templating and resolving includes
             code2 = apply_templating(code1, **template_vars)
             # Resolve Varyings and FragmentOutput
-            code3 = resolve_shadercode(code2)
+            code3 = resolve_shadercode(code2, template_vars["uses_alpha_test"])
             return code3
         finally:
             self._template_vars_bindings = ori_template_vars
