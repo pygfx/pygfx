@@ -617,8 +617,15 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # Reset counter (so we can auto-clear the first next draw)
         self._renders_since_last_flush = 0
 
+        # Get texture view
+        color_view = self._blender.get_texture_view(
+            "color", wgpu.TextureUsage.TEXTURE_BINDING
+        )
+        if color_view is None:
+            return
+
         command_buffers = self._flusher.render(
-            self._blender.color_view,
+            color_view,
             None,
             wgpu_tex_view,
             self._gamma_correction * self._gamma_correction_srgb,
@@ -761,10 +768,15 @@ class WgpuRenderer(RootEventHandler, Renderer):
         if out_of_range or blender_zero_size:
             return {"rgba": Color(0, 0, 0, 0), "world_object": None}
 
+        color_tex = self._blender.get_texture("color")
+        pick_tex = self._blender.get_texture("pick")
+
         # Sample
         encoder = self._device.create_command_encoder()
-        self._copy_pixel(encoder, self._blender.color_tex, float_pos, 0)
-        self._copy_pixel(encoder, self._blender.pick_tex, float_pos, 8)
+        if color_tex:
+            self._copy_pixel(encoder, color_tex, float_pos, 0)
+        if pick_tex:
+            self._copy_pixel(encoder, pick_tex, float_pos, 8)
         self._device.queue.submit([encoder.finish()])
 
         # Collect data from the buffer

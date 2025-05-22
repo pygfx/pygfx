@@ -40,60 +40,112 @@ class Blender:
         self._weighted_resolve_pass_bind_group = None
 
         # A dict that contains the metadata for all render targets.
-        self._texture_info = {}
+        self._texture_info = {}  # name -> dict
 
-        # The below targets are always present, and the renderer expects their
-        # format, texture, and view to be present.
-        # These contribute to 4+4+8 = 16 bytes per pixel
+        # A dict with the actual textures
+        self._textures = {}  # name -> Texture
 
+        self._create_default_targets()
+
+    def _create_default_targets(self):
         usg = wgpu.TextureUsage
 
         # The color texture is in srgb, because in the shaders we work with physical
-        # values, but we want to store as srgb to make effective use of the available bits.
-        self._texture_info["color"] = (
+        # values, but we want to store as srgb to make effective use of the available bits. It's 4 bytes per pixel.
+        self.add_texture_target(
+            "color",
             wgpu.TextureFormat.rgba8unorm_srgb,
             usg.RENDER_ATTACHMENT | usg.COPY_SRC | usg.TEXTURE_BINDING,
         )
 
-        # The depth buffer is 32 bit - we need that precision.
-        # Note that there is also depth32float-stencil8, but it needs the
-        # (webgpu) extension with the same name.
-        self._texture_info["depth"] = (
+        # The depth buffer should preferably at least 24bit - we need that precision. It's 4 bytes per pixel.
+        # 32 but is cool, but we may want stencil at some point, so depth24plus_stencil8 seems like a good default.
+        # The depth24plus is either depth32float or depth24unorm, depending on the backend.
+        # Note that there is also depth32float-stencil8, but it needs the (webgpu) extension with the same name.
+        self.add_texture_target(
+            "depth",
             wgpu.TextureFormat.depth32float,
             usg.RENDER_ATTACHMENT | usg.COPY_SRC,
         )
 
-        # The pick texture has 4 16bit channels, adding up to 64 bits.
+        # The pick texture has 4 16bit channels. It's 8 bytes per pixel.
         # These bits are divided over the pick data, e.g. 20 for the wobject id.
-        self._texture_info["pick"] = (
+        self.add_texture_target(
+            "pick",
             wgpu.TextureFormat.rgba16uint,
             usg.RENDER_ATTACHMENT | usg.COPY_SRC,
         )
 
-        # Create two additional render targets.
-        # These contribute 8+1 = 9 bytes per pixel
-        # So the total = 16 + 9 = 25 bytes per pixel
-
-        # The accumulation buffer collects weighted fragments
-        self._texture_info["accum"] = (
+        # The accumulation buffer collects weighted fragments. It's 8 bytes per pixel.
+        self.add_texture_target(
+            "accum",
             wgpu.TextureFormat.rgba16float,
             usg.RENDER_ATTACHMENT | usg.TEXTURE_BINDING,
         )
 
-        # The reveal buffer collects the weights.
+        # The reveal buffer collects the weights. It's 1 byte per pixel.
         # McGuire: "Using R16F for the revealage render target will give slightly better
         # precision and make it easier to tune the algorithm, but a 2x savings on bandwidth
         # and memory footprint for that texture may make it worth compressing into R8 format."
-        self._texture_info["reveal"] = (
+        self.add_texture_target(
+            "reveal",
             wgpu.TextureFormat.r8unorm,
             usg.RENDER_ATTACHMENT | usg.TEXTURE_BINDING,
         )
 
+    @property
+    def texture_info(self):
+        """A dict of dicts, containing per-rendertarget info."""
+        return self._texture_info
+
+    def add_texture_target(
+        self, name: str, format: wgpu.TextureFormat, usage: wgpu.TextureUsage
+    ):
+        """Add a (potential) render target."""
+        assert isinstance(name, str)
+        assert format in wgpu.TextureFormat
+        assert isinstance(usage, int)
+
+        self._texture_info[name] = {
+            "name": name,
+            "format": format,
+            "usage": usage,
+            "inuse": False,
+        }
+
+    def get_texture(self, name):
+        """Get the texture object for the given name."""
+        return self._textures.get(name)
+
+    def get_texture_view(self, name, usage):
+        """Get a texture view for the given name, with the given usage. Returns None if the texture does not exist."""
+        texture = self._textures.get(name)
+        if texture is None:
+            return None
+        else:
+            return texture.create_view(usage=usage)
+
+    def _get_texture_view_for_rendering(self, name):
+        texture = self._textures.get(name)
+
+        if texture is None:
+            texinfo = self._texture_info[name]
+            texture = self.device.create_texture(
+                dimension="2d",
+                size=(*self.size, 1),
+                usage=texinfo["usage"],
+                format=texinfo["format"],
+            )
+            self._textures[name] = texture
+
+        return texture.create_view(usage=wgpu.TextureUsage.RENDER_ATTACHMENT)
+
     def clear(self):
         """Clear the buffers."""
         self._weighted_blending_was_used = False
-        for key in self._texture_info.keys():
-            setattr(self, key + "_clear", True)
+        for texstate in self._texture_info.values():
+            texstate["is_used"] = False
+            texstate["clear"] = True
 
     # TODO: remove?
     # def clear_depth(self):
@@ -104,30 +156,18 @@ class Blender:
         """If necessary, resize render-textures to match the target size."""
 
         assert len(size) == 2
-        size = size[0], size[1]
+        size = int(size[0]), int(size[1])
         if size == self.size:
             return
 
         # Set new size
         self.size = size
-        tex_size = (*size, 1)
 
         # Any bind group is now invalid because they include source textures.
         self._weighted_resolve_pass_bind_group = None
 
-        # Recreate internal textures
-        for name, (format, usage) in self._texture_info.items():
-            wgpu_texture = self.device.create_texture(
-                size=tex_size, usage=usage, dimension="2d", format=format
-            )
-            setattr(self, name + "_format", format)
-            setattr(self, name + "_tex", wgpu_texture)
-            setattr(self, name + "_view", wgpu_texture.create_view())
-            setattr(self, name + "_clear", True)
-
-        # TODO: only create accum and reveal textures when needed!!!
-
-    # The five methods below represent the API that the render system uses.
+        # All textures are invalidated too
+        self._textures = {}
 
     def get_color_descriptors(self, material_write_pick, blending):
         """Get the dict color-descriptors that pipeline.py needs to create the render pipeline."""
@@ -159,40 +199,47 @@ class Blender:
         else:
             raise RuntimeError(f"Unexpected blending mode {blending_mode:!r}")
 
-        # Build descriptors
-        color_descriptor = {
-            "format": self.color_format,
+        # Build target state dicts
+        color_target_state = {
+            "name": "color",
             "blend": color_blend,
             "write_mask": wgpu.ColorWrite.ALL,
         }
-        pick_descriptor = {
-            "format": self.pick_format,
+        pick_target_state = {
+            "name": "pick",
             "blend": None,
             "write_mask": wgpu.ColorWrite.ALL if material_write_pick else 0,
         }
-        descriptors = [color_descriptor, pick_descriptor]
+        target_states = [color_target_state, pick_target_state]
 
         # More work for weighted blending
         if blending_mode == "weighted":
-            accum_descriptor = {
-                "format": self.accum_format,
+            accum_target_state = {
+                "name": "accum",
                 "blend": {
                     "alpha": blend_dict(bf.one, bf.one, bo.add),
                     "color": blend_dict(bf.one, bf.one, bo.add),
                 },
                 "write_mask": wgpu.ColorWrite.ALL,
             }
-            reveal_descriptor = {
-                "format": self.reveal_format,
+            reveal_target_state = {
+                "name": "reveal",
                 "blend": {
                     "alpha": blend_dict(bf.zero, bf.one_minus_src_alpha, bo.add),
                     "color": blend_dict(bf.zero, bf.one_minus_src, bo.add),
                 },
                 "write_mask": wgpu.ColorWrite.ALL,
             }
-            descriptors = [accum_descriptor, reveal_descriptor, pick_descriptor]
+            target_states = [accum_target_state, reveal_target_state, pick_target_state]
 
-        return descriptors
+        # Set format for each target, and register what targets were used
+        for target_state in target_states:
+            name = target_state.pop("name")
+            texinfo = self._texture_info[name]
+            target_state["format"] = texinfo["format"]
+            texinfo["is_used"] = True
+
+        return target_states
 
     def get_depth_descriptor(self, depth_test=True, depth_write=True):
         """Get the dict depth-descriptors that pipeline.py needs to create the render pipeline."""
@@ -201,8 +248,12 @@ class Blender:
         depth_compare = (
             wgpu.CompareFunction.less if depth_test else wgpu.CompareFunction.always
         )
+
+        texinfo = self._texture_info["depth"]
+        texinfo["is_used"] = True
+
         return {
-            "format": self.depth_format,
+            "format": texinfo["format"],
             "depth_write_enabled": depth_write,
             "depth_compare": depth_compare,
             "stencil_read_mask": 0,
@@ -214,26 +265,18 @@ class Blender:
     def get_color_attachments(self, pass_type):
         """Get the texture render targets for color. These are dynamically attached right before rendering a batch of objects."""
 
-        color_load_op = pick_load_op = wgpu.LoadOp.load
-        if self.color_clear:
-            self.color_clear = False
-            color_load_op = wgpu.LoadOp.clear
-        if self.pick_clear:
-            self.pick_clear = False
-            pick_load_op = wgpu.LoadOp.clear
-
         color_attachment = {
-            "view": self.color_view,
+            "name": "color",
             "resolve_target": None,
             "clear_value": (0, 0, 0, 0),
-            "load_op": color_load_op,
+            "load_op": wgpu.LoadOp.load,  # maybe set to clear at the end of this func
             "store_op": wgpu.StoreOp.store,
         }
         pick_attachment = {
-            "view": self.pick_view,
+            "name": "pick",
             "resolve_target": None,
             "clear_value": (0, 0, 0, 0),
-            "load_op": pick_load_op,
+            "load_op": wgpu.LoadOp.load,
             "store_op": wgpu.StoreOp.store,
         }
         attachments = [color_attachment, pick_attachment]
@@ -244,40 +287,55 @@ class Blender:
             # We always clear the textures at the beginning of a pass, because at
             # the end of that pass it will be merged with the color buffer using
             # the combine pass.
-            accum_load_op = reveal_load_op = wgpu.LoadOp.clear
             accum_clear_value = 0, 0, 0, 0
             reveal_clear_value = 1, 0, 0, 0
             accum_attachment = {
-                "view": self.accum_view,
+                "name": "accum",
                 "resolve_target": None,
                 "clear_value": accum_clear_value,
-                "load_op": accum_load_op,
+                "load_op": wgpu.LoadOp.clear,
                 "store_op": wgpu.StoreOp.store,
             }
             reveal_attachment = {
-                "view": self.reveal_view,
+                "name": "reveal",
                 "resolve_target": None,
                 "clear_value": reveal_clear_value,
-                "load_op": reveal_load_op,
+                "load_op": wgpu.LoadOp.clear,
                 "store_op": wgpu.StoreOp.store,
             }
             attachments = [accum_attachment, reveal_attachment, pick_attachment]
+
+        # Finalize attachments
+        for attachment in attachments:
+            name = attachment.pop("name")
+            texinfo = self._texture_info[name]
+
+            if texinfo["clear"]:
+                texinfo["clear"] = False
+                attachment["load_op"] = wgpu.LoadOp.clear
+
+            attachment["view"] = self._get_texture_view_for_rendering(name)
 
         return attachments
 
     def get_depth_attachment(self):
         """Get the texture render targets for depth/stencil. These are dynamically attached right before rendering a batch of objects."""
 
+        texinfo = self._texture_info["depth"]
+
+        load_op = wgpu.LoadOp.load
+        if texinfo["clear"]:
+            texinfo["clear"] = False
+            load_op = wgpu.LoadOp.clear
+
+        view = self._get_texture_view_for_rendering("depth")
+
         # We don't use the stencil yet, but when we do, we will also have to specify
         # "stencil_read_only", "stencil_load_op", and "stencil_store_op"
-        depth_load_op = wgpu.LoadOp.load
-        if self.depth_clear:
-            self.depth_clear = False
-            depth_load_op = wgpu.LoadOp.clear
         return {
-            "view": self.depth_view,
+            "view": view,
             "depth_clear_value": 1.0,
-            "depth_load_op": depth_load_op,
+            "depth_load_op": load_op,
             "depth_store_op": wgpu.StoreOp.store,
         }
 
@@ -395,13 +453,20 @@ class Blender:
                 )
             )
 
+        # Get info on the color target texture
+        texinfo = self._texture_info["color"]
+        load_op = wgpu.LoadOp.load
+        if texinfo["clear"]:
+            texinfo["clear"] = False
+            load_op = wgpu.LoadOp.clear
+
         # Render
         render_pass = command_encoder.begin_render_pass(
             color_attachments=[
                 {
-                    "view": self.color_view,
+                    "view": self._get_texture_view_for_rendering("color"),
                     "resolve_target": None,
-                    "load_op": wgpu.LoadOp.load,
+                    "load_op": load_op,
                     "store_op": wgpu.StoreOp.store,
                 }
             ],
@@ -430,7 +495,7 @@ class Blender:
         bf, bo = wgpu.BlendFactor, wgpu.BlendOperation
         targets = [
             {
-                "format": self.color_format,
+                "format": self._texture_info["color"][0],
                 "blend": {
                     "alpha": blend_dict(bf.one, bf.one_minus_src_alpha, bo.add),
                     "color": blend_dict(bf.one, bf.one_minus_src_alpha, bo.add),
