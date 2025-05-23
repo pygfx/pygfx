@@ -187,10 +187,17 @@ class ScreenCoordsCamera(Camera):
     The depth range is the same as in NDC (0 to 1).
     """
 
+    def __init__(self, invert_y=False):
+        super().__init__()
+        self._invert_y = bool(invert_y)
+
     def _update_projection_matrix(self):
         width, height = self._view_size
         sx, sy, sz = 2 / width, 2 / height, 1
         dx, dy, dz = -1, -1, 0
+        if self._invert_y:
+            dy = -dy
+            sy = -sy
         m = sx, 0, 0, dx, 0, sy, 0, dy, 0, 0, sz, dz, 0, 0, 0, 1
         proj_matrix = np.array(m, dtype=float).reshape(4, 4)
         proj_matrix.flags.writeable = False

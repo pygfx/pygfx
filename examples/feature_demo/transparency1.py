@@ -36,12 +36,12 @@ camera = gfx.OrthographicCamera(100, 100)
 scene_overlay = gfx.Scene()
 blend_mode_text = gfx.Text(
     text=f"Blend mode: {renderer.blend_mode}",
-    anchor="bottom-left",
+    anchor="top-left",
     material=gfx.TextMaterial(outline_thickness=0.3),
 )
 scene_overlay.add(blend_mode_text)
-
-screen_camera = gfx.ScreenCoordsCamera()
+blend_mode_text.local.scale_y = -1
+screen_camera = gfx.ScreenCoordsCamera(invert_y=True)
 
 
 @renderer.add_event_handler("key_down")
