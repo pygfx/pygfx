@@ -535,7 +535,7 @@ class Blender:
         bf, bo = wgpu.BlendFactor, wgpu.BlendOperation
         targets = [
             {
-                "format": self._texture_info["color"][0],
+                "format": self._texture_info["color"]["format"],
                 "blend": {
                     "alpha": blend_dict(bf.one, bf.one_minus_src_alpha, bo.add),
                     "color": blend_dict(bf.one, bf.one_minus_src_alpha, bo.add),
@@ -573,8 +573,18 @@ class Blender:
     def _create_combination_bind_group(self, bind_group_layout):
         # This must match the binding_layout above
         bind_group_entries = [
-            {"binding": 0, "resource": self.accum_view},
-            {"binding": 1, "resource": self.reveal_view},
+            {
+                "binding": 0,
+                "resource": self.get_texture_view(
+                    "accum", wgpu.TextureUsage.TEXTURE_BINDING
+                ),
+            },
+            {
+                "binding": 1,
+                "resource": self.get_texture_view(
+                    "reveal", wgpu.TextureUsage.TEXTURE_BINDING
+                ),
+            },
         ]
         return self.device.create_bind_group(
             layout=bind_group_layout, entries=bind_group_entries
