@@ -23,6 +23,44 @@ def blend_dict(src_factor, dst_factor, operation):
     }
 
 
+usg = wgpu.TextureUsage
+default_targets = {
+    # The color texture is in srgb, because in the shaders we work with physical
+    # values, but we want to store as srgb to make effective use of the available bits. It's 4 bytes per pixel.
+    "color": (
+        wgpu.TextureFormat.rgba8unorm_srgb,
+        usg.RENDER_ATTACHMENT | usg.COPY_SRC | usg.TEXTURE_BINDING,
+    ),
+    # The depth buffer should preferably at least 24bit - we need that precision. It's 4 bytes per pixel.
+    # 32 but is cool, but we may want stencil at some point, so depth24plus_stencil8 seems like a good default.
+    # The depth24plus is either depth32float or depth24unorm, depending on the backend.
+    # Note that there is also depth32float-stencil8, but it needs the (webgpu) extension with the same name.
+    "depth": (
+        wgpu.TextureFormat.depth32float,
+        usg.RENDER_ATTACHMENT | usg.COPY_SRC,
+    ),
+    # The pick texture has 4 16bit channels. It's 8 bytes per pixel.
+    # These bits are divided over the pick data, e.g. 20 for the wobject id.
+    "pick": (
+        wgpu.TextureFormat.rgba16uint,
+        usg.RENDER_ATTACHMENT | usg.COPY_SRC,
+    ),
+    # The accumulation buffer collects weighted fragments. It's 8 bytes per pixel.
+    "accum": (
+        wgpu.TextureFormat.rgba16float,
+        usg.RENDER_ATTACHMENT | usg.TEXTURE_BINDING,
+    ),
+    # The reveal buffer collects the weights. It's 1 byte per pixel.
+    # McGuire: "Using R16F for the revealage render target will give slightly better
+    # precision and make it easier to tune the algorithm, but a 2x savings on bandwidth
+    # and memory footprint for that texture may make it worth compressing into R8 format."
+    "reveal": (
+        wgpu.TextureFormat.r8unorm,
+        usg.RENDER_ATTACHMENT | usg.TEXTURE_BINDING,
+    ),
+}
+
+
 class Blender:
     """Manage how fragments are blended and end up in the final target.
     Each renderer has one blender object.
@@ -31,8 +69,9 @@ class Blender:
     def __init__(self, *, enable_pick=True, enable_depth=True):
         self.device = get_shared().device
 
-        self._enable_pick = enable_pick
-        self._enable_depth = enable_depth
+        # We could allow custom targets, but this is not yet implemented in the methods.
+        # The code in this init shows the first steps of what that could look like.
+        custom_targets = {}  # name -> (format, usage)  could allow users to specify this
 
         # The size (2D in pixels) of the textures.
         self.size = (0, 0)
@@ -48,73 +87,43 @@ class Blender:
         # A dict with the actual textures
         self._textures = {}  # name -> Texture
 
-        self._create_default_targets()
+        # -- setup targets
 
-    def _create_default_targets(self):
-        usg = wgpu.TextureUsage
+        # Collect render targets
+        all_targets = default_targets.copy()
+        for name in sorted(custom_targets):
+            all_targets[name] = custom_targets[name]
+        if not enable_pick:
+            all_targets.pop("pick")
+        if not enable_depth:
+            all_targets.pop("depth")
 
-        # The color texture is in srgb, because in the shaders we work with physical
-        # values, but we want to store as srgb to make effective use of the available bits. It's 4 bytes per pixel.
-        self.add_texture_target(
-            "color",
-            wgpu.TextureFormat.rgba8unorm_srgb,
-            usg.RENDER_ATTACHMENT | usg.COPY_SRC | usg.TEXTURE_BINDING,
+        # Convert to final dict
+        for name, (format, usage) in all_targets.items():
+            assert isinstance(name, str)
+            assert format in wgpu.TextureFormat
+            assert isinstance(usage, int)
+            self._texture_info[name] = {
+                "name": name,
+                "format": format,
+                "usage": usage,
+                "is_used": False,
+            }
+
+        # Compute the hash for this particular blender
+        self._hash = ", ".join(
+            info["name"] + ": " + info["format"] for info in self._texture_info.values()
         )
 
-        # The depth buffer should preferably at least 24bit - we need that precision. It's 4 bytes per pixel.
-        # 32 but is cool, but we may want stencil at some point, so depth24plus_stencil8 seems like a good default.
-        # The depth24plus is either depth32float or depth24unorm, depending on the backend.
-        # Note that there is also depth32float-stencil8, but it needs the (webgpu) extension with the same name.
-        self.add_texture_target(
-            "depth",
-            wgpu.TextureFormat.depth32float,
-            usg.RENDER_ATTACHMENT | usg.COPY_SRC,
-        )
-
-        # The pick texture has 4 16bit channels. It's 8 bytes per pixel.
-        # These bits are divided over the pick data, e.g. 20 for the wobject id.
-        self.add_texture_target(
-            "pick",
-            wgpu.TextureFormat.rgba16uint,
-            usg.RENDER_ATTACHMENT | usg.COPY_SRC,
-        )
-
-        # The accumulation buffer collects weighted fragments. It's 8 bytes per pixel.
-        self.add_texture_target(
-            "accum",
-            wgpu.TextureFormat.rgba16float,
-            usg.RENDER_ATTACHMENT | usg.TEXTURE_BINDING,
-        )
-
-        # The reveal buffer collects the weights. It's 1 byte per pixel.
-        # McGuire: "Using R16F for the revealage render target will give slightly better
-        # precision and make it easier to tune the algorithm, but a 2x savings on bandwidth
-        # and memory footprint for that texture may make it worth compressing into R8 format."
-        self.add_texture_target(
-            "reveal",
-            wgpu.TextureFormat.r8unorm,
-            usg.RENDER_ATTACHMENT | usg.TEXTURE_BINDING,
-        )
+    @property
+    def hash(self):
+        """The hash for this blender."""
+        return self._hash
 
     @property
     def texture_info(self):
         """A dict of dicts, containing per-rendertarget info."""
         return self._texture_info
-
-    def add_texture_target(
-        self, name: str, format: wgpu.TextureFormat, usage: wgpu.TextureUsage
-    ):
-        """Add a (potential) render target."""
-        assert isinstance(name, str)
-        assert format in wgpu.TextureFormat
-        assert isinstance(usage, int)
-
-        self._texture_info[name] = {
-            "name": name,
-            "format": format,
-            "usage": usage,
-            "is_used": False,
-        }
 
     def get_texture(self, name):
         """Get the texture object for the given name."""
@@ -234,13 +243,15 @@ class Blender:
 
         # Add pick target if the blender supports it. All pipelines must have matching (target states in their) pipelines.
         # Whether or not the pick target is used is determined by the material using the write_mask.
-        if self._enable_pick:
-            pick_target_state = {
+        if "pick" in self._texture_info:
+            target_state = {
                 "name": "pick",
                 "blend": None,
                 "write_mask": wgpu.ColorWrite.ALL if material_pick_write else 0,
             }
-            target_states.append(pick_target_state)
+            target_states.append(target_state)
+
+        # Note: in a similar way we could allow custom additional render targets.
 
         # Set format for each target, and register what targets were used
         for target_state in target_states:
@@ -257,7 +268,7 @@ class Blender:
         Called per object when the pipeline is created.
         """
 
-        if not self._enable_depth:
+        if "depth" not in self._texture_info:
             return None
 
         depth_write = bool(depth_write)
@@ -326,7 +337,7 @@ class Blender:
             attachments = [accum_attachment, reveal_attachment]
 
         # Add pick attachment if this blender supports picking.
-        if self._enable_pick:
+        if "pick" in self._texture_info:
             attachments.append(pick_attachment)
 
         # Finalize attachments
@@ -345,7 +356,7 @@ class Blender:
     def get_depth_attachment(self):
         """Get the texture render targets for depth/stencil. These are dynamically attached right before rendering a batch of objects."""
 
-        if not self._enable_depth:
+        if "depth" not in self._texture_info:
             return None
 
         texinfo = self._texture_info["depth"]
@@ -456,7 +467,7 @@ class Blender:
             raise RuntimeError(f"Unexpected blending mode {blending_mode!r}")
 
         # Enable/disable picking in the shader
-        do_pick = material_pick_write and self._enable_pick
+        do_pick = material_pick_write and "pick" in self._texture_info
         blending_code = blending_code.replace("MAYBE_PICK", "" if do_pick else "// ")
 
         return {"blending_code": blending_code, "write_pick": do_pick}
