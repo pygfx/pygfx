@@ -169,8 +169,11 @@ class Blender:
         # All textures are invalidated too
         self._textures = {}
 
-    def get_color_descriptors(self, material_write_pick, blending):
-        """Get the dict color-descriptors that pipeline.py needs to create the render pipeline."""
+    def get_color_descriptors(self, material_pick_write, blending):
+        """Get the dict color-descriptors that pipeline.py needs to create the render pipeline.
+
+        Called per object when the pipeline is created.
+        """
         bf, bo = wgpu.BlendFactor, wgpu.BlendOperation
 
         blending_mode = blending["mode"]
@@ -205,12 +208,7 @@ class Blender:
             "blend": color_blend,
             "write_mask": wgpu.ColorWrite.ALL,
         }
-        pick_target_state = {
-            "name": "pick",
-            "blend": None,
-            "write_mask": wgpu.ColorWrite.ALL if material_write_pick else 0,
-        }
-        target_states = [color_target_state, pick_target_state]
+        target_states = [color_target_state]
 
         # More work for weighted blending
         if blending_mode == "weighted":
@@ -230,7 +228,16 @@ class Blender:
                 },
                 "write_mask": wgpu.ColorWrite.ALL,
             }
-            target_states = [accum_target_state, reveal_target_state, pick_target_state]
+            target_states = [accum_target_state, reveal_target_state]
+
+        # Conditionally add the pick target
+        if material_pick_write:
+            pick_target_state = {
+                "name": "pick",
+                "blend": None,
+                "write_mask": wgpu.ColorWrite.ALL if material_pick_write else 0,
+            }
+            target_states.append(pick_target_state)
 
         # Set format for each target, and register what targets were used
         for target_state in target_states:
@@ -242,7 +249,10 @@ class Blender:
         return target_states
 
     def get_depth_descriptor(self, depth_test=True, depth_write=True):
-        """Get the dict depth-descriptors that pipeline.py needs to create the render pipeline."""
+        """Get the dict depth-descriptors that pipeline.py needs to create the render pipeline.
+
+        Called per object when the pipeline is created.
+        """
 
         depth_write = bool(depth_write)
         depth_compare = (
@@ -263,7 +273,11 @@ class Blender:
         }
 
     def get_color_attachments(self, pass_type):
-        """Get the texture render targets for color. These are dynamically attached right before rendering a batch of objects."""
+        """Get the texture render targets for color.
+
+        These are dynamically attached right before rendering a batch of objects.
+        This is called by the renderer for each 'batch' of objects (of a particular pass_type) is being rendered.
+        """
 
         color_attachment = {
             "name": "color",
@@ -279,7 +293,10 @@ class Blender:
             "load_op": wgpu.LoadOp.load,
             "store_op": wgpu.StoreOp.store,
         }
-        attachments = [color_attachment, pick_attachment]
+        attachments = [color_attachment]
+        if self._texture_info["pick"]["is_used"]:
+            attachments.append(pick_attachment)
+            print("og?")
 
         if pass_type == "weighted":
             self._weighted_blending_was_used = True
@@ -339,7 +356,7 @@ class Blender:
             "depth_store_op": wgpu.StoreOp.store,
         }
 
-    def get_shader_kwargs(self, blending):
+    def get_shader_kwargs(self, material_pick_write, blending):
         """Get the shader templating variables for the given blending."""
 
         blending_mode = blending["mode"]
@@ -348,7 +365,7 @@ class Blender:
             blending_code = """
             struct FragmentOutput {
                 @location(0) color: vec4<f32>,
-                @location(1) pick: vec4<u32>,
+                MAYBE_PICK@location(1) pick: vec4<u32>,
             };
             """
 
@@ -369,7 +386,7 @@ class Blender:
                 // virtualfield seed1 : f32 = varyings.position.x * varyings.position.y * varyings.position.z
                 // virtualfield seed2 : f32 = out.color.r * 0.12 + out.color.g * 0.34 + out.color.b * 0.56 + out.color.a * 0.78
                 @location(0) color: vec4<f32>,
-                @location(1) pick: vec4<u32>,
+                MAYBE_PICK@location(1) pick: vec4<u32>,
             };
 
             fn apply_virtual_fields_of_fragment_output(outp: ptr<function,FragmentOutput>, seed1:f32, seed2:f32) {
@@ -404,6 +421,7 @@ class Blender:
                 // virtualfield weight : f32 = WEIGHT_DEFAULT
                 @location(0) accum: vec4<f32>,
                 @location(1) reveal: f32,
+                MAYBE_PICK@location(2) pick: vec4<u32>,
             };
             const weighted_blending_use_alpha: f32 = -42.0;
 
@@ -427,10 +445,12 @@ class Blender:
         else:
             raise RuntimeError(f"Unexpected blending mode {blending_mode!r}")
 
-        return {
-            "blending_code": blending_code,
-            "write_pick": True,  # todo: factore this out
-        }
+        # Enable/disable picking in the shader
+        blending_code = blending_code.replace(
+            "MAYBE_PICK", "" if material_pick_write else "// "
+        )
+
+        return {"blending_code": blending_code, "write_pick": material_pick_write}
 
     def perform_weighted_resolve_pass(self, command_encoder):
         """Perform a render-pass to resolve the result of weighted blending."""
