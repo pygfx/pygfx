@@ -28,10 +28,11 @@ class Blender:
     Each renderer has one blender object.
     """
 
-    def __init__(self, *, enable_picking=True):
+    def __init__(self, *, enable_pick=True, enable_depth=True):
         self.device = get_shared().device
 
-        self._enable_picking = enable_picking
+        self._enable_pick = enable_pick
+        self._enable_depth = enable_depth
 
         # The size (2D in pixels) of the textures.
         self.size = (0, 0)
@@ -233,7 +234,7 @@ class Blender:
 
         # Add pick target if the blender supports it. All pipelines must have matching (target states in their) pipelines.
         # Whether or not the pick target is used is determined by the material using the write_mask.
-        if self._enable_picking:
+        if self._enable_pick:
             pick_target_state = {
                 "name": "pick",
                 "blend": None,
@@ -255,6 +256,9 @@ class Blender:
 
         Called per object when the pipeline is created.
         """
+
+        if not self._enable_depth:
+            return None
 
         depth_write = bool(depth_write)
         depth_compare = (
@@ -322,7 +326,7 @@ class Blender:
             attachments = [accum_attachment, reveal_attachment]
 
         # Add pick attachment if this blender supports picking.
-        if self._enable_picking:
+        if self._enable_pick:
             attachments.append(pick_attachment)
 
         # Finalize attachments
@@ -340,6 +344,9 @@ class Blender:
 
     def get_depth_attachment(self):
         """Get the texture render targets for depth/stencil. These are dynamically attached right before rendering a batch of objects."""
+
+        if not self._enable_depth:
+            return None
 
         texinfo = self._texture_info["depth"]
 
@@ -449,10 +456,8 @@ class Blender:
             raise RuntimeError(f"Unexpected blending mode {blending_mode!r}")
 
         # Enable/disable picking in the shader
-        do_pick = material_pick_write and self._enable_picking
-        blending_code = blending_code.replace(
-            "MAYBE_PICK", "" if do_pick else "// "
-        )
+        do_pick = material_pick_write and self._enable_pick
+        blending_code = blending_code.replace("MAYBE_PICK", "" if do_pick else "// ")
 
         return {"blending_code": blending_code, "write_pick": do_pick}
 
