@@ -28,8 +28,10 @@ class Blender:
     Each renderer has one blender object.
     """
 
-    def __init__(self):
+    def __init__(self, *, enable_picking=True):
         self.device = get_shared().device
+
+        self._enable_picking = enable_picking
 
         # The size (2D in pixels) of the textures.
         self.size = (0, 0)
@@ -110,7 +112,7 @@ class Blender:
             "name": name,
             "format": format,
             "usage": usage,
-            "inuse": False,
+            "is_used": False,
         }
 
     def get_texture(self, name):
@@ -144,7 +146,6 @@ class Blender:
         """Clear the buffers."""
         self._weighted_blending_was_used = False
         for texstate in self._texture_info.values():
-            texstate["is_used"] = False
             texstate["clear"] = True
 
     # TODO: remove?
@@ -230,8 +231,9 @@ class Blender:
             }
             target_states = [accum_target_state, reveal_target_state]
 
-        # Conditionally add the pick target
-        if material_pick_write:
+        # Add pick target if the blender supports it. All pipelines must have matching (target states in their) pipelines.
+        # Whether or not the pick target is used is determined by the material using the write_mask.
+        if self._enable_picking:
             pick_target_state = {
                 "name": "pick",
                 "blend": None,
@@ -294,9 +296,6 @@ class Blender:
             "store_op": wgpu.StoreOp.store,
         }
         attachments = [color_attachment]
-        if self._texture_info["pick"]["is_used"]:
-            attachments.append(pick_attachment)
-            print("og?")
 
         if pass_type == "weighted":
             self._weighted_blending_was_used = True
@@ -320,7 +319,11 @@ class Blender:
                 "load_op": wgpu.LoadOp.clear,
                 "store_op": wgpu.StoreOp.store,
             }
-            attachments = [accum_attachment, reveal_attachment, pick_attachment]
+            attachments = [accum_attachment, reveal_attachment]
+
+        # Add pick attachment if this blender supports picking.
+        if self._enable_picking:
+            attachments.append(pick_attachment)
 
         # Finalize attachments
         for attachment in attachments:
@@ -446,11 +449,12 @@ class Blender:
             raise RuntimeError(f"Unexpected blending mode {blending_mode!r}")
 
         # Enable/disable picking in the shader
+        do_pick = material_pick_write and self._enable_picking
         blending_code = blending_code.replace(
-            "MAYBE_PICK", "" if material_pick_write else "// "
+            "MAYBE_PICK", "" if do_pick else "// "
         )
 
-        return {"blending_code": blending_code, "write_pick": material_pick_write}
+        return {"blending_code": blending_code, "write_pick": do_pick}
 
     def perform_weighted_resolve_pass(self, command_encoder):
         """Perform a render-pass to resolve the result of weighted blending."""
