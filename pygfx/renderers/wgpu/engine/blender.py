@@ -108,6 +108,7 @@ class Blender:
                 "format": format,
                 "usage": usage,
                 "is_used": False,
+                "clear": True,
             }
 
         # Compute the hash for this particular blender

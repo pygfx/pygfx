@@ -677,12 +677,10 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # )
 
         # ----- render in stages
-        print("---")
         for (
             pass_type,
             render_pipeline_containers,
         ) in flat.iter_render_pipelines_per_pass_type():
-            print(pass_type, len(render_pipeline_containers))
             self._render_wobjects(
                 render_pipeline_containers,
                 renderstate,
