@@ -690,48 +690,41 @@ class WgpuRenderer(RootEventHandler, Renderer):
             render_shadow_maps(lights, flat.shadow_objects, command_encoder)
 
         # ----- render in stages
-        for (
-            pass_type,
-            render_pipeline_containers,
-        ) in flat.iter_render_pipelines_per_pass_type():
-            self._render_wobjects(
-                render_pipeline_containers,
-                renderstate,
-                physical_viewport,
-                command_encoder,
-                pass_type,
+
+        blender = self._blender
+        rendered_something = False
+
+        for iter in flat.iter_render_pipelines_per_pass_type():
+            pass_type, render_pipeline_containers = iter
+
+            # Only render this pass type if there are objects
+            if not render_pipeline_containers:
+                continue
+            rendered_something = True
+
+            render_pass = command_encoder.begin_render_pass(
+                color_attachments=blender.get_color_attachments(pass_type),
+                depth_stencil_attachment=blender.get_depth_attachment(),
+                occlusion_query_set=None,
             )
+
+            render_pass.set_viewport(*physical_viewport)
+
+            for render_pipeline_container in render_pipeline_containers:
+                render_pipeline_container.draw(render_pass, renderstate)
+
+            render_pass.end()
+
+            # Objects blended with weighted must be resolved into the color texture
             if pass_type == "weighted":
                 self._blender.perform_weighted_resolve_pass(command_encoder)
 
+        # Make sure the render targets exist (even if no objects are rendered)
+        if not rendered_something:
+            blender.get_color_attachments("normal")
+            blender.get_depth_attachment()
+
         return [command_encoder.finish()]
-
-    def _render_wobjects(
-        self,
-        render_pipeline_containers,
-        renderstate,
-        physical_viewport,
-        command_encoder,
-        pass_type,
-    ):
-        if not render_pipeline_containers:
-            return
-
-        blender = self._blender
-        color_attachments = blender.get_color_attachments(pass_type)
-        depth_attachment = blender.get_depth_attachment()
-
-        render_pass = command_encoder.begin_render_pass(
-            color_attachments=color_attachments,
-            depth_stencil_attachment=depth_attachment,
-            occlusion_query_set=None,
-        )
-        render_pass.set_viewport(*physical_viewport)
-
-        for render_pipeline_container in render_pipeline_containers:
-            render_pipeline_container.draw(render_pass, renderstate)
-
-        render_pass.end()
 
     def _update_stdinfo_buffer(
         self, camera: Camera, physical_size, logical_size, ndc_offset
