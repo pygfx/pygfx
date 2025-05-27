@@ -77,7 +77,7 @@ class Blender:
         self.size = (0, 0)
 
         # Objects for the combination pass
-        self._weighted_blending_was_used = False
+        self._weighted_blending_was_used_in_last_pass = False
         self._weighted_resolve_pass_pipeline = None
         self._weighted_resolve_pass_bind_group = None
 
@@ -154,15 +154,9 @@ class Blender:
         return texture.create_view(usage=wgpu.TextureUsage.RENDER_ATTACHMENT)
 
     def clear(self):
-        """Clear the buffers."""
-        self._weighted_blending_was_used = False
+        """Clear all the buffers (on the next time they're attached)."""
         for texstate in self._texture_info.values():
             texstate["clear"] = True
-
-    # TODO: remove?
-    # def clear_depth(self):
-    #     """Clear the deph buffer only."""
-    #     self.depth_clear = True
 
     def ensure_target_size(self, size):
         """If necessary, resize render-textures to match the target size."""
@@ -313,9 +307,10 @@ class Blender:
         }
         attachments = [color_attachment]
 
+        self._weighted_blending_was_used_in_last_pass = False
+
         if pass_type == "weighted":
-            self._weighted_blending_was_used = True
-            # TODO: this'd be a good time to make sure the accum and reveal texture are ready
+            self._weighted_blending_was_used_in_last_pass = True
             # We always clear the textures at the beginning of a pass, because at
             # the end of that pass it will be merged with the color buffer using
             # the combine pass.
@@ -477,7 +472,7 @@ class Blender:
         """Perform a render-pass to resolve the result of weighted blending."""
 
         # This is only needed if objects were rendered with weighted blending
-        if not self._weighted_blending_was_used:
+        if not self._weighted_blending_was_used_in_last_pass:
             return
 
         # Get bindgroup and pipeline. The creation should only happens once per blender lifetime.

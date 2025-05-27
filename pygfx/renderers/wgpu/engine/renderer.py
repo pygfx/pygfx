@@ -122,7 +122,7 @@ class FlatScene:
                 else:  # blending_mode == 'classic'
                     transparent = material.transparent
                     if transparent:
-                        # TODO: threeJS renders double-sided objects twice, maybe we should too? (we can look at this later)
+                        # NOTE: threeJS renders double-sided objects twice, maybe we should too? (we can look at this later)
                         z_sort_sign = -1
                         category_flag = category_fully_transparent
                     elif transparent is None:
@@ -131,7 +131,7 @@ class FlatScene:
                     else:
                         z_sort_sign = +1
                         category_flag = category_opaque
-                        # TODO: it may help performance to put objects that use discard into category_semi_opaque so that they
+                        # NOTE: it may help performance to put objects that use discard into category_semi_opaque so that they
                         # render after the real opaque objects. This can help with early-z. Need benchmarks to know for sure
 
                 # Get depth sorting flag. Note that use camera's view matrix, since the projection does not affect the depth order.
@@ -717,9 +717,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         if not render_pipeline_containers:
             return
 
-        blender = (
-            renderstate.blender
-        )  # TODO: I don't think the blender needs to be part of the renderstate
+        blender = self._blender
         color_attachments = blender.get_color_attachments(pass_type)
         depth_attachment = blender.get_depth_attachment()
 
