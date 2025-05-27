@@ -134,10 +134,13 @@ class FlatScene:
                         category_flag = category_opaque
                         # TODO: does it make sense to draw objects that have discard later later/earlier?
 
-                # Get depth sorting flag
+                # Get depth sorting flag. Note that use camera's view matrix, since the projection does not affect the depth order.
+                # It also means we can set projection=False optimalization.
                 z_flag = 0
                 if self._view_matrix is not None and z_sort_sign:
-                    z = la.vec_transform(wobject.world.position, self._view_matrix)[2]
+                    z = la.vec_transform(
+                        wobject.world.position, self._view_matrix, projection=False
+                    )[2]
                     z_flag = float(z) * z_sort_sign
 
                 sort_key = (wobject.render_order, category_flag, z_flag)
