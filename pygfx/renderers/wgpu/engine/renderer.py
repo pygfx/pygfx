@@ -5,6 +5,7 @@ manages the rendering process.
 
 import time
 import weakref
+import logging
 
 import numpy as np
 import wgpu
@@ -44,6 +45,8 @@ from .shadowutil import render_shadow_maps
 from .mipmapsutil import generate_texture_mipmaps
 from .utils import GfxTextureView
 
+
+logger = logging.getLogger("pygfx")
 
 AnyBaseCanvas = BaseRenderCanvas, WgpuCanvasBase
 
@@ -461,8 +464,10 @@ class WgpuRenderer(RootEventHandler, Renderer):
         camera: Camera,
         *,
         rect=None,
-        clear_color=None,
+        clear=None,
         flush=True,
+        # deprecated:
+        clear_color=None,
     ):
         """Render a scene with the specified camera as the viewpoint.
 
@@ -473,7 +478,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
                 viewpoint and view transform.
             rect (tuple, optional): The rectangular region to draw into,
                 expressed in logical pixels, a.k.a. the viewport.
-            clear_color (bool, optional): Whether to clear the color buffer
+            clear (bool, optional): Whether to clear the color and depth buffers
                 before rendering. By default this is True on the first
                 call to ``render()`` after a flush, and False otherwise.
             flush (bool, optional): Whether to flush the rendered result into
@@ -485,16 +490,17 @@ class WgpuRenderer(RootEventHandler, Renderer):
             self._renderstates_per_flush.insert(0, [])
             self._renderstates_per_flush[16:] = []
 
-        # Define whether to clear color.
-        if clear_color is None:
-            clear_color = self._renders_since_last_flush == 0
-        clear_color = bool(clear_color)
-        self._renders_since_last_flush += 1
+        # Define whether to clear render targets
+        if clear_color is not None:
+            logger.warning(
+                "renderer.render(.. clear_color) is deprecated in favor of 'clear'."
+            )
+        if clear is None:
+            clear = self._renders_since_last_flush == 0
+        if clear:
+            self._blender.clear()
 
-        # We always clear the depth, because each render() should be "self-contained".
-        # Any use-cases where you normally would control depth-clearing should
-        # be covered by the blender. Also, this way the blender can better re-use internal
-        # buffers. The only rule is that the color buffer behaves correctly on multiple renders.
+        self._renders_since_last_flush += 1
 
         # todo: also note that the fragment shader is (should be) optional
         #      (e.g. depth only passes like shadow mapping or z prepass)
@@ -534,9 +540,9 @@ class WgpuRenderer(RootEventHandler, Renderer):
             ndc_offset = camera._view_offset["ndc_offset"]
 
         # Allow objects to prepare just in time. When doing multiple
-        # render calls, we don't want to spam. The clear_color flag is
+        # render calls, we don't want to spam. The clear flag is
         # a good indicator to detect the first render call.
-        if clear_color:
+        if clear:
             ev = WindowEvent(
                 "before_render",
                 target=None,
@@ -586,7 +592,6 @@ class WgpuRenderer(RootEventHandler, Renderer):
             renderstate,
             flat,
             physical_viewport,
-            clear_color,
         )
 
         # Collect commands and submit
@@ -661,7 +666,6 @@ class WgpuRenderer(RootEventHandler, Renderer):
         renderstate,
         flat,
         physical_viewport,
-        clear_color,
     ):
         # You might think that this is slow for large number of world
         # object. But it is actually pretty good. It does iterate over
@@ -670,10 +674,6 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # todo: we may be able to speed this up with render bundles though
 
         command_encoder = self._device.create_command_encoder()
-
-        blender = self._blender
-        if clear_color:
-            blender.clear()
 
         # ----- compute pipelines
 
