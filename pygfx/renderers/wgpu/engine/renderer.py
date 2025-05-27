@@ -438,6 +438,23 @@ class WgpuRenderer(RootEventHandler, Renderer):
         if isinstance(self._target, AnyBaseCanvas):
             self._target.request_draw()
 
+    def clear(self, *, all=False, color=False, depth=False):
+        """Clear one or more of the render targets.
+
+        Users typically don't need to use this method. But sometimes it can be convenient to e.g.
+        render a scene, and then clear the depth before rendering another scene.
+        """
+        if not (all or color or depth):
+            raise ValueError(
+                "renderer.clear() needs at least color or depth set to True."
+            )
+        if all:
+            self._blender.clear()
+        elif color:
+            self._blender.texture_info["color"]["clear"] = True
+        elif depth:
+            self._blender.texture_info["depth"]["clear"] = True
+
     def render(
         self,
         scene: WorldObject,
