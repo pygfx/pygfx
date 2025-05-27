@@ -54,7 +54,7 @@ AnyBaseCanvas = BaseRenderCanvas, WgpuCanvasBase
 class WobjectWrapper:
     """To temporary wrap each wobject for each draw."""
 
-    __slots__ = ["wobject", "sort_key", "pass_type", "render_containers"]
+    __slots__ = ["pass_type", "render_containers", "sort_key", "wobject"]
 
     def __init__(self, wobject, sort_key, pass_type):
         self.wobject = wobject
@@ -202,12 +202,9 @@ class WgpuRenderer(RootEventHandler, Renderer):
         Whether to display the frames per second. Beware that
         depending on the GUI toolkit, the canvas may impose a frame rate limit.
     sort_objects : bool
-        If True, sort objects by depth before rendering. The sorting
-        uses a hierarchical index based on the object's (1) ``render_order``,
-        (2) distance to the camera (based on the local frame's origin), (3) the
-        position in the scene graph (flattened depth-first). If False, the
-        rendering order is based on the objects ``render_order`` and position
-        in the scene graph only.
+        If True, sort objects by depth before rendering. If False, the
+        rendering order is mainly based on the objects ``render_order`` and position
+        in the scene graph.
     enable_events : bool
         If True, forward wgpu events to pygfx's event system.
     gamma_correction : float
@@ -415,11 +412,14 @@ class WgpuRenderer(RootEventHandler, Renderer):
     def sort_objects(self):
         """Whether to sort world objects by depth before rendering. Default False.
 
-        * ``True``: the render order is defined by 1) the object's ``render_order``
-          property; 2) the object's distance to the camera; 3) the position object
-          in the scene graph (based on a depth-first search).
-        * ``False``: don't sort, the render order is only defined by the
-          ``render_order`` and scene graph position.
+        By default, the render order is defined by:
+
+          1. the object's ``render_order`` property;
+          2. whether the object is opaque/transparent/weighted/unknown;
+          3. the object's distance to the camera;
+          4. the position object in the scene graph (based on a depth-first search).
+
+        If ``sort_objects`` is ``False``, step 3 (sorting using the camera transform) is omitted.
         """
         return self._sort_objects
 
