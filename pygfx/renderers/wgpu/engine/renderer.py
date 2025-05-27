@@ -87,6 +87,7 @@ class FlatScene:
             # Update things like transform and uniform buffers
             wobject._update_object()
 
+            # Light objects
             if isinstance(wobject, Light):
                 if isinstance(wobject, PointLight):
                     self.lights["point_lights"].append(wobject)
@@ -101,47 +102,49 @@ class FlatScene:
                     ambient_color[1] += g * wobject.intensity
                     ambient_color[2] += b * wobject.intensity
 
-            else:
-                if wobject.cast_shadow and wobject.geometry is not None:
-                    self.shadow_objects.append(wobject)
+            # Shadowable objects
+            if wobject.cast_shadow and wobject.geometry is not None:
+                self.shadow_objects.append(wobject)
 
-                material = wobject._material
-                if material is not None:
-                    blending_mode = material.blending["mode"]
-                    pass_type = "normal"  # one of 'normal' or 'weighted'
+            # Renderable objects
+            material = wobject._material
+            if material is not None:
+                blending_mode = material.blending["mode"]
+                pass_type = "normal"  # one of 'normal' or 'weighted'
 
-                    if blending_mode == "weighted":
-                        z_sort_sign = 0
-                        category_flag = category_weighted
-                        pass_type = "weighted"
-                    elif blending_mode == "dither":
+                if blending_mode == "weighted":
+                    z_sort_sign = 0
+                    category_flag = category_weighted
+                    pass_type = "weighted"
+                elif blending_mode == "dither":
+                    z_sort_sign = +1
+                    category_flag = category_opaque
+                else:  # blending_mode == 'classic'
+                    transparent = material.transparent
+                    if transparent:
+                        # TODO: threeJS renders double-sided objects twice, maybe we should too? (we can look at this later)
+                        z_sort_sign = -1
+                        category_flag = category_fully_transparent
+                    elif transparent is None:
+                        z_sort_sign = -1
+                        category_flag = category_semi_opaque
+                    else:
                         z_sort_sign = +1
                         category_flag = category_opaque
-                    else:  # blending_mode == 'classic'
-                        transparent = material.transparent
-                        if transparent:
-                            # TODO: threeJS renders double-sided objects twice, maybe we should too? (we can look at this later)
-                            z_sort_sign = -1
-                            category_flag = category_fully_transparent
-                        elif transparent is None:
-                            z_sort_sign = -1
-                            category_flag = category_semi_opaque
-                        else:
-                            z_sort_sign = +1
-                            category_flag = category_opaque
-                            # TODO: does it make sense to draw objects that have discard later later/earlier?
+                        # TODO: it may help performance to put objects that use discard into category_semi_opaque so that they
+                        # render after the real opaque objects. This can help with early-z. Need benchmarks to know for sure
 
-                    # Get depth sorting flag. Note that use camera's view matrix, since the projection does not affect the depth order.
-                    # It also means we can set projection=False optimalization.
-                    z_flag = 0
-                    if self._view_matrix is not None and z_sort_sign:
-                        z = la.vec_transform(
-                            wobject.world.position, self._view_matrix, projection=False
-                        )[2]
-                        z_flag = float(z) * z_sort_sign
+                # Get depth sorting flag. Note that use camera's view matrix, since the projection does not affect the depth order.
+                # It also means we can set projection=False optimalization.
+                z_flag = 0
+                if self._view_matrix is not None and z_sort_sign:
+                    z = la.vec_transform(
+                        wobject.world.position, self._view_matrix, projection=False
+                    )[2]
+                    z_flag = float(z) * z_sort_sign
 
-                    sort_key = (wobject.render_order, category_flag, z_flag)
-                    self._wobjects.append(WobjectWrapper(wobject, sort_key, pass_type))
+                sort_key = (wobject.render_order, category_flag, z_flag)
+                self._wobjects.append(WobjectWrapper(wobject, sort_key, pass_type))
 
     def sort(self):
         """Sort the world objects."""
