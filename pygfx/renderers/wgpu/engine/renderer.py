@@ -726,6 +726,9 @@ class WgpuRenderer(RootEventHandler, Renderer):
         self, camera: Camera, physical_size, logical_size, ndc_offset
     ):
         # Update the stdinfo buffer's data
+        # All matrices need to be transposed, because in WGSL they are column-major.
+        # -> From the numpy p.o.v. the matrices are transposed, in wgsl they are
+        #    upright again because the different interpretation of the memory.
         stdinfo_data = self._shared.uniform_buffer.data
         stdinfo_data["cam_transform"] = camera.world.inverse_matrix.T
         stdinfo_data["cam_transform_inv"] = camera.world.matrix.T

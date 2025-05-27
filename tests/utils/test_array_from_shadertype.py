@@ -8,7 +8,7 @@ def test_array_from_shadertype_scalar():
         bar="f4",
     )
     a = array_from_shadertype(d)
-    assert a.dtype.names == ("foo", "bar", "__")
+    assert a.dtype.names == ("foo", "bar")
     assert a.nbytes == 8  # 4 + 4
 
     # Order is preserved
@@ -17,7 +17,7 @@ def test_array_from_shadertype_scalar():
         foo="f4",
     )
     a = array_from_shadertype(d)
-    assert a.dtype.names == ("bar", "foo", "__")
+    assert a.dtype.names == ("bar", "foo")
     assert a.nbytes == 8  # 4 + 4
 
 
@@ -28,7 +28,7 @@ def test_array_from_shadertype_vec2():
         bar="f4",
     )
     a = array_from_shadertype(d)
-    assert a.dtype.names == ("foo", "bar", "__padding1", "__")
+    assert a.dtype.names == ("foo", "bar", "__padding1")
     assert a.nbytes == 16  # 8 + 4 + padding to 8
 
     # Order is based on alignment
@@ -37,7 +37,7 @@ def test_array_from_shadertype_vec2():
         foo="2xf4",
     )
     a = array_from_shadertype(d)
-    assert a.dtype.names == ("foo", "bar", "__padding1", "__")
+    assert a.dtype.names == ("foo", "bar", "__padding1")
     assert a.nbytes == 16  # 8 + 4 + padding to 8
 
 
@@ -48,7 +48,7 @@ def test_array_from_shadertype_vec3():
         bar="f4",
     )
     a = array_from_shadertype(d)
-    assert a.dtype.names == ("foo", "bar", "__")
+    assert a.dtype.names == ("foo", "bar")
     assert a.nbytes == 16  # 12 + 4
 
     # The float will be hoisted up to fill the gap.
@@ -59,7 +59,7 @@ def test_array_from_shadertype_vec3():
         bar="f4",
     )
     a = array_from_shadertype(d)
-    assert a.dtype.names == ("foo1", "bar", "foo2", "__padding1", "__")
+    assert a.dtype.names == ("foo1", "bar", "foo2", "__padding1")
     assert a.nbytes == 32  # 12 + 12 + 4 + padding to 16
 
     # But in this case it does: no padding!
@@ -70,7 +70,7 @@ def test_array_from_shadertype_vec3():
         bar2="f4",
     )
     a = array_from_shadertype(d)
-    assert a.dtype.names == ("foo1", "bar1", "foo2", "bar2", "__")
+    assert a.dtype.names == ("foo1", "bar1", "foo2", "bar2")
     assert a.nbytes == 32  # 12 + 12 + 4 + 4
 
     # With nothing to fill it up, uses padding
@@ -79,7 +79,7 @@ def test_array_from_shadertype_vec3():
         foo2="3xf4",
     )
     a = array_from_shadertype(d)
-    assert a.dtype.names == ("foo1", "__padding1", "foo2", "__padding2", "__")
+    assert a.dtype.names == ("foo1", "__padding1", "foo2", "__padding2")
     assert a.nbytes == 32  # 12 + 4 + 12 + 4
 
 
@@ -89,7 +89,7 @@ def test_array_from_shadertype_mat2():
         foo="3x2xf4",
     )
     a = array_from_shadertype(d)
-    assert a.dtype.names == ("foo", "__")
+    assert a.dtype.names == ("foo",)
     assert a.nbytes == 24  # padded to 8
 
     # A nx2-mat has alignment 8
@@ -98,7 +98,7 @@ def test_array_from_shadertype_mat2():
         bar="f4",
     )
     a = array_from_shadertype(d)
-    assert a.dtype.names == ("foo", "bar", "__padding1", "__")
+    assert a.dtype.names == ("foo", "bar", "__padding1")
     assert a.nbytes == 32  #  + 24 + 4 + padding to 8
 
 
@@ -108,7 +108,7 @@ def test_array_from_shadertype_mat3():
         foo="2x3xf4",
     )
     a = array_from_shadertype(d)
-    assert a.dtype.names == ("foo", "__padding1", "__")
+    assert a.dtype.names == ("foo", "__meta_mat3_names__foo")
     assert a.nbytes == 32  # 24 + pad to 16
 
     # These also *needs* internal padding.
@@ -116,7 +116,7 @@ def test_array_from_shadertype_mat3():
     # So that bar-field cannot be used to fill the gap, like we did for vec3.
     d = dict(foo="3x3xf4", bar="f4")
     a = array_from_shadertype(d)
-    assert a.dtype.names == ("foo", "__padding1", "bar", "__padding2", "__")
+    assert a.dtype.names == ("foo", "bar", "__padding1", "__meta_mat3_names__foo")
     assert a.nbytes == 64  # 36 + 12 internal padding + 4 + pad to 16
 
 

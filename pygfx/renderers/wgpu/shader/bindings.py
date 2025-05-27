@@ -54,11 +54,11 @@ class BindingDefinitions:
         if isinstance(resource, dict):
             dtype_struct = array_from_shadertype(resource).dtype
         elif isinstance(resource, Buffer):
-            if resource.data.dtype.fields is None:
+            if resource.data.dtype.names is None:
                 raise TypeError("define_uniform() needs a structured dtype")
             dtype_struct = resource.data.dtype
         elif isinstance(resource, np.dtype):
-            if resource.fields is None:
+            if resource.names is None:
                 raise TypeError("define_uniform() needs a structured dtype")
             dtype_struct = resource
         else:
