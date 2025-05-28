@@ -33,7 +33,7 @@ grid = gfx.Grid(
     ),
     orientation="xy",
 )
-grid.local.z = -1001
+grid.local.z = -10
 
 rulerx = gfx.Ruler(tick_side="right")
 rulery = gfx.Ruler(tick_side="left", min_tick_distance=40)
@@ -76,15 +76,15 @@ def animate():
     world_xmax, world_ymax, _ = map_screen_to_world((xmax, ymax), renderer.logical_size)
 
     # set start and end positions of rulers
-    rulerx.start_pos = world_xmin, 0, -10
-    rulerx.end_pos = world_xmax, 0, -10
+    rulerx.start_pos = world_xmin, 0, 10
+    rulerx.end_pos = world_xmax, 0, 10
 
     rulerx.start_value = rulerx.start_pos[0]
 
     statsx = rulerx.update(camera, canvas.get_logical_size())
 
-    rulery.start_pos = 0, world_ymin, -10
-    rulery.end_pos = 0, world_ymax, -10
+    rulery.start_pos = 0, world_ymin, 10
+    rulery.end_pos = 0, world_ymax, 10
 
     rulery.start_value = rulery.start_pos[1]
     statsy = rulery.update(camera, canvas.get_logical_size())
