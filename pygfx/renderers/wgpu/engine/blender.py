@@ -118,7 +118,16 @@ class Blender:
 
     @property
     def hash(self):
-        """The hash for this blender."""
+        """The hash for this blender.
+
+        This is used by the renderstate. If an object is rendered with two renderers,
+        we still want this to work, even if the corresponding blenders results in incompatible pipelines.
+
+        Use cases are a blender without a pick or depth target. Or blenders with different color formats.
+
+        In such cases, their blender hashes will be different, resulting in a separate pipeline object for each.
+        Similar to rendering with a different number of lights will result in separate pipeline objects.
+        """
         return self._hash
 
     @property
@@ -139,6 +148,7 @@ class Blender:
             return texture.create_view(usage=usage)
 
     def _get_texture_view_for_rendering(self, name):
+        """Get a texture view for the given name with rendert-attachment usage. Creates the texture if it does not exist."""
         texture = self._textures.get(name)
 
         if texture is None:
@@ -159,7 +169,7 @@ class Blender:
             texstate["clear"] = True
 
     def ensure_target_size(self, size):
-        """If necessary, resize render-textures to match the target size."""
+        """Make sure that the textures are resized if necessary."""
 
         assert len(size) == 2
         size = int(size[0]), int(size[1])
@@ -311,9 +321,8 @@ class Blender:
 
         if pass_type == "weighted":
             self._weighted_blending_was_used_in_last_pass = True
-            # We always clear the textures at the beginning of a pass, because at
-            # the end of that pass it will be merged with the color buffer using
-            # the combine pass.
+            # We always clear the textures at the beginning of a pass, because at the end of
+            # that pass it will be merged with the color buffer using the combine pass.
             accum_clear_value = 0, 0, 0, 0
             reveal_clear_value = 1, 0, 0, 0
             accum_attachment = {
