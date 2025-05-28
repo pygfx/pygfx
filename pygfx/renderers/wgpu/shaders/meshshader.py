@@ -455,12 +455,9 @@ class MeshShader(BaseShader):
     def get_render_info(self, wobject, shared):
         geometry = wobject.geometry
 
-        if geometry.indices.data is not None and geometry.indices.data.shape[-1] == 4:
-            offset, size = geometry.indices.draw_range
-            offset, size = 6 * offset, 6 * size
-        else:
-            offset, size = geometry.indices.draw_range
-            offset, size = 3 * offset, 3 * size
+        mul = self["indexer"]
+        offset, size = geometry.indices.draw_range
+        offset, size = mul * offset, mul * size
 
         n_instances = 1
         if self["instanced"]:
