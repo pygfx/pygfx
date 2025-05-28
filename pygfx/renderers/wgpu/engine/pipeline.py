@@ -350,19 +350,20 @@ class PipelineContainer:
         """Update the info that applies to all passes and renderstates."""
 
         if "create" in changed or "reset" in changed:
+            self.wobject_info = {}
             with tracker.track_usage("reset"):
                 self.wobject_info["pick_write"] = wobject.material.pick_write
                 blending_mode = wobject.material._store.blending_mode
                 # If the blending mode is dither or weighted, the generated wgsl in blender.get_shader_kwargs()
                 # differs on the additional fields in the blending dict.
                 if blending_mode in ("dither", "weighted"):
-                    self.wobject_info["blending"] = wobject.material.blending
+                    self.wobject_info["blending"] = wobject.material.blending.copy()
                     if (
                         blending_mode == "dither"
                         and wobject.material.transparent == False  # noqa
                     ):
                         # Dither with an opaque object -> we can drop the discard in blender.py
-                        self.wobject_info["blending"]["no_discard"] = True
+                        self.wobject_info["blending_no_discard"] = True
 
             changed.update(("bindings", "pipeline_info", "render_info"))
             self.wgpu_shader = None
@@ -586,8 +587,13 @@ class RenderPipelineContainer(PipelineContainer):
         blender = renderstate.blender
         renderstate_bind_group_index = len(self.wgpu_bind_groups)
 
+        # Resolve a tweak to the blending dict. We do that here, and not where its first put in wobject_info,
+        # because the dict gets set in two places.
+        blending = self.wobject_info["blending"]
+        if self.wobject_info.get("blending_no_discard"):
+            blending = {**blending, "no_discard": True}
         blender_kwargs = blender.get_shader_kwargs(
-            self.wobject_info["pick_write"], self.wobject_info["blending"]
+            self.wobject_info["pick_write"], blending
         )
         renderstate_kwargs = renderstate.get_shader_kwargs(renderstate_bind_group_index)
         shader_kwargs = blender_kwargs.copy()

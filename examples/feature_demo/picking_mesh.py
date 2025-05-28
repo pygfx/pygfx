@@ -4,6 +4,9 @@ Mesh Picking
 
 Example showing picking a mesh. Showing two meshes that can be clicked
 on. Upon clicking, the vertex closest to the pick location is moved.
+
+Transparent objects can also be picked, but if multiple semi-transparent layers
+are visible, its undetermined which is picked.
 """
 
 # sphinx_gallery_pygfx_docs = 'screenshot'

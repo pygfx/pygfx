@@ -24,14 +24,20 @@ scene = gfx.Scene()
 background = gfx.Background.from_color("#000")
 
 geometry = gfx.plane_geometry(50, 50)
+
+# Note: marking the material as transparent, so the renderer sorts the objects
+# by depth in the correct way. It also implicitly sets depth_write to False.
 plane1 = gfx.Mesh(
-    geometry, gfx.MeshBasicMaterial(color=(1, 0, 0, 0.7), transparent=True)
+    geometry,
+    gfx.MeshBasicMaterial(color=(1, 0, 0, 0.7), transparent=True),
 )
 plane2 = gfx.Mesh(
-    geometry, gfx.MeshBasicMaterial(color=(0, 1, 0, 0.7), transparent=True)
+    geometry,
+    gfx.MeshBasicMaterial(color=(0, 1, 0, 0.7), transparent=True),
 )
 plane3 = gfx.Mesh(
-    geometry, gfx.MeshBasicMaterial(color=(0, 0, 1, 0.7), transparent=True)
+    geometry,
+    gfx.MeshBasicMaterial(color=(0, 0, 1, 0.7), transparent=True),
 )
 
 plane1.local.position = (-10, -10, 1)
@@ -51,6 +57,8 @@ blend_text = gfx.Text(
 scene_overlay.add(blend_text)
 
 screen_camera = gfx.ScreenCoordsCamera()
+
+controller = gfx.OrbitController(camera, register_events=renderer)
 
 
 @renderer.add_event_handler("key_down")

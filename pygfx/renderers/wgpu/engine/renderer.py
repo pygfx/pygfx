@@ -113,37 +113,40 @@ class FlatScene:
                 pass_type = "normal"  # one of 'normal' or 'weighted'
 
                 if blending_mode == "weighted":
-                    z_sort_sign = 0
+                    dist_sort_sign = 0
                     category_flag = category_weighted
                     pass_type = "weighted"
                 elif blending_mode == "dither":
-                    z_sort_sign = +1
+                    dist_sort_sign = +1
                     category_flag = category_opaque
                 else:  # blending_mode == 'classic'
                     transparent = material.transparent
                     if transparent:
                         # NOTE: threeJS renders double-sided objects twice, maybe we should too? (we can look at this later)
-                        z_sort_sign = -1
+                        dist_sort_sign = -1
                         category_flag = category_fully_transparent
                     elif transparent is None:
-                        z_sort_sign = -1
+                        dist_sort_sign = -1
                         category_flag = category_semi_opaque
                     else:
-                        z_sort_sign = +1
+                        dist_sort_sign = +1
                         category_flag = category_opaque
                         # NOTE: it may help performance to put objects that use discard into category_semi_opaque so that they
                         # render after the real opaque objects. This can help with early-z. Need benchmarks to know for sure
 
                 # Get depth sorting flag. Note that use camera's view matrix, since the projection does not affect the depth order.
                 # It also means we can set projection=False optimalization.
-                z_flag = 0
-                if self._view_matrix is not None and z_sort_sign:
-                    z = la.vec_transform(
+                # Also note that we look down -z.
+                dist_flag = 0
+                if self._view_matrix is not None and dist_sort_sign:
+                    relative_pos = la.vec_transform(
                         wobject.world.position, self._view_matrix, projection=False
-                    )[2]
-                    z_flag = float(z) * z_sort_sign
+                    )
+                    # Cam looks towards -z: negate to get distance
+                    distance_to_camera = float(-relative_pos[2])
+                    dist_flag = distance_to_camera * dist_sort_sign
 
-                sort_key = (wobject.render_order, category_flag, z_flag)
+                sort_key = (wobject.render_order, category_flag, dist_flag)
                 self._wobjects.append(WobjectWrapper(wobject, sort_key, pass_type))
 
     def sort(self):
