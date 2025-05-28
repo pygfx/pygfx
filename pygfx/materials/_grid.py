@@ -32,6 +32,8 @@ class GridMaterial(Material):
        The color of the minor grid lines. Default '#777'.
     infinite : bool
         Whether the grid is infinite. Default True.
+    alpha_test : float
+        The alpha test of a grid is 0.1 by default, so that only the lines are visible, and the 'holes' don't hide other objects.
     kwargs : Any
         Additional kwargs are passed to the base constructor
         (:class:`pygfx.materials.Material`).
@@ -62,6 +64,7 @@ class GridMaterial(Material):
         major_color="#777",
         minor_color="#777",
         infinite=True,
+        alpha_test=0.1,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -75,6 +78,7 @@ class GridMaterial(Material):
         self.major_color = major_color
         self.minor_color = minor_color
         self.infinite = infinite
+        self.alpha_test = alpha_test
 
     def _set_draw_axis(self):
         self._store.draw_axis = self.axis_thickness > 0
