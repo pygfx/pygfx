@@ -41,14 +41,6 @@ class Enum(BaseEnum):
     """Enum base class for pygfx."""
 
 
-# TODO: remove
-class TransparencyMode(Enum):
-    opaque = None  #: The object is (considered) fully opaque. The renderer draws these first, and sorts front-to-back to avoid drawing hidden fragments.
-    transparent = None  # The object is (considered) fully transparent. The renderer draws these after opaque objects, and sorts back-to-front for proper blending.
-    mixed = None  # The object is considered to have both opaque and transparent objects. The renderer draws these in between opaque and transparent objects, back-to-front.
-    auto = None  # Select the mode based on the value of ``opacity`` and ``color.a``.
-
-
 class EdgeMode(Enum):
     centered = None  #: Centered edges (half the width on each side).
     inner = None  #: Inner edges (the width is added to the inside).

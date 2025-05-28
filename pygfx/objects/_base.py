@@ -253,7 +253,8 @@ class WorldObject(EventTarget, Trackable):
         Objects with higher ``render_order`` get rendered later.
         Default 0. Also see ``Renderer.sort_objects``.
         """
-        # TODO: does not have to be on the store. Also maybe move to material?
+        # Note: the render order is on the object, not the material, because it affects
+        # a specific object, and materials are often shared between multiple objects.
         return self._store.render_order
 
     @render_order.setter
@@ -267,7 +268,7 @@ class WorldObject(EventTarget, Trackable):
     @render_mask.setter
     def render_mask(self, value):
         raise DeprecationWarning(
-            "render_mask is deprecated, use material.transparent instead"
+            "render_mask is deprecated, see material.transparent to control how the rendere should treat an object."
         )
 
     @property

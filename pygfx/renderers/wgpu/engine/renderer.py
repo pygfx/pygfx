@@ -4,7 +4,6 @@ manages the rendering process.
 """
 
 import time
-import weakref
 import logging
 
 import numpy as np
@@ -66,7 +65,7 @@ class WobjectWrapper:
 class FlatScene:
     def __init__(self, scene, view_matrix=None):
         self._view_matrix = view_matrix
-        self._wobjects = []  # WobjectWrapper's
+        self._wobject_wrappers = []  # WobjectWrapper's
         self.lights = {
             "point_lights": [],
             "directional_lights": [],
@@ -77,6 +76,7 @@ class FlatScene:
         self.add_scene(scene)
 
     def add_scene(self, scene):
+        """Add a scene to the total flat scene. Is usually called just once."""
         # Flags for sorting
         category_opaque = 1
         category_semi_opaque = 2
@@ -147,16 +147,19 @@ class FlatScene:
                     dist_flag = distance_to_camera * dist_sort_sign
 
                 sort_key = (wobject.render_order, category_flag, dist_flag)
-                self._wobjects.append(WobjectWrapper(wobject, sort_key, pass_type))
+                self._wobject_wrappers.append(
+                    WobjectWrapper(wobject, sort_key, pass_type)
+                )
 
     def sort(self):
         """Sort the world objects."""
-        self._wobjects.sort(key=lambda ob: ob.sort_key)
+        self._wobject_wrappers.sort(key=lambda ob: ob.sort_key)
 
     def collect_pipelines_container_groups(self, renderstate):
+        """Select and resolve the pipeline, compiling shaders, building pipelines and composing binding as needed."""
         self._compute_pipeline_containers = compute_pipeline_containers = []
         self._bake_functions = bake_functions = []
-        for wrapper in self._wobjects:
+        for wrapper in self._wobject_wrappers:
             container_group = get_pipeline_container_group(wrapper.wobject, renderstate)
             compute_pipeline_containers.extend(container_group.compute_containers)
             wrapper.render_containers = container_group.render_containers
@@ -164,6 +167,7 @@ class FlatScene:
                 bake_functions.append((wrapper.wobject, func))
 
     def call_bake_functions(self, camera, logical_size):
+        """Call any collected bake functions."""
         # Enable pipelines to update data on the CPU. This usually includes
         # baking data into buffers. This is CPU intensive, but in practice
         # it is only used by a few materials.
@@ -171,14 +175,15 @@ class FlatScene:
             func(wobject, camera, logical_size)
 
     def iter_compute_pipelines(self):
+        """Generator that yields the collected compute pipelines."""
         for pipeline_container in self._compute_pipeline_containers:
             yield pipeline_container
 
     def iter_render_pipelines_per_pass_type(self):
-        """Generator that yields (pass_type, wobjects)."""
+        """Generator that yields (pass_type, wobjects), with pass_type 'normal' or 'weighted'."""
         current_pass_type = ""
         current_pipeline_containers = []
-        for wrapper in self._wobjects:
+        for wrapper in self._wobject_wrappers:
             if wrapper.pass_type != current_pass_type:
                 if current_pipeline_containers:
                     yield (current_pass_type, current_pipeline_containers)
@@ -215,8 +220,6 @@ class WgpuRenderer(RootEventHandler, Renderer):
         number between 0.0 and 2.0. A value of 1.0 indicates no correction.
 
     """
-
-    _wobject_pipelines_collection = weakref.WeakValueDictionary()
 
     def __init__(
         self,
@@ -420,7 +423,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
           1. the object's ``render_order`` property;
           2. whether the object is opaque/transparent/weighted/unknown;
           3. the object's distance to the camera;
-          4. the position object in the scene graph (based on a depth-first search).
+          4. the object's position in the scene graph (based on a depth-first search).
 
         If ``sort_objects`` is ``False``, step 3 (sorting using the camera transform) is omitted.
         """

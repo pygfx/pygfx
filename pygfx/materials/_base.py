@@ -79,8 +79,10 @@ class Material(Trackable):
         clipping plane. If this is "all", a fragment is discarded only if it is
         clipped by *all* of the clipping planes.
     transparent : bool | None
-        Whether the object is (semi) transparent.
-        Default (None) tries to derive this from the shader.
+        Whether the object is (semi) transparent. The renderer sorts transparent
+        objects different from opaque fragments. This value also determines the
+        auto-value of ``depth_write``. Default (None) will consider the object
+        transparent if ``opacity < 1``.
     blending : str | dict
         The way to blend semi-transparent fragments  (alpha < 1) for this material.
     depth_test :  bool
@@ -89,7 +91,8 @@ class Material(Trackable):
         against the depth buffer and also not writing to it.
     depth_write : bool | None
         Whether the object writes to the depth buffer. With None (default) this
-        is determined automatically.
+        is considerd False if ``transparent`` is True, and True if ``transparent`` is
+        False or None.
     alpha_test : float
         The alpha test value for this material. Default 0.0, meaning no alpha
         test is performed.
@@ -271,16 +274,18 @@ class Material(Trackable):
 
         If set to None, the transparency is autodetermined
         based on ``.opacity`` and possibly other material properties.
+        If your object is opaque, setting ``transparent`` to False may improve performance.
 
         The final transparency value is one of:
 
-        * False: the object is (considered) fully opaque. The renderer draws
-          these first, and sorts front-to-back to avoid overdrawing.
         * True: the object is (considered) fully transparent. The renderer draws
           these after opaque objects, and sorts back-to-front to increase the chance of correct blending.
+          The ``depth_write`` defaults to False.
+        * False: the object is (considered) fully opaque. The renderer draws
+          these first, and sorts front-to-back to avoid overdrawing. The ``depth_write`` defaults to True.
         * None: the object is considered to (possibly) have both opaque and transparent
           fragments. The renderer draws these in between opaque and transparent
-          passes, back-to-front.
+          passes, back-to-front. The ``depth_write`` defaults to True.
         """
         return self._store.transparent
 
