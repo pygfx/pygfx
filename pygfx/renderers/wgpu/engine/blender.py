@@ -23,6 +23,16 @@ def blend_dict(src_factor, dst_factor, operation):
     }
 
 
+DEPTH_MAP = {
+    False: wgpu.CompareFunction.always,
+    None: wgpu.CompareFunction.always,
+    "<": wgpu.CompareFunction.less,
+    "<=": wgpu.CompareFunction.less_equal,
+    "==": wgpu.CompareFunction.equal,
+    ">=": wgpu.CompareFunction.greater_equal,
+    ">": wgpu.CompareFunction.greater,
+}
+
 usg = wgpu.TextureUsage
 default_targets = {
     # The color texture is in srgb, because in the shaders we work with physical
@@ -267,7 +277,7 @@ class Blender:
 
         return target_states
 
-    def get_depth_descriptor(self, depth_test=True, depth_write=True):
+    def get_depth_descriptor(self, depth_test="<", depth_write=True):
         """Get the dict depth-descriptors that pipeline.py needs to create the render pipeline.
 
         Called per object when the pipeline is created.
@@ -277,9 +287,7 @@ class Blender:
             return None
 
         depth_write = bool(depth_write)
-        depth_compare = (
-            wgpu.CompareFunction.less if depth_test else wgpu.CompareFunction.always
-        )
+        depth_compare = DEPTH_MAP[depth_test]
 
         texinfo = self._texture_info["depth"]
         texinfo["is_used"] = True

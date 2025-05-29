@@ -85,10 +85,9 @@ class Material(Trackable):
         transparent if ``opacity < 1``.
     blending : str | dict
         The way to blend semi-transparent fragments  (alpha < 1) for this material.
-    depth_test :  bool
-        Whether the object takes the depth buffer into account.
-        Default True. If False, the object is like a ghost: not testing
-        against the depth buffer and also not writing to it.
+    depth_test :  bool | str
+        Whether the object takes the depth buffer into account (and how).
+        Default "<" (less). If False, the object is not tested against the depth buffer.
     depth_write : bool | None
         Whether the object writes to the depth buffer. With None (default) this
         is considerd False if ``transparent`` is True, and True if ``transparent`` is
@@ -119,7 +118,7 @@ class Material(Trackable):
         clipping_mode: Literal["ANY", "ALL"] = "ANY",
         transparent: Literal[None, False, True] = None,
         blending: Union[str, dict] = "normal",
-        depth_test: bool = True,
+        depth_test: Union[str, bool] = True,
         depth_write: Literal[None, False, True] = None,
         pick_write: bool = False,
         alpha_test: float = 0.0,
@@ -420,16 +419,26 @@ class Material(Trackable):
         self._store.blending_mode = blending_dict["mode"]
 
     @property
-    def depth_test(self) -> bool:
-        """Whether the object takes the depth buffer into account."""
+    def depth_test(self) -> Union[bool, str]:
+        """Whether the object takes the depth buffer into account.
+
+        When set to False, the depth is not tested. When set to True, uses "<" (less).
+        Other valid values are "<=", "==", ">=", and ">".
+        """
         return self._store.depth_test
 
     @depth_test.setter
-    def depth_test(self, value: bool) -> None:
+    def depth_test(self, value: bool | str) -> None:
         # Explicit test that this is a bool. We *could* maybe later allow e.g. 'greater'.
-        if not isinstance(value, (bool, int)):
-            raise TypeError("Material.depth_test must be bool.")
-        self._store.depth_test = bool(value)
+        valid_values = "<", "<=", "==", ">=", ">"
+        if isinstance(value, (bool, int)):
+            value = "<" if value else False
+        elif isinstance(value, str):
+            if value not in valid_values:
+                raise TypeError(
+                    "Material.depth_test must be bool or a str in {valid_values!r}, not {value!r}"
+                )
+        self._store.depth_test = value
 
     @property
     def depth_write(self) -> bool:
