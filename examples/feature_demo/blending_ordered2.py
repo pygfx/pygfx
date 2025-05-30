@@ -18,6 +18,9 @@ By first rendering only the opaque fragments, and then rendering the transparent
 fragments, this can be fixed. To do this, we use the alpha test.
 """
 
+# sphinx_gallery_pygfx_docs = 'screenshot'
+# sphinx_gallery_pygfx_test = 'run'
+
 from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 
