@@ -15,6 +15,7 @@ import pygfx as gfx
 from rendercanvas.offscreen import RenderCanvas
 from pygfx.renderers.wgpu.engine.pipeline import get_pipeline_container_group
 from pygfx.renderers.wgpu.engine.renderstate import get_renderstate
+from pygfx.renderers.wgpu.engine.renderer import FlatScene
 
 from ..testutils import can_use_wgpu_lib
 import pytest
@@ -28,7 +29,7 @@ class PipelineSnapshotter:
     def __init__(self, renderer, scene, world_object):
         self.world_object = world_object
         self.renderer = renderer
-        flat = renderer._get_flat_scene(scene, None)
+        flat = FlatScene(scene, None)
         self.env = get_renderstate(flat.lights, renderer._blender)
         self._snapshot()
 
@@ -45,15 +46,15 @@ class PipelineSnapshotter:
         pipeline_container = pipeline_container_group.render_containers[0]
 
         # Store shaders
-        shaders = pipeline_container.wgpu_pipelines.copy()
+        shader = pipeline_container.wgpu_shader
 
         # Store pipelines
-        pipelines = pipeline_container.wgpu_pipelines.copy()
+        pipeline = pipeline_container.wgpu_pipeline
 
         # Store bindings:  bind group -> binding id -> Binding
         bindings = {k: v.copy() for k, v in pipeline_container.bindings_dicts.items()}
 
-        return shaders, pipelines, bindings
+        return [shader], [pipeline], bindings
 
     def _snapshot(self):
         x = self.get_shaders_pipelines_bindings()
@@ -85,22 +86,6 @@ class PipelineSnapshotter:
         self._snapshot()
 
 
-def get_pipelines(world_object):
-    pipeline_container_group = world_object._wgpu_pipeline_container_group
-    pipeline_container = pipeline_container_group.render_containers[0]
-    env_hashes = list(pipeline_container.wgpu_shaders.keys())
-    assert len(env_hashes) == 1
-    env_hash = env_hashes[0]
-    return pipeline_container.wgpu_pipelines[env_hash].copy()
-
-
-def get_bindings(world_object):
-    pipeline_container_group = world_object._wgpu_pipeline_container_group
-    pipeline_container = pipeline_container_group.render_containers[0]
-    # bind group -> binding id -> Binding
-    return {k: v.copy() for k, v in pipeline_container.bindings_dicts.items()}
-
-
 def test_updating_image_material_map():
     renderer = gfx.renderers.WgpuRenderer(RenderCanvas())
     scene = gfx.Scene()
@@ -121,7 +106,7 @@ def test_updating_image_material_map():
     snapshotter.check(shaders_same=True, pipelines_same=True, bindings_same=False)
 
 
-def test_updating_mesh_material_color():
+def test_updating_mesh_material_color_and_opacity():
     renderer = gfx.renderers.WgpuRenderer(RenderCanvas())
     scene = gfx.Scene()
 
@@ -145,38 +130,13 @@ def test_updating_mesh_material_color():
     mesh.material.color = "red"
     snapshotter.check(shaders_same=True, pipelines_same=True, bindings_same=True)
 
-    # Using a transparent color does require a change, bc it needs a shader for the transparency pass
+    # Using a transparent color does not require a change; because maybe the material's color is not used.
     mesh.material.color = (1, 1, 0, 0.5)
-    snapshotter.check(shaders_same=False, pipelines_same=False, bindings_same=True)
-
-    # Going back to a transparent color does NOT invoke a change, because the shader's still there
-    mesh.material.color = "red"
     snapshotter.check(shaders_same=True, pipelines_same=True, bindings_same=True)
 
-
-def test_updating_mesh_material_opacity():
-    renderer = gfx.renderers.WgpuRenderer(RenderCanvas())
-    scene = gfx.Scene()
-
-    # Create a mesh
-    mesh = gfx.Mesh(
-        gfx.box_geometry(200, 200, 200),
-        gfx.MeshPhongMaterial(color=(1, 0, 0), color_mode="uniform"),
-    )
-    scene.add(mesh)
-
-    snapshotter = PipelineSnapshotter(renderer, scene, mesh)
-
-    # Sanity check
-    snapshotter.check(shaders_same=True, pipelines_same=True, bindings_same=True)
-
-    # Making the mesh transparent does require a change, bc it needs a shader for the transparency pass
-    mesh.material.opacity = 0.5
-    snapshotter.check(shaders_same=False, pipelines_same=False, bindings_same=True)
-
-    # Going back to a transparent color does NOT invoke a change, because the shader's still there
-    mesh.material.opacity = 1
-    snapshotter.check(shaders_same=True, pipelines_same=True, bindings_same=True)
+    # Changing the opacity to not-one, causes the depth_write to be auto-False
+    mesh.material.opacity = 0.7
+    snapshotter.check(shaders_same=True, pipelines_same=False, bindings_same=True)
 
 
 def test_updating_mesh_geometry_color():

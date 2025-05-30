@@ -6,6 +6,8 @@ from pygfx.renderers.wgpu.engine.renderstate import (
     get_renderstate,
     _renderstate_instance_cache as renderstate_cache,
 )
+from pygfx.renderers.wgpu.engine.renderer import FlatScene
+
 
 from ..testutils import can_use_wgpu_lib
 import pytest
@@ -17,12 +19,10 @@ if not can_use_wgpu_lib:
 
 render_tex = gfx.Texture(dim=2, size=(10, 10, 1), format=wgpu.TextureFormat.rgba8unorm)
 
-stub_renderer = gfx.renderers.WgpuRenderer(render_tex)
-
 
 def s2l(scene):
     """Convert scene object to light dict."""
-    flat = stub_renderer._get_flat_scene(scene, None)
+    flat = FlatScene(scene, None)
     return flat.lights
 
 
@@ -78,6 +78,7 @@ def test_renderstate_reuse2():
 def prepare_for_cleanup():
     renderer1 = gfx.renderers.WgpuRenderer(render_tex)
     renderer2 = gfx.renderers.WgpuRenderer(render_tex)
+    renderer2._blender.texture_info["color"]["format"] = "rgba16float"
     scene1 = gfx.Scene()
     scene2 = gfx.Scene()
 
@@ -103,15 +104,16 @@ def test_renderstate_cleanup_noop():
 def test_renderstate_cleanup_by_renderer_del():
     renderer1, renderer2, scene1, scene2, env1, env2 = prepare_for_cleanup()
 
-    env1 = get_renderstate(s2l(scene1), renderer1._blender)
-    hash1 = env1.hash
-    del env1
+    env2 = get_renderstate(s2l(scene2), renderer2._blender)
+    hash2 = env2.hash
 
-    del renderer1
+    del env2
+    del renderer2
+    gc.collect()
     gc.collect()
 
-    assert hash1 not in renderstate_cache
+    assert hash2 not in renderstate_cache
 
 
 if __name__ == "__main__":
-    pytest.main(["-x", __file__])
+    pytest.main(["-x", __file__, "-v"])

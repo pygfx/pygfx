@@ -839,7 +839,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         """Create a snapshot of the currently rendered image."""
 
         # Prepare
-        texture = self._blender.color_tex
+        texture = self._blender.get_texture("color")
         size = texture.size
         bytes_per_pixel = 4
 

@@ -218,7 +218,7 @@ class BaseShader(ShaderInterface):
             # Templating and resolving includes
             code2 = apply_templating(code1, **template_vars)
             # Resolve Varyings and FragmentOutput
-            code3 = resolve_shadercode(code2, template_vars["uses_alpha_test"])
+            code3 = resolve_shadercode(code2, template_vars.get("uses_alpha_test"))
             return code3
         finally:
             self._template_vars_bindings = ori_template_vars

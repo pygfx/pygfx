@@ -121,11 +121,6 @@ class Blender:
                 "clear": True,
             }
 
-        # Compute the hash for this particular blender
-        self._hash = ", ".join(
-            info["name"] + ": " + info["format"] for info in self._texture_info.values()
-        )
-
     @property
     def hash(self):
         """The hash for this blender.
@@ -138,7 +133,9 @@ class Blender:
         In such cases, their blender hashes will be different, resulting in a separate pipeline object for each.
         Similar to rendering with a different number of lights will result in separate pipeline objects.
         """
-        return self._hash
+        return ", ".join(
+            info["name"] + ": " + info["format"] for info in self._texture_info.values()
+        )
 
     @property
     def texture_info(self):
