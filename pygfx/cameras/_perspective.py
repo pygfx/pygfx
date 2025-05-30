@@ -583,8 +583,8 @@ class PerspectiveCamera(Camera):
             Look at the rectangle from this direction. If not given or None,
             uses the current view direction.
         up: 3-tuple
-           If given, set ``camera.world.reference_up`` to the given value.
-         depth: float
+            If given, set ``camera.world.reference_up`` to the given value.
+        depth: float
             The reference size for the scene in the depth dimension. If not
             given, the ``camera.depth`` is set based on ``.width`` and ``.height``.
         """
