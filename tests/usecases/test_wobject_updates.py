@@ -106,6 +106,47 @@ def test_updating_image_material_map():
     snapshotter.check(shaders_same=True, pipelines_same=True, bindings_same=False)
 
 
+def test_updating_mesh_blending():
+    renderer = gfx.renderers.WgpuRenderer(RenderCanvas())
+    scene = gfx.Scene()
+
+    # Create a mesh
+    mesh = gfx.Mesh(
+        gfx.box_geometry(200, 200, 200),
+        gfx.MeshPhongMaterial(color=(1, 0, 0), color_mode="uniform"),
+    )
+    scene.add(mesh)
+
+    snapshotter = PipelineSnapshotter(renderer, scene, mesh)
+
+    # Sanity check
+    snapshotter.check(shaders_same=True, pipelines_same=True, bindings_same=True)
+
+    # Changing to a slightly different blend mode only affects the pipeline
+    mesh.material.blending = "additive"
+    snapshotter.check(shaders_same=True, pipelines_same=False, bindings_same=True)
+
+    # Same for custom classic blending
+    # mesh.material.blending = {"mode": "classic", "color_src": "one", "color_dst": "zero", "alpha_src": "src", "alpha_dst": "one"}
+    # snapshotter.check(shaders_same=True, pipelines_same=False, bindings_same=True)
+
+    # Now use dither, which uses a different pipeline
+    mesh.material.blending = "dither"
+    snapshotter.check(shaders_same=False, pipelines_same=False, bindings_same=False)
+
+    # Now use weighted, dito.
+    mesh.material.blending = "weighted"
+    snapshotter.check(shaders_same=False, pipelines_same=False, bindings_same=False)
+
+    # Now use classic again
+    mesh.material.blending = "normal"
+    snapshotter.check(shaders_same=False, pipelines_same=False, bindings_same=False)
+
+    # Now use classic again
+    mesh.material.blending = "multiply"
+    snapshotter.check(shaders_same=True, pipelines_same=False, bindings_same=True)
+
+
 def test_updating_mesh_material_color_and_opacity():
     renderer = gfx.renderers.WgpuRenderer(RenderCanvas())
     scene = gfx.Scene()
