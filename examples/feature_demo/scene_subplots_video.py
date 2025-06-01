@@ -85,7 +85,7 @@ def animate():
         img.geometry.grid.update_full()
 
     # render the viewports
-    for viewport, s, c in zip(viewports, scenes, cameras):
+    for viewport, s, c in zip(viewports, scenes, cameras, strict=True):
         viewport.render(s, c)
 
     renderer.flush()
@@ -93,7 +93,7 @@ def animate():
 
 
 def center_objects(ev):  # center objects upon double-click event
-    for _con, cam, img in zip(controllers, cameras, images):
+    for _con, cam, img in zip(controllers, cameras, images, strict=True):
         cam.show_object(img)
 
 

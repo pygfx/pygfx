@@ -19,7 +19,7 @@ class KeyframeTrack:
         optimized_values = []
         prev_time = None
         prev_value = None
-        for time, value in zip(times, values):
+        for time, value in zip(times, values, strict=True):
             # remove adjacent keyframes scheduled at the same times
             if time != prev_time:
                 if np.any(value != prev_value):

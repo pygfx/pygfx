@@ -35,7 +35,7 @@ sizes = np.arange(1, len(xx) + 1, dtype=np.float32)
 
 points = gfx.Points(
     gfx.Geometry(
-        positions=[(x, y, 1) for x, y in zip(xx, yy)],
+        positions=[(x, y, 1) for x, y in zip(xx, yy, strict=True)],
         sizes=sizes,
     ),
     gfx.PointsMaterial(

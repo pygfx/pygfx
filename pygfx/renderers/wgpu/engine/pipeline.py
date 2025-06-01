@@ -483,7 +483,7 @@ class PipelineContainer:
         # Always create wgpu objects for the bind groups. Note that this dict
         # includes the buffer texture objects.
         self.wgpu_bind_groups = []
-        for bg_descriptor, layout in zip(bg_descriptors, self.wgpu_bind_group_layouts):
+        for bg_descriptor, layout in zip(bg_descriptors, self.wgpu_bind_group_layouts, strict=True):
             bind_group = get_cached_bind_group(self.device, layout, bg_descriptor)
             self.wgpu_bind_groups.append(bind_group)
 
