@@ -38,7 +38,9 @@ yy = [145, 131, 112, 59, 29, 14, 48, 91, 136, 137, 172]
 colors = np.vstack([[0.0, 0.0, 1.0, 1.0]] * len(xx)).astype(np.float32)
 
 points = gfx.Points(
-    gfx.Geometry(positions=[(x, y, 0) for x, y in zip(xx, yy, strict=True)], colors=colors),
+    gfx.Geometry(
+        positions=[(x, y, 0) for x, y in zip(xx, yy, strict=True)], colors=colors
+    ),
     gfx.PointsMaterial(color_mode="vertex", size=10),
 )
 points.local.z = 1  # move points in front of the image
