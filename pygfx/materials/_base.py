@@ -326,7 +326,7 @@ class Material(Trackable):
         The blending can be set using one of the following preset names:
 
         * "no": no blending, render as opaque.
-        * "normal": use classic alpha blending using the 'over' operator (the default).
+        * "normal": use classic alpha blending using the *over operator* (the default).
         * "additive": use additive blending that adds the fragment color, multiplied by alpha.
         * "subtractive": use subtractuve blending that removes the fragment color.
         * "multiply": use multiplicative blending that multiplies the fragment color.
@@ -336,22 +336,27 @@ class Material(Trackable):
 
         The blending property returns a dict. It can also be set as a dict. Such a dict has the following fields:
 
-        * "name": the preset name of this blending, or 'custom'. (This field is ignored when setting the ``blending``.)
-        * "mode": the blend-mode, one of "classic", "dither", "weighted".
-        * When ``mode`` is "classic", the following fields must/can be provided:
-          * "color_op": the blend operation/equation, any value from ``wgpu.BlendOperation``. Default 'add'.
-          * "color_src": source factor, any value of ``wgpu.BlendFactor``. Mandatory.
-          * "color_dst": destination factor, any value of ``wgpu.BlendFactor``. Mandatory.
-          * "color_constant": represents the constant value of the constant blend color. Default black.
-          * "alpha_op": as ``color_op`` but for alpha.
-          * "alpha_src": as ``color_dst`` but for alpha.
-          * "alpha_dst": as ``color_src`` but for alpha.
-          * "alpha_constant": as ``color_constant`` but for alpha (default 0).
-        * When ``mode`` is "dither": there are (currently) no extra fields.
-        * When ``mode`` is "weighted":
-          * "weight": the weight factor as wgsl code. Default 'alpha', which means use the color's alpha value.
-          * "alpha": the used alpha value. Default 'alpha', which means use as-is. Can e.g. be set to 1.0
-            so that the alpha channel can be used as the weight factor, while the object is otherwise opaque.
+        * ``name``: the preset name of this blending, or "custom". (This field is ignored by the setter.)
+        * ``mode``: the blend-mode, one of "classic", "dither", "weighted".
+
+        When the mode is "classic", the following fields must/can be provided:
+
+        * ``color_op``: the blend operation/equation, any value from ``wgpu.BlendOperation``. Default "add".
+        * ``color_src``: source factor, any value of ``wgpu.BlendFactor``. Mandatory.
+        * ``color_dst``: destination factor, any value of ``wgpu.BlendFactor``. Mandatory.
+        * ``color_constant``: represents the constant value of the constant blend color. Default black.
+        * ``alpha_op``: as ``color_op`` but for alpha.
+        * ``alpha_src``: as ``color_dst`` but for alpha.
+        * ``alpha_dst``: as ``color_src`` but for alpha.
+        * ``alpha_constant``: as ``color_constant`` but for alpha (default 0).
+
+        When the mode is "dither": there are (currently) no extra fields.
+
+        When the mode is "weighted", the extra fields are:
+
+        * ``weight``: the weight factor as wgsl code. Default "alpha", which means use the color's alpha value.
+        * ``alpha``: the used alpha value. Default "alpha", which means use as-is. Can e.g. be set to 1.0
+          so that the alpha channel can be used as the weight factor, while the object is otherwise opaque.
 
         """
         return self._store.blending_dict
