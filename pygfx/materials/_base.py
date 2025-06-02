@@ -192,9 +192,13 @@ class Material(Trackable):
 
     @property
     def opacity(self) -> float:
-        """The opacity (a.k.a. alpha value) applied to this material, expressed
-        as a value between 0 and 1. If the material contains any
-        non-opaque fragments, their alphas are simply scaled by this value.
+        """The opacity (a.k.a. alpha value) applied to this material (0..1).
+
+        If the material's color has an alpha smaller than 1, this alpha is multiplied with the opacity.
+
+        Setting this value to ``<1`` will set the auto/implicit values for ``transparent`` to True,
+        and the for ``depth_write`` to False.
+
         """
         return float(self.uniform_buffer.data["opacity"])
 
@@ -271,20 +275,24 @@ class Material(Trackable):
     def transparent(self) -> Literal[None, False, True]:
         """Defines whether this material is transparent or opaque.
 
-        If set to None, the transparency is autodetermined
-        based on ``.opacity`` and possibly other material properties.
-        If your object is opaque, setting ``transparent`` to False may improve performance.
+        If set to None, the object is considered transparent if ``.opacity < 1``.
+        Setting this value to True will set the auto/implicit value for
+        ``depth_write`` to False. Setting this value to False will influence how
+        the renderer sorts the object to avoid overdraw, which may improve
+        performance.
 
         The final transparency value is one of:
 
         * True: the object is (considered) fully transparent. The renderer draws
-          these after opaque objects, and sorts back-to-front to increase the chance of correct blending.
-          The ``depth_write`` defaults to False.
+          these after opaque objects, and sorts back-to-front to increase the
+          chance of correct blending. The ``depth_write`` defaults to False.
         * False: the object is (considered) fully opaque. The renderer draws
-          these first, and sorts front-to-back to avoid overdrawing. The ``depth_write`` defaults to True.
-        * None: the object is considered to (possibly) have both opaque and transparent
-          fragments. The renderer draws these in between opaque and transparent
-          passes, back-to-front. The ``depth_write`` defaults to True.
+          these first, and sorts front-to-back to avoid overdrawing. The
+          ``depth_write`` defaults to True.
+        * None: the object is considered to (possibly) have both opaque and
+          transparent fragments. The renderer draws these in between opaque and
+          transparent passes, back-to-front. The ``depth_write`` defaults to
+          True.
         """
         return self._store.transparent
 
