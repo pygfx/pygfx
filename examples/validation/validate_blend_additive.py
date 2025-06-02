@@ -29,7 +29,10 @@ for i, color in enumerate(colors):
     x = distance_from_center * np.cos(angle)
     y = distance_from_center * np.sin(angle)
 
-    m = gfx.Mesh(plane, gfx.MeshBasicMaterial(color=color, blending="additive"))
+    m = gfx.Mesh(
+        plane,
+        gfx.MeshBasicMaterial(color=color, blending="additive", depth_write=False),
+    )
     m.local.x = x
     m.local.y = y
     scene.add(m)
