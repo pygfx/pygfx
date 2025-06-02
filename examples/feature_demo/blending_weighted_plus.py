@@ -37,9 +37,9 @@ sphere.material.transparent = False
 geometry = gfx.plane_geometry(50, 50)
 
 # Note: Setting opacity<1 implicitly sets transparency to True, and depth_write to False.
-plane1 = gfx.Mesh(geometry, gfx.MeshBasicMaterial(color="red", opacity=0.2))
-plane2 = gfx.Mesh(geometry, gfx.MeshBasicMaterial(color="green", opacity=0.5))
-plane3 = gfx.Mesh(geometry, gfx.MeshBasicMaterial(color="blue", opacity=0.7))
+plane1 = gfx.Mesh(geometry, gfx.MeshBasicMaterial(color="r", opacity=0.2))
+plane2 = gfx.Mesh(geometry, gfx.MeshBasicMaterial(color="g", opacity=0.5))
+plane3 = gfx.Mesh(geometry, gfx.MeshBasicMaterial(color="b", opacity=0.7))
 
 
 plane1.local.rotation = la.quat_from_axis_angle((1, 0, 0), 1.571)
