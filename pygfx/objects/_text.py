@@ -207,6 +207,10 @@ class Text(WorldObject):
         paragraph_spacing=0,
         text_align="start",
         text_align_last="auto",
+        visible: bool = True,
+        render_order: float = 0,
+        render_mask: str | int = "auto",
+        name: str = "",
     ):
         # Init as a world object
         if isinstance(geometry, (str, list)):
@@ -216,7 +220,14 @@ class Text(WorldObject):
             geometry = Geometry()
         if material is None:
             material = TextMaterial()
-        super().__init__(geometry, material)
+        super().__init__(
+            geometry,
+            material,
+            visible=visible,
+            render_order=render_order,
+            render_mask=render_mask,
+            name=name,
+        )
 
         # --- check text input
 
