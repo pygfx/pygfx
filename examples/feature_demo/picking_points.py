@@ -20,7 +20,7 @@ scene = gfx.Scene()
 
 xx = np.linspace(-50, 50, 10)
 yy = np.random.uniform(20, 50, 10)
-geometry = gfx.Geometry(positions=[(x, y, 0) for x, y in zip(xx, yy)])
+geometry = gfx.Geometry(positions=[(x, y, 0) for x, y in zip(xx, yy, strict=True)])
 ob = gfx.Points(
     geometry, gfx.PointsMaterial(color=(0, 1, 1, 1), size=20, pick_write=True)
 )

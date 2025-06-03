@@ -365,7 +365,9 @@ class Texture(Resource):
             shape.insert(0, 1)
         size = tuple(reversed(shape[:3]))
         # Check whether it fits
-        if any((o1 + s1) > s2 for o1, s1, s2 in zip(offset, size, self.size)):
+        if any(
+            (o1 + s1) > s2 for o1, s1, s2 in zip(offset, size, self.size, strict=True)
+        ):
             raise ValueError("The data with this offset does not fit.")
         # Create chunk
         data = np.asarray(data).view()
