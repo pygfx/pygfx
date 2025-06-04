@@ -557,7 +557,7 @@ def _volume_from_voxelgrid(vxl, cmap=None, clim="data"):
     # Initialize the volume
     vol = gfx.Volume(
         gfx.Geometry(grid=tex),
-        gfx.VolumeRayMaterial(clim=clim, map=cmap),
+        gfx.VolumeMipMaterial(clim=clim, map=cmap),
     )
 
     # Apply transform

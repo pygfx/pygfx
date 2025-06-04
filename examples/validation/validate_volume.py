@@ -43,7 +43,7 @@ box2 = gfx.Mesh(
 
 # In scene1 we show a raycasted volume
 scene1 = gfx.Scene()
-vol = gfx.Volume(geo, gfx.VolumeRayMaterial(clim=(0, 2000)))
+vol = gfx.Volume(geo, gfx.VolumeMipMaterial(clim=(0, 2000)))
 vol.local.position = (-1, -1, -1)
 scene1.add(vol, box1)
 
