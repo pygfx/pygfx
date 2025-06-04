@@ -24,7 +24,7 @@ voldata = iio.imread("imageio:stent.npz").astype(np.float32)
 
 geometry = gfx.Geometry(grid=voldata)
 geometry_with_texture = gfx.Geometry(grid=gfx.Texture(data=voldata, dim=3))
-material = gfx.VolumeRayMaterial(clim=(0, 2000))
+material = gfx.VolumeMipMaterial(clim=(0, 2000))
 
 vol1 = gfx.Volume(geometry, material)
 vol2 = gfx.Volume(geometry_with_texture, material)
