@@ -128,7 +128,17 @@ class VolumeRayShader(BaseVolumeShader):
     type = "render"
 
     def get_bindings(self, wobject, shared):
-        self["mode"] = wobject.material.render_mode
+        render_mode = wobject.material.render_mode
+
+        # Fall back to MIP, because we've written our examples to use the plain VolumeRayMaterial for quite a while.
+        # Deprecate / remove this after a few releases (now is june 2025)
+        render_mode = render_mode or "mip"
+
+        if not render_mode:
+            raise RuntimeError(
+                f"Invalid value for {wobject.material.__class__.__name__}.render_mode: {render_mode!r}. Use an appropriate volume material, e.g. VolumeMipMaterial or VolumeIsoMaterial."
+            )
+        self["mode"] = render_mode
         return super().get_bindings(wobject, shared)
 
     def get_pipeline_info(self, wobject, shared):
