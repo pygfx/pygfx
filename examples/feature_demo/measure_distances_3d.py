@@ -53,7 +53,7 @@ def handle_clicks(event):
         pos = np.sum(
             [
                 geometry.positions.data[i] * w
-                for i, w in zip(vertex_indices, face_coord)
+                for i, w in zip(vertex_indices, face_coord, strict=True)
             ],
             axis=0,
         )

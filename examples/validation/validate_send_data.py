@@ -42,7 +42,7 @@ image = gfx.Image(
 
 xx = [182, 180, 161, 153, 191, 237, 293, 300, 272, 267, 254]
 yy = [145, 131, 112, 59, 29, 14, 48, 91, 136, 137, 172]
-position_data = np.array([(x, y, 1) for x, y in zip(xx, yy)], np.float32)
+position_data = np.array([(x, y, 1) for x, y in zip(xx, yy, strict=True)], np.float32)
 
 buf = gfx.Buffer(
     nitems=len(xx),

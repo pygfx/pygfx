@@ -16,7 +16,7 @@ def calculate_and_show_chunk_size(tex_size, target_chunk_count=20, **kwargs):
         tex_size, target_chunk_count=target_chunk_count, **kwargs
     )
 
-    nchunks_list = [ts / cs for ts, cs in zip(tex_size, chunk_size)]
+    nchunks_list = [ts / cs for ts, cs in zip(tex_size, chunk_size, strict=True)]
     nchunks = ceil(nchunks_list[0]) * ceil(nchunks_list[1]) * ceil(nchunks_list[2])
     chunk_counts_str = ", ".join(f"{x:0.03f}" for x in nchunks_list)
     print(f"{tex_size} -> {chunk_size} - {nchunks} chunks (counts: {chunk_counts_str})")

@@ -24,7 +24,7 @@ voldata = iio.imread("imageio:stent.npz").astype(np.float32)
 tex = gfx.Texture(voldata, dim=3)
 vol = gfx.Volume(
     gfx.Geometry(grid=tex),
-    gfx.VolumeRayMaterial(clim=(0, 2000), map=gfx.cm.cividis, pick_write=True),
+    gfx.VolumeMipMaterial(clim=(0, 2000), map=gfx.cm.cividis, pick_write=True),
 )
 slice = gfx.Volume(
     gfx.Geometry(grid=tex),
