@@ -73,7 +73,7 @@ class AxesHelper(Line):
 
         super().__init__(geometry, material)
 
-        for pos, color in zip(line_positions[1::2], colors[1::2]):
+        for pos, color in zip(line_positions[1::2], colors[1::2], strict=True):
             material = MeshBasicMaterial(color=color)
             arrow_head = Mesh(cone, material)
             arrow_head.local.position = pos
@@ -122,5 +122,5 @@ class AxesHelper(Line):
         self._geometry.colors.data[5] = z
         self._geometry.colors.update_full()
         # update arrow heads
-        for arrow, color in zip(self.children, [x, y, z]):
+        for arrow, color in zip(self.children, [x, y, z], strict=True):
             arrow.material.color = color

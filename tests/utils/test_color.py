@@ -9,7 +9,7 @@ class TColor(Color):
     def matches(self, r, g, b, a):
         eps = 0.501 / 255
         rgba = r, g, b, a
-        return all(abs(v1 - v2) < eps for v1, v2 in zip(self.rgba, rgba))
+        return all(abs(v1 - v2) < eps for v1, v2 in zip(self.rgba, rgba, strict=True))
 
 
 def test_color_basics():

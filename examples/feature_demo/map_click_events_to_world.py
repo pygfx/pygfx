@@ -72,7 +72,7 @@ def layout(event=None):
 
 def animate():
     # render the viewports
-    for viewport, s, c in zip(viewports, scenes, cameras):
+    for viewport, s, c in zip(viewports, scenes, cameras, strict=True):
         viewport.render(s, c)
 
     renderer.flush()
@@ -86,7 +86,7 @@ def add_point(ev):
     pos = (ev.x, ev.y)
     print(f"position click: {pos}")
 
-    for viewport, scene, camera in zip(viewports, scenes, cameras):
+    for viewport, scene, camera in zip(viewports, scenes, cameras, strict=True):
         if not viewport.is_inside(*pos):
             continue
 

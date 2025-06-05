@@ -178,7 +178,7 @@ class FontManager:
 
         # Create a map to lookup the fname from the family
         self._default_family_to_fname = {
-            family: fname for family, fname in zip(families, fnames)
+            family: fname for family, fname in zip(families, fnames, strict=True)
         }
 
         # Create a dict that maps codepoint to tuple of names

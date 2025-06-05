@@ -62,7 +62,7 @@ def _set_log_level():
             else:
                 logger.setLevel(level.upper())
         except Exception:
-            logger.warn(f"Invalid pygfx log level: {level}")
+            logger.warning(f"Invalid pygfx log level: {level}")
 
 
 _set_log_level()
