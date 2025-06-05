@@ -87,6 +87,13 @@ class PointsMaterial(Material):
             "point_coord": (values["x"] - 256.0, values["y"] - 256.0),
         }
 
+    def _looks_transparent(self):
+        if self.opacity < 1:
+            return True
+        if self._store.get("color_mode") in ("auto", "uniform"):
+            if self.color.a < 1:
+                return True
+
     @property
     def color(self):
         """The color of the points (if map is not set)."""
@@ -97,6 +104,7 @@ class PointsMaterial(Material):
         color = Color(color)
         self.uniform_buffer.data["color"] = color
         self.uniform_buffer.update_full()
+        self._resolve_transparent()
 
     @property
     def aa(self):
@@ -136,6 +144,7 @@ class PointsMaterial(Material):
         if value in ["face", "face_map"]:
             raise ValueError(f"PointsMaterial.color_mode does not support {value!r}")
         self._store.color_mode = value
+        self._resolve_transparent()
 
     @property
     def edge_mode(self):

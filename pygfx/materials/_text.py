@@ -82,6 +82,12 @@ class TextMaterial(Material):
     def aa(self, aa):
         self._store.aa = bool(aa)
 
+    def _looks_transparent(self):
+        if self.opacity < 1:
+            return True
+        if self.color.a < 1:
+            return True
+
     @property
     def color(self):
         """The color of the text."""
@@ -92,6 +98,7 @@ class TextMaterial(Material):
         color = Color(color)
         self.uniform_buffer.data["color"] = color
         self.uniform_buffer.update_full()
+        self._resolve_transparent()
 
     @property
     def outline_thickness(self):

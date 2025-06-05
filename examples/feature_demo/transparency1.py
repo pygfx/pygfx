@@ -29,15 +29,15 @@ geometry = gfx.plane_geometry(50, 50)
 # by depth in the correct way. It also implicitly sets depth_write to False.
 plane1 = gfx.Mesh(
     geometry,
-    gfx.MeshBasicMaterial(color=(1, 0, 0, 0.7), transparent=True),
+    gfx.MeshBasicMaterial(color=(1, 0, 0, 0.7)),
 )
 plane2 = gfx.Mesh(
     geometry,
-    gfx.MeshBasicMaterial(color=(0, 1, 0, 0.7), transparent=True),
+    gfx.MeshBasicMaterial(color=(0, 1, 0, 0.7)),
 )
 plane3 = gfx.Mesh(
     geometry,
-    gfx.MeshBasicMaterial(color=(0, 0, 1, 0.7), transparent=True),
+    gfx.MeshBasicMaterial(color=(0, 0, 1, 0.7)),
 )
 
 plane1.local.position = (-10, -10, 1)

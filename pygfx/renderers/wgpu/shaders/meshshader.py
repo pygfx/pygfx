@@ -738,6 +738,7 @@ class MeshSliceShader(BaseShader):
         geometry = wobject.geometry
 
         color_mode = str(material.color_mode).split(".")[-1]
+
         if color_mode == "auto":
             if material.map is not None:
                 self["color_mode"] = "vertex_map"
@@ -745,16 +746,13 @@ class MeshSliceShader(BaseShader):
             else:
                 self["color_mode"] = "uniform"
                 self["color_buffer_channels"] = 0
-        elif color_mode == "uniform":
-            self["color_mode"] = "uniform"
-            self["color_buffer_channels"] = 0
-        elif color_mode == "vertex":
-            nchannels = nchannels_from_format(geometry.colors.format)
-            self["color_mode"] = "vertex"
-            self["color_buffer_channels"] = nchannels
-            if nchannels not in (1, 2, 3, 4):
-                raise ValueError(f"Geometry.colors needs 1-4 columns, not {nchannels}")
-        elif color_mode == "face":
+        if color_mode in ["uniform", "auto"]:
+            self["use_uniform_color"] = True
+
+        if color_mode in ["vertex", "auto"] and hasattr(geometry, "colors"):
+            self["use_vertex_color"] = nchannels_from_format(geometry.colors.format)
+
+        if color_mode in ["face"] and hasattr(geometry, "colors"):
             nchannels = nchannels_from_format(geometry.colors.format)
             self["color_mode"] = "face"
             self["color_buffer_channels"] = nchannels

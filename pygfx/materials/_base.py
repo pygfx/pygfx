@@ -275,7 +275,8 @@ class Material(Trackable):
     def transparent(self) -> Literal[None, False, True]:
         """Defines whether this material is transparent or opaque.
 
-        If set to None, the object is considered transparent if ``.opacity < 1``.
+        If set to None, the object is considered transparent if ``.opacity < 1``
+        or ``.color.a < 1`` (if this material has a color).
         Setting this value to True will set the auto/implicit value for
         ``depth_write`` to False. Setting this value to False will influence how
         the renderer sorts the object to avoid overdraw, which may improve
