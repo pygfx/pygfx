@@ -300,9 +300,8 @@ class LineShader(BaseShader):
         }
 
     def get_pipeline_info(self, wobject, shared):
-        # Cull backfaces so that overlapping faces are not drawn.
         return {
-            "primitive_topology": wgpu.PrimitiveTopology.triangle_strip,
+            "primitive_topology": wgpu.PrimitiveTopology.triangle_list,
             "cull_mode": wgpu.CullMode.none,
         }
 
@@ -355,7 +354,7 @@ class LineShader(BaseShader):
         }
 
     def get_code(self):
-        return load_wgsl("line.wgsl")
+        return load_wgsl("line2.wgsl")
 
 
 @register_wgpu_render_function(Line, LineDebugMaterial)
