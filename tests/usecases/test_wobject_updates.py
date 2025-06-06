@@ -171,7 +171,16 @@ def test_updating_mesh_material_color_and_opacity():
     mesh.material.color = "red"
     snapshotter.check(shaders_same=True, pipelines_same=True, bindings_same=True)
 
-    # Using a transparent color does not require a change; because maybe the material's color is not used.
+    # Using a transparent color also triggers a change, depending on color_mode
+    mesh.material.color = (1, 1, 0, 0.5)
+    snapshotter.check(shaders_same=True, pipelines_same=False, bindings_same=True)
+
+    # Restore and set color mode
+    mesh.material.color = (1, 1, 0, 1)
+    mesh.material.color_mode = "vertex"
+    snapshotter.check(shaders_same=False, pipelines_same=False, bindings_same=False)
+
+    # Now the color does not matter!
     mesh.material.color = (1, 1, 0, 0.5)
     snapshotter.check(shaders_same=True, pipelines_same=True, bindings_same=True)
 
