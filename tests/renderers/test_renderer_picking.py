@@ -46,7 +46,7 @@ def test_render_picking_simple():
     )
 
     # Put together, and create a camera that sees them
-    scene = gfx.Scene(ob1, ob2, ob3)
+    scene = gfx.Scene().add(ob1, ob2, ob3)
     camera = gfx.OrthographicCamera()
     camera.show_rect(0, 30, -10, 10)
 
@@ -94,7 +94,7 @@ def test_render_picking_turning_on_off():
     ob1.local.x = 5  # centered around 5 -> 0..10
 
     # Put together, and create a camera that sees them
-    scene = gfx.Scene(ob1)
+    scene = gfx.Scene().add(ob1)
     camera = gfx.OrthographicCamera()
     camera.show_rect(0, 10, -5, 5)
 
@@ -142,7 +142,7 @@ def test_render_picking_and_depth1():
     ob2.local.x = 5  # centered around 5 -> 0..10
 
     # Put together, and create a camera that sees them
-    scene = gfx.Scene(ob1, ob2)
+    scene = gfx.Scene().add(ob1, ob2)
     camera = gfx.OrthographicCamera()
     camera.show_rect(0, 10, -5, 5)
 
@@ -188,7 +188,7 @@ def test_render_picking_and_depth2():
     ob2.local.x = 5  # centered around 5 -> 0..10
 
     # Put together, and create a camera that sees them
-    scene = gfx.Scene(ob1, ob2)
+    scene = gfx.Scene().add(ob1, ob2)
     camera = gfx.OrthographicCamera()
     camera.show_rect(0, 10, -5, 5)
 
@@ -251,7 +251,7 @@ def test_render_picking_and_transparency():
     ob2.local.x = 5  # centered around 5 -> 0..10
 
     # Put together, and create a camera that sees them
-    scene = gfx.Scene(ob1, ob2)
+    scene = gfx.Scene().add(ob1, ob2)
     camera = gfx.OrthographicCamera()
     camera.show_rect(0, 10, -5, 5)
 
