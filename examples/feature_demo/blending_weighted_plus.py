@@ -81,10 +81,12 @@ for ob in objects:
     )
 
     ob.material1.depth_write = True
-    ob.material1.depth_test = "<="
+    ob.material1.depth_test = True
+    ob.material1.depth_compare = "<="
 
     ob.material2.depth_write = False
-    ob.material2.depth_test = ">"
+    ob.material2.depth_test = True
+    ob.material2.depth_compare = ">"
 
 
 def animate():

@@ -381,6 +381,7 @@ class PipelineContainer:
             with tracker.track_usage("pipeline_info"):
                 self.pipeline_info = self.shader.get_pipeline_info(wobject, self.shared)
                 self.wobject_info["depth_test"] = wobject.material.depth_test
+                self.wobject_info["depth_compare"] = wobject.material.depth_compare
                 self.wobject_info["depth_write"] = wobject.material.depth_write
                 self.wobject_info["blending"] = wobject.material.blending
             self._check_pipeline_info()
@@ -625,11 +626,14 @@ class RenderPipelineContainer(PipelineContainer):
         # This step should *not* rerun when e.g. the canvas resizes.
         blender = renderstate.blender
         depth_test = self.wobject_info["depth_test"]
+        depth_compare = self.wobject_info["depth_compare"]
         depth_write = self.wobject_info["depth_write"]
         color_descriptors = blender.get_color_descriptors(
             self.wobject_info["pick_write"], self.wobject_info["blending"]
         )
-        depth_descriptor = blender.get_depth_descriptor(depth_test, depth_write)
+        depth_descriptor = blender.get_depth_descriptor(
+            depth_test, depth_compare, depth_write
+        )
         shader_module = self.wgpu_shader
 
         return get_cached_render_pipeline(

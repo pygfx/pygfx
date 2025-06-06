@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     ABCDTuple: TypeAlias = tuple[float, float, float, float]
 
 
-TEST_COMPARE_VALUES = "<", "<=", "==", ">=", ">"  # for alpha_test and depth_test
+TEST_COMPARE_VALUES = "<", "<=", "==", "!=", ">=", ">"  # for alpha_test and depth_test
 
 # The blending presets
 # note: we assume alpha is not pre-multiplied
@@ -87,9 +87,11 @@ class Material(Trackable):
         transparent if ``opacity < 1``.
     blending : str | dict
         The way to blend semi-transparent fragments  (alpha < 1) for this material.
-    depth_test :  bool | str
+    depth_test :  bool
         Whether the object takes the depth buffer into account (and how).
-        Default "<" (less). If False, the object is not tested against the depth buffer.
+        Default True.
+    depth_compare : str
+        How to compare depth values ("<", "<=", "==", "!=", ">=", ">"). Default "<".
     depth_write : bool | None
         Whether the object writes to the depth buffer. With None (default) this
         is considerd False if ``transparent`` is True, and True if ``transparent`` is
@@ -98,7 +100,7 @@ class Material(Trackable):
         The alpha test value for this material. Default 0.0, meaning no alpha
         test is performed.
     alpha_compare : str
-        How to compare alpha values ("<", "<=", "==", ">=", ">"). Default "<".
+        How to compare alpha values ("<", "<=", "==", "!=", ">=", ">"). Default "<".
     """
 
     # Note that in the material classes we define what properties are stored as
@@ -122,7 +124,8 @@ class Material(Trackable):
         clipping_mode: Literal["ANY", "ALL"] = "ANY",
         transparent: Literal[None, False, True] = None,
         blending: Union[str, dict] = "normal",
-        depth_test: Union[str, bool] = True,
+        depth_test: bool = True,
+        depth_compare: str = "<",
         depth_write: Literal[None, False, True] = None,
         pick_write: bool = False,
         alpha_test: float = 0.0,
@@ -142,6 +145,7 @@ class Material(Trackable):
         self.transparent = transparent
         self.blending = blending
         self.depth_test = depth_test
+        self.depth_compare = depth_compare
         self.depth_write = depth_write
         self.pick_write = pick_write
         self.alpha_test = alpha_test
@@ -439,26 +443,33 @@ class Material(Trackable):
         self._store.blending_mode = blending_dict["mode"]
 
     @property
-    def depth_test(self) -> Union[bool, str]:
+    def depth_test(self) -> bool:
         """Whether the object takes the depth buffer into account.
 
-        When set to False, the depth is not tested. When set to True, uses "<" (less).
-        Other valid values are "<=", "==", ">=", and ">".
+        When set to True, the fragment's depth is tested using ``depth_compare`` against the depth buffer.
         """
         return self._store.depth_test
 
     @depth_test.setter
-    def depth_test(self, value: bool | str) -> None:
-        # Explicit test that this is a bool. We *could* maybe later allow e.g. 'greater'.
-        valid_values = "<", "<=", "==", ">=", ">"
-        if isinstance(value, (bool, int)):
-            value = "<" if value else False
-        elif isinstance(value, str):
-            if value not in valid_values:
-                raise TypeError(
-                    "Material.depth_test must be bool or a str in {valid_values!r}, not {value!r}"
-                )
-        self._store.depth_test = value
+    def depth_test(self, value: bool) -> None:
+        self._store.depth_test = bool(value)
+
+    @property
+    def depth_compare(self):
+        """The way to compare the depth with the value in the buffer.
+
+        Possible values are "<", "<=", "==", "!=", ">=", ">". Default "<".
+        Note that this only applies if ``depth_test`` is set to True.
+        """
+        return self._store.depth_compare
+
+    @depth_compare.setter
+    def depth_compare(self, value) -> None:
+        if not (isinstance(value, str) and value in TEST_COMPARE_VALUES):
+            raise TypeError(
+                "Material.depth_compare must be a str in {TEST_COMPARE_VALUES!r}, not {value!r}"
+            )
+        self._store.depth_compare = value
 
     @property
     def depth_write(self) -> bool:
@@ -520,7 +531,7 @@ class Material(Trackable):
     def alpha_compare(self) -> str:
         """The way to compare the alpha value.
 
-        Possible values are "<", "<=", "==", ">=", and ">". Default "<".
+        Possible values are "<", "<=", "==", "!=", ">=", ">". Default "<".
         Note that this only applies if the alpha test is performed (i.e. ``alpha_test`` is nonzero).
         """
         return self._store.alpha_compare

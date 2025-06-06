@@ -24,11 +24,11 @@ def blend_dict(src_factor, dst_factor, operation):
 
 
 DEPTH_MAP = {
-    False: wgpu.CompareFunction.always,
-    None: wgpu.CompareFunction.always,
+    "": wgpu.CompareFunction.always,
     "<": wgpu.CompareFunction.less,
     "<=": wgpu.CompareFunction.less_equal,
     "==": wgpu.CompareFunction.equal,
+    "!=": wgpu.CompareFunction.not_equal,
     ">=": wgpu.CompareFunction.greater_equal,
     ">": wgpu.CompareFunction.greater,
 }
@@ -274,7 +274,7 @@ class Blender:
 
         return target_states
 
-    def get_depth_descriptor(self, depth_test="<", depth_write=True):
+    def get_depth_descriptor(self, depth_test, depth_compare, depth_write):
         """Get the dict depth-descriptors that pipeline.py needs to create the render pipeline.
 
         Called per object when the pipeline is created.
@@ -284,7 +284,10 @@ class Blender:
             return None
 
         depth_write = bool(depth_write)
-        depth_compare = DEPTH_MAP[depth_test]
+        if depth_test:
+            wgpu_depth_compare = DEPTH_MAP[depth_compare]
+        else:
+            wgpu_depth_compare = wgpu.CompareFunction.always
 
         texinfo = self._texture_info["depth"]
         texinfo["is_used"] = True
@@ -292,7 +295,7 @@ class Blender:
         return {
             "format": texinfo["format"],
             "depth_write_enabled": depth_write,
-            "depth_compare": depth_compare,
+            "depth_compare": wgpu_depth_compare,
             "stencil_read_mask": 0,
             "stencil_write_mask": 0,
             "stencil_front": {},  # use defaults
