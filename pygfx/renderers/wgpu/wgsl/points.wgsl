@@ -362,13 +362,15 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
         );
     $$ endif
 
-    // Determine final color and opacity
-    if (the_color.a <= 0.0) { discard; }
     $$ if color_mode == 'debug'
         let out_color = vec4<f32>(srgb2physical(the_color.rgb), the_color.a);
     $$ else
         let out_color = vec4<f32>(srgb2physical(the_color.rgb), the_color.a * u_material.opacity);
     $$ endif
+
+    // Always discard the empty space, but also allow custom alpha test
+    if (out_color.a <= 0.0) { discard; }
+    do_alpha_test(out_color.a);
 
     var out: FragmentOutput;
     out.color = out_color;

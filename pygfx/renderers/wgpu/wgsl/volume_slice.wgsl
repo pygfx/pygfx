@@ -183,6 +183,7 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     let opacity = color.a * u_material.opacity;
     let out_color = vec4<f32>(physical_color, opacity);
 
+    do_alpha_test(out_color.a);
 
     var out: FragmentOutput;
     out.color = out_color;

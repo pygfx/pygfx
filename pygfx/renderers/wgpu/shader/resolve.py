@@ -6,17 +6,17 @@ logger = logging.getLogger("pygfx")
 warned_for = set()
 
 
-def resolve_shadercode(wgsl, uses_alpha_test=False):
+def resolve_shadercode(wgsl):
     """Apply all shader resolve opearions."""
-    return _resolve(wgsl, VaryingResolver(), OutputResolver(uses_alpha_test))
+    return _resolve(wgsl, VaryingResolver(), OutputResolver())
 
 
 def resolve_varyings(wgsl):
     return _resolve(wgsl, VaryingResolver())
 
 
-def resolve_output(wgsl, uses_alpha_test=False):
-    return _resolve(wgsl, OutputResolver(uses_alpha_test))
+def resolve_output(wgsl):
+    return _resolve(wgsl, OutputResolver())
 
 
 def _resolve(wgsl, *resolvers):
@@ -236,7 +236,7 @@ class OutputResolver:
     to accept depth.
     """
 
-    def __init__(self, uses_alpha_test=False):
+    def __init__(self):
         # Detect whether the depth is set in the shader. We're going to assume
         # this is in the fragment shader. We check for "out.depth =".
         # Background: by default the depth is based on the geometry (set
@@ -245,7 +245,6 @@ class OutputResolver:
         # do early depth testing; the fragment shader must be run for the
         # depth to be known.
 
-        self.uses_alpha_test = uses_alpha_test
         self.struct_linenr = None
         self.assigned_fields = None  # list of (field-name, linenr)
         self.assigned_fields_list = []  # list of assigned_fields
@@ -364,10 +363,6 @@ class OutputResolver:
             if args:
                 args.insert(0, "&out")
                 line = f"{last_indent}apply_virtual_fields_of_fragment_output({', '.join(args)});"
-                extra_last_lines.append(line)
-
-            if self.uses_alpha_test:
-                line = f"{last_indent}if (select(out.color.a > -u_material.alpha_test, out.color.a < u_material.alpha_test, u_material.alpha_test > 0.0)) {{ discard; }}"
                 extra_last_lines.append(line)
 
             if extra_last_lines:

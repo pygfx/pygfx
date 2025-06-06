@@ -125,6 +125,16 @@ fn srgb2physical(color: vec3<f32>) -> vec3<f32> {
 }
 
 
+fn do_alpha_test(alpha: f32) {
+    $$ if use_alpha_test is defined and use_alpha_test
+        $$ if alpha_compare is defined
+            if (alpha {{ alpha_compare }} u_material.alpha_test) { discard; }
+        $$ else
+            if (alpha < u_material.alpha_test) { discard; }
+        $$ endif
+    $$ endif
+}
+
 // ----- Picking
 
 var<private> p_pick_bits_used : i32 = 0;

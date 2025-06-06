@@ -70,6 +70,8 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
     var physical_color = physical_albeido;
     let out_color = vec4<f32>(physical_color, opacity);
 
+    do_alpha_test(opacity);
+
     // Wrap up
     var out: FragmentOutput;
     out.color = out_color;

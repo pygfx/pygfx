@@ -489,6 +489,8 @@ class ThinLineShader(LineShader):
             let opacity = color.a * u_material.opacity;
             let out_color = vec4<f32>(physical_color, opacity);
 
+            do_alpha_test(opacity);
+
             var out: FragmentOutput;
             out.color = out_color;
             return out;
