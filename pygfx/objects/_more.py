@@ -22,8 +22,10 @@ class Group(WorldObject):
 
     """
 
-    def __init__(self, *, visible=True, name=""):
+    def __init__(self, *objects, visible: bool = True, name: str = ""):
         super().__init__(visible=visible, name=name)
+        if objects:
+            self.add(*objects)
 
 
 class Scene(Group):
@@ -35,8 +37,8 @@ class Scene(Group):
 
     """
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, *objects, **kwargs):
+        super().__init__(*objects, **kwargs)
 
 
 class Background(WorldObject):
