@@ -275,6 +275,7 @@ class BaseShader(ShaderInterface):
         return [
             Binding("s_colormap", "sampler/filtering", sampler, "FRAGMENT"),
             Binding("t_colormap", "texture/auto", texture_view, "FRAGMENT"),
+            Binding("u_colormap", "buffer/uniform", map.uniform_buffer, "FRAGMENT"),
         ]
 
     def define_img_colormap(self, map):
@@ -300,6 +301,7 @@ class BaseShader(ShaderInterface):
         return [
             Binding("s_colormap", "sampler/filtering", sampler, "FRAGMENT"),
             Binding("t_colormap", "texture/auto", texture_view, "FRAGMENT"),
+            Binding("u_colormap", "buffer/uniform", map.uniform_buffer, "FRAGMENT"),
         ]
 
     def _define_colormap_texture(self, texture):

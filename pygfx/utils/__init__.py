@@ -44,7 +44,7 @@ import numpy as np
 
 from .color import Color  # noqa: F401
 from . import enums  # noqa: F401
-from . import cm  # noqa: F401
+
 from ._dirs import get_resources_dir, get_cache_dir  # noqa: F401
 
 logger = logging.getLogger("pygfx")
@@ -62,7 +62,7 @@ def _set_log_level():
             else:
                 logger.setLevel(level.upper())
         except Exception:
-            logger.warn(f"Invalid pygfx log level: {level}")
+            logger.warning(f"Invalid pygfx log level: {level}")
 
 
 _set_log_level()

@@ -381,4 +381,10 @@ $$ elif mode == 'iso'
         return out;
     }
 
+$$ else
+    fn raycast(sizef: vec3<f32>, nsteps: i32, start_coord: vec3<f32>, step_coord: vec3<f32>) -> RenderOutput {
+        {{ mode }}__is_not_a_valid_render_mode();
+        var out: RenderOutput;
+        return out;
+    }
 $$ endif

@@ -49,14 +49,15 @@ scene.add(background, plane1, plane2, plane3)
 camera = gfx.OrthographicCamera(100, 100)
 
 scene_overlay = gfx.Scene()
+
 blend_text = gfx.Text(
     text=f"Blending: {plane1.material.blending['name']}",
-    anchor="bottom-left",
+    anchor="top-left",
     material=gfx.TextMaterial(outline_thickness=0.3),
 )
 scene_overlay.add(blend_text)
 
-screen_camera = gfx.ScreenCoordsCamera()
+screen_camera = gfx.ScreenCoordsCamera(invert_y=True)
 
 controller = gfx.OrbitController(camera, register_events=renderer)
 
