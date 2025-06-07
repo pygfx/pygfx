@@ -18,7 +18,6 @@ from ..utils.transform import (
     AffineTransform,
     RecursiveTransform,
 )
-from ..utils.enums import RenderMask
 from ..geometries import Geometry
 from ..materials import Material
 
@@ -100,9 +99,6 @@ class WorldObject(EventTarget, Trackable):
         Whether the object is visible.
     render_order : float
         Value that helps controls the order in which objects are rendered.
-    render_mask : str | RenderMask
-        Determines the render passes that the object is rendered in. It's
-        recommended to let the renderer decide, using "auto".
     name : str
         The name of the object.
 
@@ -145,7 +141,6 @@ class WorldObject(EventTarget, Trackable):
         *,
         visible: bool = True,
         render_order: float = 0,
-        render_mask: str | int = "auto",
         name: str = "",
     ) -> None:
         super().__init__()
@@ -187,7 +182,6 @@ class WorldObject(EventTarget, Trackable):
         # Init visibility and render props
         self.visible = visible
         self.render_order = render_order
-        self.render_mask = render_mask
         self.cast_shadow = False
         self.receive_shadow = False
 
@@ -259,6 +253,8 @@ class WorldObject(EventTarget, Trackable):
         Objects with higher ``render_order`` get rendered later.
         Default 0. Also see ``Renderer.sort_objects``.
         """
+        # Note: the render order is on the object, not the material, because it affects
+        # a specific object, and materials are often shared between multiple objects.
         return self._store.render_order
 
     @render_order.setter
@@ -266,46 +262,14 @@ class WorldObject(EventTarget, Trackable):
         self._store.render_order = float(value)
 
     @property
-    def render_mask(self) -> int:
-        """Indicates in what render passes to render this object:
-
-        See :obj:`pygfx.utils.enums.RenderMask`:
-
-        If "auto" (the default), the renderer attempts to determine
-        whether all fragments will be either opaque or all transparent,
-        and only apply the needed render passes. If this cannot be
-        determined, it falls back to "all".
-
-        Some objects may contain both transparent and opaque fragments,
-        and should be rendered in all passes - the object's contribution
-        to each pass is determined on a per-fragment basis.
-
-        For clarity, rendering objects in all passes even though they
-        are fully opaque/transparent yields correct results and is
-        generally the "safest" option. The only cost is performance.
-        Rendering transparent fragments in the opaque pass makes them
-        invisible. Rendering opaque fragments in the transparent pass
-        blends them as if they are transparent with an alpha of 1.
-        """
-        return self._store.render_mask
+    def render_mask(self):
+        return None
 
     @render_mask.setter
-    def render_mask(self, value: int | str) -> None:
-        if value is None:
-            value = 0
-        if isinstance(value, int):
-            pass
-        elif isinstance(value, str):
-            if value not in dir(RenderMask):
-                msg = f"WorldObject.render_mask must be one of {dir(RenderMask)} not {value!r}"
-                raise ValueError(msg) from None
-            value = RenderMask[value]
-        else:
-            raise TypeError(
-                f"WorldObject.render_mask must be int or str, not {type(value)}"
-            )
-        # Store the value as an int, because this is a flag, but also for backwards compat.
-        self._store.render_mask = value
+    def render_mask(self, value):
+        raise DeprecationWarning(
+            "render_mask is deprecated, see material.transparent to control how the rendere should treat an object."
+        )
 
     @property
     def geometry(self) -> Geometry | None:

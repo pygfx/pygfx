@@ -209,7 +209,6 @@ class Text(WorldObject):
         text_align_last="auto",
         visible: bool = True,
         render_order: float = 0,
-        render_mask: str | int = "auto",
         name: str = "",
     ):
         # Init as a world object
@@ -225,7 +224,6 @@ class Text(WorldObject):
             material,
             visible=visible,
             render_order=render_order,
-            render_mask=render_mask,
             name=name,
         )
 

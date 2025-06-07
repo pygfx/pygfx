@@ -9,7 +9,7 @@
 //
 // Also adds auto-generated code for:
 //
-// * FragmentOutput (implementation depends on blend mode and picking)
+// * FragmentOutput (implementation depends on blending mode and picking)
 // * Bindings (as specified via shader.define_binding())
 //
 // In addition to this, the shader will also:
@@ -124,6 +124,16 @@ fn srgb2physical(color: vec3<f32>) -> vec3<f32> {
     // return pow(color, vec3<f32>(2.2));
 }
 
+
+fn do_alpha_test(alpha: f32) {
+    $$ if use_alpha_test is defined and use_alpha_test
+        $$ if alpha_compare is defined
+            if (alpha {{ alpha_compare }} u_material.alpha_test) { discard; }
+        $$ else
+            if (alpha < u_material.alpha_test) { discard; }
+        $$ endif
+    $$ endif
+}
 
 // ----- Picking
 

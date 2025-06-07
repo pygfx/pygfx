@@ -8,7 +8,6 @@ from .. import (
     register_wgpu_render_function,
     BaseShader,
     Binding,
-    RenderMask,
     to_texture_format,
     GfxSampler,
     GfxTextureView,
@@ -94,29 +93,8 @@ class VolumeSliceShader(BaseVolumeShader):
         }
 
     def get_render_info(self, wobject, shared):
-        material = wobject.material
-
-        render_mask = 0
-        if wobject.render_mask:
-            render_mask = wobject.render_mask
-        elif material.is_transparent:
-            render_mask = RenderMask.transparent
-        else:
-            # Determine what passes are needed
-            if material.map is not None:
-                if self["colormap_nchannels"] in (1, 3):
-                    render_mask |= RenderMask.opaque
-                else:
-                    render_mask |= RenderMask.all
-            else:
-                if self["img_nchannels"] in (1, 3):
-                    render_mask |= RenderMask.opaque
-                else:
-                    render_mask |= RenderMask.all
-
         return {
             "indices": (12, 1),
-            "render_mask": render_mask,
         }
 
     def get_code(self):
@@ -148,20 +126,8 @@ class VolumeRayShader(BaseVolumeShader):
         }
 
     def get_render_info(self, wobject, shared):
-        material = wobject.material
-
-        render_mask = wobject.render_mask
-        if not render_mask:
-            if material.is_transparent:
-                render_mask = RenderMask.transparent
-            elif self["img_nchannels"] in (1, 3):
-                render_mask = RenderMask.opaque
-            else:
-                render_mask = RenderMask.all
-
         return {
             "indices": (36, 1),
-            "render_mask": render_mask,
         }
 
     def get_code(self):

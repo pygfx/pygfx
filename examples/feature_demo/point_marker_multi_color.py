@@ -156,8 +156,8 @@ scene.add(grid)
 n = 100
 positions = np.random.normal(0, 50, (n, 3)).astype(np.float32)
 sizes = np.random.rand(n).astype(np.float32) * 50
-colors_inner = np.random.rand(n, 4).astype(np.float32)
-colors_outer = np.random.rand(n, 4).astype(np.float32)
+colors_inner = np.random.rand(n, 3).astype(np.float32)
+colors_outer = np.random.rand(n, 3).astype(np.float32)
 geometry_inner = gfx.Geometry(
     positions=positions,
     sizes=sizes,

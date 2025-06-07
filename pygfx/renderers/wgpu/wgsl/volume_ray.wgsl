@@ -117,6 +117,8 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     let world_pos = u_wobject.world_transform * vec4<f32>(data_pos, 1.0);
     let ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos;
 
+    do_alpha_test(render_out.color.a);
+
     // Create fragment output.
     var out: FragmentOutput;
     out.color = render_out.color;

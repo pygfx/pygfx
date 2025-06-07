@@ -21,7 +21,6 @@ from tqdm import tqdm
 from wgpu.gui.auto import WgpuCanvas, run
 from pygfx.renderers.wgpu import (
     Binding,
-    RenderMask,
     GfxSampler,
     GfxTextureView,
     register_wgpu_render_function,
@@ -388,7 +387,6 @@ class AudioShader(BaseShader):
     def get_render_info(self, wobject, shared):
         return {
             "indices": (3, 1),
-            "render_mask": RenderMask.opaque,
         }
 
     def get_code(self):

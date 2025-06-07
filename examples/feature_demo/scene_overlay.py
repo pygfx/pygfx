@@ -60,7 +60,7 @@ positions = np.array(
 )
 line2 = gfx.Line(
     gfx.Geometry(positions=positions * 100),
-    gfx.LineMaterial(thickness=5.0, color="#f0f"),
+    gfx.LineMaterial(thickness=5.0, color="#f0f", depth_test=False),
 )
 scene2.add(line2)
 

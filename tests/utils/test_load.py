@@ -1,5 +1,5 @@
 import pytest
-
+import httpx
 import pygfx as gfx
 
 
@@ -14,6 +14,7 @@ FILES_TO_TEST = [
 URLS = [f"{BASE_URL}/{file}" for file in FILES_TO_TEST]
 
 
+@pytest.mark.xfail(raises=httpx.ConnectError)
 @pytest.mark.parametrize("url", URLS)
 def test_load_meshes(url):
     # The .binvox format is expected to fail because trimesh
@@ -30,6 +31,7 @@ def test_load_meshes(url):
     assert all([isinstance(m, gfx.Mesh) for m in mesh])
 
 
+@pytest.mark.xfail(raises=httpx.ConnectError)
 @pytest.mark.parametrize("url", URLS)
 @pytest.mark.parametrize("flatten", (True, False))
 def test_load_scenes(

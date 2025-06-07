@@ -73,7 +73,8 @@ def render_shadow_maps(lights, wobjects, command_encoder):
         )
 
     # Filter shadow-able objects once beforehand.
-    wobjects = [w for w in wobjects if w.cast_shadow and w.geometry is not None]
+    # We assume this has already been done
+    # wobjects = [w for w in wobjects if w.cast_shadow and w.geometry is not None]
 
     for light in lights:
         if not light.cast_shadow:

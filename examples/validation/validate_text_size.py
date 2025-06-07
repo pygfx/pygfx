@@ -20,6 +20,8 @@ import pylinalg as la
 
 renderer = gfx.renderers.WgpuRenderer(WgpuCanvas())
 scene = gfx.Scene()
+scene.add(gfx.Background.from_color("#000"))
+
 
 obj0 = gfx.Text(
     text="Screen  |  World",
@@ -31,6 +33,7 @@ obj0 = gfx.Text(
         weight_offset=100,
         outline_color="#484",
         outline_thickness=0.2,
+        aa=False,
     ),
 )
 obj0.local.position = (0, 50, 0)
@@ -40,7 +43,7 @@ obj1 = gfx.Text(
     font_size=40,
     anchor="baseline-right",
     screen_space=True,
-    material=gfx.TextMaterial(color="#0ff"),
+    material=gfx.TextMaterial(color="#0ff", aa=False),
 )
 obj1.local.position = (-10, 0, 0)
 
@@ -49,7 +52,7 @@ obj2 = gfx.Text(
     font_size=40,
     anchor="baseline-left",
     screen_space=False,
-    material=gfx.TextMaterial(color="#0ff"),
+    material=gfx.TextMaterial(color="#0ff", aa=False),
 )
 obj2.local.position = (10, 0, 0)
 
@@ -58,7 +61,7 @@ obj3 = gfx.Text(
     font_size=40,
     anchor="baseline-right",
     screen_space=True,
-    material=gfx.TextMaterial(color="#0ff"),
+    material=gfx.TextMaterial(color="#0ff", aa=False),
 )
 obj3.local.position = (-10, -50, 0)
 obj3.local.scale = (0.5, 0.5, 0.5)
@@ -68,7 +71,7 @@ obj4 = gfx.Text(
     font_size=40,
     anchor="baseline-left",
     screen_space=False,
-    material=gfx.TextMaterial(color="#0ff"),
+    material=gfx.TextMaterial(color="#0ff", aa=False),
 )
 obj4.local.position = (10, -50, 0)
 obj4.local.scale = (0.5, 0.5, 0.5)
@@ -78,7 +81,7 @@ obj5 = gfx.Text(
     font_size=20,
     anchor="baseline-right",
     screen_space=True,
-    material=gfx.TextMaterial(color="#0ff"),
+    material=gfx.TextMaterial(color="#0ff", aa=False),
 )
 obj5.local.position = (-10, -100, 0)
 obj5.local.rotation = la.quat_from_axis_angle((0, 0, 1), 0.2)
@@ -88,14 +91,14 @@ obj6 = gfx.Text(
     font_size=20,
     anchor="baseline-left",
     screen_space=False,
-    material=gfx.TextMaterial(color="#0ff"),
+    material=gfx.TextMaterial(color="#0ff", aa=False),
 )
 obj6.local.position = (10, -100, 0)
 obj6.local.rotation = la.quat_from_axis_angle((0, 0, 1), -0.2)
 
 line = gfx.Line(
     gfx.Geometry(positions=[(0, 0, 0), (900, 0, 0), (0, 40, 0), (900, 40, 0)]),
-    gfx.LineSegmentMaterial(color="green"),
+    gfx.LineSegmentMaterial(color="green", aa=False),
 )
 
 scene.add(line, obj0, obj1, obj2, obj3, obj4, obj5, obj6)

@@ -3,13 +3,63 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from ..utils.trackable import Trackable
-from ..utils import array_from_shadertype
+from ..utils import array_from_shadertype, ReadOnlyDict
 from ..resources import Buffer
 
+
 if TYPE_CHECKING:
-    from typing import ClassVar, TypeAlias, Literal, Sequence
+    from typing import Union, ClassVar, TypeAlias, Literal, Sequence
 
     ABCDTuple: TypeAlias = tuple[float, float, float, float]
+
+
+TEST_COMPARE_VALUES = "<", "<=", "==", "!=", ">=", ">"  # for alpha_test and depth_test
+
+# The blending presets
+# note: we assume alpha is not pre-multiplied
+preset_blending_dicts = {
+    "no": {
+        "mode": "classic",
+        "color_src": "one",
+        "color_dst": "zero",
+        "alpha_src": "one",
+        "alpha_dst": "zero",
+    },
+    "normal": {
+        "mode": "classic",
+        "color_src": "src-alpha",
+        "color_dst": "one-minus-src-alpha",
+        "alpha_src": "one",
+        "alpha_dst": "one-minus-src-alpha",
+    },
+    "additive": {
+        "mode": "classic",
+        "color_src": "src-alpha",
+        "color_dst": "one",
+        "alpha_src": "src-alpha",
+        "alpha_dst": "one",
+    },
+    "subtractive": {
+        "mode": "classic",
+        "color_src": "zero",
+        "color_dst": "one-minus-src",
+        "alpha_src": "zero",
+        "alpha_dst": "one",
+    },
+    "multiply": {
+        "mode": "classic",
+        "color_src": "zero",
+        "color_dst": "src",
+        "alpha_src": "zero",
+        "alpha_dst": "src",
+    },
+    "dither": {
+        "mode": "dither",
+    },
+    "weighted": {
+        "mode": "weighted",
+    },
+}
 
 
 class Material(Trackable):
@@ -30,10 +80,27 @@ class Material(Trackable):
         is "any" (the default) a fragment is discarded if it is clipped by any
         clipping plane. If this is "all", a fragment is discarded only if it is
         clipped by *all* of the clipping planes.
-    depth_test : bool
-        Whether the object takes the depth buffer into account.
-        Default True. If False, the object is like a ghost: not testing
-        against the depth buffer and also not writing to it.
+    transparent : bool | None
+        Whether the object is (semi) transparent. The renderer sorts transparent
+        objects different from opaque fragments. This value also determines the
+        auto-value of ``depth_write``. Default (None) will consider the object
+        transparent if ``opacity < 1``.
+    blending : str | dict
+        The way to blend semi-transparent fragments  (alpha < 1) for this material.
+    depth_test :  bool
+        Whether the object takes the depth buffer into account (and how).
+        Default True.
+    depth_compare : str
+        How to compare depth values ("<", "<=", "==", "!=", ">=", ">"). Default "<".
+    depth_write : bool | None
+        Whether the object writes to the depth buffer. With None (default) this
+        is considerd False if ``transparent`` is True, and True if ``transparent`` is
+        False or None.
+    alpha_test : float
+        The alpha test value for this material. Default 0.0, meaning no alpha
+        test is performed.
+    alpha_compare : str
+        How to compare alpha values ("<", "<=", "==", "!=", ">=", ">"). Default "<".
     """
 
     # Note that in the material classes we define what properties are stored as
@@ -45,6 +112,7 @@ class Material(Trackable):
 
     uniform_type: ClassVar[dict[str, str]] = dict(
         opacity="f4",
+        alpha_test="f4",
         clipping_planes="0*4xf4",  # array<vec4<f32>,3>
     )
 
@@ -54,8 +122,14 @@ class Material(Trackable):
         opacity: float = 1,
         clipping_planes: Sequence[ABCDTuple] = (),
         clipping_mode: Literal["ANY", "ALL"] = "ANY",
+        transparent: Literal[None, False, True] = None,
+        blending: Union[str, dict] = "normal",
         depth_test: bool = True,
+        depth_compare: str = "<",
+        depth_write: Literal[None, False, True] = None,
         pick_write: bool = False,
+        alpha_test: float = 0.0,
+        alpha_compare: str = "<",
     ):
         super().__init__()
 
@@ -63,11 +137,19 @@ class Material(Trackable):
             array_from_shadertype(self.uniform_type), force_contiguous=True
         )
 
+        self._user_transparent = None
+
         self.opacity = opacity
         self.clipping_planes = clipping_planes
         self.clipping_mode = clipping_mode
+        self.transparent = transparent
+        self.blending = blending
         self.depth_test = depth_test
+        self.depth_compare = depth_compare
+        self.depth_write = depth_write
         self.pick_write = pick_write
+        self.alpha_test = alpha_test
+        self.alpha_compare = alpha_compare
 
     def _set_size_of_uniform_array(self, key: str, new_length: int) -> None:
         """Resize the given array field in the uniform struct if the
@@ -120,9 +202,13 @@ class Material(Trackable):
 
     @property
     def opacity(self) -> float:
-        """The opacity (a.k.a. alpha value) applied to this material, expressed
-        as a value between 0 and 1. If the material contains any
-        non-opaque fragments, their alphas are simply scaled by this value.
+        """The opacity (a.k.a. alpha value) applied to this material (0..1).
+
+        If the material's color has an alpha smaller than 1, this alpha is multiplied with the opacity.
+
+        Setting this value to ``<1`` will set the auto/implicit values for ``transparent`` to True,
+        and the for ``depth_write`` to False.
+
         """
         return float(self.uniform_buffer.data["opacity"])
 
@@ -131,14 +217,7 @@ class Material(Trackable):
         value = min(max(float(value), 0), 1)
         self.uniform_buffer.data["opacity"] = value
         self.uniform_buffer.update_full()
-        self._store.is_transparent = value < 1
-
-    @property
-    def is_transparent(self) -> bool:
-        """Whether this material is (semi) transparent because of its opacity value.
-        If False the object can still appear transparent because of its color.
-        """
-        return self._store.is_transparent
+        self._resolve_transparent()
 
     @property
     def clipping_planes(self) -> Sequence[ABCDTuple]:
@@ -203,16 +282,272 @@ class Material(Trackable):
             raise ValueError(f"Unexpected clipping_mode: {value}")
 
     @property
+    def transparent(self) -> Literal[None, False, True]:
+        """Defines whether this material is transparent or opaque.
+
+        If set to None, the object is considered transparent if ``.opacity < 1``
+        or ``.color.a < 1`` (if this material has a color).
+        Setting this value to True will set the auto/implicit value for
+        ``depth_write`` to False. Setting this value to False will influence how
+        the renderer sorts the object to avoid overdraw, which may improve
+        performance.
+
+        The final transparency value is one of:
+
+        * True: the object is (considered) fully transparent. The renderer draws
+          these after opaque objects, and sorts back-to-front to increase the
+          chance of correct blending. The ``depth_write`` defaults to False.
+        * False: the object is (considered) fully opaque. The renderer draws
+          these first, and sorts front-to-back to avoid overdrawing. The
+          ``depth_write`` defaults to True.
+        * None: the object is considered to (possibly) have both opaque and
+          transparent fragments. The renderer draws these in between opaque and
+          transparent passes, back-to-front. The ``depth_write`` defaults to
+          True.
+        """
+        return self._store.transparent
+
+    @transparent.setter
+    def transparent(self, value: Literal[None, False, True]):
+        if value is None:
+            self._user_transparent = None
+        elif isinstance(value, bool):
+            self._user_transparent = bool(value)
+        else:
+            raise TypeError("material.transparent must be bool or None.")
+        self._resolve_transparent()
+
+    @property
+    def transparent_is_set(self):
+        """Whether the ``transparent`` property is set. Otherwise it's auto-determined."""
+        return self._user_transparent is not None
+
+    def _resolve_transparent(self):
+        # This method must be called from the appropriate places
+        transparent = self._user_transparent
+        if transparent is None:
+            looks_transparent = self._looks_transparent()
+            if looks_transparent is not None:
+                transparent = bool(looks_transparent)
+        self._store.transparent = transparent
+
+    def _looks_transparent(self):
+        # This could be overloaded in subclasses.
+        transparent = None
+        if self.opacity < 1:
+            transparent = True
+        return transparent
+
+    @property
+    def blending(self):
+        """The way to blend semi-transparent fragments (alpha < 1) for this material.
+
+        The blending can be set using one of the following preset names:
+
+        * "no": no blending, render as opaque.
+        * "normal": use classic alpha blending using the *over operator* (the default).
+        * "additive": use additive blending that adds the fragment color, multiplied by alpha.
+        * "subtractive": use subtractuve blending that removes the fragment color.
+        * "multiply": use multiplicative blending that multiplies the fragment color.
+        * "dither": use stochastic transparency blending. All fragments are opaque, and the chance
+          of a fragment being discared (invisible) is one minus alpha.
+        * "weighted": use weighted blending, where the order of objects does not matter for the end-result.
+
+        The blending property returns a dict. It can also be set as a dict. Such a dict has the following fields:
+
+        * ``name``: the preset name of this blending, or "custom". (This field is ignored by the setter.)
+        * ``mode``: the blend-mode, one of "classic", "dither", "weighted".
+
+        When the mode is "classic", the following fields must/can be provided:
+
+        * ``color_op``: the blend operation/equation, any value from ``wgpu.BlendOperation``. Default "add".
+        * ``color_src``: source factor, any value of ``wgpu.BlendFactor``. Mandatory.
+        * ``color_dst``: destination factor, any value of ``wgpu.BlendFactor``. Mandatory.
+        * ``color_constant``: represents the constant value of the constant blend color. Default black.
+        * ``alpha_op``: as ``color_op`` but for alpha.
+        * ``alpha_src``: as ``color_dst`` but for alpha.
+        * ``alpha_dst``: as ``color_src`` but for alpha.
+        * ``alpha_constant``: as ``color_constant`` but for alpha (default 0).
+
+        When the mode is "dither": there are (currently) no extra fields.
+
+        When the mode is "weighted", the extra fields are:
+
+        * ``weight``: the weight factor as wgsl code. Default "alpha", which means use the color's alpha value.
+        * ``alpha``: the used alpha value. Default "alpha", which means use as-is. Can e.g. be set to 1.0
+          so that the alpha channel can be used as the weight factor, while the object is otherwise opaque.
+
+        """
+        return self._store.blending_dict
+
+    @blending.setter
+    def blending(self, blending):
+        if blending is None:
+            blending = "normal"
+
+        if isinstance(blending, str):
+            preset_keys = set(preset_blending_dicts.keys())
+            if blending not in preset_keys:
+                raise ValueError(
+                    f"Blending is {blending!r} but expected one of {preset_keys!r}"
+                )
+            blending_dict = preset_blending_dicts[blending]
+
+        elif isinstance(blending, dict):
+            # we pop elements from the given dict, so we can detect invalid fields
+            blending_src = blending.copy()
+            blending_dict = {}
+            try:
+                blending_src.pop("name", None)
+                blending_dict["mode"] = mode = blending_src.pop("mode")
+                if mode == "classic":
+                    for key in ["color_src", "color_dst", "alpha_src", "alpha_dst"]:
+                        blending_dict[key] = blending_src.pop(key)
+                    for key in [
+                        "color_op",
+                        "alpha_op",
+                        "color_constant",
+                        "alpha_constant",
+                    ]:
+                        if key in blending_src:
+                            blending_dict[key] = blending_src.pop(key)
+                elif mode == "dither":
+                    pass
+                elif mode == "weighted":
+                    for key in ["weight", "alpha"]:
+                        if key in blending_src:
+                            blending_dict[key] = blending_src.pop(key)
+                else:
+                    raise ValueError(f"Unexpected blending mode {mode!r}")
+            except KeyError as err:
+                raise KeyError(
+                    f"Blending dict is missing field {err.args[0]!r}"
+                ) from None
+            if blending_src:
+                raise ValueError(
+                    f"Blending dict contains invalid fields: {blending_src!r}"
+                )
+
+        else:
+            raise TypeError("Material.blending must be None, str or dict.")
+
+        # Prepend the preset name if the dict matches a preset
+        for preset_name, preset_dict in preset_blending_dicts.items():
+            if blending_dict == preset_dict:
+                blending_dict = {"name": preset_name, **blending_dict}
+                break
+        else:
+            blending_dict = {"name": "custom", **blending_dict}
+
+        self._store.blending_dict = ReadOnlyDict(blending_dict)
+        self._store.blending_mode = blending_dict["mode"]
+
+    @property
     def depth_test(self) -> bool:
-        """Whether the object takes the depth buffer into account."""
+        """Whether the object takes the depth buffer into account.
+
+        When set to True, the fragment's depth is tested using ``depth_compare`` against the depth buffer.
+        """
         return self._store.depth_test
 
     @depth_test.setter
-    def depth_test(self, value: int) -> None:
-        # Explicit test that this is a bool. We *could* maybe later allow e.g. 'greater'.
-        if not isinstance(value, (bool, int)):
-            raise TypeError("Material.depth_test must be bool.")
+    def depth_test(self, value: bool) -> None:
         self._store.depth_test = bool(value)
+
+    @property
+    def depth_compare(self):
+        """The way to compare the depth with the value in the buffer.
+
+        Possible values are "<", "<=", "==", "!=", ">=", ">". Default "<".
+        Note that this only applies if ``depth_test`` is set to True.
+        """
+        return self._store.depth_compare
+
+    @depth_compare.setter
+    def depth_compare(self, value) -> None:
+        if not (isinstance(value, str) and value in TEST_COMPARE_VALUES):
+            raise TypeError(
+                "Material.depth_compare must be a str in {TEST_COMPARE_VALUES!r}, not {value!r}"
+            )
+        self._store.depth_compare = value
+
+    @property
+    def depth_write(self) -> bool:
+        """Whether this material writes to the depth buffer, preventing other objects being drawn behind it.
+
+        Can be set to:
+
+        * True: yes, write depth.
+        * False: no, don't write depth.
+        * None: auto-determine (default): yes unless ``.transparent`` is True.
+
+        The auto-option provides good default behaviour for common use-case, but
+        if you know what you're doing you should probably just set this value to
+        True or False.
+        """
+        depth_write = self._store.depth_write
+        if depth_write is None:
+            if self._store.blending_mode == "dither":
+                # The great thing with stochastic transparency is that everything is opaque (from a depth testing perspective)
+                depth_write = True
+            else:
+                # Write depth when transparent is False or None
+                depth_write = not bool(self._store.transparent)
+        return depth_write
+
+    @depth_write.setter
+    def depth_write(self, value: Literal[None, False, True]) -> None:
+        if value is None:
+            self._store.depth_write = None
+        elif isinstance(value, bool):
+            self._store.depth_write = bool(value)
+        else:
+            raise TypeError("material.depth_write must be bool or None.")
+
+    @property
+    def depth_write_is_set(self):
+        """Whether the ``depth_write`` property is set. Otherwise it's auto-determined."""
+        return self._store.depth_write is not None
+
+    @property
+    def alpha_test(self) -> float:
+        """The alpha test value for this material.
+
+        When ``alpha_test`` is set to a value > 0, the fragment is discarded if ``alpha < alpha_test``.
+        This is useful for e.g. grass or foliage textures, where the texture has a lot of transparent
+        areas. Also see ``alpha_compare``.
+        """
+        return self.uniform_buffer.data["alpha_test"]
+
+    @alpha_test.setter
+    def alpha_test(self, value: float) -> None:
+        value = min(max(float(value), 0), 1)
+        self.uniform_buffer.data["alpha_test"] = value
+        self.uniform_buffer.update_full()
+        # Store whether the alpha test is active, so we can invalidate shaders
+        self._store.use_alpha_test = value != 0
+
+    @property
+    def alpha_compare(self) -> str:
+        """The way to compare the alpha value.
+
+        Possible values are "<", "<=", "==", "!=", ">=", ">". Default "<".
+        Note that this only applies if the alpha test is performed (i.e. ``alpha_test`` is nonzero).
+        """
+        return self._store.alpha_compare
+
+    @alpha_compare.setter
+    def alpha_compare(self, value: str) -> None:
+        if not (isinstance(value, str) and value in TEST_COMPARE_VALUES):
+            raise TypeError(
+                "Material.alpha_compare must be a str in {TEST_COMPARE_VALUES!r}, not {value!r}"
+            )
+        self._store.alpha_compare = value
+
+    @property
+    def _gfx_use_alpha_test(self) -> bool:
+        """For internal use; if the alpha test is used, the shader must discard, which we don't want to do unless needed."""
+        return self._store.use_alpha_test
 
     @property
     def pick_write(self) -> bool:

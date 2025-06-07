@@ -1,6 +1,6 @@
 """
 The renderstate object defines details on how objects are rendered,
-related to statefull stuff like lights in the scene and blend mode.
+related to statefull stuff like lights in the scene and blender targets.
 """
 
 import weakref
@@ -403,10 +403,9 @@ class BlendRenderState(BaseRenderState):
 
     @classmethod
     def state_to_hash(cls, blender):
-        return (blender.name,)
+        return (blender.hash,)
 
-    def __init__(self, blend_mode):
-        self.blend_mode = blend_mode
+    def __init__(self, blend_hash):
         self.bindings = []
 
     def prepare_for_draw(self, blender):
@@ -414,7 +413,7 @@ class BlendRenderState(BaseRenderState):
         self.blender = blender
 
     def get_shader_kwargs(self, bind_group_index=1):
-        return {"blend_mode": self.blend_mode}
+        return {}
 
 
 class CombinedRenderState(BaseRenderState):

@@ -21,7 +21,6 @@ from .. import (
     register_wgpu_render_function,
     BaseShader,
     Binding,
-    RenderMask,
     nchannels_from_format,
     to_texture_format,
     GfxSampler,
@@ -68,6 +67,7 @@ class MeshShader(BaseShader):
         color_mode = str(material.color_mode).split(".")[-1]
 
         self["color_mode"] = color_mode
+        self["use_uniform_color"] = color_mode in ("auto", "uniform")
 
         if material.map is not None and color_mode in (
             "vertex_map",
@@ -464,45 +464,17 @@ class MeshShader(BaseShader):
 
     def get_render_info(self, wobject, shared):
         geometry = wobject.geometry
-        material = wobject.material
 
-        if geometry.indices.data is not None and geometry.indices.data.shape[-1] == 4:
-            offset, size = geometry.indices.draw_range
-            offset, size = 6 * offset, 6 * size
-        else:
-            offset, size = geometry.indices.draw_range
-            offset, size = 3 * offset, 3 * size
+        mul = self["indexer"]
+        offset, size = geometry.indices.draw_range
+        offset, size = mul * offset, mul * size
 
         n_instances = 1
         if self["instanced"]:
             n_instances = wobject.instance_buffer.nitems
 
-        render_mask = wobject.render_mask
-        if not render_mask:
-            render_mask = RenderMask.all
-            if material.is_transparent:
-                render_mask = RenderMask.transparent
-            elif self["color_mode"] == "uniform":
-                if material.color_is_transparent:
-                    render_mask = RenderMask.transparent
-                else:
-                    render_mask = RenderMask.opaque
-            elif self["color_mode"] in ("vertex", "face"):
-                if self["color_buffer_channels"] in (1, 3):
-                    render_mask = RenderMask.opaque
-            elif self["color_mode"] in ("vertex_map", "face_map"):
-                if self["colormap_nchannels"] in (1, 3):
-                    render_mask = RenderMask.opaque
-            elif self["color_mode"] == "normal":
-                render_mask = RenderMask.opaque
-            elif self["color_mode"] == "auto":
-                render_mask = RenderMask.all
-            else:
-                raise RuntimeError(f"Unexpected color mode {self['color_mode']}")
-
         return {
             "indices": (size, n_instances, offset, 0),
-            "render_mask": render_mask,
         }
 
     def _check_texture(self, t, geometry, view_dim):
@@ -776,6 +748,7 @@ class MeshSliceShader(BaseShader):
         geometry = wobject.geometry
 
         color_mode = str(material.color_mode).split(".")[-1]
+
         if color_mode == "auto":
             if material.map is not None:
                 self["color_mode"] = "vertex_map"
@@ -859,40 +832,11 @@ class MeshSliceShader(BaseShader):
         }
 
     def get_render_info(self, wobject, shared):
-        material = wobject.material
         geometry = wobject.geometry
-
         offset, size = geometry.indices.draw_range
         offset, size = offset * 6, size * 6
-
-        render_mask = 0
-        if wobject.render_mask:
-            render_mask = wobject.render_mask
-        elif material.is_transparent:
-            render_mask = RenderMask.transparent
-        else:
-            # Get what passes are needed for the color
-            if self["color_mode"] == "uniform":
-                if material.color_is_transparent:
-                    render_mask |= RenderMask.transparent
-                else:
-                    render_mask |= RenderMask.opaque
-            elif self["color_mode"] in ("vertex", "face"):
-                if self["color_buffer_channels"] in (1, 3):
-                    render_mask |= RenderMask.opaque
-                else:
-                    render_mask |= RenderMask.all
-            elif self["color_mode"] in ("vertex_map", "face_map"):
-                if self["colormap_nchannels"] in (1, 3):
-                    render_mask |= RenderMask.opaque
-                else:
-                    render_mask |= RenderMask.all
-            else:
-                raise RuntimeError(f"Unexpected color mode {self['color_mode']}")
-
         return {
             "indices": (size, 1, offset, 0),
-            "render_mask": render_mask,
         }
 
     def get_code(self):
