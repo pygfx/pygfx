@@ -30,7 +30,7 @@ line4 = [[400, 100], [500, 200], [400, 300], [450, 400]]
 
 scene = gfx.Scene()
 
-material = gfx.LineMaterial(thickness=80.0, color=(0.8, 0.7, 0.0, 1.0))
+material = gfx.LineMaterial(thickness=80.0, color=(0.8, 0.7, 0.0, 1.0), aa=False)
 
 for line in [line1, line2, line3, line4]:
     line = [(*pos, 0) for pos in line]  # Make the positions vec3
