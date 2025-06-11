@@ -99,6 +99,8 @@ class LineShader(BaseShader):
         # ):
         #     # self["line_type"] = "quickline"
 
+        self["quickline"] = False
+
         # Handle looping. The line_loop_buffer is one larger to enable looping the last point.
         if material.loop:
             self["loop"] = True
@@ -300,7 +302,8 @@ class LineShader(BaseShader):
         }
 
     def get_pipeline_info(self, wobject, shared):
-        # Cull backfaces so that overlapping faces are not drawn.
+        # Note: making quads using triangle_strip and 6 verts, with degenerate triangles is apparently
+        # much faster than using triangle_list with 6 verts.
         return {
             "primitive_topology": wgpu.PrimitiveTopology.triangle_strip,
             "cull_mode": wgpu.CullMode.none,
@@ -308,8 +311,8 @@ class LineShader(BaseShader):
 
     def _get_n(self, positions):
         offset, size = positions.draw_range
-        if self["loop"]:
-            size += 1
+        if not self["loop"]:
+            size -= 1
         return offset * 6, size * 6
 
     def get_render_info(self, wobject, shared):
@@ -355,7 +358,7 @@ class LineShader(BaseShader):
         }
 
     def get_code(self):
-        return load_wgsl("line.wgsl")
+        return load_wgsl("line2.wgsl")
 
 
 @register_wgpu_render_function(Line, LineDebugMaterial)
