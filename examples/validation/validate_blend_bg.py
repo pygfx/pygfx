@@ -23,12 +23,15 @@ import pygfx as gfx
 
 canvas = WgpuCanvas(size=(600, 600))
 renderer = gfx.renderers.WgpuRenderer(canvas)
-renderer.blend_mode = "ordered2"
 
 geometry = gfx.plane_geometry(100, 100)
 
-plane_bg = gfx.Mesh(geometry, gfx.MeshBasicMaterial(color=(0, 0, 0, 1)))
-plane_red = gfx.Mesh(geometry, gfx.MeshBasicMaterial(color=(0, 1, 0, 0.3)))
+plane_bg = gfx.Mesh(
+    geometry, gfx.MeshBasicMaterial(color=(0, 0, 0, 1), transparent=True)
+)
+plane_red = gfx.Mesh(
+    geometry, gfx.MeshBasicMaterial(color=(0, 1, 0, 0.3), transparent=True)
+)
 
 plane_bg.local.position = -50, 0, 0
 plane_red.local.position = 0, 0, 10

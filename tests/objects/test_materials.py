@@ -27,5 +27,48 @@ def test_uniform_types_uniform_type():
                     )
 
 
+def test_automatic_props():
+    m = pygfx.Material()
+
+    # Default case
+    assert not m.transparent_is_set
+    assert not m.depth_write_is_set
+    assert m.transparent is None
+    assert m.depth_write is True
+
+    # Use opacity
+    m.opacity = 0.5
+    assert not m.transparent_is_set
+    assert not m.depth_write_is_set
+    assert m.transparent is True
+    assert m.depth_write is False
+
+    # Use transparent True
+    m.opacity = 1
+    m.transparent = True
+    assert m.transparent_is_set
+    assert not m.depth_write_is_set
+    assert m.transparent is True
+    assert m.depth_write is False
+
+    # Use transparent False
+    m.opacity = 1
+    m.transparent = False
+    assert m.transparent_is_set
+    assert not m.depth_write_is_set
+    assert m.transparent is False
+    assert m.depth_write is True
+
+    # Use depth_write
+    m.opacity = 1
+    m.transparent = None
+    m.depth_write = False
+    assert not m.transparent_is_set
+    assert m.depth_write_is_set
+    assert m.transparent is None
+    assert m.depth_write is False
+
+
 if __name__ == "__main__":
     test_uniform_types_uniform_type()
+    test_automatic_props()

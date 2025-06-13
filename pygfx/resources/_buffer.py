@@ -193,8 +193,7 @@ class Buffer(Resource):
         # Note: many properties are stored on ._store, even if they cannot
         # change. This is done so that whan a buffer is swapped from another, we
         # can track what properties effectively changed. E.g. to determine
-        # whether the render_mask changes or a shader recompilation is
-        # necessary.
+        # whether a shader recompilation is necessary.
         return self._store.nbytes
 
     @property

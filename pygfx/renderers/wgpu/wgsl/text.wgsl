@@ -295,6 +295,10 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     let opacity = u_material.opacity * color_alpha * aa_alpha;
     var color_out = vec4<f32>(color, opacity);
 
+    // Always discard the empty space, but also allow custom alpha test
+    if (opacity <= 0.0) { discard; }
+    do_alpha_test(opacity);
+
     // Debug
     //color_out = vec4<f32>(atlas_value, 0.0, 0.0, 1.0);
 

@@ -70,12 +70,10 @@ class ShaderInterface:
           * "indices" (3 ints)
 
         Fields for a render shader:
-          * "render_mask"
           * "indices" (list of 2 or 4 ints).
         """
         return {
             "indices": (1, 1),
-            "render_mask": 0,
         }
 
 
@@ -110,6 +108,8 @@ class BaseShader(ShaderInterface):
         if wobject is not None:
             self["n_clipping_planes"] = wobject.material.clipping_plane_count
             self["clipping_mode"] = wobject.material.clipping_mode
+            self["use_alpha_test"] = wobject.material._gfx_use_alpha_test
+            self["alpha_compare"] = wobject.material.alpha_compare
 
         # Init other common variables so we don't need jinja2's defined()
         self["colormap_dim"] = None

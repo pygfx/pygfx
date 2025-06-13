@@ -84,6 +84,8 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
 
     // We can apply clipping planes, but maybe a background should not be clipped?
     // apply_clipping_planes(in.world_pos);
+    // Same for alpha test
+    // do_alpha_test(opacity);
 
     // Force opaque. We may undo this when the ordered2 mechanics are removed.
     var out: FragmentOutput;

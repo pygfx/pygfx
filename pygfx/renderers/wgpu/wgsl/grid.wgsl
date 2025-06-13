@@ -276,6 +276,12 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     let opacity = alpha * color.a * u_material.opacity;
     let out_color = vec4<f32>(physical_color, opacity);
 
+    // Make sure that one can see through the holes in the grid.
+    // The grid material also sets alpha_test to reduce the size of the edges.
+    // Idea: material.aa where, if off, we just set opacity = f32(opacity>=0.5).
+    if (opacity <= 0.0) { discard; }
+    do_alpha_test(opacity);
+
     // We can apply clipping planes, but maybe a grid should not be clipped?
     // apply_clipping_planes(in.world_pos);
 

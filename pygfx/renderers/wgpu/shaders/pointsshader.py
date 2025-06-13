@@ -13,7 +13,6 @@ from .. import (
     register_wgpu_render_function,
     BaseShader,
     Binding,
-    RenderMask,
     load_wgsl,
     nchannels_from_format,
     to_texture_format,
@@ -173,61 +172,10 @@ class PointsShader(BaseShader):
         }
 
     def get_render_info(self, wobject, shared):
-        material = wobject.material
-
         offset, size = wobject.geometry.positions.draw_range
         offset, size = offset * 6, size * 6
-
-        render_mask = 0
-        if wobject.render_mask:
-            render_mask = wobject.render_mask
-        elif material.is_transparent:
-            render_mask = RenderMask.transparent
-        else:
-            # Get what passes are needed for the color
-            if self["color_mode"] == "uniform":
-                if material.color_is_transparent:
-                    render_mask |= RenderMask.transparent
-                else:
-                    render_mask |= RenderMask.opaque
-            elif self["color_mode"] == "vertex":
-                if self["color_buffer_channels"] in (2, 4):
-                    render_mask |= RenderMask.all
-                else:
-                    render_mask |= RenderMask.opaque
-            elif self["color_mode"] == "vertex_map":
-                if self["colormap_nchannels"] in (2, 4):
-                    render_mask |= RenderMask.all
-                else:
-                    render_mask |= RenderMask.opaque
-            elif self["color_mode"] == "debug":
-                render_mask |= RenderMask.all
-            else:
-                raise RuntimeError(f"Unexpected color mode {self['color_mode']}")
-            # Need transparency for aa
-            if material.aa:
-                render_mask |= RenderMask.transparent
-            # More cases
-            elif isinstance(material, PointsSpriteMaterial):
-                if self["sprite_nchannels"] in [2, 4]:
-                    render_mask |= RenderMask.transparent
-                else:
-                    pass  # mixed with color, so no need to OR with opaque
-            elif isinstance(material, PointsMarkerMaterial):
-                if self["edge_color_mode"] == "vertex":
-                    if self["edge_color_buffer_channels"] in (2, 4):
-                        render_mask |= RenderMask.all
-                    else:
-                        render_mask |= RenderMask.opaque
-                elif self["edge_color_mode"] == "uniform":
-                    if material.edge_color_is_transparent:
-                        render_mask |= RenderMask.transparent
-                    else:
-                        render_mask |= RenderMask.opaque
-
         return {
             "indices": (size, 1, offset, 0),
-            "render_mask": render_mask,
         }
 
     def get_code(self):

@@ -3,8 +3,12 @@ Transparency 2
 ==============
 
 Example showing transparency using three orthogonal planes.
+This is a bit of an adversarial case because the planes are in
+the same position, plus they intersect, so sorting has no effect.
+In cases like this, the dither blending is king.
+
 Press space to toggle the order of the planes.
-Press 1-7 to select the blend mode.
+Press 1-4 to select the blending mode.
 """
 
 # sphinx_gallery_pygfx_docs = 'screenshot'
@@ -15,7 +19,7 @@ import pygfx as gfx
 import pylinalg as la
 
 canvas = WgpuCanvas()
-renderer = gfx.renderers.WgpuRenderer(canvas, pixel_ratio=2)
+renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
 background = gfx.Background.from_color("#000")
@@ -23,9 +27,11 @@ background = gfx.Background.from_color("#000")
 sphere = gfx.Mesh(gfx.sphere_geometry(10), gfx.MeshPhongMaterial())
 
 geometry = gfx.plane_geometry(50, 50)
-plane1 = gfx.Mesh(geometry, gfx.MeshBasicMaterial(color=(1, 0, 0, 0.3)))
-plane2 = gfx.Mesh(geometry, gfx.MeshBasicMaterial(color=(0, 1, 0, 0.5)))
-plane3 = gfx.Mesh(geometry, gfx.MeshBasicMaterial(color=(0, 0, 1, 0.7)))
+
+# Note: Setting opacity<1 implicitly sets transparency to True, and depth_write to False.
+plane1 = gfx.Mesh(geometry, gfx.MeshBasicMaterial(color="r", opacity=0.2))
+plane2 = gfx.Mesh(geometry, gfx.MeshBasicMaterial(color="g", opacity=0.5))
+plane3 = gfx.Mesh(geometry, gfx.MeshBasicMaterial(color="b", opacity=0.7))
 
 plane1.local.rotation = la.quat_from_axis_angle((1, 0, 0), 1.571)
 plane2.local.rotation = la.quat_from_axis_angle((0, 1, 0), 1.571)
@@ -40,43 +46,41 @@ controller = gfx.OrbitController(camera, register_events=renderer)
 scene.add(camera.add(gfx.DirectionalLight()))
 
 scene_overlay = gfx.Scene()
-blend_mode_text = gfx.Text(
-    text=f"Blend mode: {renderer.blend_mode}",
+blend_text = gfx.Text(
+    text=f"Blending: {plane1.material.blending['name']}",
     anchor="bottom-left",
     material=gfx.TextMaterial(outline_thickness=0.3),
 )
-scene_overlay.add(blend_mode_text)
+scene_overlay.add(blend_text)
 
 screen_camera = gfx.ScreenCoordsCamera()
 
 
 @renderer.add_event_handler("key_down")
 def handle_event(event):
+    canvas.request_draw()
     if event.key == " ":
         print("Rotating scene element order")
         scene.add(scene.children[1])  # skip bg
-        canvas.request_draw()
     elif event.key == ".":
         clr = "#fff" if background.material.color_bottom_left == "#000" else "#000"
         print(f"Changing background color to {clr}")
         background.material.set_colors(clr)
-        canvas.request_draw()
-    elif event.key in "012345678":
+    elif event.key in "12345":
         m = [
-            None,  # 0
-            "opaque",  # 1
-            "dither",  # 2
-            "ordered1",  # 3
-            "ordered2",  # 4
+            None,
+            "no",  # 1
+            "normal",  # 2
+            "additive",  # 3
+            "dither",  # 4
             "weighted",  # 5
-            "weighted_depth",  # 6
-            "weighted_plus",  # 7
-            "additive",  # 8
         ]
-        mode = m[int(event.key)]
-        renderer.blend_mode = mode
-        print("Selecting blend_mode", mode)
-        blend_mode_text.set_text(f"Blend mode: {mode}")
+        blending = m[int(event.key)]
+        for plane in plane1, plane2, plane3:
+            plane.material.blending = blending
+        print("Selecting blending", blending)
+        blend_text.set_text(f"Blending: {blending}")
+    canvas.request_draw()
 
 
 def animate():

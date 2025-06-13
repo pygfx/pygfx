@@ -72,6 +72,13 @@ class LineMaterial(Material):
             "segment_coord": (values["coord"] - 100000) / 100000.0,
         }
 
+    def _looks_transparent(self):
+        if self.opacity < 1:
+            return True
+        if self._store.get("color_mode") in ("auto", "uniform"):
+            if self.color.a < 1:
+                return True
+
     @property
     def color(self):
         """The uniform color of the line."""
@@ -82,12 +89,7 @@ class LineMaterial(Material):
         color = Color(color)
         self.uniform_buffer.data["color"] = color
         self.uniform_buffer.update_full()
-        self._store.color_is_transparent = color.a < 1
-
-    @property
-    def color_is_transparent(self):
-        """Whether the color is (semi) transparent (i.e. not fully opaque)."""
-        return self._store.color_is_transparent
+        self._resolve_transparent()
 
     @property
     def aa(self):
@@ -101,10 +103,7 @@ class LineMaterial(Material):
         result. Line-based aa results in additional improvement.
 
         Because semi-transparent fragments are introduced, it may affect how the
-        line blends with other (semi-transparent) objects. It can also affect
-        performance for very large datasets. In particular, when the line itself
-        is opaque, the line is (in most blend modes) drawn twice to account for
-        both the opaque and semi-transparent fragments.
+        line blends with other (semi-transparent) objects.
         """
         return self._store.aa
 
@@ -128,6 +127,7 @@ class LineMaterial(Material):
                 f"LineMaterial.color_mode must be a string in {ColorMode}, not {value!r}"
             )
         self._store.color_mode = value
+        self._resolve_transparent()
 
     @property
     def vertex_colors(self):

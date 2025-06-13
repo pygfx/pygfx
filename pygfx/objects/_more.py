@@ -57,10 +57,10 @@ class Background(WorldObject):
 
     """
 
-    def __init__(self, geometry=None, material=None, render_mask="opaque", **kwargs):
+    def __init__(self, geometry=None, material=None, *, render_order=-1e6, **kwargs):
         if geometry is not None and material is None:
             raise TypeError("You need to instantiate using Background(None, material)")
-        super().__init__(None, material, render_mask=render_mask, **kwargs)
+        super().__init__(None, material, render_order=render_order, **kwargs)
 
     @classmethod
     def from_color(cls, *colors):
@@ -91,10 +91,12 @@ class Grid(WorldObject):
         <pygfx.objects.WorldObject>`.
     """
 
-    def __init__(self, geometry=None, material=None, *, orientation, **kwargs):
+    def __init__(
+        self, geometry=None, material=None, *, orientation, render_order=-100, **kwargs
+    ):
         if geometry is not None and material is None:
             raise TypeError("You need to instantiate using Grid(None, material)")
-        super().__init__(None, material, **kwargs)
+        super().__init__(None, material, render_order=render_order, **kwargs)
         if orientation is not None:
             if orientation == "xy":
                 pass
@@ -129,10 +131,7 @@ class Line(WorldObject):
     visible : bool
         Whether the object is visible.
     render_order : int
-        The render order (when applicable for the renderer's blend mode).
-    render_mask : str
-        Determines the render passes that the object is rendered in. It's
-        recommended to let the renderer decide, using "auto".
+        Affects the order in which objects are rendered.
     position : Vector
         The position of the object in the world. Default (0, 0, 0).
 
@@ -160,10 +159,7 @@ class Points(WorldObject):
     visible : bool
         Whether the object is visible.
     render_order : int
-        The render order (when applicable for the renderer's blend mode).
-    render_mask : str
-        Determines the render passes that the object is rendered in. It's
-        recommended to let the renderer decide, using "auto".
+        Affects the order in which objects are rendered.
     position : Vector
         The position of the object in the world. Default (0, 0, 0).
 
@@ -194,10 +190,7 @@ class Mesh(WorldObject):
     visible : bool
         Whether the object is visible.
     render_order : int
-        The render order (when applicable for the renderer's blend mode).
-    render_mask : str
-        Determines the render passes that the object is rendered in. It's
-        recommended to let the renderer decide, using "auto".
+        Affects the order in which objects are rendered.
     position : Vector
         The position of the object in the world. Default (0, 0, 0).
 
@@ -322,10 +315,7 @@ class Image(WorldObject):
     visible : bool
         Whether the object is visible.
     render_order : int
-        The render order (when applicable for the renderer's blend mode).
-    render_mask : str
-        Determines the render passes that the object is rendered in. It's
-        recommended to let the renderer decide, using "auto".
+        Affects the order in which objects are rendered.
     position : Vector
         The position of the object in the world. Default (0, 0, 0).
 
@@ -366,10 +356,7 @@ class Volume(WorldObject):
     visible : bool
         Whether the object is visible.
     render_order : int
-        The render order (when applicable for the renderer's blend mode).
-    render_mask : str
-        Determines the render passes that the object is rendered in. It's
-        recommended to let the renderer decide, using "auto".
+        Affects the order in which objects are rendered.
     position : Vector
         The position of the object in the world. Default (0, 0, 0).
 

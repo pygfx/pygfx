@@ -49,7 +49,7 @@ if "PYTEST_CURRENT_TEST" in os.environ or len(args.images) == 0:
         Path(this_file).parent.parent / "screenshots"
     ).resolve()
     reference = imageio.imread(
-        gfx_examples_screenshot_dir / "validate_blend_weightedplus.png"
+        gfx_examples_screenshot_dir / "validate_blend_weighted.png"
     )
     image = imageio.imread(gfx_examples_screenshot_dir / "validate_blend_dither.png")
 elif len(args.images) == 2:

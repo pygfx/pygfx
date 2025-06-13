@@ -27,7 +27,6 @@ import pygfx as gfx
 from pygfx.renderers.wgpu import (
     Binding,
     BaseShader,
-    RenderMask,
     register_wgpu_render_function,
 )
 
@@ -59,14 +58,6 @@ class TriangleMaterial(gfx.Material):
         color = gfx.Color(color)
         self.uniform_buffer.data["color"] = color
         self.uniform_buffer.update_full()
-        self._store.color_is_transparent = color.a < 1
-
-    @property
-    def color_is_transparent(self):
-        """Whether the color is (semi) transparent (i.e. not fully opaque)."""
-        # Note the use of the the _store to make this attribute trackable,
-        # so that when it changes, the shader is updated automatically.
-        return self._store.color_is_transparent
 
 
 @register_wgpu_render_function(Triangle, TriangleMaterial)
@@ -102,27 +93,11 @@ class TriangleShader(BaseShader):
         }
 
     def get_render_info(self, wobject, shared):
-        material = wobject.material
-        geometry = wobject.geometry
-
         # Determine number of vertices
-        n = 3 * geometry.positions.nitems
-
-        # Define in what passes this object is drawn.
-        # Using RenderMask.all is a good default. The rest is optimization.
-        render_mask = wobject.render_mask
-        if not render_mask:  # i.e. set to auto
-            render_mask = RenderMask.all
-            if material.is_transparent:
-                render_mask = RenderMask.transparent
-            elif material.color_is_transparent:
-                render_mask = RenderMask.transparent
-            else:
-                render_mask = RenderMask.opaque
+        n = 3 * wobject.geometry.positions.nitems
 
         return {
             "indices": (n, 1),
-            "render_mask": render_mask,
         }
 
     def get_code(self):

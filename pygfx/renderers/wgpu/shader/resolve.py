@@ -275,7 +275,7 @@ class OutputResolver:
                 match = re_out_return.match(line)
                 if match:
                     self.assigned_fields.append(("return", linenr))
-                    self.assigned_fields = None
+                    self.assigned_fields = None  # note that this list is an element in assigned_fields_list
 
     def update_lines(self, lines):
         struct_linenr = self.struct_linenr
@@ -351,18 +351,27 @@ class OutputResolver:
             if any(i for name, i in assigned_fields if name == "depth"):
                 depth_is_set = True
 
+            last_linenr = max(i for _, i in assigned_fields)
+            last_line = lines[last_linenr]
+            last_indent = indent_from_line(last_line)
+            is_return_line = last_line.lstrip().startswith("return")
+            extra_last_lines = []
+
             # Apply the virtual fields. The call to the apply-function is
             # inserted right before 'return out', or right after the last struct
             # field is set (if we did not detect a return).
             if args:
-                linenr = max(i for _, i in assigned_fields)
                 args.insert(0, "&out")
-                line = lines[linenr]
-                is_return_line = line.lstrip().startswith("return")
-                indent = indent_from_line(line)
-                extra_line = f"{indent}apply_virtual_fields_of_fragment_output({', '.join(args)});"
-                new_lines = [extra_line, line] if is_return_line else [line, extra_line]
-                lines[linenr] = "\n".join(new_lines)
+                line = f"{last_indent}apply_virtual_fields_of_fragment_output({', '.join(args)});"
+                extra_last_lines.append(line)
+
+            if extra_last_lines:
+                last_lines = (
+                    [*extra_last_lines, last_line]
+                    if is_return_line
+                    else [last_line, *extra_last_lines]
+                )
+                lines[last_linenr] = "\n".join(last_lines)
 
         # If depth is set, add the depth field to the struct definition.
         if depth_is_set:

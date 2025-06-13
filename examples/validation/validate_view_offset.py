@@ -37,7 +37,7 @@ x = np.linspace(0, 100, 1000, dtype=np.float32)
 y = np.sin(x) * 10
 line = gfx.Line(
     gfx.Geometry(positions=np.vstack((x, y, np.zeros_like(x))).T),
-    gfx.LineMaterial(color="#0ff", thickness=6),
+    gfx.LineMaterial(color="#0ff", thickness=6, aa=False),
 )
 scene1.add(line)
 
