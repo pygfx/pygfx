@@ -35,7 +35,7 @@ from ....utils import Color
 
 from ... import Renderer
 from .blender import Blender
-from .flusher import RenderFlusher
+from .effectpasses import EffectPass, OutputPass
 from .pipeline import get_pipeline_container_group
 from .update import update_resource, ensure_wgpu_object
 from .shared import get_shared
@@ -281,17 +281,17 @@ class WgpuRenderer(RootEventHandler, Renderer):
                 format=target_format,
             )
         else:
-            target_format = self._target.format
             # Also enable the texture for render and display usage
             self._target._wgpu_usage |= wgpu.TextureUsage.RENDER_ATTACHMENT
             self._target._wgpu_usage |= wgpu.TextureUsage.TEXTURE_BINDING
 
         self._blender = Blender()
+        self._effect_passes = ()
 
         self.sort_objects = sort_objects
 
         # Prepare object that performs the final render step into a texture
-        self._flusher = RenderFlusher(target_format)
+        self._output_pass = OutputPass()
 
         # Initialize a small buffer to read pixel info into
         # Make it 256 bytes just in case (for bytes_per_row)
@@ -443,6 +443,26 @@ class WgpuRenderer(RootEventHandler, Renderer):
         self._gamma_correction = 1.0 if value is None else float(value)
         if isinstance(self._target, AnyBaseCanvas):
             self._target.request_draw()
+
+    @property
+    def effect_passes(self):
+        """A tuple of ``EffectPass`` instances.
+
+        Together they form a chain of post-processing passes to produce the final visual result.
+        They are executed in order when the rendered image is flushed to the target (e.g. the screen).
+        """
+        return self._effect_passes
+
+    @effect_passes.setter
+    def effect_passes(self, steps):
+        effect_passes = []
+        for step in steps:
+            if not isinstance(step, EffectPass):
+                raise TypeError(
+                    f"A renderer effect-pass step must be an instance of EffectPass, not {step!r}"
+                )
+            effect_passes.append(step)
+        self._effect_passes = tuple(steps)
 
     def clear(self, *, all=False, color=False, depth=False):
         """Clear one or more of the render targets.
@@ -627,39 +647,56 @@ class WgpuRenderer(RootEventHandler, Renderer):
         if target is None:
             target = self._target
 
-        # Get the wgpu texture view.
+        # Get the target texture view.
         if isinstance(target, AnyBaseCanvas):
-            wgpu_tex_view = self._canvas_context.get_current_texture().create_view()
+            target_tex = self._canvas_context.get_current_texture().create_view()
         elif isinstance(target, Texture):
             need_mipmaps = target.generate_mipmaps
-            wgpu_tex_view = getattr(target, "_wgpu_default_view", None)
-            if wgpu_tex_view is None:
-                wgpu_tex_view = ensure_wgpu_object(GfxTextureView(target))
-                target._wgpu_default_view = wgpu_tex_view
+            target_tex = getattr(target, "_wgpu_default_view", None)
+            if target_tex is None:
+                target_tex = ensure_wgpu_object(GfxTextureView(target))
+                target._wgpu_default_view = target_tex
         elif isinstance(target, GfxTextureView):
             need_mipmaps = target.texture.generate_mipmaps
-            wgpu_tex_view = ensure_wgpu_object(target)
+            target_tex = ensure_wgpu_object(target)
         else:
             raise TypeError("Unexpected target type.")
 
         # Reset counter (so we can auto-clear the first next draw)
         self._renders_since_last_flush = 0
 
-        # Get texture view
-        color_view = self._blender.get_texture_view(
-            "color", wgpu.TextureUsage.TEXTURE_BINDING
-        )
-        if color_view is None:
-            return
+        # Start recording ...
+        command_encoder = self._device.create_command_encoder()
 
-        command_buffers = self._flusher.render(
-            color_view,
-            None,
-            wgpu_tex_view,
-            self._gamma_correction * self._gamma_correction_srgb,
-            self._pixel_filter,
-        )
-        self._device.queue.submit(command_buffers)
+        # Preparations
+        src_name, dst_name = "color", "altcolor"
+        src_usage = wgpu.TextureUsage.TEXTURE_BINDING
+        dst_usage = wgpu.TextureUsage.RENDER_ATTACHMENT
+
+        # Apply any effect passes
+        for step in self._effect_passes:
+            color_tex = self._blender.get_texture_view(
+                src_name, src_usage, create_if_not_exist=True
+            )
+            dst_tex = self._blender.get_texture_view(
+                dst_name, dst_usage, create_if_not_exist=True
+            )
+            depth_tex = None
+            if step.USES_DEPTH:
+                depth_tex = self._blender.get_texture_view(
+                    "depth", src_usage, create_if_not_exist=False
+                )
+            step.render(command_encoder, color_tex, depth_tex, dst_tex)
+            # Pingpong
+            src_name, dst_name = dst_name, src_name
+
+        # Apply copy-pass
+        color_tex = self._blender.get_texture_view(src_name, src_usage)
+        self._output_pass.gamma = self._gamma_correction * self._gamma_correction_srgb
+        self._output_pass.filter_strength = self._pixel_filter
+        self._output_pass.render(command_encoder, color_tex, None, target_tex)
+
+        self._device.queue.submit([command_encoder.finish()])
 
         if need_mipmaps:
             generate_texture_mipmaps(target)
