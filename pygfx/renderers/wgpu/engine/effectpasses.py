@@ -475,11 +475,11 @@ class NoisePass(EffectPass):
             let texIndex = vec2i(round(varyings.position.xy));
             let noise = random(texCoord.x * texCoord.y * uniforms.time);
             let color = textureLoad(colorTex, texIndex, 0);
-            return color + noise * 0.3;
+            return color + noise * uniforms.noise;
         }
     """
 
-    def __init__(self, *, noise=0.1):
+    def __init__(self, noise=0.1):
         super().__init__()
         self.noise = noise
 
