@@ -1,5 +1,20 @@
 """
-Implements full quad rendering tools, The EffectPass base class, and several builtin effect passes.
+.. currentmodule:: pygfx.renderers.wgpu
+
+The ``EffectPass`` is the base class for implementing full screen post-processing effects.
+This can be subclasses to create custom effects. A few builtin effects are also available.
+
+
+.. autosummary::
+    :toctree: _autosummary/renderers/wgpu/engine/effectpasses
+    :template: ../_templates/custom_layout.rst
+
+    EffectPass
+    CopyPass
+    NoisePass
+    DepthPass
+    FogPass
+
 """
 
 import time
@@ -290,14 +305,45 @@ class EffectPass(FullQuadPass):
     Base class to do post-processing effect passes, converting one image into another.
     """
 
-    # Only attaches the depth texture if its needed
     USES_DEPTH = False
+    """Overloadable class attribute to state whether bindings to the depth buffer are needed.
+    """
 
     uniform_type = dict(
         time="f4",
     )
+    """Overloadable class attribute that defines the structure of the uniform struct.
+
+    In a subclass you should use something like this::
+
+        uniform_type = dict(
+            EffectPass.uniform_type,
+            color="4xf4",
+            strength="f4",
+        )
+    """
 
     wgsl = "EffectPass_needs_to_be_subclassed(and_its_wgsl_attr_overloaded);"
+    """Overloadable class attribute that contains the WGSL shading code for the fragment shader.
+
+    Use the following template::
+
+        @fragment
+        fn fs_main(varyings: Varyings) -> @location(0) vec4<f32> {
+
+            // Available variables:
+            // colorTex - the texture containing the rendered image, or the previous effect pass
+            // depthTex - the texture containing the renderd depth values
+            // texSampler - a sampler to use for the above
+            // varyings.position - the position in physical pixels (a vec3f).
+            // varyings.texCoord - the coordinate in the textures (a vec2f).
+            // uniforms.time - the current time in seconds, changes each frame.
+            // uniforms.xx - whatever uniforms you added.
+
+            // To simply copy the image:
+            return textureSample(colorTex, texSampler, varyings.texCoord);
+        }
+    """
 
     def __repr__(self):
         return f"<{self.__class__.__name__} at {hex(id(self))}>"
@@ -309,6 +355,10 @@ class EffectPass(FullQuadPass):
         depth_tex,
         target_tex,
     ):
+        """Render the pass using the provided textures.
+
+        If ``USES_DEPTH`` is False, the ``depth_tex`` is ignored (and may be set to None).
+        """
         # Set uniforms
         self._uniform_data["time"] = time.perf_counter()
 
@@ -337,8 +387,9 @@ class CopyPass(EffectPass):
 class OutputPass(EffectPass):
     """
     Render from one texture into another, taking size difference into account. Applying gamma on the way.
-    This is applied by the renderer by default. So technically not so much an 'effect'.
     """
+
+    # Note: This class is not public, but used internally by the renderer to copy the final result to the target texture. So technically not so much an 'effect'.
 
     uniform_type = dict(
         EffectPass.uniform_type,
