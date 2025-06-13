@@ -591,7 +591,7 @@ class Blender:
             @fragment
             fn fs_main(varyings: Varyings) -> @location(0) vec4<f32> {
                 let epsilon = 1e-6;
-                let texIndex = vec2i(round(varyings.position.xy));
+                let texIndex = vec2i(varyings.position.xy);
 
                 // Sample
                 let accum = textureLoad(r_accum, texIndex, 0).rgba;

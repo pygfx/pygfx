@@ -338,13 +338,16 @@ class EffectPass(FullQuadPass):
         fn fs_main(varyings: Varyings) -> @location(0) vec4<f32> {
 
             // Available variables:
-            // colorTex - the texture containing the rendered image, or the previous effect pass
-            // depthTex - the texture containing the renderd depth values
-            // texSampler - a sampler to use for the above
-            // varyings.position - the position in physical pixels (a vec3f).
+            // colorTex - the texture containing the rendered image, or the previous effect pass.
+            // depthTex - the texture containing the renderd depth values.
+            // texSampler - a sampler to use for the above.
+            // varyings.position - the position in physical pixels (a vec4f).
             // varyings.texCoord - the coordinate in the textures (a vec2f).
             // u_effect.time - the current time in seconds, changes each frame.
             // u_effect.xx - whatever uniforms you added.
+
+            // Calculate the pixel index, e.g. if you want to use textureLoad().
+            let texIndex = vec2i(varyings.position.xy);
 
             // To simply copy the image:
             return textureSample(colorTex, texSampler, varyings.texCoord);
@@ -564,7 +567,7 @@ class NoisePass(EffectPass):
         @fragment
         fn fs_main(varyings: Varyings) -> @location(0) vec4<f32> {
             let texCoord = varyings.texCoord;
-            let texIndex = vec2i(round(varyings.position.xy));
+            let texIndex = vec2i(varyings.position.xy);
             let noise = random(texCoord.x * texCoord.y * u_effect.time);
             let color = textureLoad(colorTex, texIndex, 0);
             return color + noise * u_effect.noise;
@@ -593,7 +596,7 @@ class DepthPass(EffectPass):
     wgsl = """
         @fragment
         fn fs_main(varyings: Varyings) -> @location(0) vec4<f32> {
-            let texIndex = vec2i(round(varyings.position.xy));
+            let texIndex = vec2i(varyings.position.xy);
             let depth = textureLoad(depthTex, texIndex, 0);
             return vec4f(depth, depth, depth, 1.0);
         }
@@ -614,7 +617,7 @@ class FogPass(EffectPass):
     wgsl = """
         @fragment
         fn fs_main(varyings: Varyings) -> @location(0) vec4<f32> {
-            let texIndex = vec2i(round(varyings.position.xy));
+            let texIndex = vec2i(varyings.position.xy);
             let raw_depth = textureLoad(depthTex, texIndex, 0);
             let depth = pow(raw_depth, u_effect.power);
 
