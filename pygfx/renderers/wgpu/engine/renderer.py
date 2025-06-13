@@ -35,7 +35,7 @@ from ....utils import Color
 
 from ... import Renderer
 from .blender import Blender
-from .flusher import EffectPass, CopyPass
+from .effectpasses import EffectPass, CopyPass
 from .pipeline import get_pipeline_container_group
 from .update import update_resource, ensure_wgpu_object
 from .shared import get_shared

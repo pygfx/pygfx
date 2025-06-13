@@ -4,7 +4,7 @@ The blender is the part of the renderer that manages output targets and blending
 
 import wgpu  # only for flags/enums
 
-from .flusher import create_full_quad_pipeline
+from .effectpasses import create_full_quad_pipeline
 from .shared import get_shared
 
 
