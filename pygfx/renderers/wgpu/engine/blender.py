@@ -35,9 +35,34 @@ DEPTH_MAP = {
 
 usg = wgpu.TextureUsage
 default_targets = {
-    # The color texture is in srgb, because in the shaders we work with physical
-    # values, but we want to store as srgb to make effective use of the available bits. It's 4 bytes per pixel.
+    # Inside all our shaders, as well as in the EffectPass shaders, we follow a
+    # "linear workflow"; inside the shaders all colors are assumed to be in linear
+    # space (colors read from colormaps are converted when read). The final color,
+    # displayed on screen (or stored to PNG, etc.) should be sRGB so that the colors
+    # are perceived correctly. This conversion should preferably be done at the end.
+    #
+    # As for storing intermediate results, using 8bit colors in linear space would
+    # mean that we lose precision in regions where the human eye is sensitive.
+    # Ideally we'd use 'rgba16float', and maybe we should, it's 2025, but let's
+    # change that in a self-contained commit, because it will affect memory usage,
+    # and needs a feature?
+    #
+    # Using 'rgba8unorm_srgb' means that in each post-effect step, the colors are
+    # stored in srgb, and auto-conveted to linear when read/written. This seems a
+    # bit weird, because from the pov of math that works on linear values, it loses
+    # precision in a non-linear way. But that way we lose precision "in a way that's
+    # linear to the human eye", which results in a better end-result than using
+    # 'rgba8unorm'. Also see https://github.com/pmndrs/postprocessing
+    #
+    # This is 4 bytes per pixel.
+    # TODO: use half-floats
     "color": (
+        wgpu.TextureFormat.rgba8unorm_srgb,
+        usg.RENDER_ATTACHMENT | usg.COPY_SRC | usg.TEXTURE_BINDING,
+    ),
+    # A texture of the same size, to allow post-processing effects.
+    # When applying effects, the color and altcolor texture are ping-ponged.
+    "altcolor": (
         wgpu.TextureFormat.rgba8unorm_srgb,
         usg.RENDER_ATTACHMENT | usg.COPY_SRC | usg.TEXTURE_BINDING,
     ),
@@ -146,29 +171,30 @@ class Blender:
         """Get the texture object for the given name."""
         return self._textures.get(name)
 
-    def get_texture_view(self, name, usage):
+    def get_texture_view(self, name, usage, *, create_if_not_exist=False):
         """Get a texture view for the given name, with the given usage. Returns None if the texture does not exist."""
         texture = self._textures.get(name)
+
         if texture is None:
-            return None
-        else:
-            return texture.create_view(usage=usage)
+            if not create_if_not_exist:
+                return None
+            else:
+                texinfo = self._texture_info[name]
+                texture = self.device.create_texture(
+                    dimension="2d",
+                    size=(*self.size, 1),
+                    usage=texinfo["usage"],
+                    format=texinfo["format"],
+                )
+            self._textures[name] = texture
+
+        return texture.create_view(usage=usage)
 
     def _get_texture_view_for_rendering(self, name):
         """Get a texture view for the given name with rendert-attachment usage. Creates the texture if it does not exist."""
-        texture = self._textures.get(name)
-
-        if texture is None:
-            texinfo = self._texture_info[name]
-            texture = self.device.create_texture(
-                dimension="2d",
-                size=(*self.size, 1),
-                usage=texinfo["usage"],
-                format=texinfo["format"],
-            )
-            self._textures[name] = texture
-
-        return texture.create_view(usage=wgpu.TextureUsage.RENDER_ATTACHMENT)
+        return self.get_texture_view(
+            name, wgpu.TextureUsage.RENDER_ATTACHMENT, create_if_not_exist=True
+        )
 
     def clear(self):
         """Clear all the buffers (on the next time they're attached)."""
@@ -556,32 +582,33 @@ class Blender:
             },
         ]
 
-        bindings_code = """
+        wgsl = """
             @group(0) @binding(0)
             var r_accum: texture_2d<f32>;
             @group(0) @binding(1)
             var r_reveal: texture_2d<f32>;
+
+            @fragment
+            fn fs_main(varyings: Varyings) -> @location(0) vec4<f32> {
+                let epsilon = 1e-6;
+                let texIndex = vec2i(round(varyings.position.xy));
+
+                // Sample
+                let accum = textureLoad(r_accum, texIndex, 0).rgba;
+                let reveal = textureLoad(r_reveal, texIndex, 0).r;
+
+                // Exit if no transparent fragments was written
+                // This discard does not brake early-z, because with weighted blending you're rendering each object anyway.
+                if (reveal >= 1.0) { discard; }  // no transparent fragments here
+
+                // Reconstruct the color and alpha, and set final color, with premultiplied alpha
+                let avgColor = accum.rgb / max(accum.a, epsilon);
+                let alpha = 1.0 - reveal;
+                return vec4<f32>(avgColor * alpha, alpha);
+            }
         """
 
-        fragment_code = """
-            let epsilon = 1e-6;
-            // Sample
-            let accum = textureLoad(r_accum, texindex, 0).rgba;
-            let reveal = textureLoad(r_reveal, texindex, 0).r;
-
-            // Exit if no transparent fragments was written
-            // This discard does not brake early-z, because with weighted blending you're rendering each object anyway.
-            if (reveal >= 1.0) { discard; }  // no transparent fragments here
-
-            // Reconstruct the color and alpha, and set final color, with premultiplied alpha
-            let avg_color = accum.rgb / max(accum.a, epsilon);
-            let alpha = 1.0 - reveal;
-            out.color = vec4<f32>(avg_color * alpha, alpha);
-        """
-
-        return create_full_quad_pipeline(
-            targets, binding_layout, bindings_code, fragment_code
-        )
+        return create_full_quad_pipeline(targets, binding_layout, wgsl)
 
     def _create_combination_bind_group(self, bind_group_layout):
         # This must match the binding_layout above

@@ -69,6 +69,7 @@ from .engine.shared import (
     set_wgpu_limits,
 )
 from .engine.renderer import WgpuRenderer
+from .engine.flusher import EffectPass, NoisePass
 from .engine.pipeline import Binding
 
 # Shader classes

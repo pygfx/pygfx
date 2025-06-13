@@ -1,0 +1,492 @@
+"""
+Implements full quad rendering tools, The EffectPass base class, and several builtin effect passes.
+"""
+
+import time
+
+import wgpu
+
+from ....utils import array_from_shadertype
+from .utils import GpuCache, hash_from_value
+from .shared import get_shared
+from .binding import Binding
+from ..shader.bindings import BindingDefinitions
+
+
+# This cache enables sharing some gpu objects between code that uses
+# full-quad shaders. The gain here won't be large in general, but can
+# still be worthwhile in situations where many canvases are created,
+# such as in Jupyter notebooks, or e.g. when generating screenshots.
+# It should also reduce the required work during canvas resizing.
+FULL_QUAD_CACHE = GpuCache("full_quad_objects")
+
+
+FULL_QUAD_SHADER = """
+    struct VertexInput {
+        @builtin(vertex_index) index: u32,
+    };
+    struct Varyings {
+        @location(0) texCoord: vec2<f32>,
+        @builtin(position) position: vec4<f32>,
+    };
+
+    @vertex
+    fn vs_main(in: VertexInput) -> Varyings {
+        var positions = array<vec2<f32>,4>(
+            vec2<f32>(0.0, 1.0), vec2<f32>(0.0, 0.0), vec2<f32>(1.0, 1.0), vec2<f32>(1.0, 0.0)
+        );
+        let pos = positions[in.index];
+        var varyings: Varyings;
+        varyings.texCoord = vec2<f32>(pos.x, 1.0 - pos.y);
+        varyings.position = vec4<f32>(pos * 2.0 - 1.0, 0.0, 1.0);
+        return varyings;
+    }
+"""
+
+
+def create_full_quad_pipeline(targets, binding_layout, fragment_code):
+    device = get_shared().device
+
+    # Get bind group layout
+    key1 = hash_from_value(binding_layout)
+    bind_group_layout = FULL_QUAD_CACHE.get(key1)
+    if bind_group_layout is None:
+        bind_group_layout = device.create_bind_group_layout(entries=binding_layout)
+        FULL_QUAD_CACHE.set(key1, bind_group_layout)
+
+    # Get render pipeline
+    key2 = hash_from_value([bind_group_layout, targets, fragment_code])
+    render_pipeline = FULL_QUAD_CACHE.get(key2)
+    if render_pipeline is None:
+        wgsl = FULL_QUAD_SHADER + fragment_code
+        shader_module = device.create_shader_module(code=wgsl)
+
+        pipeline_layout = device.create_pipeline_layout(
+            bind_group_layouts=[bind_group_layout]
+        )
+
+        render_pipeline = device.create_render_pipeline(
+            layout=pipeline_layout,
+            vertex={
+                "module": shader_module,
+                "entry_point": "vs_main",
+                "buffers": [],
+            },
+            primitive={
+                "topology": wgpu.PrimitiveTopology.triangle_strip,
+                "strip_index_format": wgpu.IndexFormat.uint32,
+            },
+            depth_stencil=None,
+            multisample=None,
+            fragment={
+                "module": shader_module,
+                "entry_point": "fs_main",
+                "targets": targets,
+            },
+        )
+
+        # Bind shader module object to the lifetime of the pipeline object
+        render_pipeline._gfx_module = shader_module
+
+        FULL_QUAD_CACHE.set(key2, render_pipeline)
+
+    return render_pipeline
+
+
+# %%%%%%%%%%
+
+
+class FullQuadPass:
+    """
+    Rendering a full quad, with support for uniforms.
+    """
+
+    uniform_type = dict()
+
+    wgsl = ""
+
+    def __init__(self):
+        self._device = get_shared().device
+
+        self._uniform_data = array_from_shadertype(self.uniform_type)
+        self._wgpu_buffer = self._device.create_buffer(
+            size=self._uniform_data.nbytes,
+            usage=wgpu.BufferUsage.UNIFORM | wgpu.BufferUsage.COPY_DST,
+        )
+        bindings_definition = BindingDefinitions()
+        bindings_definition.define_binding(
+            0, 0, Binding("uniforms", "buffer/uniform", self._uniform_data.dtype)
+        )
+        self._uniform_binding_definition = bindings_definition.get_code()
+        self._uniform_binding_entry = {
+            "binding": 0,
+            "resource": {
+                "buffer": self._wgpu_buffer,
+                "offset": 0,
+                "size": self._wgpu_buffer.size,
+            },
+        }
+
+        self._wgpu_sampler = self._device.create_sampler(
+            min_filter="linear", mag_filter="linear"
+        )
+        self._sampler_binding_definition = """
+            @group(0) @binding(1)
+            var texSampler: sampler;
+        """
+        self._sampler_binding_entry = {"binding": 1, "resource": self._wgpu_sampler}
+
+        self._render_pipeline = None
+        self._render_pipeline_hash = None
+
+    def render(
+        self,
+        command_encoder,
+        **texture_views,
+    ):
+        """Render the source into the destination, applying the postprocessing effect."""
+
+        source_textures = {}
+        target_textures = []
+
+        for name, tex in texture_views.items():
+            if not isinstance(tex, wgpu.GPUTextureView):
+                raise TypeError(f"FullQuadPass expected a texture view, not {tex:!r}")
+            if name.startswith("target"):
+                target_textures.append(tex)
+            else:
+                source_textures[name] = tex
+        if not target_textures:
+            raise RuntimeError(
+                "FullQuadPass needs at least one target texture (prefixed with 'target')."
+            )
+
+        # Make sure we have the render_pipeline
+        render_pipeline_hash = (
+            tuple(source_textures.keys()),
+            tuple(tex.texture.format for tex in target_textures),
+        )
+        if render_pipeline_hash != self._render_pipeline_hash:
+            self._render_pipeline_hash = render_pipeline_hash
+            self._render_pipeline = self._create_pipeline(*render_pipeline_hash)
+
+        # Update uniforms
+        self._device.queue.write_buffer(
+            self._wgpu_buffer, 0, self._uniform_data, 0, self._uniform_data.nbytes
+        )
+
+        # Ready to go!
+        return self._render(command_encoder, source_textures.values(), target_textures)
+
+    def _render(self, command_encoder, source_textures, target_textures):
+        # Create bind group. This is very light and can be done every time.
+        # Chances are we get new views on every call anyway.
+        bind_group_entries = [self._uniform_binding_entry, self._sampler_binding_entry]
+        for i, tex in enumerate(source_textures, 2):
+            bind_group_entries.append({"binding": i, "resource": tex})
+        bind_group = self._device.create_bind_group(
+            layout=self._render_pipeline.get_bind_group_layout(0),
+            entries=bind_group_entries,
+        )
+
+        # Create attachments
+        color_attachments = []
+        for tex in target_textures:
+            color_attachments.append(
+                {
+                    "view": tex,
+                    "resolve_target": None,
+                    "clear_value": (0, 0, 0, 0),
+                    "load_op": wgpu.LoadOp.clear,
+                    "store_op": wgpu.StoreOp.store,
+                }
+            )
+
+        render_pass = command_encoder.begin_render_pass(
+            color_attachments=color_attachments,
+            depth_stencil_attachment=None,
+        )
+        render_pass.set_pipeline(self._render_pipeline)
+        render_pass.set_bind_group(0, bind_group, [], 0, 99)
+        render_pass.draw(4, 1)
+        render_pass.end()
+
+    def _create_pipeline(self, source_names, target_formats):
+        binding_layout = []
+        definitions_code = ""
+
+        # Uniform buffer
+        binding_layout.append(
+            {
+                "binding": 0,
+                "visibility": wgpu.ShaderStage.FRAGMENT,
+                "buffer": {"type": wgpu.BufferBindingType.uniform},
+            }
+        )
+        definitions_code += self._uniform_binding_definition
+
+        # Sampler
+        binding_layout.append(
+            {
+                "binding": 1,
+                "visibility": wgpu.ShaderStage.FRAGMENT,
+                "sampler": {"type": wgpu.SamplerBindingType.filtering},
+            }
+        )
+        definitions_code += self._sampler_binding_definition
+
+        # Source textures
+        for i, name in enumerate(source_names, 2):
+            binding_layout.append(
+                {
+                    "binding": i,
+                    "visibility": wgpu.ShaderStage.FRAGMENT,
+                    "texture": {
+                        "sample_type": wgpu.TextureSampleType.float,
+                        "view_dimension": wgpu.TextureViewDimension.d2,
+                        "multisampled": False,
+                    },
+                }
+            )
+            definitions_code += f"""
+                @group(0) @binding({i})
+                var {name}: texture_2d<f32>;
+            """
+
+        # Render targets
+        targets = []
+        for format in target_formats:
+            targets.append(
+                {
+                    "format": format,
+                    "blend": {
+                        "alpha": {
+                            "operation": wgpu.BlendOperation.add,
+                            "src_factor": wgpu.BlendFactor.one,
+                            "dst_factor": wgpu.BlendFactor.zero,
+                        },
+                        "color": {
+                            "operation": wgpu.BlendOperation.add,
+                            "src_factor": wgpu.BlendFactor.one,
+                            "dst_factor": wgpu.BlendFactor.zero,
+                        },
+                    },
+                }
+            )
+
+        return create_full_quad_pipeline(
+            targets, binding_layout, definitions_code + self.wgsl
+        )
+
+
+class EffectPass(FullQuadPass):
+    """
+    A post-processing pass, converting one image into another.
+    """
+
+    # Only attaches the depth texture if its needed
+    USES_DEPTH = False
+
+    uniform_type = dict(
+        time="f4",
+    )
+
+    wgsl = """
+        @fragment
+        fn fs_main(varyings: Varyings) -> @location(0) vec4<f32> {
+            // By default, just copy the pixel
+            return = textureLoad(colorTex, varyings.position.xy, 0);
+        }
+        """
+
+    def __repr__(self):
+        return f"<{self.__class__.__name__} at {hex(id(self))}>"
+
+    def render(
+        self,
+        command_encoder,
+        color_tex,
+        depth_tex,
+        target_tex,
+    ):
+        # Set uniforms
+        self._uniform_data["time"] = time.perf_counter()
+
+        # Compose kwargs containing the textures. Target textures are prefixed with 'target'
+        kwargs = dict(colorTex=color_tex, targetTex=target_tex)
+        if self.USES_DEPTH:
+            kwargs["depthTex"] = depth_tex
+
+        super().render(command_encoder, **kwargs)
+
+
+class CopyPass(EffectPass):
+    """
+    Render from one texture into another, taking size difference into account. Applying gamma on the way.
+    """
+
+    uniform_type = dict(
+        EffectPass.uniform_type,
+        sigma="f4",
+        support="i4",
+        gamma="f4",
+    )
+
+    wgsl = """
+        @fragment
+        fn fs_main(varyings: Varyings) -> @location(0) vec4<f32> {
+
+            let size = vec2f(textureDimensions(colorTex, 0).xy);
+            let texCoord = varyings.texCoord;
+
+            // Get info about the smoothing
+            // The limits here may give the compiler info on max iters of the loop below.
+            let sigma = max(0.1, uniforms.sigma);
+            let support = min(5, uniforms.support);
+
+            // The reference index is the subpixel index in the source texture that
+            // represents the location of this fragment.
+            let ref_index = texCoord * size;
+
+            // For the sampling, we work with integer coords. Also use min/max for the edges.
+            let base_index = vec2<i32>(ref_index);
+            let min_index = vec2<i32>(0, 0);
+            let max_index = vec2<i32>(size - 1.0);
+
+            // Convolve. Here we apply a Gaussian kernel, the weight is calculated
+            // for each pixel individually based on the distance to the ref_index.
+            // This means that the textures don't need to align.
+            var val: vec4<f32> = vec4<f32>(0.0, 0.0, 0.0, 0.0);
+            var weight: f32 = 0.0;
+            for (var y:i32 = -support; y <= support; y = y + 1) {
+                for (var x:i32 = -support; x <= support; x = x + 1) {
+                    let step = vec2<i32>(x, y);
+                    let index = clamp(base_index + step, min_index, max_index);
+                    let dist = length(ref_index - vec2<f32>(index) - 0.5);
+                    let t = dist / sigma;
+                    let w = exp(-0.5 * t * t);
+                    val = val + textureLoad(colorTex, index, 0) * w;
+                    weight = weight + w;
+                }
+            }
+            let gamma3 = vec3<f32>(uniforms.gamma);
+            return vec4<f32>(pow(val.rgb / weight, gamma3), val.a / weight);
+
+            // Note that the final opacity is not necessarily one. This means that
+            // the framebuffer can be blended with the background, or one can render
+            // images that can be better combined with other content in a document.
+            // It also means that most examples benefit from a gfx.Background.
+        }
+    """
+
+    def __init__(self, *, gamma=1.0, filter_strength=1.0):
+        super().__init__()
+        self.gamma = gamma
+        self.filter_strength = filter_strength
+
+    def render(
+        self,
+        command_encoder,
+        color_tex,
+        depth_tex,
+        target_tex,
+    ):
+        """Render the (internal) result of the renderer to a texture view."""
+
+        # Get factor between texture sizes
+        factor_x = color_tex.size[0] / target_tex.size[0]
+        factor_y = color_tex.size[1] / target_tex.size[1]
+        factor = (factor_x + factor_y) / 2
+
+        # With src a higher res (factor > 1), we will do SSAA.
+        # With equal res (factor == 1), we smooth a tiny bit. A bit less crisp, but also less flicker.
+        # With src a lower res (factor < 1) we maintain smoothing to reduce blockiness.
+        ref_sigma = max(0.5, 0.5 * factor)
+
+        # Determine kernel sigma and support
+        sigma = ref_sigma * float(self._filter_strength)
+        support = int(sigma * 3)  # is limited in shader
+
+        # Set uniform values
+        self._uniform_data["sigma"] = sigma
+        self._uniform_data["support"] = support
+
+        return super().render(command_encoder, color_tex, depth_tex, target_tex)
+
+    @property
+    def gamma(self):
+        """The gamma correction to apply."""
+        return float(self._uniform_data["gamma"])
+
+    @gamma.setter
+    def gamma(self, gamma):
+        self._uniform_data["gamma"] = float(gamma)
+
+    @property
+    def filter_strength(self):
+        """The strength of the smoothing filter."""
+        return self._filter_strength
+
+    @filter_strength.setter
+    def filter_strength(self, filter_strength):
+        self._filter_strength = float(filter_strength)
+
+
+class NoisePass(EffectPass):
+    """An effect pass that adds noise."""
+
+    uniform_type = dict(
+        EffectPass.uniform_type,
+        noise="f4",
+    )
+
+    wgsl = """
+        fn hashu(val: u32 ) -> u32 {
+            var x: u32 = val;
+            x += ( x << 10u );
+            x ^= ( x >>  6u );
+            x += ( x <<  3u );
+            x ^= ( x >> 11u );
+            x += ( x << 15u );
+            return x;
+        }
+        fn hashf(val: f32 ) -> u32 {
+            return hashu(bitcast<u32>(val));
+        }
+        fn hash_to_f32(h: u32) -> f32 {
+            let mantissaMask: u32 = 0x007FFFFFu;
+            let one: u32          = 0x3F800000u;
+            var x: u32 = h;
+            x &= mantissaMask;
+            x |= one;
+            return bitcast<f32>(x) - 1.0;
+        }
+        fn random(f: f32) -> f32 {
+            // Produces a number between 0 and 1 (halfopen range). The result is deterministic based on the seed.
+            return hash_to_f32( hashf(f) );
+        }
+        fn random2(f: vec2<f32>) -> f32 {
+            return hash_to_f32( hashf(f.x) ^ hashf(f.y) );
+        }
+
+        @fragment
+        fn fs_main(varyings: Varyings) -> @location(0) vec4<f32> {
+            let texCoord = varyings.texCoord;
+            let texIndex = vec2i(round(varyings.position.xy));
+            let noise = random(texCoord.x * texCoord.y * uniforms.time);
+            let color = textureLoad(colorTex, texIndex, 0);
+            return color + noise * 0.3;
+        }
+    """
+
+    def __init__(self, *, noise=0.1):
+        super().__init__()
+        self.noise = noise
+
+    @property
+    def noise(self):
+        return float(self._uniform_data["noise"])
+
+    @noise.setter
+    def noise(self, noise):
+        self._uniform_data["noise"] = float(noise)
