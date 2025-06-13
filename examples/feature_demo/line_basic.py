@@ -17,10 +17,12 @@ import pygfx as gfx
 import pylinalg as la
 
 canvas = WgpuCanvas(size=(1000, 800))
-renderer = gfx.WgpuRenderer(canvas)
+renderer = gfx.WgpuRenderer(canvas, ppaa='auto', pixel_ratio=1)
 renderer_svg = gfx.SvgRenderer(640, 480, "~/line.svg")
 
 scene = gfx.Scene()
+scene.add(gfx.Background.from_color("#000"))
+
 positions = [[200 + np.sin(i) * i * 6, 200 + np.cos(i) * i * 6, 0] for i in range(20)]
 positions += [[np.nan, np.nan, np.nan]]
 positions += [[400 - np.sin(i) * i * 6, 200 + np.cos(i) * i * 6, 0] for i in range(20)]
@@ -45,7 +47,7 @@ for i in range(len(positions)):
 
 line = gfx.Line(
     gfx.Geometry(positions=positions),
-    gfx.LineMaterial(thickness=22.0, color=(0.8, 0.7, 0.0), opacity=0.5),
+    gfx.LineMaterial(thickness=22.0, color=(0.8, 0.7, 0.0), aa=False),
 )
 scene.add(line)
 
@@ -62,22 +64,32 @@ d_alpha = 0.05
 def change_material(event):
     if event.key == "1":
         line.material = gfx.LineMaterial(
-            thickness=22.0, color=(0.8, 0.7, 0.0), opacity=0.5
+            thickness=22.0, color=(0.8, 0.7, 0.0), aa=False
         )
     elif event.key == "2":
+        line.material = gfx.LineMaterial(
+            thickness=22.0, color=(0.8, 0.7, 0.0), opacity=0.5, aa=True
+        )
+
+    elif event.key == "3":
         line.material = gfx.LineMaterial(
             thickness=22.0,
             color=(0.8, 0.7, 0.0),
             dash_pattern=(4, 2, 3, 2, 2, 2, 1, 2, 0, 2),
             thickness_space="screen",
             opacity=0.5,
+            aa=True,
         )
-    elif event.key == "3":
+    elif event.key == "4":
         line.material = gfx.LineDebugMaterial(thickness=22.0, color=(0.8, 0.7, 0.0))
     elif event.key == "o":
         line.material.dash_offset += 4
     elif event.key == "a":
         line.material.aa = not line.material.aa
+    elif event.key == "p":
+        renderer.ppaa = None if renderer.ppaa else "auto"
+    elif event.key == "r":
+        renderer.pixel_ratio = 2 if renderer.pixel_ratio == 1 else 1
     renderer.request_draw()
 
 
