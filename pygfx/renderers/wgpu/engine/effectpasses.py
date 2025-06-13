@@ -444,7 +444,14 @@ class OutputPass(EffectPass):
             let gamma3 = vec3<f32>(u_effect.gamma);
             let rgb = pow(val.rgb / weight, gamma3);
             let a = val.a / weight;
-            return vec4f(rgb * a, a);  // pre-multiply alpha
+
+            // The blend factors are simply ONE and ZERO, so the values as we return them here
+            // are how they end up in the target texture.
+            // We assume pre-multiply alpha for now.
+            // We should at some point look into this, if we want to support transparent windows,
+            // and change the code here based on the ``alpha_mode`` of the ``GPUCanvasContext``.
+            // Note tha alpha is multiplied with itself, which is probbaly wrong.
+            return vec4f(rgb * a, a * a);
 
             // Note that the final opacity is not necessarily one. This means that
             // the framebuffer can be blended with the background, or one can render
