@@ -72,7 +72,7 @@ default_targets = {
     # Note that there is also depth32float-stencil8, but it needs the (webgpu) extension with the same name.
     "depth": (
         wgpu.TextureFormat.depth32float,
-        usg.RENDER_ATTACHMENT | usg.COPY_SRC,
+        usg.RENDER_ATTACHMENT | usg.COPY_SRC | usg.TEXTURE_BINDING,
     ),
     # The pick texture has 4 16bit channels. It's 8 bytes per pixel.
     # These bits are divided over the pick data, e.g. 20 for the wobject id.

@@ -7,6 +7,7 @@ import time
 import wgpu
 
 from ....utils import array_from_shadertype
+from ....utils.color import Color
 from .utils import GpuCache, hash_from_value
 from .shared import get_shared
 from .binding import Binding
@@ -237,12 +238,17 @@ class FullQuadPass:
 
         # Source textures
         for i, name in enumerate(source_names, 2):
+            sample_type = wgpu.TextureSampleType.float
+            wgsl_type = "texture_2d<f32>"
+            if "depth" in name.lower():
+                sample_type = wgpu.TextureSampleType.depth
+                wgsl_type = "texture_depth_2d"
             binding_layout.append(
                 {
                     "binding": i,
                     "visibility": wgpu.ShaderStage.FRAGMENT,
                     "texture": {
-                        "sample_type": wgpu.TextureSampleType.float,
+                        "sample_type": sample_type,
                         "view_dimension": wgpu.TextureViewDimension.d2,
                         "multisampled": False,
                     },
@@ -250,7 +256,7 @@ class FullQuadPass:
             )
             definitions_code += f"""
                 @group(0) @binding({i})
-                var {name}: texture_2d<f32>;
+                var {name}: {wgsl_type};
             """
 
         # Render targets
@@ -505,8 +511,74 @@ class NoisePass(EffectPass):
 
     @property
     def noise(self):
+        """The strength of the noise."""
         return float(self._uniform_data["noise"])
 
     @noise.setter
     def noise(self, noise):
         self._uniform_data["noise"] = float(noise)
+
+
+class DepthPass(EffectPass):
+    """An effect that simply renders the depth. Mostly for debugging purposes."""
+
+    USES_DEPTH = True
+
+    wgsl = """
+        @fragment
+        fn fs_main(varyings: Varyings) -> @location(0) vec4<f32> {
+            let texIndex = vec2i(round(varyings.position.xy));
+            let depth = textureLoad(depthTex, texIndex, 0);
+            return vec4f(depth, depth, depth, 1.0);
+        }
+    """
+
+
+class FogPass(EffectPass):
+    """An effect pass that adds fog to the full image, using the depth buffer."""
+
+    USES_DEPTH = True
+
+    uniform_type = dict(
+        EffectPass.uniform_type,
+        color="4xf4",
+        power="f4",
+    )
+
+    wgsl = """
+        @fragment
+        fn fs_main(varyings: Varyings) -> @location(0) vec4<f32> {
+            let texIndex = vec2i(round(varyings.position.xy));
+            let raw_depth = textureLoad(depthTex, texIndex, 0);
+            let depth = pow(raw_depth, uniforms.power);
+
+            let color = textureLoad(colorTex, texIndex, 0);
+            let depth_color = uniforms.color;
+
+            return mix(color, depth_color, depth);
+        }
+    """
+
+    def __init__(self, color="#fff", power=1.0):
+        super().__init__()
+        self.color = color
+        self.power = power
+
+    @property
+    def color(self):
+        """The color of the fog."""
+        return Color(self._uniform_data["color"])
+
+    @color.setter
+    def color(self, color):
+        color = Color(color)
+        self._uniform_data["color"] = color
+
+    @property
+    def power(self):
+        """The power to apply to the depth value. Using a value < 1 brings the range more towards the camera."""
+        return float(self._uniform_data["power"])
+
+    @power.setter
+    def power(self, power):
+        self._uniform_data["power"] = float(power)
