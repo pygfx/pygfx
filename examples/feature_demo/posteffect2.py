@@ -42,7 +42,7 @@ class SineEffectPass(EffectPass):
     * colorTex
     * depthText
     * texSamper
-    * uniforms.time
+    * u_effect.time
 
     Extra uniforms can be added by overloading the uniform_type class variable.
     This works in the same way as in custom materials.
@@ -57,7 +57,7 @@ class SineEffectPass(EffectPass):
     @fragment
     fn fs_main(varyings: Varyings) -> @location(0) vec4<f32> {
         let texCoord = varyings.texCoord.xy;
-        let v = sin(texCoord.y * 20.0 + uniforms.time * 2.0) * uniforms.magnitude;
+        let v = sin(texCoord.y * 20.0 + u_effect.time * 2.0) * u_effect.magnitude;
         let uv = vec2f(texCoord.x + v, texCoord.y);
         return textureSample(colorTex, texSampler, uv);
     }

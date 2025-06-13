@@ -135,7 +135,7 @@ class FullQuadPass:
         )
         bindings_definition = BindingDefinitions()
         bindings_definition.define_binding(
-            0, 0, Binding("uniforms", "buffer/uniform", self._uniform_data.dtype)
+            0, 0, Binding("u_effect", "buffer/uniform", self._uniform_data.dtype)
         )
         self._uniform_binding_definition = bindings_definition.get_code()
         self._uniform_binding_entry = {
@@ -343,8 +343,8 @@ class EffectPass(FullQuadPass):
             // texSampler - a sampler to use for the above
             // varyings.position - the position in physical pixels (a vec3f).
             // varyings.texCoord - the coordinate in the textures (a vec2f).
-            // uniforms.time - the current time in seconds, changes each frame.
-            // uniforms.xx - whatever uniforms you added.
+            // u_effect.time - the current time in seconds, changes each frame.
+            // u_effect.xx - whatever uniforms you added.
 
             // To simply copy the image:
             return textureSample(colorTex, texSampler, varyings.texCoord);
@@ -413,8 +413,8 @@ class OutputPass(EffectPass):
 
             // Get info about the smoothing
             // The limits here may give the compiler info on max iters of the loop below.
-            let sigma = max(0.1, uniforms.sigma);
-            let support = min(5, uniforms.support);
+            let sigma = max(0.1, u_effect.sigma);
+            let support = min(5, u_effect.support);
 
             // The reference index is the subpixel index in the source texture that
             // represents the location of this fragment.
@@ -441,7 +441,7 @@ class OutputPass(EffectPass):
                     weight = weight + w;
                 }
             }
-            let gamma3 = vec3<f32>(uniforms.gamma);
+            let gamma3 = vec3<f32>(u_effect.gamma);
             return vec4<f32>(pow(val.rgb / weight, gamma3), val.a / weight);
 
             // Note that the final opacity is not necessarily one. This means that
@@ -556,9 +556,9 @@ class NoisePass(EffectPass):
         fn fs_main(varyings: Varyings) -> @location(0) vec4<f32> {
             let texCoord = varyings.texCoord;
             let texIndex = vec2i(round(varyings.position.xy));
-            let noise = random(texCoord.x * texCoord.y * uniforms.time);
+            let noise = random(texCoord.x * texCoord.y * u_effect.time);
             let color = textureLoad(colorTex, texIndex, 0);
-            return color + noise * uniforms.noise;
+            return color + noise * u_effect.noise;
         }
     """
 
@@ -607,10 +607,10 @@ class FogPass(EffectPass):
         fn fs_main(varyings: Varyings) -> @location(0) vec4<f32> {
             let texIndex = vec2i(round(varyings.position.xy));
             let raw_depth = textureLoad(depthTex, texIndex, 0);
-            let depth = pow(raw_depth, uniforms.power);
+            let depth = pow(raw_depth, u_effect.power);
 
             let color = textureLoad(colorTex, texIndex, 0);
-            let depth_color = uniforms.color;
+            let depth_color = u_effect.color;
 
             return mix(color, depth_color, depth);
         }
