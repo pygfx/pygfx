@@ -442,7 +442,9 @@ class OutputPass(EffectPass):
                 }
             }
             let gamma3 = vec3<f32>(u_effect.gamma);
-            return vec4<f32>(pow(val.rgb / weight, gamma3), val.a / weight);
+            let rgb = pow(val.rgb / weight, gamma3);
+            let a = val.a / weight;
+            return vec4f(rgb * a, a);  // pre-multiply alpha
 
             // Note that the final opacity is not necessarily one. This means that
             // the framebuffer can be blended with the background, or one can render
