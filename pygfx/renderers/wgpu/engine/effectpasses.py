@@ -61,6 +61,7 @@ FULL_QUAD_SHADER = """
 
 
 def create_full_quad_pipeline(targets, binding_layout, fragment_code):
+    """Low-level support for a full-quad pipeline."""
     device = get_shared().device
 
     # Get bind group layout
@@ -115,6 +116,9 @@ def create_full_quad_pipeline(targets, binding_layout, fragment_code):
 class FullQuadPass:
     """
     A base class for rendering a full quad, with support for uniforms.
+    The only current subclass is the EffectPass. The design is such that it supports
+    as many source and target textures as you want, so effects can e.g. have a texture
+    as a property.
     """
 
     uniform_type = dict()
@@ -305,6 +309,8 @@ class EffectPass(FullQuadPass):
     Base class to do post-processing effect passes, converting one image into another.
     """
 
+    # TODO: use templating and keep a dict with template variables. That we we can e.g. scale the support of a Gaussian blur effect properly.
+
     USES_DEPTH = False
     """Overloadable class attribute to state whether bindings to the depth buffer are needed.
     """
@@ -470,7 +476,7 @@ class OutputPass(EffectPass):
         ref_sigma = max(0.5, 0.5 * factor)
 
         # Determine kernel sigma and support
-        sigma = ref_sigma * float(self._filter_strength)
+        sigma = ref_sigma * self._filter_strength
         support = int(sigma * 3)  # is limited in shader
 
         # Set uniform values
