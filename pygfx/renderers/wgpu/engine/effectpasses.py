@@ -98,7 +98,7 @@ def create_full_quad_pipeline(targets, binding_layout, fragment_code):
 
 class FullQuadPass:
     """
-    Rendering a full quad, with support for uniforms.
+    A base class for rendering a full quad, with support for uniforms.
     """
 
     uniform_type = dict()
@@ -281,7 +281,7 @@ class FullQuadPass:
 
 class EffectPass(FullQuadPass):
     """
-    A post-processing pass, converting one image into another.
+    Base class to do post-processing effect passes, converting one image into another.
     """
 
     # Only attaches the depth texture if its needed
@@ -320,7 +320,7 @@ class EffectPass(FullQuadPass):
         super().render(command_encoder, **kwargs)
 
 
-class CopyPass(EffectPass):
+class OutputPass(EffectPass):
     """
     Render from one texture into another, taking size difference into account. Applying gamma on the way.
     """

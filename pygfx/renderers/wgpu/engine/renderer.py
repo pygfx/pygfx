@@ -35,7 +35,7 @@ from ....utils import Color
 
 from ... import Renderer
 from .blender import Blender
-from .effectpasses import EffectPass, CopyPass
+from .effectpasses import EffectPass, OutputPass
 from .pipeline import get_pipeline_container_group
 from .update import update_resource, ensure_wgpu_object
 from .shared import get_shared
@@ -291,7 +291,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         self.sort_objects = sort_objects
 
         # Prepare object that performs the final render step into a texture
-        self._copy_pass = CopyPass()
+        self._output_pass = OutputPass()
 
         # Initialize a small buffer to read pixel info into
         # Make it 256 bytes just in case (for bytes_per_row)
@@ -692,9 +692,9 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
         # Apply copy-pass
         color_tex = self._blender.get_texture_view(src_name, src_usage)
-        self._copy_pass.gamma = self._gamma_correction * self._gamma_correction_srgb
-        self._copy_pass.filter_strength = self._pixel_filter
-        self._copy_pass.render(command_encoder, color_tex, None, target_tex)
+        self._output_pass.gamma = self._gamma_correction * self._gamma_correction_srgb
+        self._output_pass.filter_strength = self._pixel_filter
+        self._output_pass.render(command_encoder, color_tex, None, target_tex)
 
         self._device.queue.submit([command_encoder.finish()])
 
