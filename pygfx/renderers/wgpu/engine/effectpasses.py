@@ -11,6 +11,7 @@ This can be subclasses to create custom effects. A few builtin effects are also 
 
     EffectPass
     CopyPass
+    FXAAPass
     NoisePass
     DepthPass
     FogPass
@@ -23,6 +24,7 @@ import wgpu
 
 from ....utils import array_from_shadertype
 from ....utils.color import Color
+from ..wgsl import load_wgsl
 from .utils import GpuCache, hash_from_value
 from .shared import get_shared
 from .binding import Binding
@@ -525,6 +527,21 @@ class OutputPass(EffectPass):
 # Color grading, color conversions, depth of field, patterns, pixelize, tone mapping, texture overlay, ...
 #
 # See https://github.com/pmndrs/postprocessing and ThreeJS code for implementations.
+
+
+class FXAAPass(EffectPass):
+    """An effect pass that removes jaggies by smoothing along edges."""
+
+    @property
+    def wgsl(self):
+        wgsl = load_wgsl("fxaa311.wgsl")
+        wgsl += """
+            @fragment
+            fn fs_main(varyings: Varyings) -> @location(0) vec4<f32> {
+                return aaShader(colorTex, texSampler, varyings.texCoord);
+            }
+        """
+        return wgsl
 
 
 class NoisePass(EffectPass):
