@@ -5,6 +5,7 @@ manages the rendering process.
 
 import time
 import logging
+from typing import Optional
 
 import numpy as np
 import wgpu
@@ -35,7 +36,7 @@ from ....utils import Color
 
 from ... import Renderer
 from .blender import Blender
-from .effectpasses import EffectPass, OutputPass
+from .effectpasses import EffectPass, OutputPass, FXAAPass
 from .pipeline import get_pipeline_container_group
 from .update import update_resource, ensure_wgpu_object
 from .shared import get_shared
@@ -218,7 +219,9 @@ class WgpuRenderer(RootEventHandler, Renderer):
     gamma_correction : float
         The gamma correction to apply in the final render stage. Typically a
         number between 0.0 and 2.0. A value of 1.0 indicates no correction.
-
+    ppaa : str, optional
+        The post-processing anti-aliasing to apply. Default None. Recommended to set to 'auto' for
+        most usecases.
     """
 
     def __init__(
@@ -231,6 +234,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         sort_objects=True,
         enable_events=True,
         gamma_correction=1.0,
+        ppaa=None,
         **kwargs,
     ):
         blend_mode = kwargs.pop("blend_mode", None)
@@ -287,6 +291,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
         self._blender = Blender()
         self._effect_passes = ()
+        self.ppaa = ppaa
 
         self.sort_objects = sort_objects
 
@@ -380,6 +385,48 @@ class WgpuRenderer(RootEventHandler, Renderer):
         self._pixel_filter = max(0.0, float(value))
 
     @property
+    def ppaa(self) -> Optional[str]:
+        """The post-processing anti-aliasing to apply.
+
+        With None, does not apply aliasing. Other values are 'auto' to auto-select,
+        and 'fxaa' for Fast Approxomate AA. More may be added in the future.
+
+        We recommend using 'auto' in general and None when making screenshots that you
+        don't want to change when we tweak the aa algorithms ;)
+
+        Note that SSAA can be achieved by using a pixel_ration. This can be well combined with PPAA,
+        the PPAA is applied before downsampling to the target texture.
+        """
+        ppaa = None
+        for effect_pass in self._effect_passes:
+            if isinstance(effect_pass, FXAAPass):
+                ppaa = "fxaa"
+        return ppaa
+
+    @ppaa.setter
+    def ppaa(self, ppaa: Optional[str]):
+        # Remove all passes related to ppaa
+        effect_passes = []
+        for effect_pass in self._effect_passes:
+            if not isinstance(effect_pass, FXAAPass):
+                effect_passes.append(effect_pass)
+
+        # Add back appropriate passes
+        if ppaa is not None:
+            if not isinstance(ppaa, str):
+                raise TypeError("Renderer.ppaa expects str or None, not {ppaa!r}")
+            algorithm = ppaa.lower()
+            if algorithm == "auto":
+                algorithm = "fxaa"
+
+            if algorithm == "fxaa":
+                effect_passes.append(FXAAPass())
+            else:
+                raise ValueError(f"Invalid value for renderer.ppaa: {ppaa!r}")
+
+        self.effect_passes = effect_passes
+
+    @property
     def rect(self):
         """The rectangular viewport for the renderer area."""
         return (0, 0, *self.logical_size)
@@ -454,15 +501,14 @@ class WgpuRenderer(RootEventHandler, Renderer):
         return self._effect_passes
 
     @effect_passes.setter
-    def effect_passes(self, steps):
-        effect_passes = []
-        for step in steps:
+    def effect_passes(self, effect_passes):
+        effect_passes = tuple(effect_passes)
+        for step in effect_passes:
             if not isinstance(step, EffectPass):
                 raise TypeError(
                     f"A renderer effect-pass step must be an instance of EffectPass, not {step!r}"
                 )
-            effect_passes.append(step)
-        self._effect_passes = tuple(steps)
+        self._effect_passes = effect_passes
 
     def clear(self, *, all=False, color=False, depth=False):
         """Clear one or more of the render targets.
