@@ -56,7 +56,7 @@ class OrbitController(PanZoomController):
 
     def __init__(self, *args, target=None, **kwargs):
         super().__init__(*args, **kwargs)
-        self._custom_target = np.array(target) if target is not None else None
+        self.target = np.array(target) if target is not None else None
 
     @property
     def target(self):
@@ -74,6 +74,8 @@ class OrbitController(PanZoomController):
             self._custom_target = None
         else:
             self._custom_target = np.array(value, dtype=np.float32)
+            for camera, _, _ in self._cameras:
+                camera.look_at(self._custom_target)
 
     def rotate(self, delta: Tuple, rect: Tuple, *, animate=False):
         """Rotate in an orbit around the target, using two angles (azimuth and elevation, in radians).
