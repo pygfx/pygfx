@@ -93,7 +93,7 @@ def create_full_quad_pipeline(targets, binding_layout, fragment_code):
     return render_pipeline
 
 
-# %%%%%%%%%%
+# ----- Class hierachy
 
 
 class FullQuadPass:
@@ -291,13 +291,7 @@ class EffectPass(FullQuadPass):
         time="f4",
     )
 
-    wgsl = """
-        @fragment
-        fn fs_main(varyings: Varyings) -> @location(0) vec4<f32> {
-            // By default, just copy the pixel
-            return = textureLoad(colorTex, varyings.position.xy, 0);
-        }
-        """
+    wgsl = "EffectPass_needs_to_be_subclassed(and_its_wgsl_attr_overloaded);"
 
     def __repr__(self):
         return f"<{self.__class__.__name__} at {hex(id(self))}>"
@@ -320,9 +314,24 @@ class EffectPass(FullQuadPass):
         super().render(command_encoder, **kwargs)
 
 
+class CopyPass(EffectPass):
+    """
+    Simple pass that does nothing but copy the texture over, using linear interpolation if the texture size does not match.
+    Mostly included for testing.
+    """
+
+    wgsl = """
+        @fragment
+        fn fs_main(varyings: Varyings) -> @location(0) vec4<f32> {
+            return textureSample(colorTex, texSampler, varyings.texCoord);
+        }
+        """
+
+
 class OutputPass(EffectPass):
     """
     Render from one texture into another, taking size difference into account. Applying gamma on the way.
+    This is applied by the renderer by default. So technically not so much an 'effect'.
     """
 
     uniform_type = dict(
@@ -430,6 +439,17 @@ class OutputPass(EffectPass):
     @filter_strength.setter
     def filter_strength(self, filter_strength):
         self._filter_strength = float(filter_strength)
+
+
+# ----- Builtin effects
+
+# Creating effects is fun! Some ideas:
+#
+# BloomPass, FilmPass, GlitchPass, GodRayPass, OutlinePass, AmbientOcclusionPass, FogPass, ...
+# GaussXPass, GaussYPass, GaussDxPass, GaussDyPass, SobelPass, LaplacianPass, SharpeningPass, ...
+# Color grading, color conversions, depth of field, patterns, pixelize, tone mapping, texture overlay, ...
+#
+# See https://github.com/pmndrs/postprocessing and ThreeJS code for implementations.
 
 
 class NoisePass(EffectPass):
