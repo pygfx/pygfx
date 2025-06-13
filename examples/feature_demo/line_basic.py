@@ -17,7 +17,7 @@ import pygfx as gfx
 import pylinalg as la
 
 canvas = WgpuCanvas(size=(1000, 800))
-renderer = gfx.WgpuRenderer(canvas, ppaa='auto', pixel_ratio=1)
+renderer = gfx.WgpuRenderer(canvas, ppaa="auto", pixel_ratio=1)
 renderer_svg = gfx.SvgRenderer(640, 480, "~/line.svg")
 
 scene = gfx.Scene()
