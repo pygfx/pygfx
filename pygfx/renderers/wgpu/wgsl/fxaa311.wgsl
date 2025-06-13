@@ -243,6 +243,7 @@ fn aaShader(screenTexture: texture_2d<f32>, samp: sampler, texCoord: vec2<f32>) 
     }
 
     // Read the color at the new UV coordinates, and use it.
-    var finalColor = textureSampleLevel(screenTexture, samp, finalUv, 0.0).rgb;
-    return vec4<f32>(finalColor, centerSample.a);
+    // AK: also use the mixed value for alpha, otherwise the effect is half-gone when using no BG in Pygfx.
+    var finalColor = textureSampleLevel(screenTexture, samp, finalUv, 0.0).rgba;
+    return vec4<f32>(finalColor);
 }
