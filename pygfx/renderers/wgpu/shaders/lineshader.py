@@ -219,7 +219,29 @@ class LineShader(BaseShader):
 
         # Calculate distances
         distances = np.linalg.norm(vertex_array[1:] - vertex_array[:-1], axis=1)
+
         distances[~np.isfinite(distances)] = 0.0
+        if self["loop"]:
+            finite = np.isfinite(vertex_array).all(axis=1)
+            corrections_needed = np.concatenate([
+                np.asarray([False,]),
+                np.logical_and(np.logical_not(finite[1:]), finite[:-1])
+            ])
+
+            first_index = np.concatenate([
+                finite[:1],
+                np.logical_and(finite[1:], np.logical_not(finite[:-1]))
+            ])
+
+            indices_for_correction = np.where(corrections_needed)[0] - 1
+            first_indices = np.where(first_index)[0][:len(indices_for_correction)]
+            last_indices = indices_for_correction - 1
+
+            distances_for_correction = np.linalg.norm(
+                vertex_array[first_indices] - vertex_array[last_indices], axis=1
+            )
+            # import ipdb; ipdb.set_trace()
+            distances[indices_for_correction] = distances_for_correction
 
         # Store cumulatives
         np.cumsum(distances, out=distance_array[1:])
