@@ -60,7 +60,11 @@ class OrbitController(PanZoomController):
 
     @property
     def target(self):
-        """The target position (x, y, z) that the camera orbits around."""
+        """The target position (x, y, z) that the camera orbits around.
+
+        Set to None to use an implicit target based on the camera state. This only works
+        well in combination with ``camera.show_object()`` and ``camera.show_pos()``.
+        """
         if self._custom_target is not None:
             return self._custom_target.copy()
         else:
@@ -69,7 +73,6 @@ class OrbitController(PanZoomController):
 
     @target.setter
     def target(self, value):
-        """Set the target position (x, y, z) that the camera orbits around."""
         if value is None:
             self._custom_target = None
         else:
