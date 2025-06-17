@@ -6,6 +6,9 @@ This example demonstrates how to implement a Verlet integration cloth physics si
 including a spring system, gravity, wind forces, and sphere collisions.
 """
 
+# sphinx_gallery_pygfx_docs = 'animate 4s'
+# sphinx_gallery_pygfx_test = 'run'
+
 import numpy as np
 import pygfx as gfx
 import wgpu
@@ -191,6 +194,8 @@ setup_verlet_geometry()
     spring_count,
 ) = setup_verlet_buffers()
 
+# todo: now, storage buffers (gfx.Buffer) are not supported array<vec3<f32>>, so we use array<f32> instead.
+
 # compute shaders for Verlet integration
 spring_compute_wgsl = """
 struct Params {
@@ -256,6 +261,8 @@ struct Params {
 @group(0) @binding(4) var<storage, read> spring_list: array<u32>;
 @group(0) @binding(5) var<storage, read> spring_vertex_ids: array<vec2<u32>>;
 @group(0) @binding(6) var<storage, read> spring_forces: array<f32>;
+
+override SPHERE_RADIUS: f32 = 0.15;
 
 fn tri(x: f32) -> f32 {
     return abs(fract(x) - 0.5);
@@ -345,8 +352,8 @@ fn compute_vertex_forces(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let delta_sphere = new_pos - sphere_pos;
         let dist = length(delta_sphere);
 
-        if (dist < 0.15) {
-            let penetration = 0.15 - dist;
+        if (dist < SPHERE_RADIUS) {
+            let penetration = SPHERE_RADIUS - dist;
             let normal = delta_sphere / max(dist, 0.000001);
             force += normal * penetration;
         }
@@ -382,6 +389,8 @@ vertex_shader.set_resource(3, vertex_params_buffer)
 vertex_shader.set_resource(4, spring_list_buffer)
 vertex_shader.set_resource(5, spring_vertex_ids_buffer)
 vertex_shader.set_resource(6, spring_force_buffer)
+
+vertex_shader.set_constant("SPHERE_RADIUS", sphere_radius)
 
 
 def create_cloth_mesh_buffer():
@@ -601,10 +610,10 @@ def draw_ui():
     global wireframe_mode, show_sphere, show_verlet_system
 
     imgui.new_frame()
-    imgui.set_next_window_size((300, 0), imgui.Cond_.always)
+    imgui.set_next_window_size((350, 0), imgui.Cond_.always)
     imgui.set_next_window_pos((0, 0), imgui.Cond_.always)
 
-    imgui.begin("Cloth Controls", True)
+    imgui.begin("Cloth Controls")
 
     _, params_data[6] = imgui.slider_float("Stiffness", params_data[6], 0.1, 0.5)
     _, params_data[5] = imgui.slider_float("Wind", params_data[5], 0.0, 5.0)
