@@ -696,8 +696,16 @@ class _GLTF:
                     material.emissiveTexture
                 )
 
-        # todo alphaMode
-        # todo alphaCutoff
+        if material.alphaMode == "BLEND":
+            gfx_material.transparent = True
+            gfx_material.depth_write = False
+        else:
+            gfx_material.transparent = False
+            if material.alphaMode == "MASK":
+                if material.alphaCutoff is None:
+                    gfx_material.alpha_test = 0.5
+                else:
+                    gfx_material.alpha_test = material.alphaCutoff
 
         gfx_material.side = (
             gfx.enums.VisibleSide.both
