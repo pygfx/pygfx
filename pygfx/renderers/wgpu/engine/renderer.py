@@ -394,8 +394,8 @@ class WgpuRenderer(RootEventHandler, Renderer):
         We recommend using 'auto' in general and None when making screenshots that you
         don't want to change when we tweak the aa algorithms ;)
 
-        Note that SSAA can be achieved by using a pixel_ration. This can be well combined with PPAA,
-        the PPAA is applied before downsampling to the target texture.
+        Note that SSAA can be achieved by using a pixel_ratio > 1. This can be well combined with PPAA,
+        since the PPAA is applied before downsampling to the target texture.
         """
         ppaa = None
         for effect_pass in self._effect_passes:
