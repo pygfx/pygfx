@@ -17,7 +17,7 @@ import pylinalg as la
 n = 4
 
 canvas = RenderCanvas(size=(500 * n, 500))
-renderer0 = gfx.renderers.WgpuRenderer(canvas)
+renderer = gfx.renderers.WgpuRenderer(canvas)
 
 textures = []
 meshes = []
@@ -106,16 +106,16 @@ scene.add(text)
 camera = gfx.OrthographicCamera()
 camera.show_rect(-50, 50, -50, 50)
 
-controller = gfx.PanZoomController(camera, register_events=renderer0)
+controller = gfx.PanZoomController(camera, register_events=renderer)
 
 
 @canvas.request_draw
 def animate():
     # Render the scene with different renderers
-    for renderer in renderers:
-        renderer.render(scene, camera)
+    for sub_renderer in renderers:
+        sub_renderer.render(scene, camera)
     # Render resulting textures to the canvas
-    renderer0.render(scene0, camera0)
+    renderer.render(scene0, camera0)
 
 
 if __name__ == "__main__":
