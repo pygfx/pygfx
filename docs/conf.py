@@ -32,7 +32,7 @@ author = "Almar Klein, Korijn van Golen"
 extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.napoleon",
-    "sphinx_gallery.gen_gallery",
+    "sphinx_gallery.gen_gallery",  # comment this to temporarily turn off the gallery for faster builds
     "sphinx.ext.autosummary",
     "sphinx_rtd_theme",
     "sphinx.ext.intersphinx",

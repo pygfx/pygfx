@@ -17,8 +17,6 @@ independent of any GUI toolkits.
 
 """
 
-# ruff: noqa: F401
-
 from ._base import Controller
 from ._panzoom import PanZoomController
 from ._orbit import OrbitController

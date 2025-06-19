@@ -543,7 +543,7 @@ class Texture(Resource):
                     )
                 # Copy into array with one extra channel
                 nchannels = chunk.shape[3]  # usually 3 for rgb, padded to make rgba
-                padded_shape = chunk.shape[:3] + (nchannels + 1,)
+                padded_shape = (*chunk.shape[:3], nchannels + 1)
                 padded_chunk = np.full(padded_shape, pad_value, dtype=chunk.dtype)
                 padded_chunk[:, :, :, :nchannels] = chunk
                 chunk = padded_chunk

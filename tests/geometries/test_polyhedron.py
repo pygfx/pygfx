@@ -26,7 +26,7 @@ def test_polyhedrons():
         assert g.indices.data.dtype == np.int32
         assert g.positions.data.shape == (nr_faces * 3, 3)
         assert g.positions.data.shape == g.normals.data.shape
-        assert g.positions.data.shape[:-1] + (2,) == g.texcoords.data.shape
+        assert g.positions.data.shape[:-1] + (2,) == g.texcoords.data.shape  # noqa: RUF005
         assert g.indices.data.size == g.positions.data.shape[0]
         assert g.indices.data.size == len(set(g.indices.data.flat))
         assert np.allclose(np.linalg.norm(g.positions.data, axis=-1), 1)
