@@ -32,7 +32,7 @@ from ....cameras import Camera
 from ....resources import Texture
 from ....resources._base import resource_update_registry
 from ....utils import Color
-from ....utils.enums import PixelFilter, MarkerShape
+from ....utils.enums import PixelFilter
 
 from ... import Renderer
 from .blender import Blender
