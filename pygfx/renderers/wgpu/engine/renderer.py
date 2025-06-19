@@ -32,6 +32,7 @@ from ....cameras import Camera
 from ....resources import Texture
 from ....resources._base import resource_update_registry
 from ....utils import Color
+from ....utils.enums import PixelFilter, MarkerShape
 
 from ... import Renderer
 from .blender import Blender
@@ -204,8 +205,8 @@ class WgpuRenderer(RootEventHandler, Renderer):
         render buffer.
     pixel_ratio : float, optional
         The ratio between the number of internal pixels versus the logical pixels on the canvas.
-    pixel_filter : float, optional
-        The relative strength of the filter when copying the result to the target/canvas.
+    pixel_filter : str, PixelFilter, optional
+        The type of interpolation / reconstruction filter to use. Default 'cubic'.
     show_fps : bool
         Whether to display the frames per second. Beware that
         depending on the GUI toolkit, the canvas may impose a frame rate limit.
@@ -226,7 +227,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         target,
         *args,
         pixel_ratio=None,
-        pixel_filter=None,
+        pixel_filter: PixelFilter = "cubic",
         show_fps=False,
         sort_objects=True,
         enable_events=True,
@@ -251,7 +252,6 @@ class WgpuRenderer(RootEventHandler, Renderer):
             )
         self._target = target
         self.pixel_ratio = pixel_ratio
-        self.pixel_filter = pixel_filter
 
         # Make sure we have a shared object (the first renderer creates the instance)
         self._shared = get_shared()
@@ -292,6 +292,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
         # Prepare object that performs the final render step into a texture
         self._output_pass = OutputPass()
+        self.pixel_filter = pixel_filter
 
         # Initialize a small buffer to read pixel info into
         # Make it 256 bytes just in case (for bytes_per_row)
@@ -357,27 +358,37 @@ class WgpuRenderer(RootEventHandler, Renderer):
             )
 
     @property
-    def pixel_filter(self):
-        """The relative strength of the filter applied to the final pixels.
+    def pixel_filter(self) -> PixelFilter:
+        """The type of interpolation / reconstruction filter to use when flushing the result.
+
+        See :obj:`pygfx.utils.enums.PixelFilter`.
 
         The renderer renders everything to an internal texture, which,
         depending on the ``pixel_ratio``, may have a different physical size than
         the target (i.e. canvas). In the process of rendering the result
         to the target, a filter is applied, resulting in SSAA if the
-        target size is smaller. The filter is a Gaussian kernel with sigma equal to
-        half the pixel ratio.
+        target size is smaller, and upsampling when the target size is larger.
 
-        The value of ``pixel_filter`` multiplies the filter sigma (i.e. filter strength).
-        So using 1.0 uses the default, higher values result in more blur, and 0
-        disables the filter.
+        The filter defines how the interpolation is done (when the source and target are not of the same size).
         """
-        return self._pixel_filter
+        return self._output_pass.filter
 
     @pixel_filter.setter
-    def pixel_filter(self, value):
-        if value is None:
-            value = 1.0
-        self._pixel_filter = max(0.0, float(value))
+    def pixel_filter(self, value: PixelFilter):
+        # For backwards compatibility, allow 0, 1, 0.0, 1.0, False, and True.
+        if value == 0:
+            value = "nearest"
+        elif value == 1:
+            value = "cubic"
+        if not isinstance(value, str):
+            raise TypeError("Pixel filter must be a str.")
+        value = value.lower()
+        if value not in PixelFilter.__args__:
+            raise ValueError(
+                f"Pixel filter must be one of {PixelFilter}, not {value!r}"
+            )
+        self._output_pass.filter = value
+        self._pixel_filter = value
 
     @property
     def rect(self):
@@ -693,7 +704,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # Apply copy-pass
         color_tex = self._blender.get_texture_view(src_name, src_usage)
         self._output_pass.gamma = self._gamma_correction * self._gamma_correction_srgb
-        self._output_pass.filter_strength = self._pixel_filter
+        # self._output_pass.filter_strength = self._pixel_filter
         self._output_pass.render(command_encoder, color_tex, None, target_tex)
 
         self._device.queue.submit([command_encoder.finish()])

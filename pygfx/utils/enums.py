@@ -17,10 +17,12 @@ The enums used in pygfx. The enums are all available from the root ``pygfx`` nam
     TextAlign
     TextAnchor
     VisibleSide
+    PixelFilter
 
 """
 
 from wgpu.utils import BaseEnum
+from typing import TypeAlias, Literal
 
 
 __all__ = [
@@ -30,6 +32,7 @@ __all__ = [
     "EdgeMode",
     "ElementFormat",
     "MarkerShape",
+    "PixelFilter",
     "SizeMode",
     "TextAlign",
     "TextAnchor",
@@ -178,6 +181,22 @@ class TextAnchor(Enum):
     bottom_left = "bottom-left"
     bottom_center = "bottom-center"
     bottom_right = "bottom-right"
+
+
+# TODO: I experimented with using a Literal[] here, an idea discussed in https://github.com/pygfx/wgpu-py/issues/720.
+# We should eventually use the same approach to all enums (either an Enum class, or Literal type aliases).
+
+PixelFilter = Literal["nearest", "linear", "disk", "gaussian", "cubic"]  #:
+""" The type of interpolation for flushing the result of a renderer to a target.
+
+The filter is used both when upsampling and downsampling. The recommended (and default) is "mitchell".
+
+* "nearest": nearest-neighbour interpolation, using a box filter shape.
+* "linear": linear interpolation, using a triangular (pyramid) filter shape.
+* "disk": nearest-neighbour interpolation, using a circular filter shape to show individual pixels.
+* "gaussian": a Gaussian diffusion kernel, resulting in a more smooth / blurred result.
+* "cubic": cubic spline interpolation, with Mitchell's parameters, optimized for image interpolation.
+"""
 
 
 # NOTE: Don't forget to add new enums to the toctree and __all__
