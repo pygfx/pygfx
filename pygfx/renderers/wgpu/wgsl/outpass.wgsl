@@ -143,15 +143,15 @@ fn fs_main(varyings: Varyings) -> @location(0) vec4<f32> {
         c = textureSampleLevel(colorTex, texSampler, texCoordSnapped, 0.0, vec2i({{ dx }}, {{ dy }}));
         color += w * c;
         weight += w;
-        $$ if dx == 0 and dy == 0
-        let nearest_color = c;
-        $$ endif
     $$ endfor
     $$ endfor
 
     if weight == 0.0 { weight = 1.0; }
-    // if weight == 0.0 { color = nearest_color;  weight = 1.0; }
     color *= (1.0 / weight);
+
+    let gamma3 = vec3<f32>(u_effect.gamma);
+    let rgb = pow(color.rgb, gamma3);
+    let a = color.a;
 
     // The blend factors are simply ONE and ZERO, so the values as we return them here
     // are how they end up in the target texture.
@@ -159,8 +159,8 @@ fn fs_main(varyings: Varyings) -> @location(0) vec4<f32> {
     // We should at some point look into this, if we want to support transparent windows,
     // and change the code here based on the ``alpha_mode`` of the ``GPUCanvasContext``.
     // Note tha alpha is multiplied with itself, which is probbaly wrong.
-    let a = color.a;
-    return vec4f(color.rgb * a, a * a);
+
+    return vec4f(rgb * a, a * a);
 
     // Note that the final opacity is not necessarily one. This means that
     // the framebuffer can be blended with the background, or one can render
