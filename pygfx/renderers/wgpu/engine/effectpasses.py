@@ -455,7 +455,7 @@ class OutputPass(EffectPass):
     @property
     def filter(self):
         """The type of filter to use."""
-        return self._template_vars["filter"]
+        return self._filter
 
     @filter.setter
     def filter(self, filter):
@@ -472,6 +472,7 @@ class OutputPass(EffectPass):
                 f"Unknown OutputPass filter {filter!r}, must be one of {set(filter_map)}"
             )
         filter_func = filter_map[filter]
+        self._filter = filter
         self._set_template_var(filter=filter_func)
 
 

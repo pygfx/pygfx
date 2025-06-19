@@ -1,5 +1,6 @@
 
-// Interpolating filter
+// Interpolating / reconstruction filter
+// Inspired by https://therealmjp.github.io/posts/msaa-resolve-filters/
 
 fn filterweightBox(t: vec2f) -> f32 {
     // The box filter results in nearest-neighbour interpolation when upsampling,
@@ -21,11 +22,6 @@ fn filterweightPyramid(t: vec2f) -> f32 {
     return max(0.0, f32(1.0 - abs(t.x))) * max(0.0, f32(1.0 - abs(t.y)));
 }
 
-fn filterweightCone(t: vec2f) -> f32 {
-    // Not sure what to make of this: the disk-equivalent of the triangle filter.
-    return max(0.0, f32(1.0 - length(t)));;
-}
-
 fn filterweightGaussian(t: vec2f) -> f32 {
     // The Gaussian filter applies diffusion to all pixels touched by the kernel,
     // leading to a smooth (i.e. blury) result. We multiply the t with 2, to decrease
@@ -33,8 +29,10 @@ fn filterweightGaussian(t: vec2f) -> f32 {
     // would be large, while the result would be pixelated because the kernel
     // support would be too small to incorporate the tail of the kernel (i.e. we'd
     // have to sample much more pixels).
-    let t2 = length(t) * 2.0;
-    return exp(-0.5 * t2 * t2);
+    let t2 = t * 2.0;
+    let t3 = length(t2);
+    return exp(-0.5 * t3 * t3);
+    // return exp(-0.5 * t2.x * t2.x) * exp(-0.5 * t2.y * t2.y);  -> the same except for float inaccuracies because Gaussian is seperable
 }
 
 fn cubicWeights(t1: f32, B: f32, C: f32) -> f32 {
@@ -54,21 +52,20 @@ fn cubicWeights(t1: f32, B: f32, C: f32) -> f32 {
 fn filterweightBspline(t: vec2f) -> f32 {
     // The B-Spline is a non-interpolating cubic filter. It's sometimes useful
     // because it's C2 continuous, but quite useless in the current context t.b.h.
-    return cubicWeights(length(t), 1.0, 0.0);
+    return cubicWeights(t.x, 1.0, 0.0) * cubicWeights(t.y, 1.0, 0.0);
 }
 
 fn filterweightCatmullrom(t: vec2f) -> f32 {
     // The Catmull-Rom cubic spline is well know for its pleasing interpolating properties.
-    return cubicWeights(length(t), 0.0, 0.5);
+    return cubicWeights(t.x, 0.0, 0.5) * cubicWeights(t.y, 0.0, 0.5);
 }
 
 fn filterweightMitchell(t: vec2f) -> f32 {
     // The Mitchell cubic spline is designed to offer a good balance between
     // frequency response, blurring, and artifacts, in the context of image
     // interpolation and reconstruction. This is our best filter.
-    return cubicWeights(length(t), 1 / 3.0, 1 / 3.0);
-    // Note: unlike for Gaussian kernels, the below does *not* produce the same result. The diagonals won't have the negative lobes.
-    // return cubicWeights(t.x, 1 / 3.0, 1 / 3.0) *  cubicWeights(t.y, 1 / 3.0, 1 / 3.0);
+    const b = 1 / 3.0;
+    return cubicWeights(t.x, b, b) * cubicWeights(t.y, b, b);
     // Note: writing out the formula for this specific B and C does not seem to help performance.
 }
 
@@ -80,15 +77,19 @@ fn fs_main(varyings: Varyings) -> @location(0) vec4<f32> {
     let resolution = vec2<f32>(textureDimensions(colorTex).xy);
 
     // Get the coord expressed in float pixels (for the source texture). The pixel centers are at 0.5, 1.5, 2.5, etc.
-    let fpos1: vec2f = texCoord * resolution;
-    // Get the integer pixel index into the source texture (floor, not round!)
-    let ipos: vec2i = vec2i(fpos1);
+    let fpos0: vec2f = texCoord * resolution;
+    // Get the closest integer pixel index into the source texture (floor, not round!)
+    let ipos1: vec2i = vec2i(fpos0);
+    // Select the reference pixel index appropriate for a cubic kernel.
+    let ipos2: vec2i = vec2i(round(fpos0)) - 1;
     // Project the rounded pixel location back to float, representing the center of that pixel
-    let fpos2 = vec2f(ipos) + 0.5;
-    // Get the offset for the current sample
-    let tpos = fpos1 - fpos2;
+    let fpos1 = vec2f(ipos1) + 0.5;
+    let fpos2 = vec2f(ipos2) + 0.5;
     // The texcoord, snapped to the whole pixel in the source texture
-    let texCoordSnapped = fpos2 / resolution;
+    let texCoordSnapped1 = fpos1 / resolution;  // Nearest pixel
+    let texCoordSnapped2 = fpos2 / resolution;  // Reference pixel
+    // Get the offset of the current sample, relative to the reference pixel
+    let tpos = fpos0 - fpos2;
 
     //  0.   1.   2.   3.   4.   position
     //   ____ ____ ____ ____
@@ -98,10 +99,11 @@ fn fs_main(varyings: Varyings) -> @location(0) vec4<f32> {
     //
     //  Imagine the sample at x:
     //
-    //  fpos1 = 2.4
-    //  ipos  = 2
-    //  fpos2 = 2.5
-    //  tpos  = -0.1
+    //  fpos0 = 2.4
+    //  ipos1 = 2
+    //  ipos2 = 1
+    //  fpos2 = 1.5
+    //  tpos  = 0.9
 
     // To determine the size of the patch to sample, i.e. the support for the
     // kernel, we need the scale factor between the source and target texture. The
@@ -140,18 +142,24 @@ fn fs_main(varyings: Varyings) -> @location(0) vec4<f32> {
     $$ for dx in range(delta1, delta2)
         t = vec2f({{ dx }}, {{ dy }}) - tpos;
         w = filterweight{{ filter.lower().capitalize() }}(t / sigma);
-        c = textureSampleLevel(colorTex, texSampler, texCoordSnapped, 0.0, vec2i({{ dx }}, {{ dy }}));
+        c = textureSampleLevel(colorTex, texSampler, texCoordSnapped2, 0.0, vec2i({{ dx }}, {{ dy }}));
         color += w * c;
         weight += w;
     $$ endfor
     $$ endfor
 
     if weight == 0.0 { weight = 1.0; }
-    color *= (1.0 / weight);
+    color /= weight;
+
+    $$ if force_nearest is defined and force_nearest
+    // Debug: just show nearest
+    color = textureSampleLevel(colorTex, texSampler, texCoordSnapped1, 0.0, vec2i(0, 0));
+    $$ endif
 
     let gamma3 = vec3<f32>(u_effect.gamma);
     let rgb = pow(color.rgb, gamma3);
     let a = color.a;
+
 
     // The blend factors are simply ONE and ZERO, so the values as we return them here
     // are how they end up in the target texture.
