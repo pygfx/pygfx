@@ -245,7 +245,6 @@ class FullQuadPass:
         render_pass.end()
 
     def _create_pipeline(self, source_names, target_formats):
-        print("creating fullquad pipeline")
         binding_layout = []
         definitions_code = ""
 

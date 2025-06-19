@@ -17,7 +17,6 @@ independent of any GUI toolkits.
 
 """
 
-
 from ._base import Controller
 from ._panzoom import PanZoomController
 from ._orbit import OrbitController
