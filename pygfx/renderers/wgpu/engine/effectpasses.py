@@ -314,6 +314,8 @@ class FullQuadPass:
 
         wgsl = definitions_code
         wgsl += apply_templating(self.wgsl, **self._template_vars)
+        count = wgsl.count("textureSample") + wgsl.count("textureLoad")
+        print(count)
         return create_full_quad_pipeline(targets, binding_layout, wgsl)
 
 
@@ -455,25 +457,25 @@ class OutputPass(EffectPass):
     @property
     def filter(self):
         """The type of filter to use."""
-        return self._filter
+        return self._template_vars["filter"]
 
     @filter.setter
     def filter(self, filter):
         filter = filter.lower()
-        filter_map = {
-            "nearest": "box",
-            "linear": "pyramid",
-            "disk": "disk",
-            "gaussian": "gaussian",
-            "cubic": "mitchell",
+        filters = {
+            "nearest",
+            "linear",
+            "disk",
+            "pyramid",
+            "cubic",
+            "bspline",
+            "gaussian",
         }
-        if filter not in filter_map:
+        if filter not in filters:
             raise ValueError(
-                f"Unknown OutputPass filter {filter!r}, must be one of {set(filter_map)}"
+                f"Unknown OutputPass filter {filter!r}, must be one of {set(filters)}"
             )
-        filter_func = filter_map[filter]
-        self._filter = filter
-        self._set_template_var(filter=filter_func)
+        self._set_template_var(filter=filter)
 
 
 # ----- Builtin effects

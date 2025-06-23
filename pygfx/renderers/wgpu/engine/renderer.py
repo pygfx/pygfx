@@ -368,6 +368,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         the target (i.e. canvas). In the process of rendering the result
         to the target, a filter is applied, resulting in SSAA if the
         target size is smaller, and upsampling when the target size is larger.
+        When the internal texture has the same size as the target, no filter is applied (equivalent to nearest).
 
         The filter defines how the interpolation is done (when the source and target are not of the same size).
         """

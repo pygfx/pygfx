@@ -186,16 +186,21 @@ class TextAnchor(Enum):
 # TODO: I experimented with using a Literal[] here, an idea discussed in https://github.com/pygfx/wgpu-py/issues/720.
 # We should eventually use the same approach to all enums (either an Enum class, or Literal type aliases).
 
-PixelFilter: TypeAlias = Literal["nearest", "linear", "disk", "gaussian", "cubic"]  #:
+PixelFilter: TypeAlias = Literal[
+    "nearest", "linear", "disk", "pyramid", "cubic", "bspline", "gaussian"
+]  #:
 """ The type of interpolation for flushing the result of a renderer to a target.
 
-The filter is used both when upsampling and downsampling. The recommended (and default) is "mitchell".
+The filter is used both when upsampling and downsampling. The recommended (and default) is "cubic".
+Note that when the source and target image are of the same size, the filter is always nearest.
 
-* "nearest": nearest-neighbour interpolation, using a box filter shape.
-* "linear": linear interpolation, using a triangular (pyramid) filter shape.
-* "disk": nearest-neighbour interpolation, using a circular filter shape to show individual pixels.
-* "gaussian": a Gaussian diffusion kernel, resulting in a more smooth / blurred result.
+* "nearest": nearest-neighbour interpolation.
+* "linear": linear interpolation, using the four closest neighbours in the source image.
+* "disk": a circular filter shape to show individual pixels in upsampling cases.
+* "pyramid": linear interpolation, using all pixels in the source image that have a distance < 1 (in target pixels).
 * "cubic": cubic spline interpolation, with Mitchell's parameters, optimized for image interpolation.
+* "bspline": cubic spline interpolation using a b-spline, which is rather smooth but has no overshoot.
+* "gaussian": a Gaussian diffusion kernel, resulting in a more smooth / blurred result.
 """
 
 
