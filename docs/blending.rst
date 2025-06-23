@@ -17,9 +17,8 @@ Transparency is expressed using an ``alpha`` value. This can be the fourth
 component in an RGBA color, e.g. in a color property or in a colormap. But it
 can also be an explicit value, e.g. ``material.opacity``.
 
-Although they are commonly used to represent transparency, this is not always
-the case. E.g. they can be used as the reference value in alpha testing, or as a
-weight in weighted blending.
+Although alpha values are commonly used to represent transparency, this is not always
+the case; they can e.g. be used as the reference value in alpha testing.
 
 In any case, the alpha value represents a weight for how the object is combined with
 other objects, and it's applicance depends on ``material.alpha_mode``.
@@ -54,7 +53,7 @@ Blending
 Blending means that objects are combined on a per-fragment basis. The object's
 fragment color and the current color in the output texture are blended using a
 mathematical formula. There are different kinds of blending, the most common
-being the "over operator", which in Pygfx we call "over" blending.
+being the "over operator" (also known as normal blending).
 
 When an object is blended, this has certain implications, the most obvious one being
 that the result will depend on the order in which the objects are rendered.
@@ -63,44 +62,34 @@ that the result will depend on the order in which the objects are rendered.
 Render order
 ------------
 
-For objects that have their fragments blended, the order of rendering these
-objects is important to get the correct result. The renderer sorts objects based
-on three factors:
+The renderer sorts objects based on three factors:
 
 * Objects are first sorted by their ``object.render_order``. Users should generally not need this, but it allows full control over the render order.
-* Then bases on their ``material.alpha mode`` and ``material.depth_write``, in order: "opaque" and "dither", "blend" with depth write, "blend", "weighted".
-* The object's distance to the camera. Note that this won't help all cases, since objects
-  can still intersect other objects (and themselves).
+* Then based on ``material.alpha mode`` and ``material.depth_write``, in order:
+    * "opaque" and "dither"
+    * "blend" with ``depth write`` True
+    * "blend" with ``depth write`` False
+    * "weighted"
+* The object's distance to the camera. The order is front to back for objects that write depth (to reduce overdraw), and back-to-front for blending objects (to get correct blending). Weighted objects are not sorted.
 
-Even with these rules, object (or parts of objects) may be rendered "behind"
-other objects, which uis usually not what we want. This is avoided with the depth buffer.
+Even with this sorting, objects can still intersect other objects (and themselves).
+To prevent drawing the (parts of) objects that are occluded by other objects, a depth buffer is used.
 
 
 Depth buffer
 ------------
 
 The depth buffer is a texture of the same size as the color output texture, that
-stores the distance from the camera, of the last drawn fragment. If an object
+stores the distance from the camera of the last drawn fragment. If an object
 has ``material.depth_test = True``, fragments that would be further from the
 camera (i.e. are occluded by another object) will not be drawn. The ``material.depth_test`` is True by default.
 
-The depth buffer also helps with performance of rendering opaque objects by
-avoiding "overdraw". It does this by dropping fragments bases on their depth
-value, without even calculating the fragment color. This optimization is known
-as "early Z", and is why opaque objects are drawn front-to back. Note that it
-only works when the depth of an object can be determined before running the
-shader (i.e. the shader does not ``discard`` or set the depth). In Pygfx, meshes
-support early-z, but lines, points and text do not.
+One can also control whether an object writes to the depth buffer. If
+```material.depth_write`` is False, objects behind it will still be drawn and visible (although the blending would be incorrect).
 
-One can also control whether an object writes to the depth buffer. If it does
-not, it allows objects that are behind it to still be drawn (even though the
-blending might not be theoretically correct).
-
-Typically, objects that have opaque fragments are drawn first, with
-``depth_write=True``, and transparent objects are drawn after, with
-``depth_write=False``. In Pygfx, the default value of ``material.depth_write``
+Objects that don't write depth are usually drawn after objects that do write depth.
+In Pygfx, the default value of ``material.depth_write``
 is True when ``alpha_mode`` is "opaque" or "dither", and False otherwise.
-
 
 
 List of transparency use-cases
