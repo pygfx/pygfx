@@ -206,7 +206,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
     pixel_ratio : float, optional
         The ratio between the number of internal pixels versus the logical pixels on the canvas.
     pixel_filter : str, PixelFilter, optional
-        The type of interpolation / reconstruction filter to use. Default 'cubic'.
+        The type of interpolation / reconstruction filter to use. Default 'mitchell'.
     show_fps : bool
         Whether to display the frames per second. Beware that
         depending on the GUI toolkit, the canvas may impose a frame rate limit.
@@ -227,7 +227,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         target,
         *args,
         pixel_ratio=None,
-        pixel_filter: PixelFilter = "cubic",
+        pixel_filter: PixelFilter = "mitchell",
         show_fps=False,
         sort_objects=True,
         enable_events=True,
@@ -380,7 +380,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         if value == 0:
             value = "nearest"
         elif value == 1:
-            value = "cubic"
+            value = "mitchell"
         if not isinstance(value, str):
             raise TypeError("Pixel filter must be a str.")
         value = value.lower()

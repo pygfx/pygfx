@@ -37,13 +37,13 @@ def test_outpass_scale_is_1():
     p.set_scale_factor(1)
 
     # Always use linear filtering when scaleFactor == 1
-    p.filter = "cubic"
+    p.filter = "mitchell"
     wgsl, lines = p.resolve_wgsl()
     assert len(lines) == 1
     assert "texCoordOri" in lines[0]
 
     # Also with other filter
-    p.filter = "pyramid"
+    p.filter = "linear"
     wgsl, lines = p.resolve_wgsl()
     assert len(lines) == 1
     assert "texCoordOri" in lines[0]
@@ -93,8 +93,8 @@ def test_outpass_filter_disk():
     _test_outpass_filter_medium("disk")
 
 
-def test_outpass_filter_pyramid():
-    _test_outpass_filter_medium("pyramid")
+def test_outpass_filter_tent():
+    _test_outpass_filter_medium("tent")
 
 
 def _test_outpass_filter_medium(filter):
@@ -104,26 +104,16 @@ def _test_outpass_filter_medium(filter):
     # When the source is smaller, it always uses four samples
     p.set_scale_factor(0.9)
 
-    if filter == "pyramid":
-        wgsl, lines = p.resolve_wgsl()
-        assert len(lines) == 1
-        assert "texCoordOrig" in lines[0]
-    else:
-        wgsl, lines = p.resolve_wgsl()
-        assert len(lines) == 4
-        assert "texCoordLeft" in lines[0]
+    wgsl, lines = p.resolve_wgsl()
+    assert len(lines) == 4
+    assert "texCoordLeft" in lines[0]
 
     # Does not really matter how small
     p.set_scale_factor(0.01)
 
-    if filter == "pyramid":
-        wgsl, lines = p.resolve_wgsl()
-        assert len(lines) == 1
-        assert "texCoordOrig" in lines[0]
-    else:
-        wgsl, lines = p.resolve_wgsl()
-        assert len(lines) == 4
-        assert "texCoordLeft" in lines[0]
+    wgsl, lines = p.resolve_wgsl()
+    assert len(lines) == 4
+    assert "texCoordLeft" in lines[0]
 
     # When the source is larger, the kernel needs a larger support.
     p.set_scale_factor(1.1)
@@ -186,11 +176,15 @@ def _test_outpass_filter_medium(filter):
 
 
 def test_outpass_filter_bspline():
-    _test_outpass_filter_cubic("cubic")
-
-
-def test_outpass_filter_cubic():
     _test_outpass_filter_cubic("bspline")
+
+
+def test_outpass_filter_mitchell():
+    _test_outpass_filter_cubic("mitchell")
+
+
+def test_outpass_filter_catmull():
+    _test_outpass_filter_cubic("catmull")
 
 
 def _test_outpass_filter_cubic(filter):
@@ -264,9 +258,9 @@ def _test_outpass_filter_cubic(filter):
     p.set_scale_factor(2.0)
 
     wgsl, lines = p.resolve_wgsl()
-    if True:  # filter in ["cubic", "bspline"]:
+    if True:  # filter in ["mitchell", "bspline", "catmull"]:
         # assert len(lines) == 64- 4
-        assert len(lines) == 12  # opt!
+        assert len(lines) in (12, 16)  # opt!
         assert "texCoordOrig" in lines[0]
     else:
         assert len(lines) == 64 - 4
@@ -297,7 +291,7 @@ def test_extra_kernel_support():
     # contibution is very small. We turn that feature off in this test to make the math simpler.
     p._set_template_var(optCorners=False)
 
-    for filter in ["pyramid", "disk", "cubic", "bspline"]:
+    for filter in ["tent", "disk", "mitchell", "bspline", "catmull"]:
         for scale_factor in [0.9, 1.1, 1.4, 1.8]:
             p.filter = filter
             p.set_scale_factor(scale_factor)
@@ -411,35 +405,26 @@ def test_outpass_result_scale_1():
 
     p.set_image(ref_image)
 
-    for filter in ["nearest", "linear", "pyramid", "cubic", "bspline"]:
+    for filter in ["nearest", "linear", "tent", "bspline", "mitchell", "catmull"]:
         p.filter = filter
         im = p.get_result(1)
         assert np.all(im == ref_image)
 
 
-def test_outpass_result_pyramid():
-    # I'm not sure why, but the pyramid filter does not a small
+def test_outpass_result_tent():
+    # I'm not sure why, but the tent filter does not a small
     # tolerance. It does not produce slightly different results depending on
     # wheter an even or uneven kernel is used. This happens even when I
-    # tried emulating the pyramid filter with a cardinal cubic spline.
+    # tried emulating the tent filter with a cardinal cubic spline.
     # Similarly, when upsampling, letting the sampler do the interpolation
     # produces slightly different result (less than 1/255) than taking 4 samples
     # and doing the interpolation in the shader, but we want the performance!
-    _test_that_kernel_is_exact_correct_size("pyramid", 0.4, 0.002)
-    _test_that_kernel_is_exact_correct_size("pyramid", 0.9, 0.002)
-    _test_that_kernel_is_exact_correct_size("pyramid", 1.1, 0.0005)
-    _test_that_kernel_is_exact_correct_size("pyramid", 1.4, 0.0005)
-    _test_that_kernel_is_exact_correct_size("pyramid", 1.8, 0.0005)
-    _test_that_kernel_is_exact_correct_size("pyramid", 2.2, 0.0005)
-
-
-def test_outpass_result_mitchell():
-    _test_that_kernel_is_exact_correct_size("cubic", 0.4)
-    _test_that_kernel_is_exact_correct_size("cubic", 0.9)
-    _test_that_kernel_is_exact_correct_size("cubic", 1.1)
-    _test_that_kernel_is_exact_correct_size("cubic", 1.4)
-    _test_that_kernel_is_exact_correct_size("cubic", 1.8, 0.001)
-    _test_that_kernel_is_exact_correct_size("cubic", 2.2, 0.001)
+    _test_that_kernel_is_exact_correct_size("tent", 0.4, 0.002)
+    _test_that_kernel_is_exact_correct_size("tent", 0.9, 0.002)
+    _test_that_kernel_is_exact_correct_size("tent", 1.1, 0.0005)
+    _test_that_kernel_is_exact_correct_size("tent", 1.4, 0.0005)
+    _test_that_kernel_is_exact_correct_size("tent", 1.8, 0.0005)
+    _test_that_kernel_is_exact_correct_size("tent", 2.2, 0.0005)
 
 
 def test_outpass_result_bspline():
@@ -449,6 +434,24 @@ def test_outpass_result_bspline():
     _test_that_kernel_is_exact_correct_size("bspline", 1.4)
     _test_that_kernel_is_exact_correct_size("bspline", 1.8, 0.001)
     _test_that_kernel_is_exact_correct_size("bspline", 2.2, 0.001)
+
+
+def test_outpass_result_mitchell():
+    _test_that_kernel_is_exact_correct_size("mitchell", 0.4)
+    _test_that_kernel_is_exact_correct_size("mitchell", 0.9)
+    _test_that_kernel_is_exact_correct_size("mitchell", 1.1)
+    _test_that_kernel_is_exact_correct_size("mitchell", 1.4)
+    _test_that_kernel_is_exact_correct_size("mitchell", 1.8, 0.001)
+    _test_that_kernel_is_exact_correct_size("mitchell", 2.2, 0.001)
+
+
+def test_outpass_result_catmull():
+    _test_that_kernel_is_exact_correct_size("catmull", 0.4)
+    _test_that_kernel_is_exact_correct_size("catmull", 0.9)
+    _test_that_kernel_is_exact_correct_size("catmull", 1.1)
+    _test_that_kernel_is_exact_correct_size("catmull", 1.4)
+    _test_that_kernel_is_exact_correct_size("catmull", 1.8, 0.001)
+    _test_that_kernel_is_exact_correct_size("catmull", 2.2, 0.001)
 
 
 def _test_that_kernel_is_exact_correct_size(filter, scale_factor, tol=0.001):
@@ -492,14 +495,21 @@ def test_outpass_opt_scale2():
     p = TestableOutputPass()
     p.set_image(ref_image)
 
-    for tol, filter in [(0.0019, "cubic"), (0.0025, "bspline")]:
+    for tol, filter in [
+        (0.0019, "tent"),
+        (0.0019, "bspline"),
+        (0.0019, "mitchell"),
+        (0.0019, "catmull"),
+    ]:
         p.filter = filter
 
         im1 = p.get_result(2, optScale2=True)
         im2 = p.get_result(2, optScale2=False)
         maxerr = np.abs(im1 - im2).max()
         print(f"opt_scale2 maxerr for {filter}: {maxerr}")
-        assert allclose(im1, im2, tol), f"optSF2 produces suboptimal results ({maxerr})"
+        assert allclose(im1, im2, tol), (
+            f"optSF2 produces suboptimal results for {filter!r} ({maxerr})"
+        )
 
 
 def allclose(a, b, atol=0.0019):
@@ -515,14 +525,17 @@ if __name__ == "__main__":
     test_outpass_filter_nearest()
     test_outpass_filter_linear()
     test_outpass_filter_disk()
-    test_outpass_filter_pyramid()
+    test_outpass_filter_tent()
     test_outpass_filter_bspline()
-    test_outpass_filter_cubic()
+    test_outpass_filter_mitchell()
+    test_outpass_filter_catmull()
+
     test_extra_kernel_support()
 
     test_outpass_result_scale_1()
-    test_outpass_result_pyramid()
-    test_outpass_result_mitchell()
+    test_outpass_result_tent()
     test_outpass_result_bspline()
+    test_outpass_result_mitchell()
+    test_outpass_result_catmull()
 
     test_outpass_opt_scale2()
