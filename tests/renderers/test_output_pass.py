@@ -1,6 +1,13 @@
+"""
+Tests for the output pass, which implements downsampling and upsampling with a variety of kernels.
+
+We test the generated wgsl for the expected number of texture lookups,
+and we run the pass to make sure it's error is within bounds, also for
+the various optimizations that we apply.
+"""
+
 from pygfx.renderers.wgpu.engine.effectpasses import OutputPass, apply_templating
 
-import pygfx as gfx
 import wgpu
 import numpy as np
 import imageio.v3 as iio
@@ -501,9 +508,6 @@ def allclose(a, b, atol=0.0019):
     if atol is None:
         atol = 0.0019
     return np.allclose(a, b, 0, atol)
-
-
-##
 
 
 if __name__ == "__main__":
