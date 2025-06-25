@@ -43,8 +43,8 @@ camera0.show_rect(0, n, 0, 1)
 renderers = [
     gfx.renderers.WgpuRenderer(textures[0], pixel_ratio=0.2, pixel_filter="nearest"),
     gfx.renderers.WgpuRenderer(textures[1], pixel_ratio=0.2, pixel_filter="disk"),
-    gfx.renderers.WgpuRenderer(textures[2], pixel_ratio=0.2, pixel_filter="gaussian"),
-    gfx.renderers.WgpuRenderer(textures[3], pixel_ratio=0.2, pixel_filter="cubic"),
+    gfx.renderers.WgpuRenderer(textures[2], pixel_ratio=0.2, pixel_filter="bspline"),
+    gfx.renderers.WgpuRenderer(textures[3], pixel_ratio=0.2, pixel_filter="mitchell"),
 ]
 
 
