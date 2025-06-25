@@ -180,7 +180,7 @@ class FullQuadPass:
 
         for name, tex in texture_views.items():
             if not isinstance(tex, wgpu.GPUTextureView):
-                raise TypeError(f"FullQuadPass expected a texture view, not {tex:!r}")
+                raise TypeError(f"FullQuadPass expected a texture view, not {tex!r}")
             if name.startswith("target"):
                 target_textures.append(tex)
             else:
@@ -314,8 +314,6 @@ class FullQuadPass:
 
         wgsl = definitions_code
         wgsl += apply_templating(self.wgsl, **self._template_vars)
-        count = wgsl.count("textureSample") + wgsl.count("textureLoad")
-        print(count)
         return create_full_quad_pipeline(targets, binding_layout, wgsl)
 
 
@@ -426,6 +424,11 @@ class OutputPass(EffectPass):
         super().__init__()
         self.gamma = gamma
         self.filter = filter
+        self._set_template_var(
+            extraKernelSupport=None,  # for testing
+            optCorners=True,  # optimization: drop corners in kernels larger than 6x6
+            optScale2=True,  # optimization: use 12-tap filters for cubic kernels when scaleFactor == 2
+        )
 
     def render(
         self,
@@ -464,6 +467,7 @@ class OutputPass(EffectPass):
         filter = filter.lower()
         filters = {
             "nearest",
+            "box",
             "linear",
             "disk",
             "pyramid",

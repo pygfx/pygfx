@@ -5,7 +5,7 @@
 fn filterweightBox(t: vec2f) -> f32 {
     // The box filter results in nearest-neighbour interpolation when upsampling,
     // and simple averaging when downsampling.
-    return f32(abs(t.x) <= 0.5) * f32(abs(t.y) <= 0.5);
+    return f32(-0.5 < t.x && t.x <= 0.5) * f32(-0.5 < t.y && t.y <= 0.5);
 }
 
 fn filterweightDisk(t: vec2f) -> f32 {
@@ -38,7 +38,7 @@ fn filterweightGaussian(t: vec2f) -> f32 {
 fn cubicWeights(t1: f32, B: f32, C: f32) -> f32 {
     // Generic parametrized Cubic kernel.
     let t = abs(t1);
-    var w = 0.0f;
+    var w = 0.0;
     let t2 = t * t;
     let t3 = t * t * t;
     if t < 1.0 {
@@ -64,6 +64,7 @@ fn filterweightMitchell(t: vec2f) -> f32 {
     // The Mitchell cubic spline is designed to offer a good balance between
     // frequency response, blurring, and artifacts, in the context of image
     // interpolation and reconstruction. This is our best filter.
+    // https://en.wikipedia.org/wiki/Mitchell%E2%80%93Netravali_filters
     const b = 1 / 3.0;
     return cubicWeights(t.x, b, b) * cubicWeights(t.y, b, b);
     // Note: writing out the formula for this specific B and C does not seem to help performance.
@@ -75,11 +76,19 @@ fn filterweightCubic(t: vec2f) -> f32 {
     return cubicWeights(t.x, b, b) * cubicWeights(t.y, b, b);
 }
 
+fn filterweightPyramidAlt(t: vec2f) -> f32 {
+    // Cardinal spline with tension zero is effectively a tent/pyramid filter
+    const b = 0.0;
+    const c = 0.0;
+    return cubicWeights(t.x, b, c) * cubicWeights(t.y, b, c);
+}
+
 
 @fragment
 fn fs_main(varyings: Varyings) -> @location(0) vec4<f32> {
 
     let resolution = vec2<f32>(textureDimensions(colorTex).xy);
+    let invPixelSize = 1.0 / resolution;
     let texCoordOrig = varyings.texCoord;
 
     // Calculate positions, we distinguish between original position, nearest pixel, reference pixel.
@@ -94,8 +103,8 @@ fn fs_main(varyings: Varyings) -> @location(0) vec4<f32> {
     let fPosNear = vec2f(iPosNear) + 0.5;
     let fPosLeft = vec2f(iPosLeft) + 0.5;
     // Translate to texture coords
-    let texCoordNear = fPosNear / resolution;
-    let texCoordLeft = fPosLeft / resolution;
+    let texCoordNear = fPosNear * invPixelSize;
+    let texCoordLeft = fPosLeft * invPixelSize;
 
     //  0.   1.   2.   3.   4.   position
     //   ____ ____ ____ ____
@@ -110,27 +119,41 @@ fn fs_main(varyings: Varyings) -> @location(0) vec4<f32> {
     //  iPosLeft = 1
     //  fPosLeft = 1.5
 
-    // Generally speaking, even with a pixel ratio of 1, the input and output grid may not be aligned.
-    // But in our case (we assume) they are, so this basically becomes a 1-pixel copy-pass.
-    // We still use 'linear' and not 'nearest' because if the above assumption is not met, it's likely
-    // easier to spot due to the blurring.
+    $$ set originalFilter = filter
+
+    {# Generally speaking, even with a pixel ratio of 1, the input and output grid may not be aligned. #}
+    {# But in our case (we assume) they are, so this basically becomes a 1-pixel copy-pass. #}
+    {# We still use 'linear' and not 'nearest' because if the above assumption is not met, it's likely easier to spot due to the blurring. #}
     $$ if scaleFactor == 1.0 and filter != 'nearest'
     $$     set filter = 'linear'
     $$ endif
 
-    // To determine the size of the patch to sample, i.e. the support for the cubic
+    {# Use simple linear samling when upsampling with the pyramid filter. #}
+    $$ if scaleFactor < 1 and filter == 'pyramid' and extraKernelSupport is none
+    $$     set filter = 'linear'
+    $$ endif
+
+    // To determine the size of the filter kernel, i.e. the support for the cubic
     // kernel, we need the scale factor between the source and target texture. The
     // scaleFactor is defined such that if its < 1, the source is smaller, i.e.
-    // we're upsampling. Ideally the kernelSupport would be int((scaleFactor *
-    // 1.99)) so that a cubic spline can be fully sampled, but that would result in
-    // a lot of samples to be made (100 samples for fsaax2 (scaleFactor 2). With the
-    // below it'd be 36. It does mean that the tails of the filter are not used, but
-    // since that more or less means more smoothing, this is allright, because we're
-    // already downsampling; it's a good compromise. What's important is that for
-    // scaleFactor of 1 and lower, the kernel support is [-1 0 1 2].
+    // we're upsampling. The kernelSupport factor is a float that represents the
+    // distance in source pixels from the current sample point, at which the kernel
+    // is still nonzero. The simple filters have a kernelSupport that is equal to
+    // the scale factor. For cubic kernels it's twice the scale factor. Since the
+    // filter is zero AT the max distance we multiply with 0.999 and 1.999,
+    // respectively.
+    //
+    // Next, we can decide whether to use an odd or even kernel. If the decimal part
+    // of the kernelSupport is smaler than 0.5, it cannot reach the next pixel from
+    // the edge of the current pixel. In that case we can use the nearest pixel as
+    // the reference, and thus use an odd kernel. If the decimal part is larger than
+    // 0.5, it cannot reach the next pixel from the *center* of the reference pixel,
+    // in which case it's necessary to use an even kernel. By selecting odd/even
+    // kernels this way, we obtain perfect interpolation at max performance.
 
     $$  if filter in ["nearest", "linear"]
     $$      set refPos = "Near" if filter == "nearest" else "Orig"
+    $$      set kernelSupport = 0
     $$      set delta1 = 0
     $$      set delta2 = 0
     $$  else
@@ -139,14 +162,18 @@ fn fs_main(varyings: Varyings) -> @location(0) vec4<f32> {
     $$      else
     $$          set kernelSupport = [1.999, scaleFactor * 1.999] | max
     $$      endif
+    {#      The extraKernelSupport is for testing #}
+    $$      if extraKernelSupport
+    $$          set kernelSupport = kernelSupport + extraKernelSupport
+    $$      endif
     $$      set kernelSupportInt = kernelSupport | int
     $$      if kernelSupport % 1 <= 0.5
-    {#          With this support, we can use a kernel centered around the nearest pixel. #}
+    {#          With this support, we can use an odd kernel, centered around the nearest pixel. #}
     $$          set refPos = "Near"
     $$          set delta1 = - kernelSupportInt
     $$          set delta2 =   kernelSupportInt + 1
     $$      else
-    {#          This is the generic case, where the cubic kernel is centered around the two nearest pixels. #}
+    {#          Otherwitse use an even kernel, centered around the two nearest pixels. #}
     $$          set refPos = "Left"
     $$          set delta1 = - kernelSupportInt
     $$          set delta2 =   kernelSupportInt + 2
@@ -159,6 +186,15 @@ fn fs_main(varyings: Varyings) -> @location(0) vec4<f32> {
     $$     set refPos = "Near"
     $$  endif
 
+    {# Show info in the generated wgsl #}
+    // Templating info:
+    // Original filter '{{ originalFilter }}'
+    // Used filter '{{ filter }}'
+    // scaleFactor: {{ scaleFactor }}
+    // kernelSupport: {{ kernelSupport }}
+    // delta1: {{ delta1 }}
+    // delta2: {{ delta2 }}
+
     // The sigma (scale) of the filter scales with the scaleFactor, because it
     // defines the cut-off frequency of the filter. But when we up-sample, we don't
     // need a filter, and we go in pure interpolation mode, and the filter must
@@ -169,39 +205,58 @@ fn fs_main(varyings: Varyings) -> @location(0) vec4<f32> {
     var color = vec4<f32>(0.0, 0.0, 0.0, 0.0);
     var weight = 0.0;
 
-    $$ if delta1 == 0 and delta2 <= 1
-
+    $$ if delta1 == 0 and delta2 == 0
         // Sample color directly from the texture
-        color = textureSampleLevel(colorTex, texSampler, texCoord{{ refPos }}, 0.0, vec2i(0, 0));
+        color = textureSampleLevel(colorTex, texSampler, texCoord{{ refPos }}, 0.0);
 
-    $$ elif false and filter == 'cubic' and scaleFactor == 2.0
-        // Optimization: https://bartwronski.com/2022/03/07/fast-gpu-friendly-antialiasing-downsampling-filter/
-        let invPixelSize = 1.0 / resolution;
-        let uv = texCoordOrig;
-        color += 0.37487566 * textureSampleLevel(colorTex, texSampler, uv + vec2f(-0.75777,-0.75777)*invPixelSize, 0.0);
-        color += 0.37487566 * textureSampleLevel(colorTex, texSampler, uv + vec2f(0.75777,-0.75777)*invPixelSize, 0.0);
-        color += 0.37487566 * textureSampleLevel(colorTex, texSampler, uv + vec2f(0.75777,0.75777)*invPixelSize, 0.0);
-        color += 0.37487566 * textureSampleLevel(colorTex, texSampler, uv + vec2f(-0.75777,0.75777)*invPixelSize, 0.0);
+    $$ elif optScale2 and scaleFactor == 2 and filter == 'cubic'
+        // Optimization: with scaleFactor, we can pre-calculate kernel weights *and* use bilinear sampling trickery!
+        // For Mitchell uses 12 lookups, which is more performant than 16 lookups while still producing an error < 0.001. With just 8 lookups the error comes above 0.0019 (0.5 / 256)
+        color += -0.009934 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f(-2.886093, -0.746066) * invPixelSize, 0.0);
+        color += -0.009934 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f(-2.886093,  0.746066) * invPixelSize, 0.0);
+        color += -0.009934 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f(-0.746066, -2.886093) * invPixelSize, 0.0);
+        color +=  0.269867 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f(-0.746677, -0.746677) * invPixelSize, 0.0);
+        color +=  0.269867 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f(-0.746677,  0.746677) * invPixelSize, 0.0);
+        color += -0.009934 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f(-0.746066,  2.886093) * invPixelSize, 0.0);
+        color += -0.009934 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f( 0.746066, -2.886093) * invPixelSize, 0.0);
+        color +=  0.269867 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f( 0.746677, -0.746677) * invPixelSize, 0.0);
+        color +=  0.269867 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f( 0.746677,  0.746677) * invPixelSize, 0.0);
+        color += -0.009934 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f( 0.746066,  2.886093) * invPixelSize, 0.0);
+        color += -0.009934 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f( 2.886093, -0.746066) * invPixelSize, 0.0);
+        color += -0.009934 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f( 2.886093,  0.746066) * invPixelSize, 0.0);
 
-        color += -0.12487566 * textureSampleLevel(colorTex, texSampler, uv + vec2f(-2.907,0.0)*invPixelSize, 0.0);
-        color += -0.12487566 * textureSampleLevel(colorTex, texSampler, uv + vec2f(2.907,0.0)*invPixelSize, 0.0);
-        color += -0.12487566 * textureSampleLevel(colorTex, texSampler, uv + vec2f(0.0,-2.907)*invPixelSize, 0.0);
-        color += -0.12487566 * textureSampleLevel(colorTex, texSampler, uv + vec2f(0.0,2.907)*invPixelSize, 0.0);
+    $$ elif optScale2 and scaleFactor == 2 and filter == 'bspline'
+        // Optimization: with scaleFactor, we can pre-calculate kernel weights *and* use bilinear sampling trickery!
+        // For Bspline also 12 lookups for consistency, even though the error is slightly above 0.0019
+        color +=  0.017049 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f(-2.538319, -0.840632) * invPixelSize, 0.0);
+        color +=  0.017049 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f(-2.538319,  0.840632) * invPixelSize, 0.0);
+        color +=  0.017049 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f(-0.840632, -2.538319) * invPixelSize, 0.0);
+        color +=  0.216020 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f(-0.839844, -0.839844) * invPixelSize, 0.0);
+        color +=  0.216020 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f(-0.839844,  0.839844) * invPixelSize, 0.0);
+        color +=  0.017049 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f(-0.840632,  2.538319) * invPixelSize, 0.0);
+        color +=  0.017049 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f( 0.840632, -2.538319) * invPixelSize, 0.0);
+        color +=  0.216020 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f( 0.839844, -0.839844) * invPixelSize, 0.0);
+        color +=  0.216020 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f( 0.839844,  0.839844) * invPixelSize, 0.0);
+        color +=  0.017049 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f( 0.840632,  2.538319) * invPixelSize, 0.0);
+        color +=  0.017049 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f( 2.538319, -0.840632) * invPixelSize, 0.0);
+        color +=  0.017049 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f( 2.538319,  0.840632) * invPixelSize, 0.0);
+
     $$ else
 
         // Templated loop (is more performant than a loop in wgsl)
-        // for dy in range({{ delta1 }}, {{ delta2 }})
-        // for dx in range({{ delta1 }}, {{ delta2 }})
         var c: vec4f;
         var t: vec2f;
         var w: f32;
         $$ for dy in range(delta1, delta2)
         $$ for dx in range(delta1, delta2)
+        $$ set iscorner = dx in [delta1, delta2 - 1] and dy in [delta1, delta2 - 1]
+        $$ if (not optCorners) or (not iscorner) or (delta2 - delta1 <= 6)
             t = fPos{{ refPos }} - fPosOrig + vec2f({{ dx }}, {{ dy }});
             w = filterweight{{ filter.lower().capitalize() }}(t / sigma);
             c = textureSampleLevel(colorTex, texSampler, texCoord{{ refPos }}, 0.0, vec2i({{ dx }}, {{ dy }}));
             color += w * c;
             weight += w;
+        $$ endif
         $$ endfor
         $$ endfor
         if weight == 0.0 { weight = 1.0; }
