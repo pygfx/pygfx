@@ -194,6 +194,7 @@ fn fs_main(varyings: Varyings) -> @location(0) vec4<f32> {
 
     $$ elif false and optScale2 and scaleFactor == 2 and filter == 'tent'
         // Optimization: with scaleFactor 2, we can pre-calculate kernel weights *and* use bilinear sampling trickery!
+        // Created with https://gist.github.com/almarklein/a6113c202ec87987df1c954bd947e757
         // For tent we just need 4 lookups.
         color +=  0.249998 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f(-0.656246, -0.656246) * invPixelSize, 0.0);
         color +=  0.249998 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f(-0.656246,  0.656246) * invPixelSize, 0.0);
@@ -202,6 +203,7 @@ fn fs_main(varyings: Varyings) -> @location(0) vec4<f32> {
 
      $$ elif optScale2 and scaleFactor == 2 and filter == 'bspline'
         // Optimization: with scaleFactor 2, we can pre-calculate kernel weights *and* use bilinear sampling trickery!
+        // Created with https://gist.github.com/almarklein/a6113c202ec87987df1c954bd947e757
         // For Bspline we use all 16 lookups.
         color +=  0.001329 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f(-3.000000, -3.000000) * invPixelSize, 0.0);
         color +=  0.016961 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f(-2.538413, -0.840665) * invPixelSize, 0.0);
@@ -222,6 +224,7 @@ fn fs_main(varyings: Varyings) -> @location(0) vec4<f32> {
 
     $$ elif optScale2 and scaleFactor == 2 and filter == 'mitchell'
         // Optimization: with scaleFactor, we can pre-calculate kernel weights *and* use bilinear sampling trickery!
+        // Created with https://gist.github.com/almarklein/a6113c202ec87987df1c954bd947e757
         // For Mitchell uses 12 lookups, which is more performant than 16 lookups while still producing an error < 0.001.
         color += -0.009934 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f(-2.886093, -0.746066) * invPixelSize, 0.0);
         color += -0.009934 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f(-2.886093,  0.746066) * invPixelSize, 0.0);
@@ -238,6 +241,7 @@ fn fs_main(varyings: Varyings) -> @location(0) vec4<f32> {
 
      $$ elif optScale2 and scaleFactor == 2 and filter == 'catmull'
         // Optimization: with scaleFactor, we can pre-calculate kernel weights *and* use bilinear sampling trickery!
+        // Created with https://gist.github.com/almarklein/a6113c202ec87987df1c954bd947e757
         // For Bspline we use all 16 lookups.
         color +=  0.002197 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f(-3.000000, -3.000000) * invPixelSize, 0.0);
         color += -0.025636 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f(-2.750033, -0.707216) * invPixelSize, 0.0);
