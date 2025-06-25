@@ -15,24 +15,11 @@ fn filterweightDisk(t: vec2f) -> f32 {
     return f32(length(t) < 0.4);
 }
 
-fn filterweightPyramid(t: vec2f) -> f32 {
-    // The pyramid filter results in linear interpolation when upsampling and
+fn filterweightTent(t: vec2f) -> f32 {
+    // The tent/pyramid filter results in linear interpolation when upsampling and
     // downsampling. The result looks quite adequate on first sight, but the cubic
     // filters produce a sharper image due to their better frequency response.
     return max(0.0, f32(1.0 - abs(t.x))) * max(0.0, f32(1.0 - abs(t.y)));
-}
-
-fn filterweightGaussian(t: vec2f) -> f32 {
-    // The Gaussian filter applies diffusion to all pixels touched by the kernel,
-    // leading to a smooth (i.e. blury) result. We multiply the t with 2, to decrease
-    // the effective width of the Gaussian kernel. If we would not do this, the blur
-    // would be large, while the result would be pixelated because the kernel
-    // support would be too small to incorporate the tail of the kernel (i.e. we'd
-    // have to sample much more pixels).
-    let t2 = t * 2.0;
-    let t3 = length(t2);
-    return exp(-0.5 * t3 * t3);
-    // return exp(-0.5 * t2.x * t2.x) * exp(-0.5 * t2.y * t2.y);  -> the same except for float inaccuracies because Gaussian is seperable
 }
 
 fn cubicWeights(t1: f32, B: f32, C: f32) -> f32 {
@@ -52,31 +39,30 @@ fn cubicWeights(t1: f32, B: f32, C: f32) -> f32 {
 fn filterweightBspline(t: vec2f) -> f32 {
     // The B-Spline is a non-interpolating cubic filter. It's sometimes useful
     // because it's C2 continuous, but quite useless in the current context t.b.h.
-    return cubicWeights(t.x, 1.0, 0.0) * cubicWeights(t.y, 1.0, 0.0);
-}
-
-fn filterweightCatmullrom(t: vec2f) -> f32 {
-    // The Catmull-Rom cubic spline is well know for its pleasing interpolating properties.
-    return cubicWeights(t.x, 0.0, 0.5) * cubicWeights(t.y, 0.0, 0.5);
+    const b = 1.0;
+    const c = 0.0;
+    return cubicWeights(t.x, b, c) * cubicWeights(t.y, b, c);
 }
 
 fn filterweightMitchell(t: vec2f) -> f32 {
     // The Mitchell cubic spline is designed to offer a good balance between
     // frequency response, blurring, and artifacts, in the context of image
-    // interpolation and reconstruction. This is our best filter.
+    // interpolation and reconstruction.
     // https://en.wikipedia.org/wiki/Mitchell%E2%80%93Netravali_filters
-    const b = 1 / 3.0;
-    return cubicWeights(t.x, b, b) * cubicWeights(t.y, b, b);
+    const b = 1.0 / 3.0;
+    const c = 1.0 / 3.0;
+    return cubicWeights(t.x, b, c) * cubicWeights(t.y, b, c);
     // Note: writing out the formula for this specific B and C does not seem to help performance.
 }
 
-fn filterweightCubic(t: vec2f) -> f32 {
-    // Alias for Mitchell
-    const b = 1 / 3.0;
-    return cubicWeights(t.x, b, b) * cubicWeights(t.y, b, b);
+fn filterweightCatmull(t: vec2f) -> f32 {
+    // The Catmull-Rom cubic spline is well know for its pleasing interpolating properties.
+    const b = 0.0; // b == 0 means Cardinal spline
+    const c = 0.5;
+    return cubicWeights(t.x, b, c) * cubicWeights(t.y, b, c);
 }
 
-fn filterweightPyramidAlt(t: vec2f) -> f32 {
+fn filterweightCubictent(t: vec2f) -> f32 {
     // Cardinal spline with tension zero is effectively a tent/pyramid filter
     const b = 0.0;
     const c = 0.0;
@@ -128,11 +114,6 @@ fn fs_main(varyings: Varyings) -> @location(0) vec4<f32> {
     $$     set filter = 'linear'
     $$ endif
 
-    {# Use simple linear samling when upsampling with the pyramid filter. #}
-    $$ if scaleFactor < 1 and filter == 'pyramid' and extraKernelSupport is none
-    $$     set filter = 'linear'
-    $$ endif
-
     // To determine the size of the filter kernel, i.e. the support for the cubic
     // kernel, we need the scale factor between the source and target texture. The
     // scaleFactor is defined such that if its < 1, the source is smaller, i.e.
@@ -157,10 +138,12 @@ fn fs_main(varyings: Varyings) -> @location(0) vec4<f32> {
     $$      set delta1 = 0
     $$      set delta2 = 0
     $$  else
-    $$      if filter in ["box", "disk", "pyramid"]
+    $$      if filter in ["box", "disk", "tent"]
     $$          set kernelSupport = [0.999, scaleFactor * 0.999] | max
-    $$      else
+    $$      elif filter in ["bspline", "mitchell", "catmull"]
     $$          set kernelSupport = [1.999, scaleFactor * 1.999] | max
+    $$      else
+    $$          set kernelSupport = fail_because_invalid_filter
     $$      endif
     {#      The extraKernelSupport is for testing #}
     $$      if extraKernelSupport
@@ -209,9 +192,37 @@ fn fs_main(varyings: Varyings) -> @location(0) vec4<f32> {
         // Sample color directly from the texture
         color = textureSampleLevel(colorTex, texSampler, texCoord{{ refPos }}, 0.0);
 
-    $$ elif optScale2 and scaleFactor == 2 and filter == 'cubic'
+    $$ elif false and optScale2 and scaleFactor == 2 and filter == 'tent'
+        // Optimization: with scaleFactor 2, we can pre-calculate kernel weights *and* use bilinear sampling trickery!
+        // For tent we just need 4 lookups.
+        color +=  0.249998 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f(-0.656246, -0.656246) * invPixelSize, 0.0);
+        color +=  0.249998 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f(-0.656246,  0.656246) * invPixelSize, 0.0);
+        color +=  0.249998 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f( 0.656246, -0.656246) * invPixelSize, 0.0);
+        color +=  0.249998 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f( 0.656246,  0.656246) * invPixelSize, 0.0);
+
+     $$ elif optScale2 and scaleFactor == 2 and filter == 'bspline'
+        // Optimization: with scaleFactor 2, we can pre-calculate kernel weights *and* use bilinear sampling trickery!
+        // For Bspline we use all 16 lookups.
+        color +=  0.001329 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f(-3.000000, -3.000000) * invPixelSize, 0.0);
+        color +=  0.016961 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f(-2.538413, -0.840665) * invPixelSize, 0.0);
+        color +=  0.016961 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f(-2.538413,  0.840665) * invPixelSize, 0.0);
+        color +=  0.001329 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f(-3.000000,  3.000000) * invPixelSize, 0.0);
+        color +=  0.016961 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f(-0.840665, -2.538413) * invPixelSize, 0.0);
+        color +=  0.214872 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f(-0.839843, -0.839843) * invPixelSize, 0.0);
+        color +=  0.214872 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f(-0.839843,  0.839843) * invPixelSize, 0.0);
+        color +=  0.016961 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f(-0.840665,  2.538413) * invPixelSize, 0.0);
+        color +=  0.016961 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f( 0.840665, -2.538413) * invPixelSize, 0.0);
+        color +=  0.214872 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f( 0.839843, -0.839843) * invPixelSize, 0.0);
+        color +=  0.214872 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f( 0.839843,  0.839843) * invPixelSize, 0.0);
+        color +=  0.016961 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f( 0.840665,  2.538413) * invPixelSize, 0.0);
+        color +=  0.001329 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f( 3.000000, -3.000000) * invPixelSize, 0.0);
+        color +=  0.016961 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f( 2.538413, -0.840665) * invPixelSize, 0.0);
+        color +=  0.016961 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f( 2.538413,  0.840665) * invPixelSize, 0.0);
+        color +=  0.001329 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f( 3.000000,  3.000000) * invPixelSize, 0.0);
+
+    $$ elif optScale2 and scaleFactor == 2 and filter == 'mitchell'
         // Optimization: with scaleFactor, we can pre-calculate kernel weights *and* use bilinear sampling trickery!
-        // For Mitchell uses 12 lookups, which is more performant than 16 lookups while still producing an error < 0.001. With just 8 lookups the error comes above 0.0019 (0.5 / 256)
+        // For Mitchell uses 12 lookups, which is more performant than 16 lookups while still producing an error < 0.001.
         color += -0.009934 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f(-2.886093, -0.746066) * invPixelSize, 0.0);
         color += -0.009934 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f(-2.886093,  0.746066) * invPixelSize, 0.0);
         color += -0.009934 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f(-0.746066, -2.886093) * invPixelSize, 0.0);
@@ -225,21 +236,25 @@ fn fs_main(varyings: Varyings) -> @location(0) vec4<f32> {
         color += -0.009934 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f( 2.886093, -0.746066) * invPixelSize, 0.0);
         color += -0.009934 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f( 2.886093,  0.746066) * invPixelSize, 0.0);
 
-    $$ elif optScale2 and scaleFactor == 2 and filter == 'bspline'
+     $$ elif optScale2 and scaleFactor == 2 and filter == 'catmull'
         // Optimization: with scaleFactor, we can pre-calculate kernel weights *and* use bilinear sampling trickery!
-        // For Bspline also 12 lookups for consistency, even though the error is slightly above 0.0019
-        color +=  0.017049 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f(-2.538319, -0.840632) * invPixelSize, 0.0);
-        color +=  0.017049 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f(-2.538319,  0.840632) * invPixelSize, 0.0);
-        color +=  0.017049 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f(-0.840632, -2.538319) * invPixelSize, 0.0);
-        color +=  0.216020 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f(-0.839844, -0.839844) * invPixelSize, 0.0);
-        color +=  0.216020 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f(-0.839844,  0.839844) * invPixelSize, 0.0);
-        color +=  0.017049 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f(-0.840632,  2.538319) * invPixelSize, 0.0);
-        color +=  0.017049 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f( 0.840632, -2.538319) * invPixelSize, 0.0);
-        color +=  0.216020 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f( 0.839844, -0.839844) * invPixelSize, 0.0);
-        color +=  0.216020 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f( 0.839844,  0.839844) * invPixelSize, 0.0);
-        color +=  0.017049 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f( 0.840632,  2.538319) * invPixelSize, 0.0);
-        color +=  0.017049 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f( 2.538319, -0.840632) * invPixelSize, 0.0);
-        color +=  0.017049 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f( 2.538319,  0.840632) * invPixelSize, 0.0);
+        // For Bspline we use all 16 lookups.
+        color +=  0.002197 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f(-3.000000, -3.000000) * invPixelSize, 0.0);
+        color += -0.025636 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f(-2.750033, -0.707216) * invPixelSize, 0.0);
+        color += -0.025636 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f(-2.750033,  0.707216) * invPixelSize, 0.0);
+        color +=  0.002197 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f(-3.000000,  3.000000) * invPixelSize, 0.0);
+        color += -0.025636 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f(-0.707216, -2.750033) * invPixelSize, 0.0);
+        color +=  0.299072 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f(-0.707143, -0.707143) * invPixelSize, 0.0);
+        color +=  0.299072 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f(-0.707143,  0.707143) * invPixelSize, 0.0);
+        color += -0.025636 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f(-0.707216,  2.750033) * invPixelSize, 0.0);
+        color += -0.025636 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f( 0.707216, -2.750033) * invPixelSize, 0.0);
+        color +=  0.299072 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f( 0.707143, -0.707143) * invPixelSize, 0.0);
+        color +=  0.299072 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f( 0.707143,  0.707143) * invPixelSize, 0.0);
+        color += -0.025636 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f( 0.707216,  2.750033) * invPixelSize, 0.0);
+        color +=  0.002197 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f( 3.000000, -3.000000) * invPixelSize, 0.0);
+        color += -0.025636 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f( 2.750033, -0.707216) * invPixelSize, 0.0);
+        color += -0.025636 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f( 2.750033,  0.707216) * invPixelSize, 0.0);
+        color +=  0.002197 * textureSampleLevel(colorTex, texSampler, texCoordOrig + vec2f( 3.000000,  3.000000) * invPixelSize, 0.0);
 
     $$ else
 

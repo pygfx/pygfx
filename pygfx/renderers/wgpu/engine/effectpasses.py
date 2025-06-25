@@ -420,7 +420,7 @@ class OutputPass(EffectPass):
 
     wgsl = "{$ include 'pygfx.outpass.wgsl' $}"
 
-    def __init__(self, *, gamma=1.0, filter="cubic"):
+    def __init__(self, *, gamma=1.0, filter="mitchell"):
         super().__init__()
         self.gamma = gamma
         self.filter = filter
@@ -469,11 +469,11 @@ class OutputPass(EffectPass):
             "nearest",
             "box",
             "linear",
+            "tent",
             "disk",
-            "pyramid",
-            "cubic",
+            "mitchell",
             "bspline",
-            "gaussian",
+            "catmull",
         }
         if filter not in filters:
             raise ValueError(

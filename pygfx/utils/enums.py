@@ -187,20 +187,20 @@ class TextAnchor(Enum):
 # We should eventually use the same approach to all enums (either an Enum class, or Literal type aliases).
 
 PixelFilter: TypeAlias = Literal[
-    "nearest", "linear", "disk", "pyramid", "cubic", "bspline", "gaussian"
+    "nearest", "linear", "tent", "disk", "bspline", "mitchell", "catmull"
 ]  #:
 """ The type of interpolation for flushing the result of a renderer to a target.
 
-The filter is used both when upsampling and downsampling. The recommended (and default) is "cubic".
+The filter is used both when upsampling and downsampling. The recommended (and default) is "mitchell".
 Note that when the source and target image are of the same size, the filter is always nearest.
 
-* "nearest": nearest-neighbour interpolation.
-* "linear": linear interpolation, using the four closest neighbours in the source image.
+* "nearest": nearest-neighbour interpolation. Note that this introduces aliasing when downsampling.
+* "linear": linear interpolation. Note that this introduces aliasing when downsampling.
+* "tent": linearly combines samples based on their distance using a smaller kernel than the cubic filters. When upsampling, it does the same a 'linear'.
 * "disk": a circular filter shape to show individual pixels in upsampling cases.
-* "pyramid": linear interpolation, using all pixels in the source image that have a distance < 1 (in target pixels).
-* "cubic": cubic spline interpolation, with Mitchell's parameters, optimized for image interpolation.
-* "bspline": cubic spline interpolation using a b-spline, which is rather smooth but has no overshoot.
-* "gaussian": a Gaussian diffusion kernel, resulting in a more smooth / blurred result.
+* "bspline": cubic spline of the type b-spline, which is rather smooth but has no overshoot.
+* "mitchell": cubic spline of the type Mitchel-Netravali, which is optimized for image interpolation.
+* "catmull": cubic spline of the type Catmull-Rom, which is sharper, but has more ringing effects.
 """
 
 
