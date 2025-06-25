@@ -81,9 +81,9 @@ fn fs_main(varyings: Varyings) -> @location(0) vec4<f32> {
 
     // Get the coord expressed in float pixels (for the source texture). The pixel centers are at 0.5, 1.5, 2.5, etc.
     let fPosOrig: vec2f = texCoordOrig * resolution;
-    // Get the nearest integer pixel index into the source texture (floor, not round!)
+    // Get the nearest integer pixel index into the source texture (floor, not round!), for an odd kernel.
     let iPosNear: vec2i = vec2i(fPosOrig);
-    // Select the reference pixel index appropriate for a cubic kernel.
+    // Select the reference pixel index representing the left pixel of an even kernel.
     let iPosLeft: vec2i = vec2i(round(fPosOrig)) - 1;
     // Project the rounded pixel location back to float, representing the center of that pixel
     let fPosNear = vec2f(iPosNear) + 0.5;
