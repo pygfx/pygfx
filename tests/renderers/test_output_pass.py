@@ -323,12 +323,12 @@ class TestableOutputPass(MyOutpusPass):
         self.t2 = None
 
     def set_image(self, image):
-        assert image.dtype == np.float16, "Image must be float16"
+        assert image.dtype == IM_DTYPE, f"Image must be {IM_DTYPE}"
         assert image.shape[2] == 4, "Image must be RGBA"
 
         self.t1 = self._device.create_texture(
             size=(image.shape[1], image.shape[0], 1),
-            format=wgpu.TextureFormat.rgba16float,
+            format=TEX_FORMAT,
             usage=wgpu.TextureUsage.COPY_DST | wgpu.TextureUsage.TEXTURE_BINDING,
         )
         self._write_texture(self.t1, image)
@@ -340,7 +340,7 @@ class TestableOutputPass(MyOutpusPass):
 
         t2 = self._device.create_texture(
             size=(w, h, 1),
-            format=wgpu.TextureFormat.rgba16float,
+            format=TEX_FORMAT,
             usage=wgpu.TextureUsage.COPY_SRC | wgpu.TextureUsage.RENDER_ATTACHMENT,
         )
 
@@ -367,7 +367,7 @@ class TestableOutputPass(MyOutpusPass):
             image,
             {
                 "offset": 0,
-                "bytes_per_row": w * 4 * 2,
+                "bytes_per_row": w * BYTES_PER_PIXEL,
                 "rows_per_image": h,
             },
             (w, h, 1),
@@ -383,16 +383,23 @@ class TestableOutputPass(MyOutpusPass):
             },
             {
                 "offset": 0,
-                "bytes_per_row": w * 4 * 2,
+                "bytes_per_row": w * BYTES_PER_PIXEL,
                 "rows_per_image": h,
             },
             (w, h, 1),
         )
-        return np.frombuffer(data, np.float16).reshape(h, w, 4)
+        return np.frombuffer(data, IM_DTYPE).reshape(h, w, 4)
 
+
+# Define pixel format in one place.
+# If we want to do proper error measurements, we need a float format.
+# But float32 is not blendable (maybe with an extension it is?)
+BYTES_PER_PIXEL = 4 * 2
+IM_DTYPE = np.float16
+TEX_FORMAT = wgpu.TextureFormat.rgba16float
 
 # Create reference image
-ref_image = np.zeros((512, 512, 4), np.float16)
+ref_image = np.zeros((512, 512, 4), IM_DTYPE)
 ref_image[:, :, :3] = iio.imread("imageio:astronaut.png").astype(float) / 255
 ref_image[:, :, 3] = 1.0
 
@@ -454,7 +461,7 @@ def test_outpass_result_catmull():
     _test_that_kernel_is_exact_correct_size("catmull", 2.2, 0.001)
 
 
-def _test_that_kernel_is_exact_correct_size(filter, scale_factor, tol=0.001):
+def _test_that_kernel_is_exact_correct_size(filter, scale_factor, tol=0.0019):
     """
     This test 3 things:
 
@@ -478,17 +485,23 @@ def _test_that_kernel_is_exact_correct_size(filter, scale_factor, tol=0.001):
     im3 = p.get_result(scale_factor, extraKernelSupport=0.5)
     im4 = p.get_result(scale_factor, extraKernelSupport=-0.5)
 
-    info = f"({filter!r} {scale_factor})"
-    assert allclose(im1, im2, tol), f"kernel is apparently too small {info}"
-    assert allclose(im1, im3, tol), f"kernel odd/even inconsistent result {info}"
+    info = f"filter={filter!r}, scale_factor={scale_factor})"
 
-    tol2 = 0.001
+    max_err = np.abs(im1 - im2).max()
+    assert max_err < tol, f"kernel is too small for {info}: err {max_err}"
+
+    max_err = np.abs(im1 - im3).max()
+    assert max_err < tol, f"kernel odd/even inconsistent for {info}: err {max_err}"
+
+    tol2 = 0.0019
     if scale_factor > 1.7 or filter == "bspline":
         # For large scale-factors, and for bspline, for some kernels it would report it can be smaller,
         # but doing this would make the code more complex; we threath all cubic kernels the same.
         # and want the kernel size to be (somewhat) predictable.
         tol2 = 0.0001
-    assert not allclose(im1, im4, tol2), f"kernel size could be smaller {info}"
+
+    max_err = np.abs(im1 - im4).max()
+    assert max_err > tol2, f"kernel size could be smaller for {info}: err {max_err}"
 
 
 def test_outpass_opt_scale2():
@@ -505,19 +518,10 @@ def test_outpass_opt_scale2():
 
         im1 = p.get_result(2, optScale2=True)
         im2 = p.get_result(2, optScale2=False)
-        maxerr = np.abs(im1 - im2).max()
-        print(f"opt_scale2 maxerr for {filter}: {maxerr}")
-        assert allclose(im1, im2, tol), (
-            f"optSF2 produces suboptimal results for {filter!r} ({maxerr})"
-        )
+        max_err = np.abs(im1 - im2).max()
+        print(f"opt_scale2 maxerr for {filter}: {max_err}")
 
-
-def allclose(a, b, atol=0.0019):
-    # With a max error of 0.5/256, any uint8 image should be equal.
-    # Ok, there's factors like srgb vs linear etc. but we need *some* target tolerance :)
-    if atol is None:
-        atol = 0.0019
-    return np.allclose(a, b, 0, atol)
+        assert max_err < tol, f"optSF2 produces suboptimal results for {filter!r} ({maxerr})"
 
 
 if __name__ == "__main__":
