@@ -890,7 +890,12 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # Prepare
         texture = self._blender.get_texture("color")
         size = texture.size
-        bytes_per_pixel = 4
+        if texture.format == "rgba16float":
+            bytes_per_pixel = 8
+            dtype = np.float16
+        else:
+            bytes_per_pixel = 8
+            dtype = np.uint8
 
         # Note, with queue.read_texture the bytes_per_row limitation does not apply.
         data = self._device.queue.read_texture(
@@ -907,7 +912,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
             size,
         )
 
-        return np.frombuffer(data, np.uint8).reshape(size[1], size[0], 4)
+        return np.frombuffer(data, dtype).reshape(size[1], size[0], 4)
 
     def request_draw(self, draw_function=None):
         """Forwards a request_draw call to the target canvas. If the renderer's

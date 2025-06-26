@@ -46,12 +46,12 @@ if __name__ == "__main__":
     # Use this to obtain what you normally see on-screen. You should
     # only use an offscreen canvas for e.g. testing or generating images.
     im1 = np.asarray(canvas.draw())
-    print("image from canvas.draw():", im1.shape)  # (480, 640, 4)
+    print("image from canvas.draw():", im1.shape, im1.dtype)  # (480, 640, 4)
 
     # The renderer also has a snapshot utility. With this you get a snapshot
     # of the internal state (might be at a higher resolution).
     # The use of the snapshot method may change and be improved.
     im2 = renderer.snapshot()
-    print("Image from renderer.snapshot():", im2.shape)  # (960, 1280, 4)
+    print("Image from renderer.snapshot():", im2.shape, im2.dtype)  # (960, 1280, 4)
 
     iio.imwrite("offscreen.png", im1)
