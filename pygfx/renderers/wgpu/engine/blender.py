@@ -249,7 +249,7 @@ class Blender:
         elif blending_mode == "weighted":
             color_blend = None  # handled below
         else:
-            raise RuntimeError(f"Unexpected blending mode {blending_mode:!r}")
+            raise RuntimeError(f"Unexpected blending mode {blending_mode!r}")
 
         # Build target state dicts
         color_target_state = {
