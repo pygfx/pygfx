@@ -393,7 +393,7 @@ class TestableOutputPass(MyOutpusPass):
 
 # Define pixel format in one place.
 # If we want to do proper error measurements, we need a float format.
-# But float32 is not blendable (maybe with an extension it is?)
+# But float32 is not blendable (unless using feature float32-blendable)
 BYTES_PER_PIXEL = 4 * 2
 IM_DTYPE = np.float16
 TEX_FORMAT = wgpu.TextureFormat.rgba16float
@@ -487,10 +487,10 @@ def _test_that_kernel_is_exact_correct_size(filter, scale_factor, tol=0.0019):
 
     info = f"filter={filter!r}, scale_factor={scale_factor})"
 
-    max_err = np.abs(im1 - im2).max()
+    max_err = np.nanmax(np.abs(im1 - im2))
     assert max_err < tol, f"kernel is too small for {info}: err {max_err}"
 
-    max_err = np.abs(im1 - im3).max()
+    max_err = np.nanmax(np.abs(im1 - im3))
     assert max_err < tol, f"kernel odd/even inconsistent for {info}: err {max_err}"
 
     tol2 = 0.0019
@@ -500,7 +500,7 @@ def _test_that_kernel_is_exact_correct_size(filter, scale_factor, tol=0.0019):
         # and want the kernel size to be (somewhat) predictable.
         tol2 = 0.0001
 
-    max_err = np.abs(im1 - im4).max()
+    max_err = np.nanmax(np.abs(im1 - im4))
     assert max_err > tol2, f"kernel size could be smaller for {info}: err {max_err}"
 
 
@@ -518,10 +518,12 @@ def test_outpass_opt_scale2():
 
         im1 = p.get_result(2, optScale2=True)
         im2 = p.get_result(2, optScale2=False)
-        max_err = np.abs(im1 - im2).max()
-        print(f"opt_scale2 maxerr for {filter}: {max_err}")
+        max_err = np.nanmax(np.abs(im1 - im2))
+        print(f"opt_scale2 for {filter} max_err: {max_err}")
 
-        assert max_err < tol, f"optSF2 produces suboptimal results for {filter!r} ({maxerr})"
+        assert max_err < tol, (
+            f"optSF2 produces suboptimal results for {filter!r} ({max_err})"
+        )
 
 
 if __name__ == "__main__":
