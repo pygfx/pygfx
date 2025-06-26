@@ -415,7 +415,11 @@ def test_outpass_result_scale_1():
     for filter in ["nearest", "linear", "tent", "bspline", "mitchell", "catmull"]:
         p.filter = filter
         im = p.get_result(1)
-        assert np.all(im == ref_image)
+        max_err = np.nanmax(np.abs(im - ref_image))
+        # On MacOS the error is zero, but on lavapipe and on Windows I found it to be nonzero
+        assert max_err < 0.0005, (
+            f"result mismatch at scale 1 with filter {filter!r}: err {max_err}"
+        )
 
 
 def test_outpass_result_tent():
