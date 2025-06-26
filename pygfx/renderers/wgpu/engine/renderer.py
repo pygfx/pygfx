@@ -287,6 +287,9 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
         self._blender = Blender()
         self._effect_passes = ()
+        self._name_of_texture_with_effects = (
+            None  # none, or the blender's name of the texture
+        )
 
         self.sort_objects = sort_objects
 
@@ -520,6 +523,9 @@ class WgpuRenderer(RootEventHandler, Renderer):
                 the target (texture or canvas). Default True.
         """
 
+        # A good time to reset this flag.
+        self._name_of_texture_with_effects = None
+
         # Manage stored renderstate objects. Each renderstate object used will be stored at least a few draws.
         if self._renders_since_last_flush == 0:
             self._renderstates_per_flush.insert(0, [])
@@ -685,22 +691,27 @@ class WgpuRenderer(RootEventHandler, Renderer):
         src_usage = wgpu.TextureUsage.TEXTURE_BINDING
         dst_usage = wgpu.TextureUsage.RENDER_ATTACHMENT
 
-        # Apply any effect passes
-        for step in self._effect_passes:
-            color_tex = self._blender.get_texture_view(
-                src_name, src_usage, create_if_not_exist=True
-            )
-            dst_tex = self._blender.get_texture_view(
-                dst_name, dst_usage, create_if_not_exist=True
-            )
-            depth_tex = None
-            if step.USES_DEPTH:
-                depth_tex = self._blender.get_texture_view(
-                    "depth", src_usage, create_if_not_exist=False
+        if self._name_of_texture_with_effects:
+            # probably flushing a second time
+            src_name = self._name_of_texture_with_effects
+        else:
+            # Apply any effect passes
+            for step in self._effect_passes:
+                color_tex = self._blender.get_texture_view(
+                    src_name, src_usage, create_if_not_exist=True
                 )
-            step.render(command_encoder, color_tex, depth_tex, dst_tex)
-            # Pingpong
-            src_name, dst_name = dst_name, src_name
+                dst_tex = self._blender.get_texture_view(
+                    dst_name, dst_usage, create_if_not_exist=True
+                )
+                depth_tex = None
+                if step.USES_DEPTH:
+                    depth_tex = self._blender.get_texture_view(
+                        "depth", src_usage, create_if_not_exist=False
+                    )
+                step.render(command_encoder, color_tex, depth_tex, dst_tex)
+                # Pingpong
+                src_name, dst_name = dst_name, src_name
+            self._name_of_texture_with_effects = src_name
 
         # Apply copy-pass
         color_tex = self._blender.get_texture_view(src_name, src_usage)
@@ -888,13 +899,15 @@ class WgpuRenderer(RootEventHandler, Renderer):
         """Create a snapshot of the currently rendered image."""
 
         # Prepare
-        texture = self._blender.get_texture("color")
+        texture = self._blender.get_texture(
+            self._name_of_texture_with_effects or "color"
+        )
         size = texture.size
         if texture.format == "rgba16float":
             bytes_per_pixel = 8
             dtype = np.float16
         else:
-            bytes_per_pixel = 8
+            bytes_per_pixel = 4
             dtype = np.uint8
 
         # Note, with queue.read_texture the bytes_per_row limitation does not apply.

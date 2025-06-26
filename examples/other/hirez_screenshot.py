@@ -49,7 +49,9 @@ else:
     tile_size = canvas_size
     full_size = tile_size[0] * upscale_factor, tile_size[1] * upscale_factor
 
-canvas = RenderCanvas(size=canvas_size, pixel_ratio=1, format="rgba-f16" if use_16bit else "rgba-u8")
+canvas = RenderCanvas(
+    size=canvas_size, pixel_ratio=1, format="rgba-f16" if use_16bit else "rgba-u8"
+)
 renderer = gfx.WgpuRenderer(canvas)
 
 
