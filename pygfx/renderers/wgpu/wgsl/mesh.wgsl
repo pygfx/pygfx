@@ -421,9 +421,9 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
 
     $$ endif
     // Apply opacity
-    diffuse_color.a = diffuse_color.a * u_material.opacity;
+    var opacity = diffuse_color.a * u_material.opacity;
 
-    do_alpha_test(diffuse_color.a);
+    do_alpha_test(opacity);
 
     let physical_albeido = diffuse_color.rgb;
 
@@ -631,7 +631,11 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
         }
     $$ endif
 
-    let out_color = vec4<f32>(physical_color, diffuse_color.a);
+    $$ if OPAQUE is defined
+        opacity = 1.0;
+    $$ endif
+
+    let out_color = vec4<f32>(physical_color, opacity);
 
     var out: FragmentOutput;
     out.color = out_color;
