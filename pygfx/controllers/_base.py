@@ -407,7 +407,7 @@ class Controller:
                         pos = event.x, event.y
                         self._create_action(key, action_tuple, pos, pos, rect)
                 else:
-                    self._handle_button_down(key, action_tuple, viewport)
+                    self._handle_button_down(key, action_tuple, viewport, rect)
         elif type == "pointer_move":
             # Update all drag actions
             for action in self._actions.values():
@@ -441,7 +441,7 @@ class Controller:
             action_tuple = self._controls.get(key)
             if action_tuple:
                 need_update = True
-                self._handle_button_down(key, action_tuple, viewport)
+                self._handle_button_down(key, action_tuple, viewport, rect)
         elif type == "key_up":
             # End key presses, regardless of modifier state
             need_update = self._handle_button_up(f"{event.key.lower()}")
@@ -449,12 +449,91 @@ class Controller:
         if need_update and self.auto_update:
             viewport.renderer.request_draw()
 
-    def _handle_button_down(self, key, action_tuple, viewport):
+    def handle_event_dict(self, event, viewport):
+        if not self.enabled:
+            return
+        if not self._cameras:
+            return
+
+        rect = viewport.rect_in_pixels
+        need_update = False
+
+        type = event["event_type"]
+        if type.startswith(("pointer_", "key_", "wheel")):
+            modifiers = {m.lower() for m in event["modifiers"]}
+            if type.startswith("key_"):
+                modifiers.discard(event["key"].lower())
+            modifiers_prefix = "+".join([*sorted(modifiers), ""])
+
+        if type == "before_render":
+            # Do a tick, updating all actions, and using them to update the camera state.
+            # Note that tick() removes actions that are done and have reached the target.
+            if self._auto_update and self._actions:
+                self.tick()
+                need_update = True
+        elif type == "pointer_down" and viewport.is_inside(event["x"], event["y"]):
+            # Start a drag, or an action with mode push/peek/repeat
+            key = modifiers_prefix + f"mouse{event['button']}"
+            action_tuple = self._controls.get(key)
+            if action_tuple:
+                need_update = True
+                if action_tuple[1] == "drag":
+                    # Dont start a new drag if there is one going
+                    if not any(
+                        (a.mode == "drag" and not a.done)
+                        for a in self._actions.values()
+                    ):
+                        pos = event["x"], event["y"]
+                        self._create_action(key, action_tuple, pos, pos, rect)
+                else:
+                    self._handle_button_down(key, action_tuple, viewport, rect)
+        elif type == "pointer_move":
+            # Update all drag actions
+            for action in self._actions.values():
+                if action.mode == "drag" and not action.done:
+                    action.set_target(np.array((event["x"], event["y"])))
+                    need_update = True
+        elif type == "pointer_up":
+            # Stop all drag actions
+            for action in self._actions.values():
+                if action.mode == "drag":
+                    action.done = True
+            # End button presses, regardless of modifier state
+            need_update = self._handle_button_up(f"mouse{event['button']}")
+        elif type == "wheel" and viewport.is_inside(event["x"], event["y"]):
+            # Wheel events. Technically there is horizontal and vertical scroll,
+            # but this does not work well cross-platform, so we consider it 1D.
+            key = modifiers_prefix + "wheel"
+            action_tuple = self._controls.get(key)
+            if action_tuple:
+                need_update = True
+                d = event["dy"] or event["dx"]
+                pos = event["x"], event["y"]
+                action = self._actions.get(key, None)
+                if action is None:
+                    action = self._create_action(key, action_tuple, 0, pos, rect)
+                    action.done = True
+                action.increase_target(d)
+        elif type == "key_down":
+            # Start an action with mode push/peek/repeat
+            key = modifiers_prefix + f"{event['key'].lower()}"
+            action_tuple = self._controls.get(key)
+            if action_tuple:
+                need_update = True
+                self._handle_button_down(key, action_tuple, viewport, rect)
+        elif type == "key_up":
+            # End key presses, regardless of modifier state
+            need_update = self._handle_button_up(f"{event['key'].lower()}")
+
+        if need_update and self.auto_update:
+            viewport.renderer.request_draw()
+
+    def _handle_button_down(self, key, action_tuple, viewport, rect):
         """Common code to handle key/mouse button presses."""
         mode = action_tuple[1]
         action = self._actions.get(key, None)
         if action is None:
-            action = self._create_action(key, action_tuple, 0, None, viewport.rect)
+            action = self._create_action(key, action_tuple, 0, None, rect)
             action.snap_distance = 0.01
         action.done = mode == "push"
         if mode in ("push", "peek"):

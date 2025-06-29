@@ -25,6 +25,7 @@ from .utils.load_gltf import (
     load_gltf_mesh_async,
     print_scene_graph,
 )
+from .utils.view import View
 from .utils.show import show, Display
 from .utils.viewport import Viewport
 from .utils.text import font_manager
