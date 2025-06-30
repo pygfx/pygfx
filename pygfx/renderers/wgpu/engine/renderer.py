@@ -33,6 +33,7 @@ from ....cameras import Camera
 from ....resources import Texture
 from ....resources._base import resource_update_registry
 from ....utils import Color
+from ....utils.enums import PixelFilter
 
 from ... import Renderer
 from .blender import Blender
@@ -205,8 +206,8 @@ class WgpuRenderer(RootEventHandler, Renderer):
         render buffer.
     pixel_ratio : float, optional
         The ratio between the number of internal pixels versus the logical pixels on the canvas.
-    pixel_filter : float, optional
-        The relative strength of the filter when copying the result to the target/canvas.
+    pixel_filter : str, PixelFilter, optional
+        The type of interpolation / reconstruction filter to use. Default 'mitchell'.
     show_fps : bool
         Whether to display the frames per second. Beware that
         depending on the GUI toolkit, the canvas may impose a frame rate limit.
@@ -229,7 +230,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         target,
         *args,
         pixel_ratio=None,
-        pixel_filter=None,
+        pixel_filter: PixelFilter = "mitchell",
         show_fps=False,
         sort_objects=True,
         enable_events=True,
@@ -255,7 +256,6 @@ class WgpuRenderer(RootEventHandler, Renderer):
             )
         self._target = target
         self.pixel_ratio = pixel_ratio
-        self.pixel_filter = pixel_filter
 
         # Make sure we have a shared object (the first renderer creates the instance)
         self._shared = get_shared()
@@ -292,11 +292,15 @@ class WgpuRenderer(RootEventHandler, Renderer):
         self._blender = Blender()
         self._effect_passes = ()
         self.ppaa = ppaa
+        self._name_of_texture_with_effects = (
+            None  # none, or the blender's name of the texture
+        )
 
         self.sort_objects = sort_objects
 
         # Prepare object that performs the final render step into a texture
         self._output_pass = OutputPass()
+        self.pixel_filter = pixel_filter
 
         # Initialize a small buffer to read pixel info into
         # Make it 256 bytes just in case (for bytes_per_row)
@@ -362,27 +366,38 @@ class WgpuRenderer(RootEventHandler, Renderer):
             )
 
     @property
-    def pixel_filter(self):
-        """The relative strength of the filter applied to the final pixels.
+    def pixel_filter(self) -> PixelFilter:
+        """The type of interpolation / reconstruction filter to use when flushing the result.
+
+        See :obj:`pygfx.utils.enums.PixelFilter`.
 
         The renderer renders everything to an internal texture, which,
         depending on the ``pixel_ratio``, may have a different physical size than
         the target (i.e. canvas). In the process of rendering the result
         to the target, a filter is applied, resulting in SSAA if the
-        target size is smaller. The filter is a Gaussian kernel with sigma equal to
-        half the pixel ratio.
+        target size is smaller, and upsampling when the target size is larger.
+        When the internal texture has the same size as the target, no filter is applied (equivalent to nearest).
 
-        The value of ``pixel_filter`` multiplies the filter sigma (i.e. filter strength).
-        So using 1.0 uses the default, higher values result in more blur, and 0
-        disables the filter.
+        The filter defines how the interpolation is done (when the source and target are not of the same size).
         """
-        return self._pixel_filter
+        return self._output_pass.filter
 
     @pixel_filter.setter
-    def pixel_filter(self, value):
-        if value is None:
-            value = 1.0
-        self._pixel_filter = max(0.0, float(value))
+    def pixel_filter(self, value: PixelFilter):
+        # For backwards compatibility, allow 0, 1, 0.0, 1.0, False, and True.
+        if value == 0:
+            value = "nearest"
+        elif value == 1:
+            value = "mitchell"
+        if not isinstance(value, str):
+            raise TypeError("Pixel filter must be a str.")
+        value = value.lower()
+        if value not in PixelFilter.__args__:
+            raise ValueError(
+                f"Pixel filter must be one of {PixelFilter}, not {value!r}"
+            )
+        self._output_pass.filter = value
+        self._pixel_filter = value
 
     @property
     def ppaa(self) -> Optional[str]:
@@ -554,6 +569,9 @@ class WgpuRenderer(RootEventHandler, Renderer):
                 the target (texture or canvas). Default True.
         """
 
+        # A good time to reset this flag.
+        self._name_of_texture_with_effects = None
+
         # Manage stored renderstate objects. Each renderstate object used will be stored at least a few draws.
         if self._renders_since_last_flush == 0:
             self._renderstates_per_flush.insert(0, [])
@@ -719,27 +737,32 @@ class WgpuRenderer(RootEventHandler, Renderer):
         src_usage = wgpu.TextureUsage.TEXTURE_BINDING
         dst_usage = wgpu.TextureUsage.RENDER_ATTACHMENT
 
-        # Apply any effect passes
-        for step in self._effect_passes:
-            color_tex = self._blender.get_texture_view(
-                src_name, src_usage, create_if_not_exist=True
-            )
-            dst_tex = self._blender.get_texture_view(
-                dst_name, dst_usage, create_if_not_exist=True
-            )
-            depth_tex = None
-            if step.USES_DEPTH:
-                depth_tex = self._blender.get_texture_view(
-                    "depth", src_usage, create_if_not_exist=False
+        if self._name_of_texture_with_effects:
+            # probably flushing a second time
+            src_name = self._name_of_texture_with_effects
+        else:
+            # Apply any effect passes
+            for step in self._effect_passes:
+                color_tex = self._blender.get_texture_view(
+                    src_name, src_usage, create_if_not_exist=True
                 )
-            step.render(command_encoder, color_tex, depth_tex, dst_tex)
-            # Pingpong
-            src_name, dst_name = dst_name, src_name
+                dst_tex = self._blender.get_texture_view(
+                    dst_name, dst_usage, create_if_not_exist=True
+                )
+                depth_tex = None
+                if step.USES_DEPTH:
+                    depth_tex = self._blender.get_texture_view(
+                        "depth", src_usage, create_if_not_exist=False
+                    )
+                step.render(command_encoder, color_tex, depth_tex, dst_tex)
+                # Pingpong
+                src_name, dst_name = dst_name, src_name
+            self._name_of_texture_with_effects = src_name
 
         # Apply copy-pass
         color_tex = self._blender.get_texture_view(src_name, src_usage)
         self._output_pass.gamma = self._gamma_correction * self._gamma_correction_srgb
-        self._output_pass.filter_strength = self._pixel_filter
+        # self._output_pass.filter_strength = self._pixel_filter
         self._output_pass.render(command_encoder, color_tex, None, target_tex)
 
         self._device.queue.submit([command_encoder.finish()])
@@ -922,9 +945,16 @@ class WgpuRenderer(RootEventHandler, Renderer):
         """Create a snapshot of the currently rendered image."""
 
         # Prepare
-        texture = self._blender.get_texture("color")
+        texture = self._blender.get_texture(
+            self._name_of_texture_with_effects or "color"
+        )
         size = texture.size
-        bytes_per_pixel = 4
+        if texture.format == "rgba16float":
+            bytes_per_pixel = 8
+            dtype = np.float16
+        else:
+            bytes_per_pixel = 4
+            dtype = np.uint8
 
         # Note, with queue.read_texture the bytes_per_row limitation does not apply.
         data = self._device.queue.read_texture(
@@ -941,7 +971,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
             size,
         )
 
-        return np.frombuffer(data, np.uint8).reshape(size[1], size[0], 4)
+        return np.frombuffer(data, dtype).reshape(size[1], size[0], 4)
 
     def request_draw(self, draw_function=None):
         """Forwards a request_draw call to the target canvas. If the renderer's

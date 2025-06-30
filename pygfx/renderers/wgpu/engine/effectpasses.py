@@ -24,11 +24,11 @@ import wgpu
 
 from ....utils import array_from_shadertype
 from ....utils.color import Color
-from ..wgsl import load_wgsl
+from ..shader.bindings import BindingDefinitions
+from ..shader.templating import apply_templating
 from .utils import GpuCache, hash_from_value
 from .shared import get_shared
 from .binding import Binding
-from ..shader.bindings import BindingDefinitions
 
 
 # This cache enables sharing some gpu objects between code that uses
@@ -160,6 +160,14 @@ class FullQuadPass:
 
         self._render_pipeline = None
         self._render_pipeline_hash = None
+        self._template_vars = {}
+        self._template_vars_changed = True
+
+    def _set_template_var(self, **kwargs):
+        for name, value in kwargs.items():
+            if value != self._template_vars.get(name, "stubvaluethatsnotit"):
+                self._template_vars_changed = True  # causes a shader recompile
+        self._template_vars.update(kwargs)
 
     def render(
         self,
@@ -173,7 +181,7 @@ class FullQuadPass:
 
         for name, tex in texture_views.items():
             if not isinstance(tex, wgpu.GPUTextureView):
-                raise TypeError(f"FullQuadPass expected a texture view, not {tex:!r}")
+                raise TypeError(f"FullQuadPass expected a texture view, not {tex!r}")
             if name.startswith("target"):
                 target_textures.append(tex)
             else:
@@ -188,7 +196,11 @@ class FullQuadPass:
             tuple(source_textures.keys()),
             tuple(tex.texture.format for tex in target_textures),
         )
-        if render_pipeline_hash != self._render_pipeline_hash:
+        if (
+            self._template_vars_changed
+            or render_pipeline_hash != self._render_pipeline_hash
+        ):
+            self._template_vars_changed = False
             self._render_pipeline_hash = render_pipeline_hash
             self._render_pipeline = self._create_pipeline(*render_pipeline_hash)
 
@@ -301,9 +313,9 @@ class FullQuadPass:
                 }
             )
 
-        return create_full_quad_pipeline(
-            targets, binding_layout, definitions_code + self.wgsl
-        )
+        wgsl = definitions_code
+        wgsl += apply_templating(self.wgsl, **self._template_vars)
+        return create_full_quad_pipeline(targets, binding_layout, wgsl)
 
 
 class EffectPass(FullQuadPass):
@@ -404,71 +416,20 @@ class OutputPass(EffectPass):
 
     uniform_type = dict(
         EffectPass.uniform_type,
-        sigma="f4",
-        support="i4",
         gamma="f4",
     )
 
-    wgsl = """
-        @fragment
-        fn fs_main(varyings: Varyings) -> @location(0) vec4<f32> {
+    wgsl = "{$ include 'pygfx.outpass.wgsl' $}"
 
-            let size = vec2f(textureDimensions(colorTex, 0).xy);
-            let texCoord = varyings.texCoord;
-
-            // Get info about the smoothing
-            // The limits here may give the compiler info on max iters of the loop below.
-            let sigma = max(0.1, u_effect.sigma);
-            let support = min(5, u_effect.support);
-
-            // The reference index is the subpixel index in the source texture that
-            // represents the location of this fragment.
-            let ref_index = texCoord * size;
-
-            // For the sampling, we work with integer coords. Also use min/max for the edges.
-            let base_index = vec2<i32>(ref_index);
-            let min_index = vec2<i32>(0, 0);
-            let max_index = vec2<i32>(size - 1.0);
-
-            // Convolve. Here we apply a Gaussian kernel, the weight is calculated
-            // for each pixel individually based on the distance to the ref_index.
-            // This means that the textures don't need to align.
-            var val: vec4<f32> = vec4<f32>(0.0, 0.0, 0.0, 0.0);
-            var weight: f32 = 0.0;
-            for (var y:i32 = -support; y <= support; y = y + 1) {
-                for (var x:i32 = -support; x <= support; x = x + 1) {
-                    let step = vec2<i32>(x, y);
-                    let index = clamp(base_index + step, min_index, max_index);
-                    let dist = length(ref_index - vec2<f32>(index) - 0.5);
-                    let t = dist / sigma;
-                    let w = exp(-0.5 * t * t);
-                    val = val + textureLoad(colorTex, index, 0) * w;
-                    weight = weight + w;
-                }
-            }
-            let gamma3 = vec3<f32>(u_effect.gamma);
-            let rgb = pow(val.rgb / weight, gamma3);
-            let a = val.a / weight;
-
-            // The blend factors are simply ONE and ZERO, so the values as we return them here
-            // are how they end up in the target texture.
-            // We assume pre-multiply alpha for now.
-            // We should at some point look into this, if we want to support transparent windows,
-            // and change the code here based on the ``alpha_mode`` of the ``GPUCanvasContext``.
-            // Note tha alpha is multiplied with itself, which is probbaly wrong.
-            return vec4f(rgb * a, a * a);
-
-            // Note that the final opacity is not necessarily one. This means that
-            // the framebuffer can be blended with the background, or one can render
-            // images that can be better combined with other content in a document.
-            // It also means that most examples benefit from a gfx.Background.
-        }
-    """
-
-    def __init__(self, *, gamma=1.0, filter_strength=1.0):
+    def __init__(self, *, gamma=1.0, filter="mitchell"):
         super().__init__()
         self.gamma = gamma
-        self.filter_strength = filter_strength
+        self.filter = filter
+        self._set_template_var(
+            extraKernelSupport=None,  # for testing
+            optCorners=True,  # optimization: drop corners in kernels larger than 6x6
+            optScale2=True,  # optimization: use 12-tap filters for cubic kernels when scaleFactor == 2
+        )
 
     def render(
         self,
@@ -479,23 +440,12 @@ class OutputPass(EffectPass):
     ):
         """Render the (internal) result of the renderer to a texture view."""
 
-        # Get factor between texture sizes
+        # Get factor from source to destination. A value < 1 means the source is smaller; we're upsampling.
         factor_x = color_tex.size[0] / target_tex.size[0]
         factor_y = color_tex.size[1] / target_tex.size[1]
         factor = (factor_x + factor_y) / 2
 
-        # With src a higher res (factor > 1), we will do SSAA.
-        # With equal res (factor == 1), we smooth a tiny bit. A bit less crisp, but also less flicker.
-        # With src a lower res (factor < 1) we maintain smoothing to reduce blockiness.
-        ref_sigma = max(0.5, 0.5 * factor)
-
-        # Determine kernel sigma and support
-        sigma = ref_sigma * self._filter_strength
-        support = int(sigma * 3)  # is limited in shader
-
-        # Set uniform values
-        self._uniform_data["sigma"] = sigma
-        self._uniform_data["support"] = support
+        self._set_template_var(scaleFactor=float(factor))
 
         return super().render(command_encoder, color_tex, depth_tex, target_tex)
 
@@ -509,13 +459,28 @@ class OutputPass(EffectPass):
         self._uniform_data["gamma"] = float(gamma)
 
     @property
-    def filter_strength(self):
-        """The strength of the smoothing filter."""
-        return self._filter_strength
+    def filter(self):
+        """The type of filter to use."""
+        return self._template_vars["filter"]
 
-    @filter_strength.setter
-    def filter_strength(self, filter_strength):
-        self._filter_strength = float(filter_strength)
+    @filter.setter
+    def filter(self, filter):
+        filter = filter.lower()
+        filters = {
+            "nearest",
+            "box",
+            "linear",
+            "tent",
+            "disk",
+            "mitchell",
+            "bspline",
+            "catmull",
+        }
+        if filter not in filters:
+            raise ValueError(
+                f"Unknown OutputPass filter {filter!r}, must be one of {set(filters)}"
+            )
+        self._set_template_var(filter=filter)
 
 
 # ----- Builtin effects
@@ -530,18 +495,20 @@ class OutputPass(EffectPass):
 
 
 class FXAAPass(EffectPass):
-    """An effect pass that removes jaggies by smoothing along edges."""
+    """An effect pass implementing Fast approximate anti-aliasing.
 
-    @property
-    def wgsl(self):
-        wgsl = load_wgsl("fxaa311.wgsl")
-        wgsl += """
-            @fragment
-            fn fs_main(varyings: Varyings) -> @location(0) vec4<f32> {
-                return aaShader(colorTex, texSampler, varyings.texCoord);
-            }
-        """
-        return wgsl
+    FXAA is a well known method for post-processing antialiasing.
+    This is version 3.11.
+    """
+
+    wgsl = """"
+        {$ include 'pygfx.fxaa.wgsl' $}
+
+        @fragment
+        fn fs_main(varyings: Varyings) -> @location(0) vec4<f32> {
+            return aaShader(colorTex, texSampler, varyings.texCoord);
+        }
+    """
 
 
 class NoisePass(EffectPass):
