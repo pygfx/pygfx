@@ -36,7 +36,7 @@ examples = [
     "scikit-image",
     "trimesh <4.6",
     "gltflib",
-    "imgui-bundle >=1.2.1,<1.92",
+    "imgui-bundle >=1.6,<1.92",
     "httpx",
 ]
 docs = [
@@ -49,7 +49,7 @@ docs = [
     "scikit-image",
     "trimesh <4.6",
     "gltflib",
-    "imgui-bundle>=1.6.0",
+    "imgui-bundle >=1.6<1.92",
     "httpx",
 ]
 tests = ["pytest", "psutil", "trimesh <4.6", "httpx", "gltflib", "imageio"]
