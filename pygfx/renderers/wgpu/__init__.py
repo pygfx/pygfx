@@ -73,6 +73,7 @@ from .engine.effectpasses import (
     EffectPass,
     CopyPass,
     FXAAPass,
+    DDAAPass,
     NoisePass,
     FogPass,
     DepthPass,

@@ -37,7 +37,7 @@ from ....utils.enums import PixelFilter
 
 from ... import Renderer
 from .blender import Blender
-from .effectpasses import EffectPass, OutputPass, FXAAPass
+from .effectpasses import EffectPass, OutputPass, FXAAPass, DDAAPass
 from .pipeline import get_pipeline_container_group
 from .update import update_resource, ensure_wgpu_object
 from .shared import get_shared
@@ -413,9 +413,10 @@ class WgpuRenderer(RootEventHandler, Renderer):
         since the PPAA is applied before downsampling to the target texture.
         """
         ppaa = None
+
         for effect_pass in self._effect_passes:
-            if isinstance(effect_pass, FXAAPass):
-                ppaa = "fxaa"
+            if isinstance(effect_pass, (FXAAPass, DDAAPass)):
+                ppaa = effect_pass.__class__.__name__.split("Pass")[0].lower()
         return ppaa
 
     @ppaa.setter
@@ -423,7 +424,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # Remove all passes related to ppaa
         effect_passes = []
         for effect_pass in self._effect_passes:
-            if not isinstance(effect_pass, FXAAPass):
+            if not isinstance(effect_pass, (FXAAPass, DDAAPass)):
                 effect_passes.append(effect_pass)
 
         # Add back appropriate passes
@@ -432,10 +433,12 @@ class WgpuRenderer(RootEventHandler, Renderer):
                 raise TypeError("Renderer.ppaa expects str or None, not {ppaa!r}")
             algorithm = ppaa.lower()
             if algorithm == "auto":
-                algorithm = "fxaa"
+                algorithm = "ddaa"
 
             if algorithm == "fxaa":
                 effect_passes.append(FXAAPass())
+            elif algorithm == "ddaa":
+                effect_passes.append(DDAAPass())
             else:
                 raise ValueError(f"Invalid value for renderer.ppaa: {ppaa!r}")
 

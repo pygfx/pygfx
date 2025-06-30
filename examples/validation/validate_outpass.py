@@ -23,7 +23,7 @@ textures = []
 meshes = []
 
 
-for i in range(4):
+for i in range(n):
     tex = gfx.Texture(dim=2, size=(500, 500, 1), format="4xu1")
     mesh = gfx.Mesh(
         gfx.plane_geometry(),
