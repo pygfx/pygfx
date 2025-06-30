@@ -9,11 +9,11 @@ aligned in the scene.
 # sphinx_gallery_pygfx_docs = 'screenshot'
 # sphinx_gallery_pygfx_test = 'compare'
 
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 
 
-renderer = gfx.renderers.WgpuRenderer(WgpuCanvas(size=(500, 500)))
+renderer = gfx.renderers.WgpuRenderer(RenderCanvas(size=(500, 500)))
 scene = gfx.Scene()
 
 
@@ -53,4 +53,4 @@ renderer.request_draw(lambda: renderer.render(scene, camera))
 
 if __name__ == "__main__":
     print(__doc__)
-    run()
+    loop.run()

@@ -19,7 +19,7 @@ It demonstrates:
 # sphinx_gallery_pygfx_test = 'run'
 
 import wgpu
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 from pygfx.renderers.wgpu import (
     Binding,
@@ -93,7 +93,7 @@ class TriangleShader(BaseShader):
 
 # Setup scene
 
-renderer = gfx.WgpuRenderer(WgpuCanvas())
+renderer = gfx.WgpuRenderer(RenderCanvas())
 camera = gfx.NDCCamera()  # This material does not actually use the camera
 
 t = Triangle(None, TriangleMaterial())
@@ -104,4 +104,4 @@ scene.add(t)
 
 if __name__ == "__main__":
     renderer.request_draw(lambda: renderer.render(scene, camera))
-    run()
+    loop.run()

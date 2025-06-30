@@ -17,11 +17,11 @@ Show an image with four different colormaps.
 # sphinx_gallery_pygfx_test = 'compare'
 
 import numpy as np
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 
 
-renderer = gfx.renderers.WgpuRenderer(WgpuCanvas(size=(600, 600)))
+renderer = gfx.renderers.WgpuRenderer(RenderCanvas(size=(600, 600)))
 
 im = np.repeat(np.linspace(0, 1, 100).reshape(1, -1), 24, 0).astype(np.float32)
 geometry = gfx.Geometry(grid=gfx.Texture(im, dim=2))
@@ -98,4 +98,4 @@ renderer.request_draw(lambda: renderer.render(scene, camera))
 
 if __name__ == "__main__":
     print(__doc__)
-    run()
+    loop.run()

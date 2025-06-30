@@ -16,7 +16,7 @@ background.
 # sphinx_gallery_pygfx_docs = 'screenshot'
 # sphinx_gallery_pygfx_test = 'run'
 
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 
 scene = gfx.Scene()
@@ -65,8 +65,8 @@ scene.add(t1, t2, t3, t4)
 camera = gfx.OrthographicCamera(4, 3)
 
 
-renderer = gfx.renderers.WgpuRenderer(WgpuCanvas())
+renderer = gfx.renderers.WgpuRenderer(RenderCanvas())
 renderer.request_draw(lambda: renderer.render(scene, camera))
 
 if __name__ == "__main__":
-    run()
+    loop.run()

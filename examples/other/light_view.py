@@ -11,7 +11,7 @@ Lighting effect demonstration examples with adjustable parameters
 import math
 
 from PySide6 import QtWidgets, QtGui, QtCore
-from wgpu.gui.qt import WgpuWidget
+from rendercanvas.qt import QRenderWidget
 import pygfx as gfx
 import pylinalg as la
 
@@ -21,7 +21,7 @@ class LightViewer(QtWidgets.QWidget):
         super().__init__()
         self.setWindowTitle("Light_viewer")
         self.resize(800, 600)
-        self.wgpu_widget = WgpuWidget(max_fps=60)
+        self.wgpu_widget = QRenderWidget(max_fps=60)
 
         main_layout = QtWidgets.QHBoxLayout()
         main_layout.addWidget(self.wgpu_widget, 1)

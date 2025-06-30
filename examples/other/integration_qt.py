@@ -1,6 +1,12 @@
 """
 Integrate Pygfx in Qt
 =====================
+
+Note how we use ``QRenderWidget`` instead of ``RenderCanvas``. The former
+is inteded to be embedded in an application, the latter is meant as a toplevel window.
+
+Importing from ``rendercanvas.qt`` will automatically use the appropriate
+Qt library, based on which one is currently imported.
 """
 
 # sphinx_gallery_pygfx_docs = 'code'
@@ -9,7 +15,7 @@ Integrate Pygfx in Qt
 import random
 
 from PySide6 import QtWidgets
-from wgpu.gui.qt import WgpuCanvas
+from rendercanvas.qt import QRenderWidget
 
 import pygfx as gfx
 
@@ -24,7 +30,7 @@ class Main(QtWidgets.QWidget):
         self._button.clicked.connect(self._on_button_click)
 
         # Create canvas, renderer and a scene object
-        self._canvas = WgpuCanvas(parent=self)
+        self._canvas = QRenderWidget(parent=self)
         self._renderer = gfx.WgpuRenderer(self._canvas)
         self._scene = gfx.Scene()
         self._camera = gfx.OrthographicCamera(110, 110)

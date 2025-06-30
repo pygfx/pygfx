@@ -16,11 +16,11 @@ validation example we avoid regressions w.r.t. these artifacts.
 import base64
 
 import numpy as np
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 
 
-canvas = WgpuCanvas()
+canvas = RenderCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 
 
@@ -150,4 +150,4 @@ def show_pick_coords(e):
 
 if __name__ == "__main__":
     print(__doc__)
-    run()
+    loop.run()

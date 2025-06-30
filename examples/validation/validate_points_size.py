@@ -12,11 +12,11 @@ Points with different sizes
 # sphinx_gallery_pygfx_test = 'compare'
 
 import numpy as np
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 
 
-canvas = WgpuCanvas(size=(800, 600))
+canvas = RenderCanvas(size=(800, 600))
 renderer = gfx.WgpuRenderer(canvas, pixel_ratio=0.5, pixel_filter=False)
 
 x = np.linspace(0, 4 * np.pi, 20)
@@ -48,4 +48,4 @@ canvas.request_draw(lambda: renderer.render(scene, camera))
 
 if __name__ == "__main__":
     print(__doc__)
-    run()
+    loop.run()

@@ -104,7 +104,7 @@ import pygfx as gfx
 from pygfx.renderers import WgpuRenderer
 
 # wgpu
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 
 # pytorch
 import torch
@@ -594,7 +594,7 @@ class SceneHandler:
 
         SceneHandler._scene_state = SceneState()
         SceneHandler._in_queue = in_queue
-        SceneHandler._renderer = WgpuRenderer(WgpuCanvas())
+        SceneHandler._renderer = WgpuRenderer(RenderCanvas())
 
         (
             SceneHandler._background_viewport,
@@ -661,7 +661,7 @@ class SceneHandler:
 
         on_resize()
         SceneHandler._renderer.request_draw(SceneHandler._animate)
-        run()
+        loop.run()
 
 
 class PyGfxCallback(Callback):

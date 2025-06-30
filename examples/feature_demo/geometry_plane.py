@@ -9,7 +9,7 @@ Use a plane geometry to show a texture, which is continuously updated to show vi
 # sphinx_gallery_pygfx_test = 'run'
 
 import imageio.v3 as iio
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 
 
@@ -19,7 +19,7 @@ def loop_video(video):
             yield frame[:, :, 0]
 
 
-canvas = WgpuCanvas()
+canvas = RenderCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
@@ -48,4 +48,4 @@ def animate():
 
 if __name__ == "__main__":
     renderer.request_draw(animate)
-    run()
+    loop.run()

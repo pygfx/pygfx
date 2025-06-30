@@ -9,11 +9,11 @@ Display line segments. Can be useful e.g. for visializing vector fields.
 # sphinx_gallery_pygfx_test = 'run'
 
 import numpy as np
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 
 
-canvas = WgpuCanvas()
+canvas = RenderCanvas()
 renderer = gfx.WgpuRenderer(canvas)
 
 scene = gfx.Scene()
@@ -39,4 +39,4 @@ controller = gfx.PanZoomController(camera, register_events=renderer)
 
 if __name__ == "__main__":
     canvas.request_draw(lambda: renderer.render(scene, camera))
-    run()
+    loop.run()

@@ -12,12 +12,12 @@ Show meshes with 1D, 2D, and 3D colormaps, and per-vertex colors too.
 # sphinx_gallery_pygfx_test = 'compare'
 
 import numpy as np
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 import pylinalg as la
 
 
-canvas = WgpuCanvas(size=(900, 400))
+canvas = RenderCanvas(size=(900, 400))
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
@@ -126,4 +126,4 @@ for obj in scene.children:
 canvas.request_draw(lambda: renderer.render(scene, camera))
 
 if __name__ == "__main__":
-    run()
+    loop.run()

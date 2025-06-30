@@ -13,7 +13,7 @@ import time
 import numpy as np
 import pygfx as gfx
 import pylinalg as la
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 
 
 def create_geometry(sizing):
@@ -85,7 +85,7 @@ sizing = {
     "half_height": half_height,
 }
 
-canvas = WgpuCanvas(size=(640, 480), max_fps=60, title="Skinnedmesh")
+canvas = RenderCanvas(size=(640, 480), max_fps=60, title="Skinnedmesh")
 
 renderer = gfx.WgpuRenderer(canvas)
 
@@ -119,4 +119,4 @@ def animate():
 
 if __name__ == "__main__":
     canvas.request_draw(animate)
-    run()
+    loop.run()
