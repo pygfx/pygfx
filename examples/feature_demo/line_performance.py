@@ -9,11 +9,11 @@ Display a line depicting a noisy signal consisting of a lot of points.
 # sphinx_gallery_pygfx_test = 'run'
 
 import numpy as np
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 
 
-canvas = WgpuCanvas()
+canvas = RenderCanvas()
 renderer = gfx.WgpuRenderer(canvas)
 
 scene = gfx.Scene()
@@ -34,4 +34,4 @@ camera.local.position = (50, 0, 0)
 
 if __name__ == "__main__":
     canvas.request_draw(lambda: renderer.render(scene, camera))
-    run()
+    loop.run()

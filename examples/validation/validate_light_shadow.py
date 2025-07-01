@@ -10,12 +10,12 @@ that all combinations are working properly.
 # sphinx_gallery_pygfx_docs = 'screenshot'
 # sphinx_gallery_pygfx_test = 'compare'
 
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 import pylinalg as la
 import numpy as np
 
-canvas = WgpuCanvas()
+canvas = RenderCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
@@ -82,4 +82,4 @@ canvas.request_draw(lambda: renderer.render(scene, camera))
 
 
 if __name__ == "__main__":
-    run()
+    loop.run()

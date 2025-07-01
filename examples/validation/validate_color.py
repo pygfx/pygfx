@@ -9,13 +9,13 @@ similar output from e.g. Matplotlib.
 # sphinx_gallery_pygfx_docs = 'screenshot'
 # sphinx_gallery_pygfx_test = 'compare'
 
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 
 colors1 = ["#ff0000", "#770000", "#00ff00", "#007700", "#0000ff", "#000077"]
 colors2 = ["#000000", "#333333", "#666666", "#999999", "#cccccc", "#ffffff"]
 
-canvas = WgpuCanvas()
+canvas = RenderCanvas()
 renderer = gfx.WgpuRenderer(canvas, gamma_correction=1.0)
 camera = gfx.OrthographicCamera()
 camera.show_rect(-0.5, 5.5, 0, 2)
@@ -52,4 +52,4 @@ canvas.request_draw(lambda: renderer.render(scene, camera))
 
 if __name__ == "__main__":
     print(__doc__)
-    run()
+    loop.run()

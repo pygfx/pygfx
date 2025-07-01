@@ -9,11 +9,11 @@ Example demonstrating synced video rendering
 # sphinx_gallery_pygfx_test = 'run'
 
 import numpy as np
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 
 
-canvas = WgpuCanvas(size=(512 * 3 + 100, 400), max_fps=999)
+canvas = RenderCanvas(size=(512 * 3 + 100, 400), max_fps=999)
 renderer = gfx.renderers.WgpuRenderer(canvas, show_fps=True)
 scene = gfx.Scene()
 camera = gfx.OrthographicCamera(1800, 550)
@@ -57,4 +57,4 @@ def animate():
 
 if __name__ == "__main__":
     canvas.request_draw(animate)
-    run()
+    loop.run()

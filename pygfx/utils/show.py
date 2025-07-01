@@ -35,7 +35,7 @@ class Display:
 
     Parameters
     ----------
-    canvas : WgpuCanvas
+    canvas : RenderCanvas
         The canvas used to display the object. If both ``renderer`` and
         ``canvas`` are set, then the renderer needs to use the set canvas.
     renderer : gfx.Renderer
@@ -234,10 +234,7 @@ def show(
     up : ndarray
         If set, and ``object`` does not contain a controller, set the camera
         controller's up vector to this value.
-        canvas : WgpuCanvas
-        The canvas used to display the object. If both ``renderer`` and
-        ``canvas`` are set, then the renderer needs to use the set canvas.
-    canvas : WgpuCanvas
+    canvas : RenderCanvas
         The canvas used to display the object. If both ``renderer`` and
         ``canvas`` are set, then the renderer needs to use the set canvas.
     renderer : gfx.Renderer

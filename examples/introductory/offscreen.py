@@ -20,11 +20,11 @@ import imageio.v3 as iio
 import numpy as np
 import pygfx as gfx
 import pylinalg as la
-from wgpu.gui.offscreen import WgpuCanvas
+from rendercanvas.offscreen import RenderCanvas
 
 
 # Create offscreen canvas, renderer and scene
-canvas = WgpuCanvas(size=(640, 480), pixel_ratio=1)
+canvas = RenderCanvas(size=(640, 480), pixel_ratio=1)
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 scene.add(gfx.Background.from_color("#000"))

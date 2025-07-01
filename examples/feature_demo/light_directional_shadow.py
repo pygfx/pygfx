@@ -15,10 +15,10 @@ outside the view frustum of the camera will not cast shadows.
 import math
 import pylinalg as la
 
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 
-renderer = gfx.renderers.WgpuRenderer(WgpuCanvas())
+renderer = gfx.renderers.WgpuRenderer(RenderCanvas())
 scene = gfx.Scene()
 
 floor = gfx.Mesh(
@@ -69,4 +69,4 @@ def animate():
 
 if __name__ == "__main__":
     renderer.request_draw(animate)
-    run()
+    loop.run()

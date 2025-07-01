@@ -13,7 +13,7 @@ import wgpu
 import numpy as np
 import math
 from wgpu.utils.imgui import Stats
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 from pathlib import Path
 from camera import OrbitCamera
 from scene import Material, parse_gfx_scene
@@ -166,15 +166,18 @@ def load_wgsl(shader_name):
         return f.read().decode()
 
 
-canvas = WgpuCanvas(
-    title="Raytracing", size=(IMAGE_WIDTH, IMAGE_HEIGHT), max_fps=-1, vsync=False
+canvas = RenderCanvas(
+    title="Raytracing",
+    size=(IMAGE_WIDTH, IMAGE_HEIGHT),
+    update_mode="fastest",
+    vsync=False,
 )
 
 adapter = wgpu.gpu.request_adapter_sync(power_preference="high-performance")
 device = adapter.request_device_sync(
     required_features=["texture-adapter-specific-format-features", "float32-filterable"]
 )
-present_context = canvas.get_context()
+present_context = canvas.get_context("wgpu")
 render_texture_format = present_context.get_preferred_format(device.adapter)
 present_context.configure(device=device, format=render_texture_format)
 
@@ -373,12 +376,12 @@ stats = Stats(device, canvas)
 stats.extra_data = state
 
 
-def loop():
+def animate():
     with stats:
         do_ray_tracing()
     canvas.request_draw()
 
 
 if __name__ == "__main__":
-    canvas.request_draw(loop)
-    run()
+    canvas.request_draw(animate)
+    loop.run()

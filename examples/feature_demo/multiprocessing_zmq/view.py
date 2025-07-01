@@ -15,7 +15,7 @@ import numpy as np
 import zmq
 
 import pygfx as gfx
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 
 context = zmq.Context()
 
@@ -44,7 +44,7 @@ def get_bytes():
     return None
 
 
-canvas = WgpuCanvas()
+canvas = RenderCanvas()
 renderer = gfx.WgpuRenderer(canvas)
 
 scene = gfx.Scene()
@@ -80,4 +80,4 @@ def update_frame():
 
 if __name__ == "__main__":
     canvas.request_draw(update_frame)
-    run()
+    loop.run()

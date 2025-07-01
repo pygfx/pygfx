@@ -18,7 +18,7 @@ not move with the controller.
 # sphinx_gallery_pygfx_docs = 'screenshot'
 # sphinx_gallery_pygfx_test = 'run'
 
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 import numpy as np
 
@@ -132,7 +132,7 @@ def make_logo_scene_camera(size=100, edge_width=3, padding=(5, 5)):
 # Make singleton for fast access
 logo, logo_camera = make_logo_scene_camera()
 
-canvas = WgpuCanvas()
+canvas = RenderCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 scene.add(gfx.Background.from_color("#000"))
@@ -203,4 +203,4 @@ def render_full_scene():
 
 if __name__ == "__main__":
     canvas.request_draw(render_full_scene)
-    run()
+    loop.run()

@@ -9,12 +9,12 @@ Show a line plot, with axii and a grid.
 # sphinx_gallery_pygfx_test = 'run'
 
 import numpy as np
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 from pylinalg import vec_transform, vec_unproject
 
 
-canvas = WgpuCanvas()
+canvas = RenderCanvas()
 renderer = gfx.WgpuRenderer(canvas)
 
 scene = gfx.Scene()
@@ -100,4 +100,4 @@ def animate():
 
 if __name__ == "__main__":
     canvas.request_draw(animate)
-    run()
+    loop.run()
