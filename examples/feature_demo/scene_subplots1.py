@@ -13,14 +13,14 @@ scene_subplot2.py for a slightly higher-level approach.
 # sphinx_gallery_pygfx_test = 'run'
 
 import numpy as np
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 import pylinalg as la
 
 
 # Create a anvas and a renderer
 
-canvas = WgpuCanvas(size=(500, 300))
+canvas = RenderCanvas(size=(500, 300))
 renderer = gfx.renderers.WgpuRenderer(canvas)
 
 # Compose a 3D scene
@@ -68,4 +68,4 @@ def animate():
 
 if __name__ == "__main__":
     canvas.request_draw(animate)
-    run()
+    loop.run()

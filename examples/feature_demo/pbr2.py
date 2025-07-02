@@ -13,13 +13,13 @@ import math
 from time import perf_counter
 
 import imageio.v3 as iio
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 
 import pygfx as gfx
 import pylinalg as la
 
 # Init
-canvas = WgpuCanvas(size=(640, 480), title="gfx_pbr")
+canvas = RenderCanvas(size=(640, 480), title="gfx_pbr")
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
@@ -113,4 +113,4 @@ def animate():
 
 if __name__ == "__main__":
     renderer.request_draw(animate)
-    run()
+    loop.run()

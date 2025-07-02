@@ -19,7 +19,7 @@ import imageio
 import trimesh
 from pathlib import Path
 import pylinalg as la
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 
 import pygfx as gfx
 
@@ -32,7 +32,7 @@ except NameError:
 
 TEAPOT = model_dir / "teapot.stl"
 
-renderer = gfx.renderers.WgpuRenderer(WgpuCanvas())
+renderer = gfx.renderers.WgpuRenderer(RenderCanvas())
 scene = gfx.Scene()
 
 dir_light = gfx.DirectionalLight(1, 2)
@@ -101,4 +101,4 @@ controller = gfx.OrbitController(camera, register_events=renderer)
 
 if __name__ == "__main__":
     renderer.request_draw(lambda: renderer.render(scene, camera))
-    run()
+    loop.run()

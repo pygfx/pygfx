@@ -11,11 +11,11 @@ Dashing
 # sphinx_gallery_pygfx_test = 'compare'
 
 import numpy as np
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 
 
-canvas = WgpuCanvas(size=(1000, 1000))
+canvas = RenderCanvas(size=(1000, 1000))
 renderer = gfx.WgpuRenderer(canvas)
 
 x = np.linspace(0, 4 * np.pi, 1000)
@@ -85,4 +85,4 @@ canvas.request_draw(lambda: renderer.render(scene, camera))
 
 if __name__ == "__main__":
     print(__doc__)
-    run()
+    loop.run()

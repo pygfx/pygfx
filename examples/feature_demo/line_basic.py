@@ -12,11 +12,11 @@ mode.
 # sphinx_gallery_pygfx_test = 'run'
 
 import numpy as np
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 import pylinalg as la
 
-canvas = WgpuCanvas(size=(1000, 800))
+canvas = RenderCanvas(size=(1000, 800))
 renderer = gfx.WgpuRenderer(canvas, ppaa="auto", pixel_ratio=1)
 renderer_svg = gfx.SvgRenderer(640, 480, "~/line.svg")
 
@@ -115,4 +115,4 @@ def animate():
 if __name__ == "__main__":
     renderer_svg.render(scene, camera)
     canvas.request_draw(animate)
-    run()
+    loop.run()

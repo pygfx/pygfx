@@ -19,7 +19,7 @@ import numpy as np
 import imageio.v3 as iio
 import pygfx as gfx
 from pathlib import Path
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 
 try:
     data_dir = Path(__file__).parents[1] / "data"
@@ -52,7 +52,7 @@ datas = [posx, negx, posy, negy, posz, negz]
 
 tex = gfx.Texture(np.stack(datas, axis=0), dim=2, size=(w, h, 6), generate_mipmaps=True)
 
-canvas = WgpuCanvas(size=(640, 640))
+canvas = RenderCanvas(size=(640, 640))
 renderer = gfx.renderers.WgpuRenderer(canvas)
 
 scene = gfx.Scene()
@@ -77,4 +77,4 @@ renderer.request_draw(lambda: renderer.render(scene, camera))
 
 if __name__ == "__main__":
     print(__doc__)
-    run()
+    loop.run()

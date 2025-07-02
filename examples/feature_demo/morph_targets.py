@@ -13,7 +13,7 @@ import time
 import numpy as np
 import pygfx as gfx
 import pylinalg as la
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 
 
 def create_geometry():
@@ -55,7 +55,7 @@ def create_geometry():
     return geometry
 
 
-canvas = WgpuCanvas(size=(640, 480), max_fps=60, title="Morph Targets")
+canvas = RenderCanvas(size=(640, 480), max_fps=60, title="Morph Targets")
 
 renderer = gfx.WgpuRenderer(canvas)
 
@@ -90,4 +90,4 @@ def animate():
 
 if __name__ == "__main__":
     canvas.request_draw(animate)
-    run()
+    loop.run()

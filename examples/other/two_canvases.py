@@ -9,15 +9,15 @@ Example demonstrating rendering the same scene into two different canvases.
 # sphinx_gallery_pygfx_test = 'off'
 
 import numpy as np
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 import pylinalg as la
 
 
 # Create two canvases and two renderers
 
-canvas_a = WgpuCanvas(size=(500, 300))
-canvas_b = WgpuCanvas(size=(300, 500))
+canvas_a = RenderCanvas(size=(500, 300))
+canvas_b = RenderCanvas(size=(300, 500))
 
 renderer_b = gfx.renderers.WgpuRenderer(canvas_b)
 renderer_a = gfx.renderers.WgpuRenderer(canvas_a)
@@ -63,4 +63,4 @@ def animate_b():
 if __name__ == "__main__":
     canvas_a.request_draw(animate_a)
     canvas_b.request_draw(animate_b)
-    run()
+    loop.run()

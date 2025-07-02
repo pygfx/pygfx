@@ -10,13 +10,13 @@ Example showing a single geometric cube.
 
 import pylinalg as la
 import wx
-from wgpu.gui.wx import WgpuCanvas
+from rendercanvas.wx import RenderCanvas
 
 import pygfx as gfx
 
 app = wx.App()
 
-canvas = WgpuCanvas()
+canvas = RenderCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 

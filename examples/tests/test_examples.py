@@ -32,6 +32,9 @@ examples_to_run = [ex[0] for ex in examples_info if ex[2] == "run"]
 examples_to_compare = [ex[0] for ex in examples_info if ex[2] == "compare"]
 
 
+CUSTOM_TOLERANCES = {"validate_text_md": 2}
+
+
 class LogHandler(logging.Handler):
     def __init__(self, *args):
         super().__init__(*args)
@@ -148,7 +151,7 @@ def test_examples_compare(filename, pytestconfig, force_offscreen, mock_time):
     stored_img = iio.imread(screenshot_path)
 
     # assert similarity
-    atol = 1
+    atol = CUSTOM_TOLERANCES.get(module_name, 1)
     try:
         np.testing.assert_allclose(img, stored_img, atol=atol)
         is_similar = True

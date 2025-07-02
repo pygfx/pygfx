@@ -31,13 +31,13 @@ except NameError:
 # sphinx_gallery_pygfx_test = 'run'
 
 import imageio.v3 as iio
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 from wgpu.utils.imgui import ImguiRenderer
 from imgui_bundle import imgui
 
 # Init
-canvas = WgpuCanvas(size=(1280, 720), title="gltf_unlit")
+canvas = RenderCanvas(size=(1280, 720), title="gltf_unlit")
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
@@ -145,4 +145,4 @@ def animate():
 
 if __name__ == "__main__":
     renderer.request_draw(animate)
-    run()
+    loop.run()

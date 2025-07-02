@@ -9,11 +9,11 @@ Display very thick lines to show how lines stay pretty on large scales.
 # sphinx_gallery_pygfx_test = 'run'
 
 import random
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 
 
-canvas = WgpuCanvas()
+canvas = RenderCanvas()
 renderer = gfx.WgpuRenderer(canvas)
 
 # A straight line
@@ -43,4 +43,4 @@ camera = gfx.ScreenCoordsCamera()
 
 if __name__ == "__main__":
     canvas.request_draw(lambda: renderer.render(scene, camera))
-    run()
+    loop.run()

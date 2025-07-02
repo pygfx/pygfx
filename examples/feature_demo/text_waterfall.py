@@ -10,12 +10,12 @@ text rendering to its limits.
 # sphinx_gallery_pygfx_docs = 'animate 5s'
 # sphinx_gallery_pygfx_test = 'run'
 
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 import numpy as np
 
 
-renderer = gfx.renderers.WgpuRenderer(WgpuCanvas(size=(800, 400)))
+renderer = gfx.renderers.WgpuRenderer(RenderCanvas(size=(800, 400)))
 scene = gfx.Scene()
 glyph_atlas = gfx.utils.text.glyph_atlas
 glyph_atlas.clear_free_regions = True  # So we can see regions being freed
@@ -103,4 +103,4 @@ def animate():
 
 if __name__ == "__main__":
     renderer.request_draw(animate)
-    run()
+    loop.run()

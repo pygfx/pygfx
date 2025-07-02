@@ -15,7 +15,7 @@ import math
 import random
 import pylinalg as la
 
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 
 
@@ -85,7 +85,7 @@ class Tween:
 
 
 def init_scene():
-    renderer = gfx.renderers.WgpuRenderer(WgpuCanvas())
+    renderer = gfx.renderers.WgpuRenderer(RenderCanvas())
 
     scene = gfx.Scene()
     camera = gfx.PerspectiveCamera(35, 16 / 9)
@@ -152,4 +152,4 @@ def init_scene():
 
 if __name__ == "__main__":
     renderer = init_scene()
-    run()
+    loop.run()
