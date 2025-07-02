@@ -501,14 +501,7 @@ class FXAAPass(EffectPass):
     This is version 3.11.
     """
 
-    wgsl = """
-        {$ include 'pygfx.fxaa.wgsl' $}
-
-        @fragment
-        fn fs_main(varyings: Varyings) -> @location(0) vec4<f32> {
-            return aaShader(colorTex, texSampler, varyings.texCoord);
-        }
-    """
+    wgsl = "{$ include 'pygfx.fxaa3.wgsl' $}"
 
 
 class DDAAPass(EffectPass):
@@ -519,14 +512,7 @@ class DDAAPass(EffectPass):
     For near-horizontal and near-vertical a technique similar to FXAA is used.
     """
 
-    wgsl = """
-        {$ include 'pygfx.ddaa.wgsl' $}
-
-        @fragment
-        fn fs_main(varyings: Varyings) -> @location(0) vec4<f32> {
-            return aaShader(colorTex, texSampler, varyings.texCoord);
-        }
-    """
+    wgsl = "{$ include 'pygfx.ddaa2.wgsl' $}"
 
 
 class NoisePass(EffectPass):
