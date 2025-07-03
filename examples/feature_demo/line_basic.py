@@ -17,8 +17,7 @@ import pygfx as gfx
 import pylinalg as la
 
 canvas = RenderCanvas(size=(1000, 800))
-renderer = gfx.WgpuRenderer(canvas, ppaa="auto", pixel_ratio=1)
-renderer_svg = gfx.SvgRenderer(640, 480, "~/line.svg")
+renderer = gfx.WgpuRenderer(canvas)
 
 scene = gfx.Scene()
 scene.add(gfx.Background.from_color("#000"))
@@ -87,7 +86,7 @@ def change_material(event):
     elif event.key == "a":
         line.material.aa = not line.material.aa
     elif event.key == "p":
-        renderer.ppaa = None if renderer.ppaa else "auto"
+        renderer.ppaa = None if renderer.ppaa else "ddaa"
     elif event.key == "r":
         renderer.pixel_ratio = 2 if renderer.pixel_ratio == 1 else 1
     renderer.request_draw()
@@ -113,6 +112,5 @@ def animate():
 
 
 if __name__ == "__main__":
-    renderer_svg.render(scene, camera)
     canvas.request_draw(animate)
     loop.run()
