@@ -3,6 +3,14 @@ Validate ppaa
 =============
 
 Validate the different ppaa methods.
+
+From left to right:
+
+* The raw unfiltered pixels.
+* The fxaa method. Notice how long edges are nicely smoothed, but diagonal ones less so.
+* The ddaa1 method. Notice how the edges are smooth, but long horizontal/vertical edges have a step.
+* The ddaa2 method. Best of both.
+
 """
 
 # sphinx_gallery_pygfx_docs = 'screenshot'
@@ -14,7 +22,7 @@ import pylinalg as la
 
 # Setting up the outer scene that shows the same scene multiple, with different ppaa
 
-n = 3
+n = 4
 
 canvas = RenderCanvas(size=(500 * n, 500))
 renderer = gfx.renderers.WgpuRenderer(canvas)
@@ -44,7 +52,11 @@ renderers = [
     gfx.renderers.WgpuRenderer(textures[0], pixel_ratio=0.2, ppaa=None),
     gfx.renderers.WgpuRenderer(textures[1], pixel_ratio=0.2, ppaa="fxaa"),
     gfx.renderers.WgpuRenderer(textures[2], pixel_ratio=0.2, ppaa="ddaa"),
+    gfx.renderers.WgpuRenderer(textures[3], pixel_ratio=0.2, ppaa="ddaa"),
 ]
+
+# Set the max_edge_iters of the 1st ddaa renderer to 0, so it only applies diffusion
+renderers[2].effect_passes[0].max_edge_iters = 0
 
 
 # Setup the actual scene that gets rendered multiple times
