@@ -530,7 +530,7 @@ class DDAAPass(PPAAPass):
 
         Default 2. Set to 3 for prettier edges, or to 0 or 1 for more performance.
         """
-        return self._template_vars["filter"]
+        return self._template_vars["MAX_EDGE_ITERS"]
 
     @max_edge_iters.setter
     def max_edge_iters(self, max_edge_iters):
