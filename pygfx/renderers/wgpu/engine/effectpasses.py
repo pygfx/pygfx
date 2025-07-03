@@ -418,7 +418,7 @@ class OutputPass(EffectPass):
         gamma="f4",
     )
 
-    wgsl = "{$ include 'pygfx.outpass.wgsl' $}"
+    wgsl = "{$ include 'pygfx.ssaa.wgsl' $}"
 
     def __init__(self, *, gamma=1.0, filter="mitchell"):
         super().__init__()

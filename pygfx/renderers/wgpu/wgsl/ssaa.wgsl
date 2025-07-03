@@ -1,6 +1,18 @@
-
-// Interpolating / reconstruction filter
+// ssaa.wgsl  version 1.1
+//
+// Source: https://github.com/almarklein/ppaa-experiments/blob/main/wgsl/ssaa.wgsl
+// Used in https://github.com/pygfx/pygfx/, this code is somewhat opinionated towards Pygfx.
+//
+// An interpolation / reconstruction filter that has two purposes:
+// * downsampling: render at a higher resolution, then downsample to reduce aliasing. This is SSAA.
+// * upsampling: render at a lower resolution, then upsample to screen resolution. For performance.
+//
+// In both cases you want appropriate filtering. This module supports different filtering methods.
+// In general the 'mitchell' filter is recommended.
+//
 // Inspired by https://therealmjp.github.io/posts/msaa-resolve-filters/
+// and         https://bartwronski.com/2022/03/07/fast-gpu-friendly-antialiasing-downsampling-filter/
+
 
 fn filterweightBox(t: vec2f) -> f32 {
     // The box filter results in nearest-neighbour interpolation when upsampling,
@@ -182,7 +194,7 @@ fn fs_main(varyings: Varyings) -> @location(0) vec4<f32> {
     // defines the cut-off frequency of the filter. But when we up-sample, we don't
     // need a filter, and we go in pure interpolation mode, and the filter must
     // match the resolution (== sample rate) of the source image, i.e. one.
-    const sigma = max({{ scaleFactor }}, 1.0);
+    const sigma = max(f32({{ scaleFactor }}), 1.0);
 
     // Prepare output
     var color = vec4<f32>(0.0, 0.0, 0.0, 0.0);
@@ -285,7 +297,10 @@ fn fs_main(varyings: Varyings) -> @location(0) vec4<f32> {
 
 
     // Apply gamma
-    let gamma3 = vec3<f32>(u_effect.gamma);
+    $$ if gamma is not defined
+    $$ set gamma = 1.0
+    $$ endif
+    let gamma3 = vec3<f32>({{ gamma }});
     let rgb = pow(color.rgb, gamma3);
     let a = color.a;
 
