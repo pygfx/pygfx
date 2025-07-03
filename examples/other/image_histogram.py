@@ -52,7 +52,7 @@ controller = gfx.PanZoomController(camera, register_events=renderer)
 
 
 def load_image(image_name):
-    im = imageio.imread(f"imageio:{image_name}.png")
+    im = iio.imread(f"imageio:{image_name}.png")
     if im.ndim == 2:
         im = np.stack([im, im, im], axis=2)
     return im

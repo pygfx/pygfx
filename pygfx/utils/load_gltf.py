@@ -796,7 +796,7 @@ class _GLTF:
             raise ValueError("No image data found")
 
         # need consider mimeType?
-        image = iio.imread(image_data, pilmode="RGBA")
+        image = iio.imread(image_data, mode="RGBA")
         return image
 
     def _load_gltf_geometry(self, primitive):
