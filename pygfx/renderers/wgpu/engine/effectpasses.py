@@ -11,7 +11,9 @@ This can be subclasses to create custom effects. A few builtin effects are also 
 
     EffectPass
     CopyPass
+    PPAAPass
     FXAAPass
+    DDAAPass
     NoisePass
     DepthPass
     FogPass
@@ -494,7 +496,11 @@ class OutputPass(EffectPass):
 # See https://github.com/pmndrs/postprocessing and ThreeJS code for implementations.
 
 
-class FXAAPass(EffectPass):
+class PPAAPass(EffectPass):
+    """Base class for post-processing anti-aliasing to help the renderer detect these."""
+
+
+class FXAAPass(PPAAPass):
     """An effect pass implementing Fast approximate anti-aliasing.
 
     FXAA is a well known method for post-processing antialiasing.
@@ -504,7 +510,7 @@ class FXAAPass(EffectPass):
     wgsl = "{$ include 'pygfx.fxaa3.wgsl' $}"
 
 
-class DDAAPass(EffectPass):
+class DDAAPass(PPAAPass):
     """An effect pass implementing Directional Diffusion anti-aliasing.
 
     DDAA produces better results than FXAA for near-diagonal lines, at the same performance.

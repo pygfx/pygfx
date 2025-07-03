@@ -229,10 +229,12 @@ def update_diffs(module, is_similar, img, stored_img, *, atol):
 def force_offscreen():
     """Force the offscreen canvas to be selected by the auto gui module."""
     os.environ["WGPU_FORCE_OFFSCREEN"] = "true"
+    os.environ["PYGFX_PPAA"] = "none"
     try:
         yield
     finally:
         del os.environ["WGPU_FORCE_OFFSCREEN"]
+        del os.environ["PYGFX_PPAA"]
 
 
 @pytest.fixture
@@ -247,5 +249,6 @@ def mock_time():
 if __name__ == "__main__":
     # Enable tweaking in an IDE by running in an interactive session.
     os.environ["WGPU_FORCE_OFFSCREEN"] = "true"
+    os.environ["PYGFX_PPAA"] = "none"
     pytest.getoption = lambda x: False
     test_examples_compare("validate_volume", pytest, None, None)

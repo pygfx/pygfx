@@ -72,6 +72,7 @@ from .engine.renderer import WgpuRenderer
 from .engine.effectpasses import (
     EffectPass,
     CopyPass,
+    PPAAPass,
     FXAAPass,
     DDAAPass,
     NoisePass,

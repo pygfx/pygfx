@@ -3,9 +3,10 @@ The main renderer class. This class wraps a canvas or texture and it
 manages the rendering process.
 """
 
+import os
 import time
 import logging
-from typing import Optional
+from typing import Literal
 
 import numpy as np
 import wgpu
@@ -37,7 +38,7 @@ from ....utils.enums import PixelFilter
 
 from ... import Renderer
 from .blender import Blender
-from .effectpasses import EffectPass, OutputPass, FXAAPass, DDAAPass
+from .effectpasses import EffectPass, OutputPass, PPAAPass, FXAAPass, DDAAPass
 from .pipeline import get_pipeline_container_group
 from .update import update_resource, ensure_wgpu_object
 from .shared import get_shared
@@ -221,8 +222,8 @@ class WgpuRenderer(RootEventHandler, Renderer):
         The gamma correction to apply in the final render stage. Typically a
         number between 0.0 and 2.0. A value of 1.0 indicates no correction.
     ppaa : str, optional
-        The post-processing anti-aliasing to apply. Default None. Recommended to set to 'auto' for
-        most usecases.
+        The post-processing anti-aliasing to apply: "default", "none", "fxaa", "ddaa".
+        By default it resolves to "ddaa".
     """
 
     def __init__(
@@ -235,7 +236,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         sort_objects=True,
         enable_events=True,
         gamma_correction=1.0,
-        ppaa=None,
+        ppaa="default",
         **kwargs,
     ):
         blend_mode = kwargs.pop("blend_mode", None)
@@ -400,47 +401,54 @@ class WgpuRenderer(RootEventHandler, Renderer):
         self._pixel_filter = value
 
     @property
-    def ppaa(self) -> Optional[str]:
+    def ppaa(
+        self,
+    ) -> Literal["default", "none", "fxaa", "ddaa"]:
         """The post-processing anti-aliasing to apply.
 
-        With None, does not apply aliasing. Other values are 'auto' to auto-select,
-        and 'fxaa' for Fast Approxomate AA. More may be added in the future.
+        * "default": use the value specified by ``PYGFX_PPAA``, defaulting to "ddaa".
+        * "none": do not apply aliasing.
+        * "fxaa": applies Fast Approxomate AA, a common method.
+        * "ddaa": applies Directional Diffusion AA, a modern improved method.
 
-        We recommend using 'auto' in general and None when making screenshots that you
-        don't want to change when we tweak the aa algorithms ;)
+        The ``PYGFX_PPAA`` environment variable can e.g. be set to "none" for image tests,
+        so that the image tests don't fail when we update the ddaa method.
 
         Note that SSAA can be achieved by using a pixel_ratio > 1. This can be well combined with PPAA,
         since the PPAA is applied before downsampling to the target texture.
         """
-        ppaa = None
-
+        ppaa = "none"
         for effect_pass in self._effect_passes:
-            if isinstance(effect_pass, (FXAAPass, DDAAPass)):
+            if isinstance(effect_pass, PPAAPass):
                 ppaa = effect_pass.__class__.__name__.split("Pass")[0].lower()
         return ppaa
 
     @ppaa.setter
-    def ppaa(self, ppaa: Optional[str]):
-        # Remove all passes related to ppaa
+    def ppaa(self, ppaa: Literal["default", "none", "fxaa", "ddaa"]):
+        if not isinstance(ppaa, str):
+            raise TypeError(f"renderer.ppaa must be a string, not {ppaa!r}")
+
+        # Collect list of effect passes that are not a ppaa
         effect_passes = []
         for effect_pass in self._effect_passes:
-            if not isinstance(effect_pass, (FXAAPass, DDAAPass)):
+            if not isinstance(effect_pass, PPAAPass):
                 effect_passes.append(effect_pass)
 
-        # Add back appropriate passes
-        if ppaa is not None:
-            if not isinstance(ppaa, str):
-                raise TypeError("Renderer.ppaa expects str or None, not {ppaa!r}")
-            algorithm = ppaa.lower()
-            if algorithm == "auto":
+        # Handle default
+        algorithm = ppaa.lower()
+        if algorithm == "default":
+            algorithm = os.getenv("PYGFX_PPAA", "").lower()
+            if not algorithm or algorithm == "default":
                 algorithm = "ddaa"
 
-            if algorithm == "fxaa":
-                effect_passes.append(FXAAPass())
-            elif algorithm == "ddaa":
-                effect_passes.append(DDAAPass())
-            else:
-                raise ValueError(f"Invalid value for renderer.ppaa: {ppaa!r}")
+        if algorithm == "none":
+            pass  # don't add a pass
+        elif algorithm == "ddaa":
+            effect_passes.append(DDAAPass())
+        elif algorithm == "fxaa":
+            effect_passes.append(FXAAPass())
+        else:
+            raise ValueError(f"Invalid value for renderer.ppaa: {ppaa!r}")
 
         self.effect_passes = effect_passes
 
