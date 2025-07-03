@@ -15,7 +15,7 @@ for a given object.
 import os
 import math
 
-import imageio
+import imageio.v3 as iio
 import trimesh
 from pathlib import Path
 import pylinalg as la
@@ -41,7 +41,7 @@ dir_light.local.position = (0, 0, 1)
 scene.add(gfx.AmbientLight(1, 0.2), dir_light)
 
 # Read cube image and turn it into a 3D image (a 4d array)
-env_img = imageio.imread("imageio:meadow_cube.jpg")
+env_img = iio.imread("imageio:meadow_cube.jpg")
 cube_size = env_img.shape[1]
 env_img.shape = 6, cube_size, cube_size, env_img.shape[-1]
 
