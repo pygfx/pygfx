@@ -82,7 +82,7 @@ def test_examples_meta():
 
 
 @pytest.mark.parametrize("filename", examples_to_run, ids=lambda x: x.stem)
-def test_examples_run(filename, force_offscreen):
+def test_examples_run(filename, prep_environment):
     """Run every example marked to see if they can run without error."""
 
     # use runpy so the module is not actually imported (and can be gc'd)
@@ -116,7 +116,7 @@ def test_examples_run(filename, force_offscreen):
 
 
 @pytest.mark.parametrize("filename", examples_to_compare, ids=lambda x: x.stem)
-def test_examples_compare(filename, pytestconfig, force_offscreen, mock_time):
+def test_examples_compare(filename, pytestconfig, prep_environment, mock_time):
     """Run every example marked to compare its result against a reference screenshot."""
 
     # import the example module
@@ -226,9 +226,11 @@ def update_diffs(module, is_similar, img, stored_img, *, atol):
 
 
 @pytest.fixture
-def force_offscreen():
+def prep_environment():
     """Force the offscreen canvas to be selected by the auto gui module."""
+    # Make that examples using rendercanvas.auto, will use the offscreen backend
     os.environ["WGPU_FORCE_OFFSCREEN"] = "true"
+    # Disable ppaa on the renderer by default. Otherwise all screenshots change when the ppaa shaders are updated.
     os.environ["PYGFX_PPAA"] = "none"
     try:
         yield
