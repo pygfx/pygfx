@@ -48,9 +48,13 @@ camera0.show_rect(0, n, 0, 1)
 
 
 # Setup the different renderers
+# Note that we retain the Mitchell pixel filter, so that pixels appear more as blobs than squares.
+# To be honest, I forgot to turn the filter off, but I think it demonstrates the differences
+# between the methods well; in the right-most image you can see how the Mitchell filter can
+# make the diagonal-ish lines much more straight.
 
 renderers = [
-    gfx.renderers.WgpuRenderer(textures[0], pixel_ratio=0.2, ppaa=None),
+    gfx.renderers.WgpuRenderer(textures[0], pixel_ratio=0.2, ppaa="none"),
     gfx.renderers.WgpuRenderer(textures[1], pixel_ratio=0.2, ppaa="fxaa"),
     gfx.renderers.WgpuRenderer(textures[2], pixel_ratio=0.2, ppaa="ddaa"),
     gfx.renderers.WgpuRenderer(textures[3], pixel_ratio=0.2, ppaa="ddaa"),
