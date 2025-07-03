@@ -86,7 +86,7 @@ def change_material(event):
     elif event.key == "a":
         line.material.aa = not line.material.aa
     elif event.key == "p":
-        renderer.ppaa = None if renderer.ppaa else "ddaa"
+        renderer.ppaa = "ddaa" if renderer.ppaa == "none" else "none"
     elif event.key == "r":
         renderer.pixel_ratio = 2 if renderer.pixel_ratio == 1 else 1
     renderer.request_draw()
