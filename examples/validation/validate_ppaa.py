@@ -11,6 +11,7 @@ From left to right:
 * The ddaa1 method. Notice how the edges are smooth, but long horizontal/vertical edges have a step.
 * The ddaa2 method. Best of both.
 
+Also see https://github.com/almarklein/ppaa-experiments
 """
 
 # sphinx_gallery_pygfx_docs = 'screenshot'
