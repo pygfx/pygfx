@@ -428,6 +428,7 @@ class OutputPass(EffectPass):
             extraKernelSupport=None,  # for testing
             optCorners=True,  # optimization: drop corners in kernels larger than 6x6
             optScale2=True,  # optimization: use 12-tap filters for cubic kernels when scaleFactor == 2
+            gamma="u_effect.gamma",  # let gamma use the uniform buffer
         )
 
     def render(
