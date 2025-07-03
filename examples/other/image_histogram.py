@@ -12,7 +12,7 @@ and can change/move in the future.
 # sphinx_gallery_pygfx_test = 'run'
 
 import numpy as np
-import imageio.v3 as imageio
+import imageio.v3 as iio
 from rendercanvas.auto import RenderCanvas, loop
 import wgpu
 from wgpu.utils.imgui import ImguiRenderer
