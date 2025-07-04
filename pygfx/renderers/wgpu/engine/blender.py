@@ -43,27 +43,20 @@ default_targets = {
     #
     # As for storing intermediate results, using 8bit colors in linear space would
     # mean that we lose precision in regions where the human eye is sensitive.
-    # Ideally we'd use 'rgba16float', and maybe we should, it's 2025, but let's
-    # change that in a self-contained commit, because it will affect memory usage,
-    # and needs a feature?
+    # Ideally we use 'rgba16float'. Alternatively, using 'rgba8unorm_srgb' could
+    # be used to preserve memory. It's better than using 'rgba8unorm', because although
+    # we lose precision in a non-linear way, we lose precision "in a way that's
+    # linear to the human eye". Also see https://github.com/pmndrs/postprocessing
     #
-    # Using 'rgba8unorm_srgb' means that in each post-effect step, the colors are
-    # stored in srgb, and auto-conveted to linear when read/written. This seems a
-    # bit weird, because from the pov of math that works on linear values, it loses
-    # precision in a non-linear way. But that way we lose precision "in a way that's
-    # linear to the human eye", which results in a better end-result than using
-    # 'rgba8unorm'. Also see https://github.com/pmndrs/postprocessing
-    #
-    # This is 4 bytes per pixel.
-    # TODO: use half-floats
+    # This is 8 bytes per pixel.
     "color": (
-        wgpu.TextureFormat.rgba8unorm_srgb,
+        wgpu.TextureFormat.rgba16float,
         usg.RENDER_ATTACHMENT | usg.COPY_SRC | usg.TEXTURE_BINDING,
     ),
     # A texture of the same size, to allow post-processing effects.
     # When applying effects, the color and altcolor texture are ping-ponged.
     "altcolor": (
-        wgpu.TextureFormat.rgba8unorm_srgb,
+        wgpu.TextureFormat.rgba16float,
         usg.RENDER_ATTACHMENT | usg.COPY_SRC | usg.TEXTURE_BINDING,
     ),
     # The depth buffer should preferably at least 24bit - we need that precision. It's 4 bytes per pixel.
