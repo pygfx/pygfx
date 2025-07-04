@@ -11,11 +11,13 @@ Example post-processing effects, showing builtin effects.
 import imageio.v3 as iio
 from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
-from pygfx.renderers.wgpu import NoisePass, FogPass
+from pygfx.renderers.wgpu import NoisePass, FogPass, DDAAPass
 
 canvas = RenderCanvas(update_mode="continuous")
 renderer = gfx.renderers.WgpuRenderer(canvas)
-renderer.effect_passes = [NoisePass(0.5), FogPass("#fff")]
+
+# Add a noise-pass and a fog-pass, and add the aa pass that the renderer adds by default
+renderer.effect_passes = [NoisePass(0.5), FogPass("#fff"), DDAAPass()]
 
 scene = gfx.Scene()
 

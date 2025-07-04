@@ -1,8 +1,17 @@
 """
-Validate OutPass
-================
+Validate ppaa
+=============
 
-Validate the different filters for the output pass, (i.e. flush).
+Validate the different ppaa methods.
+
+From left to right:
+
+* The raw unfiltered pixels.
+* The fxaa method. Notice how long edges are nicely smoothed, but diagonal ones less so.
+* The ddaa1 method. Notice how the edges are smooth, but long horizontal/vertical edges have a step.
+* The ddaa2 method. Best of both.
+
+Also see https://github.com/almarklein/ppaa-experiments
 """
 
 # sphinx_gallery_pygfx_docs = 'screenshot'
@@ -39,13 +48,20 @@ camera0.show_rect(0, n, 0, 1)
 
 
 # Setup the different renderers
+# Note that we retain the Mitchell pixel filter, so that pixels appear more as blobs than squares.
+# To be honest, I forgot to turn the filter off, but I think it demonstrates the differences
+# between the methods well; in the right-most image you can see how the Mitchell filter can
+# make the diagonal-ish lines much more straight.
 
 renderers = [
-    gfx.renderers.WgpuRenderer(textures[0], pixel_ratio=0.2, pixel_filter="nearest"),
-    gfx.renderers.WgpuRenderer(textures[1], pixel_ratio=0.2, pixel_filter="disk"),
-    gfx.renderers.WgpuRenderer(textures[2], pixel_ratio=0.2, pixel_filter="bspline"),
-    gfx.renderers.WgpuRenderer(textures[3], pixel_ratio=0.2, pixel_filter="mitchell"),
+    gfx.renderers.WgpuRenderer(textures[0], pixel_ratio=0.2, ppaa="none"),
+    gfx.renderers.WgpuRenderer(textures[1], pixel_ratio=0.2, ppaa="fxaa"),
+    gfx.renderers.WgpuRenderer(textures[2], pixel_ratio=0.2, ppaa="ddaa"),
+    gfx.renderers.WgpuRenderer(textures[3], pixel_ratio=0.2, ppaa="ddaa"),
 ]
+
+# Set the max_edge_iters of the 1st ddaa renderer to 0, so it only applies diffusion
+renderers[2].effect_passes[0].max_edge_iters = 0
 
 
 # Setup the actual scene that gets rendered multiple times

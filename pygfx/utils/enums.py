@@ -203,5 +203,4 @@ Note that when the source and target image are of the same size, the filter is a
 * "catmull": cubic spline of the type Catmull-Rom, which is sharper, but has more ringing effects.
 """
 
-
 # NOTE: Don't forget to add new enums to the toctree and __all__

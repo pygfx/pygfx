@@ -11,6 +11,9 @@ This can be subclasses to create custom effects. A few builtin effects are also 
 
     EffectPass
     CopyPass
+    PPAAPass
+    FXAAPass
+    DDAAPass
     NoisePass
     DepthPass
     FogPass
@@ -492,6 +495,47 @@ class OutputPass(EffectPass):
 # Color grading, color conversions, depth of field, patterns, pixelize, tone mapping, texture overlay, ...
 #
 # See https://github.com/pmndrs/postprocessing and ThreeJS code for implementations.
+
+
+class PPAAPass(EffectPass):
+    """Base class for post-processing anti-aliasing to help the renderer detect these."""
+
+
+class FXAAPass(PPAAPass):
+    """An effect pass implementing Fast approximate anti-aliasing.
+
+    FXAA is a well known method for post-processing antialiasing.
+    This is version 3.11.
+    """
+
+    wgsl = "{$ include 'pygfx.fxaa3.wgsl' $}"
+
+
+class DDAAPass(PPAAPass):
+    """An effect pass implementing Directional Diffusion anti-aliasing.
+
+    DDAA produces better results than FXAA for near-diagonal lines, at the same performance.
+    It estimates the direction of the edge, and then diffuses (i.e. smoothes) in that direction.
+    For near-horizontal and near-vertical a technique similar to FXAA is used.
+    """
+
+    wgsl = "{$ include 'pygfx.ddaa2.wgsl' $}"
+
+    def __init__(self, *, max_edge_iters=2):
+        super().__init__()
+        self.max_edge_iters = max_edge_iters
+
+    @property
+    def max_edge_iters(self):
+        """The maximum number of iters (of 8 samples) to search along an edge.
+
+        Default 2. Set to 3 for prettier edges, or to 0 or 1 for more performance.
+        """
+        return self._template_vars["MAX_EDGE_ITERS"]
+
+    @max_edge_iters.setter
+    def max_edge_iters(self, max_edge_iters):
+        self._set_template_var(MAX_EDGE_ITERS=int(max_edge_iters))
 
 
 class NoisePass(EffectPass):
