@@ -102,7 +102,7 @@ class FlyController(Controller):
             action.snap_distance = 0.01
             action.done = True
         elif self._cameras:
-            self._update_rotate(delta)
+            self._update_roll(delta)
             return self._update_cameras()
 
     def _update_roll(self, delta):
