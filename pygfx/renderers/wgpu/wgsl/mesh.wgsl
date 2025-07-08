@@ -424,7 +424,7 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
 
     $$ endif
     // Apply opacity
-    var opacity = color_value.a * u_material.opacity;
+    var opacity = diffuse_color.a * u_material.opacity;
 
     do_alpha_test(opacity);
 

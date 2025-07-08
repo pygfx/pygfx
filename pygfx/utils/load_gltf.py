@@ -205,7 +205,6 @@ class _GLTF:
         plugin = plugin_class(self)
         self._plugins[plugin.name] = plugin
 
-
     def load(self, path, quiet=False, remote_ok=True):
         """Load the whole gltf file, including meshes, skeletons, cameras, and animations."""
         self.__inner_load(path, quiet, remote_ok)
@@ -1476,7 +1475,9 @@ class GLTFMaterialsTransmissionExtension(GLTFBaseMaterialsExtension):
 
         transmission_texture = extension.get("transmissionTexture", None)
         if transmission_texture is not None:
-            material.transmission_map = self.parser._load_gltf_texture_map(transmission_texture)
+            material.transmission_map = self.parser._load_gltf_texture_map(
+                transmission_texture
+            )
 
 
 class GLTFMaterialsVolumeExtension(GLTFBaseMaterialsExtension):
@@ -1497,7 +1498,9 @@ class GLTFMaterialsVolumeExtension(GLTFBaseMaterialsExtension):
 
         thickness_texture = extension.get("thicknessTexture", None)
         if thickness_texture is not None:
-            material.thickness_map = self.parser._load_gltf_texture_map(thickness_texture)
+            material.thickness_map = self.parser._load_gltf_texture_map(
+                thickness_texture
+            )
 
         attenuation_color = extension.get("attenuationColor", None)
         if attenuation_color is not None:

@@ -644,7 +644,9 @@ class MeshPhysicalShader(MeshStandardShader):
                 if material.clearcoat_normal_map is not None:
                     bindings.extend(
                         self._define_texture_map(
-                            geometry, material.clearcoat_normal_map, "clearcoat_normal_map"
+                            geometry,
+                            material.clearcoat_normal_map,
+                            "clearcoat_normal_map",
                         )
                     )
                     self["use_clearcoat_normal_map"] = True
