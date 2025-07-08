@@ -186,6 +186,8 @@ class OrbitController(PanZoomController):
             )
             offest = -vecx * scaled_delta[0] + vecy * scaled_delta[1]
             self._custom_target = target_pos + offest
+        else:
+            scaled_delta = delta
 
         return super()._update_pan(scaled_delta, vecx=vecx, vecy=vecy)
 
