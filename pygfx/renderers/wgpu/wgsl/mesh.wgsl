@@ -202,6 +202,15 @@ fn vs_main(in: VertexInput) -> Varyings {
     varyings.world_pos = vec3<f32>(world_pos.xyz / world_pos.w);
     varyings.position = vec4<f32>(ndc_pos.xyz, ndc_pos.w);
 
+    // Get ndc of center of face, used by dither
+    $$ if blending_mode == 'dither'
+    let raw_pos_mean = (load_s_positions(i32(vii[0])) + load_s_positions(i32(vii[1])) + load_s_positions(i32(vii[2]))) / 3.0;
+    let world_pos_mean = world_transform * vec4<f32>(raw_pos_mean, 1.0);
+    var ndc_pos_mean = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos_mean;
+    varyings.elementPosition = vec4<f32>(ndc_pos_mean);
+    $$ endif
+    varyings.elementIndex = u32(face_index);
+
     // per-vertex or per-face coloring
     $$ if use_vertex_color
         $$ if color_mode == 'face'

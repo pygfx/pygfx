@@ -8,7 +8,7 @@ warned_for = set()
 
 def resolve_shadercode(wgsl):
     """Apply all shader resolve opearions."""
-    return _resolve(wgsl, VaryingResolver(), OutputResolver())
+    return _resolve(wgsl, OutputResolver(), VaryingResolver())
 
 
 def resolve_varyings(wgsl):
@@ -31,6 +31,10 @@ def _resolve(wgsl, *resolvers):
 
     curly_braces_level = 0
     current_func_kind = None
+
+    shared_context = {"more_lines": []}
+    for resolver in resolvers:
+        resolver.context = shared_context
 
     # Apply resolve functions. They modify the lines
     for linenr, ori_line in enumerate(lines):
@@ -94,6 +98,7 @@ class VaryingResolver:
         self.assigned_varyings = {}
         self.used_varyings = {}
         self.types = {}  # varying types
+        self.context = {"more_lines": []}
 
         # We try to find the function that first uses the Varyings struct.
         self.struct_linenr = None
@@ -164,16 +169,32 @@ class VaryingResolver:
                 else:
                     self.used_varyings.setdefault(name, []).append(linenr)
 
+        # For a few names we always declare them as assigned, so that when they're used, but not *really* assigned, they're all zeros, which can be handled.
+        # In practice, it means that for (custom) shaders that don't set these varyings, dithered blending still works, although maybe a bit less pretty.
+        for name, type in [("elementPosition", "vec4<f32>"), ("elementIndex", "u32")]:
+            self.assigned_varyings.setdefault(name, [])
+            self.types[name] = type
+
     def update_lines(self, lines):
         assigned_varyings = self.assigned_varyings
         used_varyings = self.used_varyings
         types = self.types
         struct_linenr = self.struct_linenr
 
+        # Collect use of varyings in output virtualfields
+        for line in self.context["more_lines"]:
+            if "varyings." in line:
+                for match in re_varying_getter.finditer(" " + line):
+                    name = match.group(1)
+                    self.used_varyings.setdefault(name, [])
+
         # Check if all used varyings are assigned
         for name in used_varyings:
             if name not in assigned_varyings:
-                line = lines[used_varyings[name][0]]
+                try:
+                    line = lines[used_varyings[name][0]]
+                except Exception:
+                    line = ""
                 raise TypeError(f"Varying {name!r} is read, but not assigned:\n{line}")
 
         # Comment-out the varying setter if its unused elsewhere in the shader
@@ -184,16 +205,17 @@ class VaryingResolver:
                     indent = indent_from_line(line)
                     lines[linenr] = indent + "// unused: " + line[len(indent) :]
                     # Deal with multiple-line assignments
-                    line_s = line.strip()
+                    line_s = line.split("//")[0].strip()
                     while not line_s.endswith(";"):
                         linenr += 1
-                        line_s = lines[linenr].strip()
+                        line = lines[linenr].lstrip()
+                        line_s = line.split("//")[0].strip()
                         unexpected = "fn ", "struct ", "var ", "let ", "}"
-                        if line_s.startswith(unexpected) or linenr == len(lines) - 1:
+                        if line.startswith(unexpected) or linenr == len(lines) - 1:
                             raise TypeError(
                                 f"Varying {name!r} assignment seems to be missing a semicolon:\n{line}"
                             )
-                        lines[linenr] = indent + "// " + line_s
+                        lines[linenr] = indent + "// " + line
 
         # Build and insert the struct
         if struct_linenr is not None:
@@ -248,6 +270,7 @@ class OutputResolver:
         self.struct_linenr = None
         self.assigned_fields = None  # list of (field-name, linenr)
         self.assigned_fields_list = []  # list of assigned_fields
+        self.context = {"more_lines": []}
 
     def process_line(self, linenr, line, current_func_kind):
         in_fragment_shader = current_func_kind == "fragment"
@@ -296,13 +319,18 @@ class OutputResolver:
                     name, colon, type_value = name_type_value.partition(":")
                     type, eq, value = type_value.partition("=")
                     assert colon and eq, (
-                        "A virtualfield needs to be of the form 'name : type = defaultvalue'. {name!r} does not"
+                        f"A virtualfield needs to be of the form 'name : type = defaultvalue'. {name!r} does not"
                     )
                     virtual_fields.append(
                         (name.strip(), type.strip(), value.strip(" ;"))
                     )
                 else:
                     break
+
+        # Allow next resolvers to analyze our added lines
+        self.context["more_lines"] += [
+            virtual_field[2] for virtual_field in virtual_fields
+        ]
 
         depth_is_set = False
 

@@ -659,6 +659,9 @@ fn vs_main(in: VertexInput) -> Varyings {
     // Position
     varyings.position = vec4<f32>(the_pos_n);
     varyings.world_pos = vec3<f32>(ndc_to_world_pos(the_pos_n));
+    varyings.elementPosition = vec4<f32>((pos_n_node + pos_n_other) * 0.5);
+    varyings.elementIndex = u32(face_index);
+
     //  Thickness and segment coord. These are corrected for perspective, otherwise the dashes are malformed in 3D.
     varyings.w = f32(w);
     varyings.thickness_pw = f32(thickness * l2p * w);  // the real thickness, in physical coords
@@ -748,7 +751,6 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
 
     // clipping planes
     {$ include 'pygfx.clipping_planes.wgsl' $}
-
 
     // Get the half-thickness in physical coordinates. This is the reference thickness.
     // If aa is used, the line is actually a bit thicker, leaving space to do aa.

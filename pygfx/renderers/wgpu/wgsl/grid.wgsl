@@ -155,6 +155,9 @@ fn vs_main(in: VertexInput) -> Varyings {
     varyings.position = vec4<f32>(pos_ndc);
     varyings.world_pos = vec3<f32>(ndc_to_world_pos(out.position));
     varyings.gridcoord = vec2<f32>(dot(v1, pos), dot(v2, pos));
+    varyings.elementPosition = vec4<f32>(0.0, 0.0, 0.0, 1.0);
+    varyings.elementIndex = u32(123456); // avoid matching pattern with other objects that don't set elementPosition
+
     $$ if not inf_grid
     varyings.range_min = vec2<f32>(min(range_a, range_b));
     varyings.range_max = vec2<f32>(max(range_a, range_b));

@@ -430,27 +430,69 @@ class Blender:
             """
 
         elif blending_mode == "dither":
-            # We want the seed for the random function to be such that the result is
-            # deterministic, so that rendered images can be visually compared. This
-            # is why the object-id should not be used. Using the xy ndc coord is a
-            # no-brainer seed. Using only these will give an effect often observed
-            # in games, where the pattern is "stuck to the screen". We also seed with
-            # the depth, since this covers *a lot* of cases, e.g. different objects
-            # behind each-other, as well as the same object having different parts
-            # at the same screen pixel. This only does not cover cases where objects
-            # are exactly on top of each other. Therefore we use rgba as another seed.
-            # So the only case where the same pattern may be used for different
-            # fragments if an object is at the same depth and has the same color.
+            # We want the seed for the random function to be such that the
+            # result is deterministic, so that rendered images can be visually
+            # compared. We also (in general) want the seed to be stable for e.g.
+            # movement of the mouse or object.
+            #
+            # So, let's *not* use:
+            #
+            # * The object-id: because it's determined by how many objects have
+            #   been created earlier (in the current process).
+            # * Object position, because then it will flicker when it moves.
+            # * varyings.position.z, because then it will flicker when the
+            #   camera moves.
+            #
+            # We can use these:
+            #
+            # * varyings.position.xy (the screen coord) is a common seed. It
+            #   will give an effect often observed in games, where the pattern
+            #   is "stuck to the screen".
+            # * varyings.elementPosition to offset the pattern, so that it moves
+            #   along with the object.
+            # * varyings.elementIndex to prevent two regions of the same object
+            #   to get the same pattern, e.g. two points in a points object.
+            #
+            # The main thing missing is some sort of object index, but it should
+            # be stable under a certain context, e.g. under a module/script, or
+            # under a renderer. Assigning such indices to the objects (in an
+            # efficient way) is rather tricky; I've not been able to come up
+            # with a satisfactory solution. What we can do is allow users to set
+            # something like `material.dither_mode = {"hash": unique_number}`.
+
             blending_code = """
             struct FragmentOutput {
-                // virtualfield seed1 : f32 = varyings.position.x * varyings.position.y * varyings.position.z
-                // virtualfield seed2 : f32 = out.color.r * 0.12 + out.color.g * 0.34 + out.color.b * 0.56 + out.color.a * 0.78
+                // virtualfield position: vec4f = varyings.position;
+                // virtualfield elementPosition: vec4f = varyings.elementPosition;
+                // virtualfield elementIndex: u32 = varyings.elementIndex;
+                // virtualfield customHash: f32 = 1.0;  // for later
                 @location(0) color: vec4<f32>,
                 MAYBE_PICK@location(1) pick: vec4<u32>,
             };
+            fn _value_not_zero(val:f32) -> f32 {
+                if abs(val) < 1.0 {
+                    return val * 0.9 + sign(val) * 0.1;
+                } else {
+                    return val;
+                }
+            }
+            fn apply_virtual_fields_of_fragment_output(outp: ptr<function,FragmentOutput>, position:vec4f, elementPosition:vec4f, elementIndex: u32, customHash: f32) {
 
-            fn apply_virtual_fields_of_fragment_output(outp: ptr<function,FragmentOutput>, seed1:f32, seed2:f32) {
-                let rand = random2(vec2<f32>(seed1, seed2));
+                // Get position in screen coordinates. Note that position of the first pixel is (0.5, 0.5, .., 1)
+                let pos = position.xy;
+                var refPos = (vec2f(1.0, -1.0) * elementPosition.xy / elementPosition.w / 2.0 + 0.5) * u_stdinfo.physical_size.xy;
+                if (elementPosition.w <= 0) {
+                    refPos = vec2f(0.0);
+                }
+                let newPos = pos - round(refPos);
+
+                let seed1 = _value_not_zero(newPos.x * 1.32);
+                let seed2 = _value_not_zero(newPos.y * 1.49);
+                let seed3 = f32(elementIndex + 1) / 100.0;
+                let seed4 = _value_not_zero(customHash);
+
+                let rand = random( seed1 * seed2 * seed3 * seed4 );
+
                 let alpha = (*outp).color.a;
                 if ( alpha < 1.0 - ALPHA_COMPARE_EPSILON && alpha < rand ) { discard; }
                 (*outp).color.a = 1.0;  // fragments that pass through are opaque
@@ -509,7 +551,11 @@ class Blender:
         do_pick = material_pick_write and "pick" in self._texture_info
         blending_code = blending_code.replace("MAYBE_PICK", "" if do_pick else "// ")
 
-        return {"blending_code": blending_code, "write_pick": do_pick}
+        return {
+            "blending_mode": blending_mode,
+            "blending_code": blending_code,
+            "write_pick": do_pick,
+        }
 
     def perform_weighted_resolve_pass(self, command_encoder):
         """Perform a render-pass to resolve the result of weighted blending."""
