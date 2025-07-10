@@ -6,6 +6,7 @@ import wgpu  # only for flags/enums
 
 from .effectpasses import create_full_quad_pipeline
 from .shared import get_shared
+from ..wgsl import load_wgsl
 
 
 standard_texture_des = {
@@ -460,39 +461,42 @@ class Blender:
             # with a satisfactory solution. What we can do is allow users to set
             # something like `material.dither_mode = {"hash": unique_number}`.
 
-            blending_code = """
+            blending_code = load_wgsl("noise.wgsl")  # cannot use include here
+
+            blending_code += """
             struct FragmentOutput {
                 // virtualfield position: vec4f = varyings.position;
                 // virtualfield elementPosition: vec4f = varyings.elementPosition;
                 // virtualfield elementIndex: u32 = varyings.elementIndex;
-                // virtualfield customHash: f32 = 1.0;  // for later
+                // virtualfield customHash: u32 = 0;  // for later
                 @location(0) color: vec4<f32>,
                 MAYBE_PICK@location(1) pick: vec4<u32>,
             };
-            fn _value_not_zero(val:f32) -> f32 {
-                if abs(val) < 1.0 {
-                    return val * 0.9 + sign(val) * 0.1;
-                } else {
-                    return val;
-                }
-            }
-            fn apply_virtual_fields_of_fragment_output(outp: ptr<function,FragmentOutput>, position:vec4f, elementPosition:vec4f, elementIndex: u32, customHash: f32) {
+
+            fn apply_virtual_fields_of_fragment_output(outp: ptr<function,FragmentOutput>, position:vec4f, elementPosition:vec4f, elementIndex: u32, customHash: u32) {
 
                 // Get position in screen coordinates. Note that position of the first pixel is (0.5, 0.5, .., 1)
                 let pos = position.xy;
-                var refPos = (vec2f(1.0, -1.0) * elementPosition.xy / elementPosition.w / 2.0 + 0.5) * u_stdinfo.physical_size.xy;
+                let screenSize = u_stdinfo.physical_size.xy;
+                var refPos = (vec2f(1.0, -1.0) * elementPosition.xy / elementPosition.w / 2.0 + 0.5) * screenSize;
                 if (elementPosition.w <= 0) {
                     refPos = vec2f(0.0);
                 }
-                let newPos = pos - round(refPos);
 
-                let seed1 = _value_not_zero(newPos.x * 1.32);
-                let seed2 = _value_not_zero(newPos.y * 1.49);
-                let seed3 = f32(elementIndex + 1) / 100.0;
-                let seed4 = _value_not_zero(customHash);
+                // Compose integer seed
+                let seed = customHash + elementIndex;
 
-                let rand = random( seed1 * seed2 * seed3 * seed4 );
+                // Generate a random number with a blue-noise distribution, i.e. resulting in uniformly sampled points with very little 'structure'
+                var rand = 0.0;
+                if false && position.x < 0.5 * screenSize.x {
+                    let thePos = vec2u(pos);
+                    rand = blueNoise2(thePos, seed);
+                } else {
+                    let thePos = vec2u(vec2i(pos - floor(refPos)) + 54321);
+                    rand = blueNoise2(thePos, seed);
+                }
 
+                // Render or drop the fragment?
                 let alpha = (*outp).color.a;
                 if ( alpha < 1.0 - ALPHA_COMPARE_EPSILON && alpha < rand ) { discard; }
                 (*outp).color.a = 1.0;  // fragments that pass through are opaque
