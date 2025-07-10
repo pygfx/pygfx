@@ -31,6 +31,9 @@ fn vs_main(in: VertexInput) -> Varyings {
     let world_pos = u_wobject.world_transform * data_pos;
     let ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos;
 
+    let mean_world_pos = u_wobject.world_transform * vec4f(geo.center, 1.0);
+    let mean_ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * mean_world_pos;
+
     // Prepare inverse matrix
     let ndc_to_data = u_wobject.world_transform_inv * u_stdinfo.cam_transform_inv * u_stdinfo.projection_transform_inv;
 
@@ -39,6 +42,9 @@ fn vs_main(in: VertexInput) -> Varyings {
     // Store values for fragment shader
     varyings.position = vec4<f32>(ndc_pos);
     varyings.world_pos = vec3<f32>(world_pos.xyz);
+
+    varyings.elementPosition = vec4<f32>(mean_ndc_pos);
+    varyings.elementIndex = u32(0);
 
     // The position on the face of the cube. We can say that it's the back face,
     // because we cull the front faces.

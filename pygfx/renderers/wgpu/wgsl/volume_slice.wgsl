@@ -35,6 +35,11 @@ fn vs_main(in: VertexInput) -> Varyings {
     let plane = u_material.plane.xyzw;  // ax + by + cz + d
     let n = plane.xyz;
 
+    // TODO: the shader has a lot of arrays, which add up to register usage. I
+    // count 156 registers just for the arrays already, which is more than
+    // avalable on most hardware. So this shader is likely much slower than it
+    // could be!
+
     // Define edges (using vertex indices), and their matching plane
     // indices (each edge touches two planes). Note that these need to
     // match the above figure, and that needs to match with the actual
@@ -106,12 +111,14 @@ fn vs_main(in: VertexInput) -> Varyings {
     // In ed2pl[i][0], the 0 could also be a one. It would mean that we'd
     // move around the box in the other direction.
     var plane_index: i32 = 0;
+    var mean_vertex = vec3f(0.0);
     var i:i32;
     for (i=0; i<12; i=i+1) {
         if (intersect_flags[i] == 1) {
             plane_index = ed2pl[i][0];
-            vertices[0] = intersect_positions[i];
             texcoords[0] = intersect_texcoords[i];
+            vertices[0] = intersect_positions[i];
+            mean_vertex += intersect_positions[i] / 6.0;
             break;
         }
     }
@@ -156,9 +163,14 @@ fn vs_main(in: VertexInput) -> Varyings {
     let world_pos = vertices[ indexmap[index] ];
     let ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * vec4<f32>(world_pos, 1.0);
 
+    let mean_world_pos = mean_vertex;
+    let mean_ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * vec4<f32>(mean_world_pos, 1.0);
+
     var varyings : Varyings;
     varyings.position = vec4<f32>(ndc_pos);
     varyings.world_pos = vec3<f32>(world_pos);
+    varyings.elementPosition = vec4<f32>(mean_ndc_pos);
+    varyings.elementIndex = u32(0);
     varyings.texcoord = vec3<f32>(texcoords[ indexmap[index] ]);
     return varyings;
 }
