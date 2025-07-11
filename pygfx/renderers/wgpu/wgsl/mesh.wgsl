@@ -326,7 +326,7 @@ fn vs_main(in: VertexInput) -> Varyings {
     // that indicate how close the fragment is to each vertex (barycentric
     // coordinates). This allows the selection of the nearest vertex or edge.
     $$ if instanced
-        let pick_id = instance_info.id;
+        let pick_id = instance_info.global_id;
     $$ else
         let pick_id = u_wobject.global_id;
     $$ endif
