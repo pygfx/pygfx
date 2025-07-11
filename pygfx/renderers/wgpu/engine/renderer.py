@@ -406,12 +406,12 @@ class WgpuRenderer(RootEventHandler, Renderer):
     ) -> Literal["default", "none", "fxaa", "ddaa"]:
         """The post-processing anti-aliasing to apply.
 
-        * "default": use the value specified by ``PYGFX_PPAA``, defaulting to "ddaa".
+        * "default": use the value specified by ``PYGFX_DEFAULT_PPAA``, defaulting to "ddaa".
         * "none": do not apply aliasing.
         * "fxaa": applies Fast Approxomate AA, a common method.
         * "ddaa": applies Directional Diffusion AA, a modern improved method.
 
-        The ``PYGFX_PPAA`` environment variable can e.g. be set to "none" for image tests,
+        The ``PYGFX_DEFAULT_PPAA`` environment variable can e.g. be set to "none" for image tests,
         so that the image tests don't fail when we update the ddaa method.
 
         Note that SSAA can be achieved by using a pixel_ratio > 1. This can be well combined with PPAA,
@@ -437,7 +437,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # Handle default
         algorithm = ppaa.lower()
         if algorithm == "default":
-            algorithm = os.getenv("PYGFX_PPAA", "").lower()
+            algorithm = os.getenv("PYGFX_DEFAULT_PPAA", "").lower()
             if not algorithm or algorithm == "default":
                 algorithm = "ddaa"
 

@@ -231,12 +231,12 @@ def prep_environment():
     # Make that examples using rendercanvas.auto, will use the offscreen backend
     os.environ["WGPU_FORCE_OFFSCREEN"] = "true"
     # Disable ppaa on the renderer by default. Otherwise all screenshots change when the ppaa shaders are updated.
-    os.environ["PYGFX_PPAA"] = "none"
+    os.environ["PYGFX_DEFAULT_PPAA"] = "none"
     try:
         yield
     finally:
         del os.environ["WGPU_FORCE_OFFSCREEN"]
-        del os.environ["PYGFX_PPAA"]
+        del os.environ["PYGFX_DEFAULT_PPAA"]
 
 
 @pytest.fixture
@@ -251,6 +251,6 @@ def mock_time():
 if __name__ == "__main__":
     # Enable tweaking in an IDE by running in an interactive session.
     os.environ["WGPU_FORCE_OFFSCREEN"] = "true"
-    os.environ["PYGFX_PPAA"] = "none"
+    os.environ["PYGFX_DEFAULT_PPAA"] = "none"
     pytest.getoption = lambda x: False
     test_examples_compare("validate_volume", pytest, None, None)
