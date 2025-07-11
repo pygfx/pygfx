@@ -3,8 +3,10 @@ The main renderer class. This class wraps a canvas or texture and it
 manages the rendering process.
 """
 
+import os
 import time
 import logging
+from typing import Literal
 
 import numpy as np
 import wgpu
@@ -36,7 +38,7 @@ from ....utils.enums import PixelFilter
 
 from ... import Renderer
 from .blender import Blender
-from .effectpasses import EffectPass, OutputPass
+from .effectpasses import EffectPass, OutputPass, PPAAPass, FXAAPass, DDAAPass
 from .pipeline import get_pipeline_container_group
 from .update import update_resource, ensure_wgpu_object
 from .shared import get_shared
@@ -222,7 +224,9 @@ class WgpuRenderer(RootEventHandler, Renderer):
     gamma_correction : float
         The gamma correction to apply in the final render stage. Typically a
         number between 0.0 and 2.0. A value of 1.0 indicates no correction.
-
+    ppaa : str, optional
+        The post-processing anti-aliasing to apply: "default", "none", "fxaa", "ddaa".
+        By default it resolves to "ddaa".
     """
 
     def __init__(
@@ -235,6 +239,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         sort_objects=True,
         enable_events=True,
         gamma_correction=1.0,
+        ppaa="default",
         **kwargs,
     ):
         blend_mode = kwargs.pop("blend_mode", None)
@@ -293,6 +298,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
         self._blender = Blender()
         self._effect_passes = ()
+        self.ppaa = ppaa
         self._name_of_texture_with_effects = (
             None  # none, or the blender's name of the texture
         )
@@ -401,6 +407,58 @@ class WgpuRenderer(RootEventHandler, Renderer):
         self._pixel_filter = value
 
     @property
+    def ppaa(
+        self,
+    ) -> Literal["default", "none", "fxaa", "ddaa"]:
+        """The post-processing anti-aliasing to apply.
+
+        * "default": use the value specified by ``PYGFX_DEFAULT_PPAA``, defaulting to "ddaa".
+        * "none": do not apply aliasing.
+        * "fxaa": applies Fast Approxomate AA, a common method.
+        * "ddaa": applies Directional Diffusion AA, a modern improved method.
+
+        The ``PYGFX_DEFAULT_PPAA`` environment variable can e.g. be set to "none" for image tests,
+        so that the image tests don't fail when we update the ddaa method.
+
+        Note that SSAA can be achieved by using a pixel_ratio > 1. This can be well combined with PPAA,
+        since the PPAA is applied before downsampling to the target texture.
+        """
+        ppaa = "none"
+        for effect_pass in self._effect_passes:
+            if isinstance(effect_pass, PPAAPass):
+                ppaa = effect_pass.__class__.__name__.split("Pass")[0].lower()
+        return ppaa
+
+    @ppaa.setter
+    def ppaa(self, ppaa: Literal["default", "none", "fxaa", "ddaa"]):
+        if not isinstance(ppaa, str):
+            raise TypeError(f"renderer.ppaa must be a string, not {ppaa!r}")
+
+        # Collect list of effect passes that are not a ppaa
+        effect_passes = []
+        for effect_pass in self._effect_passes:
+            if not isinstance(effect_pass, PPAAPass):
+                effect_passes.append(effect_pass)
+
+        # Handle default
+        algorithm = ppaa.lower()
+        if algorithm == "default":
+            algorithm = os.getenv("PYGFX_DEFAULT_PPAA", "").lower()
+            if not algorithm or algorithm == "default":
+                algorithm = "ddaa"
+
+        if algorithm == "none":
+            pass  # don't add a pass
+        elif algorithm == "ddaa":
+            effect_passes.append(DDAAPass())
+        elif algorithm == "fxaa":
+            effect_passes.append(FXAAPass())
+        else:
+            raise ValueError(f"Invalid value for renderer.ppaa: {ppaa!r}")
+
+        self.effect_passes = effect_passes
+
+    @property
     def rect(self):
         """The rectangular viewport for the renderer area."""
         return (0, 0, *self.logical_size)
@@ -475,15 +533,14 @@ class WgpuRenderer(RootEventHandler, Renderer):
         return self._effect_passes
 
     @effect_passes.setter
-    def effect_passes(self, steps):
-        effect_passes = []
-        for step in steps:
+    def effect_passes(self, effect_passes):
+        effect_passes = tuple(effect_passes)
+        for step in effect_passes:
             if not isinstance(step, EffectPass):
                 raise TypeError(
                     f"A renderer effect-pass step must be an instance of EffectPass, not {step!r}"
                 )
-            effect_passes.append(step)
-        self._effect_passes = tuple(steps)
+        self._effect_passes = effect_passes
 
     def clear(self, *, all=False, color=False, depth=False):
         """Clear one or more of the render targets.
