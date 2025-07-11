@@ -203,7 +203,7 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     $$ if write_pick
     // The wobject-id must be 20 bits. In total it must not exceed 64 bits.
     out.pick = (
-        pick_pack(u32(u_wobject.id), 20) +
+        pick_pack(u32(u_wobject.global_id), 20) +
         pick_pack(u32(varyings.texcoord.x * 16383.0), 14) +
         pick_pack(u32(varyings.texcoord.y * 16383.0), 14) +
         pick_pack(u32(varyings.texcoord.z * 16383.0), 14)

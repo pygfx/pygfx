@@ -58,7 +58,7 @@ fn _stepnoise(p1: vec2f, size: f32) -> vec2f {
 fn blueNoise1(p_: vec2u, seed: u32) -> f32 {
     // https://www.shadertoy.com/view/ldyXDd
     // No idea how this works, but it produces fine results in just a few steps, though blueNoise2 produces a finer grain.
-    var p = vec2f(p_) + vec2f(7.32 * f32(seed), 5.71 * f32(seed));
+    var p = vec2f(p_) + vec2f(0.131 * f32(seed), 0.171 * f32(seed));
     const dmul = 8.12235325;
     const size = 5.5;
     p += ( _stepnoise(p, size) - 0.5 ) * dmul;
@@ -92,12 +92,12 @@ fn blueNoise2(p_: vec2u, seed: u32) -> f32 {
     return f32(v) / f32(1u << (s << 1u));
     }
 
-fn bayer(x_: u32, y_:u32) -> f32 {
+fn bayerNoise(p_: vec2u) -> f32 {
     // From https://observablehq.com/@fil/pseudoblue
     // produces Bayer pattern noise. Looks interesting,
     // but is not so suited for blending multiple transparent layers.
-    var x = x_;
-    var y = y_;
+    var x = p_.x;
+    var y = p_.y;
     var v = 0u;
     for (var i = 0u; i < 8; i+=1) {
         v = (v << 2u) | ((x & 1u) + ((y & 1u) << 1u) + 1u) % 4u;

@@ -35,7 +35,7 @@ class InstancedObject(WorldObject):
         dtype = np.dtype(
             [
                 ("matrix", np.float32, (4, 4)),
-                ("id", np.uint32),
+                ("global_id", np.uint32),
                 ("_12_bytes_padding", np.uint8, (12,)),
             ]
         )
@@ -48,7 +48,7 @@ class InstancedObject(WorldObject):
         for instance_index in range(count):
             id = id_provider.claim_id(self)
             self._idmap[id] = instance_index
-            instance_infos[instance_index]["id"] = id
+            instance_infos[instance_index]["global_id"] = id
         # Init eye matrices
         for i in range(4):
             instance_infos["matrix"][:, i, i] = 1
@@ -57,7 +57,7 @@ class InstancedObject(WorldObject):
         super().__del__()
         instance_infos = self._store["instance_buffer"].data
         for i in range(len(instance_infos)):
-            id_provider.release_id(self, instance_infos[i]["id"])
+            id_provider.release_id(self, instance_infos[i]["global_id"])
 
     @property
     def instance_buffer(self):

@@ -336,7 +336,7 @@ fn vs_main(in: VertexInput) -> Varyings {
     $$ if instanced
         let pick_id = instance_info.id;
     $$ else
-        let pick_id = u_wobject.id;
+        let pick_id = u_wobject.global_id;
     $$ endif
 
     varyings.pick_id = u32(pick_id);

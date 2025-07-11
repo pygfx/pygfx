@@ -467,13 +467,13 @@ class Blender:
             struct FragmentOutput {
                 // virtualfield position: vec4f = varyings.position;
                 // virtualfield elementPosition: vec4f = varyings.elementPosition;
+                // virtualfield objectId: u32 = u_wobject.renderer_id;
                 // virtualfield elementIndex: u32 = varyings.elementIndex;
-                // virtualfield customHash: u32 = 0;  // for later
                 @location(0) color: vec4<f32>,
                 MAYBE_PICK@location(1) pick: vec4<u32>,
             };
 
-            fn apply_virtual_fields_of_fragment_output(outp: ptr<function,FragmentOutput>, position:vec4f, elementPosition:vec4f, elementIndex: u32, customHash: u32) {
+            fn apply_virtual_fields_of_fragment_output(outp: ptr<function,FragmentOutput>, position:vec4f, elementPosition:vec4f, objectId: u32, elementIndex: u32) {
 
                 // Get position in screen coordinates. Note that position of the first pixel is (0.5, 0.5, .., 1)
                 let pos = position.xy;
@@ -484,15 +484,17 @@ class Blender:
                 }
 
                 // Compose integer seed
-                let seed = customHash + elementIndex;
+                let seed = hashu(objectId) ^ hashu(elementIndex+1);
 
                 // Generate a random number with a blue-noise distribution, i.e. resulting in uniformly sampled points with very little 'structure'
                 var rand = 0.0;
-                if false && position.x < 0.5 * screenSize.x {
+                if position.x < 0.5 * screenSize.x {
                     let thePos = vec2u(pos);
+                    //let thePos = vec2u(vec2i(pos - floor(refPos)) + 54321);
                     rand = blueNoise2(thePos, seed);
                 } else {
-                    let thePos = vec2u(vec2i(pos - floor(refPos)) + 54321);
+                    let thePos = vec2u(pos);
+                    //let thePos = vec2u(vec2i(pos - floor(refPos)) + 54321);
                     rand = blueNoise2(thePos, seed);
                 }
 

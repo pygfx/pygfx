@@ -1002,7 +1002,7 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
     coord = select(coord, coord - 1.0, coord > 0.5);
     let idx = varyings.pick_idx + select(0u, 1u, coord < 0.0);
     out.pick = (
-        pick_pack(u32(u_wobject.id), 20) +
+        pick_pack(u32(u_wobject.global_id), 20) +
         pick_pack(u32(idx), 26) +
         pick_pack(u32(coord * 100000.0 + 100000.0), 18)
     );

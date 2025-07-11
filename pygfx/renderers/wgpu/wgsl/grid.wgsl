@@ -292,7 +292,7 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     out.color = out_color;
     $$ if write_pick
         // Just the object id for now
-        out.pick = pick_pack(u32(u_wobject.id), 20);
+        out.pick = pick_pack(u32(u_wobject.global_id), 20);
     $$ endif
     return out;
 }
