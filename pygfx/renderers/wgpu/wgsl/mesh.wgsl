@@ -33,7 +33,7 @@ struct VertexInput {
 $$ if instanced
 struct InstanceInfo {
     transform: mat4x4<f32>,
-    id: u32,
+    global_id: u32,
 };
 @group(1) @binding(0)
 var<storage,read> s_instance_infos: array<InstanceInfo>;
