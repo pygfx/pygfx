@@ -19,7 +19,6 @@ n = 32
 dy = n / 4
 
 camera = gfx.OrthographicCamera()
-camera.show_rect(-0.5, n + 0.5, 0, 2)
 scene = gfx.Scene()
 scene.add(gfx.Background.from_color("#000"))
 
@@ -34,14 +33,25 @@ for i in range(n):
     m.local.x = i
     m.local.y = 0
     scene.add(m)
+    # Dither bayer
+    m = gfx.Mesh(
+        plane,
+        gfx.MeshBasicMaterial(
+            color="#fff", opacity=alpha, blending={"mode": "dither", "pattern": "bayer"}
+        ),
+    )
+    m.local.x = i
+    m.local.y = 1 * dy
+    scene.add(m)
     # Dither
     m = gfx.Mesh(
         plane, gfx.MeshBasicMaterial(color="#fff", opacity=alpha, blending="dither")
     )
     m.local.x = i
-    m.local.y = 1 * dy
+    m.local.y = 2 * dy
     scene.add(m)
 
+camera.show_object(scene, match_aspect=True)
 canvas.request_draw(lambda: renderer.render(scene, camera))
 
 

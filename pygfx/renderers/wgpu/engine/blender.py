@@ -454,6 +454,13 @@ class Blender:
             # * varyings.elementIndex to prevent two regions of the same object
             #   to get the same pattern, e.g. two points in a points object.
 
+            pattern = blending.get("pattern", "blue")
+            random_call = "blueNoise2(position, seed)"
+            if pattern == "white":
+                random_call = "hash_to_f32(hashu(position.x)*hashu(position.y)*seed)"
+            elif pattern == "bayer":
+                random_call = "bayerPattern(position)"
+
             blending_code = load_wgsl("noise.wgsl")  # cannot use include here
 
             blending_code += """
@@ -477,7 +484,7 @@ class Blender:
                 var rand = 0.0;
 
                 if true {  // set to false to use split-screen debug mode
-                    rand = blueNoise2(position, seed);
+                    rand = RANDOM_CALL;
                 } else if position.x < screenSize.x / 2 {
                     rand = blueNoise2(position, seed);
                 } else {
@@ -489,7 +496,7 @@ class Blender:
                 if ( alpha < 1.0 - ALPHA_COMPARE_EPSILON && alpha < rand ) { discard; }
                 (*outp).color.a = 1.0;  // fragments that pass through are opaque
             }
-            """
+            """.replace("RANDOM_CALL", random_call)
 
             # Optimization for the case when the object is known (or determined) to be opaque.
             # The discard will not happen then. By removing it from the shader, we enable early-z optimizations.
