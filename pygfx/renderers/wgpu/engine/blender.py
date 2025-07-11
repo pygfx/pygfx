@@ -455,28 +455,30 @@ class Blender:
             #   to get the same pattern, e.g. two points in a points object.
 
             pattern = blending.get("pattern", "blue")
-            random_call = "blueNoise2(position, seed)"
+            random_call = "blueNoise2(upos, seed)"
             if pattern == "white":
                 random_call = "hash_to_f32(hashu(position.x)*hashu(position.y)*seed)"
             elif pattern == "bayer":
-                random_call = "bayerPattern(position)"
+                random_call = "bayerPattern(upos)"
 
             blending_code = load_wgsl("noise.wgsl")  # cannot use include here
 
             blending_code += """
             struct FragmentOutput {
-                // virtualfield position: vec2u = vec2u(varyings.position.xy);
+                // virtualfield position: vec3f = varyings.position.xyz;
                 // virtualfield objectId: u32 = u_wobject.renderer_id;
                 // virtualfield elementIndex: u32 = varyings.elementIndex;
                 @location(0) color: vec4<f32>,
                 MAYBE_PICK@location(1) pick: vec4<u 32>,
             };
 
-            fn apply_virtual_fields_of_fragment_output(outp: ptr<function,FragmentOutput>, position: vec2u, objectId: u32, elementIndex: u32) {
-                let screenSize = vec2u(u_stdinfo.physical_size.xy);
+            fn apply_virtual_fields_of_fragment_output(outp: ptr<function,FragmentOutput>, position: vec3f, objectId: u32, elementIndex: u32) {
+                let screenSize = u_stdinfo.physical_size.xy;
 
                 // Compose integer seed
                 let seed = hashu(objectId) ^ hashu(elementIndex+1);
+
+                let upos = vec2u(position.xy);
 
                 // Generate a random number with a blue-noise distribution, i.e. resulting in uniformly sampled points with very little 'structure'
                 // Blue noise has is great for sampling problems like this, because it has few low-frequency components, so the noise is very 'fine'.
@@ -485,10 +487,12 @@ class Blender:
 
                 if true {  // set to false to use split-screen debug mode
                     rand = RANDOM_CALL;
-                } else if position.x < screenSize.x / 2 {
-                    rand = blueNoise2(position, seed);
+                } else if position.x < 0.5 * screenSize.x {
+                    //rand = blueNoise2(upos, seed);
+                    //rand = random(position.x * position.y * position.z);  // more or less original white noise version
+                    rand = bayerPattern(upos);
                 } else {
-                    rand = bayerPattern(position);
+                    rand = blueNoise2(upos, seed);
                 }
 
                 // Render or drop the fragment?
