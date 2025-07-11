@@ -454,12 +454,13 @@ class Blender:
             # * varyings.elementIndex to prevent two regions of the same object
             #   to get the same pattern, e.g. two points in a points object.
 
-            pattern = blending.get("pattern", "blue")
-            random_call = "blueNoise2(upos, seed)"
+            pattern = blending.get("pattern", "blue").lower()
+            random_call = "blueNoise2(upos2)"
             if pattern == "white":
-                random_call = "hash_to_f32(hashu(position.x)*hashu(position.y)*seed)"
+                random_call = "hash_to_f32(hashu(upos2.x)*hashu(upos2.y))"
             elif pattern == "bayer":
-                random_call = "bayerPattern(upos)"
+                # Using upos2 becomes too noise, but upos1 (i.e. including the per-object seed) seems quite alright!
+                random_call = "bayerPattern(upos1)"
 
             blending_code = load_wgsl("noise.wgsl")  # cannot use include here
 
@@ -475,10 +476,14 @@ class Blender:
             fn apply_virtual_fields_of_fragment_output(outp: ptr<function,FragmentOutput>, position: vec3f, objectId: u32, elementIndex: u32) {
                 let screenSize = u_stdinfo.physical_size.xy;
 
-                // Compose integer seed
-                let seed = hashu(objectId) ^ hashu(elementIndex+1);
+                // Compose seeds
+                let seed1 = hashu(objectId);
+                let seed2 = hashu(objectId) ^ hashu(elementIndex+1);
 
-                let upos = vec2u(position.xy);
+                // Compose positions
+                let upos0 = vec2u(position.xy);
+                let upos1 = upos0 + vec2u(seed1 >> 16, seed1 & 0xffff);
+                let upos2 = upos0 + vec2u(seed2 >> 16, seed2 & 0xffff);
 
                 // Generate a random number with a blue-noise distribution, i.e. resulting in uniformly sampled points with very little 'structure'
                 // Blue noise has is great for sampling problems like this, because it has few low-frequency components, so the noise is very 'fine'.
@@ -488,11 +493,11 @@ class Blender:
                 if true {  // set to false to use split-screen debug mode
                     rand = RANDOM_CALL;
                 } else if position.x < 0.5 * screenSize.x {
-                    //rand = blueNoise2(upos, seed);
+                    //rand = blueNoise2(upos2);
                     //rand = random(position.x * position.y * position.z);  // more or less original white noise version
-                    rand = bayerPattern(upos);
+                    rand = bayerPattern(upos1);
                 } else {
-                    rand = blueNoise2(upos, seed);
+                    rand = blueNoise2(upos2);
                 }
 
                 // Render or drop the fragment?

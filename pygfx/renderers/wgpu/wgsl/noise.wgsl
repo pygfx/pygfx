@@ -55,27 +55,27 @@ fn _stepnoise(p1: vec2f, size: f32) -> vec2f {
     return p;
 }
 
-fn blueNoise1(p_: vec2u, seed: u32) -> f32 {
+fn blueNoise1(xy: vec2u) -> f32 {
     // https://www.shadertoy.com/view/ldyXDd
     // No idea how this works, but it produces fine results in just a few steps, though blueNoise2 produces a finer grain.
-    var p = vec2f(p_) + vec2f(0.131 * f32(seed), 0.171 * f32(seed));
+    var p = vec2f(xy);
     const dmul = 8.12235325;
     const size = 5.5;
     p += ( _stepnoise(p, size) - 0.5 ) * dmul;
     return fract( p.x * 1.705 + p.y * 0.5375 );
 }
 
-fn _xmix(x: u32, y:u32, seed: u32) -> u32 {
-    return u32(f32((x * 212281 + y * 384817 + seed) & 0x5555555) * 0.003257328990228013);
+fn _xmix(x: u32, y:u32) -> u32 {
+    return u32(f32((x * 212281 + y * 384817) & 0x5555555) * 0.003257328990228013);
 }
-fn _ymix(x: u32, y:u32, seed: u32) -> u32 {
-    return u32(f32((x * 484829 + y * 112279 + seed) & 0x5555555) * 0.002004008016032064);
+fn _ymix(x: u32, y:u32) -> u32 {
+    return u32(f32((x * 484829 + y * 112279) & 0x5555555) * 0.002004008016032064);
 }
 
-fn blueNoise2(p_: vec2u, seed: u32) -> f32 {
+fn blueNoise2(xy: vec2u) -> f32 {
     // https://observablehq.com/@fil/pseudoblue
-    var x = u32(p_.x);
-    var y = u32(p_.y);
+    var x = u32(xy.x);
+    var y = u32(xy.y);
     const s = 8u;
     var v = 0u;
     var a: u32;
@@ -85,19 +85,19 @@ fn blueNoise2(p_: vec2u, seed: u32) -> f32 {
         b = y;
         x = x >> 1u;
         y = y >> 1u;
-        a = 1u & (a ^ _xmix(x, y, seed));
-        b = 1u & (b ^ _ymix(x, y, seed));
+        a = 1u & (a ^ _xmix(x, y));
+        b = 1u & (b ^ _ymix(x, y));
         v = (v << 2u) | (a + (b << 1u) + 1u) % 4u;
     }
     return f32(v) / f32(1u << (s << 1u));
     }
 
-fn bayerPattern(p_: vec2u) -> f32 {
+fn bayerPattern(xy: vec2u) -> f32 {
     // From https://observablehq.com/@fil/pseudoblue
     // produces Bayer pattern. Looks interesting,
     // but is not so suited for blending multiple transparent layers, because there is no variation.
-    var x = p_.x;
-    var y = p_.y;
+    var x = xy.x;
+    var y = xy.y;
     var v = 0u;
     for (var i = 0u; i < 8; i+=1) {
         v = (v << 2u) | ((x & 1u) + ((y & 1u) << 1u) + 1u) % 4u;

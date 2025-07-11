@@ -372,6 +372,7 @@ class Material(Trackable):
 
         When the mode is "dither":
             * ``pattern``: can be 'blue' for blue noise (default), 'white' for white noise, and 'bayer' for a Bayer pattern.
+              The Bayer option mixes objects but elemenys within objects.
 
         When the mode is "weighted", the extra fields are:
 
