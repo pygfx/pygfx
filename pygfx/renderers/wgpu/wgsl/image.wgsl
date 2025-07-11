@@ -30,6 +30,7 @@ fn vs_main(in: VertexInput) -> Varyings {
     var varyings: Varyings;
     varyings.position = vec4<f32>(ndc_pos);
     varyings.world_pos = vec3<f32>(world_pos.xyz);
+    varyings.elementIndex = u32(0);
     varyings.texcoord = vec2<f32>(geo.texcoords[i0]);
     return varyings;
 }
@@ -61,7 +62,7 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     $$ if write_pick
     // The wobject-id must be 20 bits. In total it must not exceed 64 bits.
     out.pick = (
-        pick_pack(u32(u_wobject.id), 20) +
+        pick_pack(u32(u_wobject.global_id), 20) +
         pick_pack(u32(varyings.texcoord.x * 4194303.0), 22) +
         pick_pack(u32(varyings.texcoord.y * 4194303.0), 22)
     );

@@ -31,7 +31,6 @@ grid = gfx.Grid(
         major_thickness=2,
         minor_thickness=0.1,
         infinite=True,
-        # aa=False,
     ),
     orientation="xz",
 )
@@ -49,8 +48,7 @@ material = gfx.PointsGaussianBlobMaterial(
     color_mode="vertex",
     size_mode="vertex",
     size_space="world",
-    blending="normal",
-    transparent=True,
+    blending="dither",
 )
 points = gfx.Points(geometry, material)
 scene.add(points)

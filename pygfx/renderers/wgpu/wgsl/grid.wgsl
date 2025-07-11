@@ -155,6 +155,7 @@ fn vs_main(in: VertexInput) -> Varyings {
     varyings.position = vec4<f32>(pos_ndc);
     varyings.world_pos = vec3<f32>(ndc_to_world_pos(out.position));
     varyings.gridcoord = vec2<f32>(dot(v1, pos), dot(v2, pos));
+
     $$ if not inf_grid
     varyings.range_min = vec2<f32>(min(range_a, range_b));
     varyings.range_max = vec2<f32>(max(range_a, range_b));
@@ -289,7 +290,7 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     out.color = out_color;
     $$ if write_pick
         // Just the object id for now
-        out.pick = pick_pack(u32(u_wobject.id), 20);
+        out.pick = pick_pack(u32(u_wobject.global_id), 20);
     $$ endif
     return out;
 }

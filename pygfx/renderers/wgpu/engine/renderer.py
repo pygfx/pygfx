@@ -66,7 +66,7 @@ class WobjectWrapper:
 
 
 class FlatScene:
-    def __init__(self, scene, view_matrix=None):
+    def __init__(self, scene, view_matrix=None, object_count=0):
         self._view_matrix = view_matrix
         self._wobject_wrappers = []  # WobjectWrapper's
         self.lights = {
@@ -76,6 +76,7 @@ class FlatScene:
             "ambient_color": [0, 0, 0],
         }
         self.shadow_objects = []
+        self.object_count = object_count
         self.add_scene(scene)
 
     def add_scene(self, scene):
@@ -87,6 +88,8 @@ class FlatScene:
         category_weighted = 4
 
         for wobject in scene.iter(skip_invisible=True):
+            # Assign renderer id's
+            self.object_count += wobject._assign_renderer_id(self.object_count + 1)
             # Update things like transform and uniform buffers
             wobject._update_object()
 
@@ -261,6 +264,9 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # Make sure we have a shared object (the first renderer creates the instance)
         self._shared = get_shared()
         self._device = self._shared.device
+
+        # Count number of objects encountered
+        self._object_count = 0
 
         # Init counter to auto-clear
         self._renders_since_last_flush = 0
@@ -656,7 +662,8 @@ class WgpuRenderer(RootEventHandler, Renderer):
         view_matrix = None
         if self._sort_objects:
             view_matrix = camera.view_matrix  # == camera.world.inverse_matrix
-        flat = FlatScene(scene, view_matrix)
+        flat = FlatScene(scene, view_matrix, self._object_count)
+        self._object_count = flat.object_count
         flat.sort()
 
         # Prepare the shared object

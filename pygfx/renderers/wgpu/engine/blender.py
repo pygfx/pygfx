@@ -6,6 +6,7 @@ import wgpu  # only for flags/enums
 
 from .effectpasses import create_full_quad_pipeline
 from .shared import get_shared
+from ..wgsl import load_wgsl
 
 
 standard_texture_des = {
@@ -430,32 +431,81 @@ class Blender:
             """
 
         elif blending_mode == "dither":
-            # We want the seed for the random function to be such that the result is
-            # deterministic, so that rendered images can be visually compared. This
-            # is why the object-id should not be used. Using the xy ndc coord is a
-            # no-brainer seed. Using only these will give an effect often observed
-            # in games, where the pattern is "stuck to the screen". We also seed with
-            # the depth, since this covers *a lot* of cases, e.g. different objects
-            # behind each-other, as well as the same object having different parts
-            # at the same screen pixel. This only does not cover cases where objects
-            # are exactly on top of each other. Therefore we use rgba as another seed.
-            # So the only case where the same pattern may be used for different
-            # fragments if an object is at the same depth and has the same color.
-            blending_code = """
+            # We want the seed for the random function to be such that the
+            # result is deterministic, so that rendered images can be visually
+            # compared. We also (in general) want the seed to be stable for e.g.
+            # movement of the mouse or object.
+            #
+            # So, let's *not* use:
+            #
+            # * The global-id: because it's determined by how many objects have
+            #   been created earlier (in the current process).
+            # * Object position, because then it will flicker when it moves.
+            # * varyings.position.z, because then it will flicker when the
+            #   camera moves.
+            #
+            # We can use these:
+            #
+            # * varyings.position.xy (the screen coord) is a common seed. It
+            #   will give an effect often observed in games, where the pattern
+            #   is "stuck to the screen".
+            # * the renderer-id to distinguish objects while being reproducable
+            #   in a scene.
+            # * varyings.elementIndex to prevent two regions of the same object
+            #   to get the same pattern, e.g. two points in a points object.
+
+            pattern = blending.get("pattern", "blue").lower()
+            random_call = "blueNoise2(upos2)"
+            if pattern == "white":
+                random_call = "hash_to_f32(hashu(upos2.x)*hashu(upos2.y))"
+            elif pattern == "bayer":
+                # Using upos2 becomes too noise, but upos1 (i.e. including the per-object seed) seems quite alright!
+                random_call = "bayerPattern(upos1)"
+
+            blending_code = load_wgsl("noise.wgsl")  # cannot use include here
+
+            blending_code += """
             struct FragmentOutput {
-                // virtualfield seed1 : f32 = varyings.position.x * varyings.position.y * varyings.position.z
-                // virtualfield seed2 : f32 = out.color.r * 0.12 + out.color.g * 0.34 + out.color.b * 0.56 + out.color.a * 0.78
+                // virtualfield position: vec3f = varyings.position.xyz;
+                // virtualfield objectId: u32 = u_wobject.renderer_id;
+                // virtualfield elementIndex: u32 = varyings.elementIndex;
                 @location(0) color: vec4<f32>,
-                MAYBE_PICK@location(1) pick: vec4<u32>,
+                MAYBE_PICK@location(1) pick: vec4<u 32>,
             };
 
-            fn apply_virtual_fields_of_fragment_output(outp: ptr<function,FragmentOutput>, seed1:f32, seed2:f32) {
-                let rand = random2(vec2<f32>(seed1, seed2));
+            fn apply_virtual_fields_of_fragment_output(outp: ptr<function,FragmentOutput>, position: vec3f, objectId: u32, elementIndex: u32) {
+                let screenSize = u_stdinfo.physical_size.xy;
+
+                // Compose seeds
+                let seed1 = hashu(objectId);
+                let seed2 = hashu(objectId) ^ hashu(elementIndex+1);
+
+                // Compose positions
+                let upos0 = vec2u(position.xy);
+                let upos1 = upos0 + vec2u(seed1 >> 16, seed1 & 0xffff);
+                let upos2 = upos0 + vec2u(seed2 >> 16, seed2 & 0xffff);
+
+                // Generate a random number with a blue-noise distribution, i.e. resulting in uniformly sampled points with very little 'structure'
+                // Blue noise has is great for sampling problems like this, because it has few low-frequency components, so the noise is very 'fine'.
+                // The bayer pattern looks nicer than the noise, but is not suited for mixing multiple transparent layers.
+                var rand = 0.0;
+
+                if true {  // set to false to use split-screen debug mode
+                    rand = RANDOM_CALL;
+                } else if position.x < 0.5 * screenSize.x {
+                    //rand = blueNoise2(upos2);
+                    //rand = random(position.x * position.y * position.z);  // more or less original white noise version
+                    rand = bayerPattern(upos1);
+                } else {
+                    rand = blueNoise2(upos2);
+                }
+
+                // Render or drop the fragment?
                 let alpha = (*outp).color.a;
                 if ( alpha < 1.0 - ALPHA_COMPARE_EPSILON && alpha < rand ) { discard; }
                 (*outp).color.a = 1.0;  // fragments that pass through are opaque
             }
-            """
+            """.replace("RANDOM_CALL", random_call)
 
             # Optimization for the case when the object is known (or determined) to be opaque.
             # The discard will not happen then. By removing it from the shader, we enable early-z optimizations.
@@ -509,7 +559,11 @@ class Blender:
         do_pick = material_pick_write and "pick" in self._texture_info
         blending_code = blending_code.replace("MAYBE_PICK", "" if do_pick else "// ")
 
-        return {"blending_code": blending_code, "write_pick": do_pick}
+        return {
+            "blending_mode": blending_mode,
+            "blending_code": blending_code,
+            "write_pick": do_pick,
+        }
 
     def perform_weighted_resolve_pass(self, command_encoder):
         """Perform a render-pass to resolve the result of weighted blending."""

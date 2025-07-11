@@ -547,33 +547,7 @@ class NoisePass(EffectPass):
     )
 
     wgsl = """
-        fn hashu(val: u32 ) -> u32 {
-            var x: u32 = val;
-            x += ( x << 10u );
-            x ^= ( x >>  6u );
-            x += ( x <<  3u );
-            x ^= ( x >> 11u );
-            x += ( x << 15u );
-            return x;
-        }
-        fn hashf(val: f32 ) -> u32 {
-            return hashu(bitcast<u32>(val));
-        }
-        fn hash_to_f32(h: u32) -> f32 {
-            let mantissaMask: u32 = 0x007FFFFFu;
-            let one: u32          = 0x3F800000u;
-            var x: u32 = h;
-            x &= mantissaMask;
-            x |= one;
-            return bitcast<f32>(x) - 1.0;
-        }
-        fn random(f: f32) -> f32 {
-            // Produces a number between 0 and 1 (halfopen range). The result is deterministic based on the seed.
-            return hash_to_f32( hashf(f) );
-        }
-        fn random2(f: vec2<f32>) -> f32 {
-            return hash_to_f32( hashf(f.x) ^ hashf(f.y) );
-        }
+        {$ include 'pygfx.noise.wgsl' $}
 
         @fragment
         fn fs_main(varyings: Varyings) -> @location(0) vec4<f32> {
