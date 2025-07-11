@@ -438,7 +438,7 @@ class Blender:
             #
             # So, let's *not* use:
             #
-            # * The object-id: because it's determined by how many objects have
+            # * The global-id: because it's determined by how many objects have
             #   been created earlier (in the current process).
             # * Object position, because then it will flicker when it moves.
             # * varyings.position.z, because then it will flicker when the
@@ -449,53 +449,39 @@ class Blender:
             # * varyings.position.xy (the screen coord) is a common seed. It
             #   will give an effect often observed in games, where the pattern
             #   is "stuck to the screen".
-            # * varyings.elementPosition to offset the pattern, so that it moves
-            #   along with the object.
+            # * the renderer-id to distinguish objects while being reproducable
+            #   in a scene.
             # * varyings.elementIndex to prevent two regions of the same object
             #   to get the same pattern, e.g. two points in a points object.
-            #
-            # The main thing missing is some sort of object index, but it should
-            # be stable under a certain context, e.g. under a module/script, or
-            # under a renderer. Assigning such indices to the objects (in an
-            # efficient way) is rather tricky; I've not been able to come up
-            # with a satisfactory solution. What we can do is allow users to set
-            # something like `material.dither_mode = {"hash": unique_number}`.
 
             blending_code = load_wgsl("noise.wgsl")  # cannot use include here
 
             blending_code += """
             struct FragmentOutput {
-                // virtualfield position: vec4f = varyings.position;
-                // virtualfield elementPosition: vec4f = varyings.elementPosition;
+                // virtualfield position: vec2u = vec2u(varyings.position.xy);
                 // virtualfield objectId: u32 = u_wobject.renderer_id;
                 // virtualfield elementIndex: u32 = varyings.elementIndex;
                 @location(0) color: vec4<f32>,
-                MAYBE_PICK@location(1) pick: vec4<u32>,
+                MAYBE_PICK@location(1) pick: vec4<u 32>,
             };
 
-            fn apply_virtual_fields_of_fragment_output(outp: ptr<function,FragmentOutput>, position:vec4f, elementPosition:vec4f, objectId: u32, elementIndex: u32) {
-
-                // Get position in screen coordinates. Note that position of the first pixel is (0.5, 0.5, .., 1)
-                let pos = position.xy;
-                let screenSize = u_stdinfo.physical_size.xy;
-                var refPos = (vec2f(1.0, -1.0) * elementPosition.xy / elementPosition.w / 2.0 + 0.5) * screenSize;
-                if (elementPosition.w <= 0) {
-                    refPos = vec2f(0.0);
-                }
+            fn apply_virtual_fields_of_fragment_output(outp: ptr<function,FragmentOutput>, position: vec2u, objectId: u32, elementIndex: u32) {
+                let screenSize = vec2u(u_stdinfo.physical_size.xy);
 
                 // Compose integer seed
                 let seed = hashu(objectId) ^ hashu(elementIndex+1);
 
                 // Generate a random number with a blue-noise distribution, i.e. resulting in uniformly sampled points with very little 'structure'
+                // Blue noise has is great for sampling problems like this, because it has few low-frequency components, so the noise is very 'fine'.
+                // The bayer pattern looks nicer than the noise, but is not suited for mixing multiple transparent layers.
                 var rand = 0.0;
-                if position.x < 0.5 * screenSize.x {
-                    let thePos = vec2u(pos);
-                    //let thePos = vec2u(vec2i(pos - floor(refPos)) + 54321);
-                    rand = blueNoise2(thePos, seed);
+
+                if true {  // set to false to use split-screen debug mode
+                    rand = blueNoise2(position, seed);
+                } else if position.x < screenSize.x / 2 {
+                    rand = blueNoise2(position, seed);
                 } else {
-                    let thePos = vec2u(pos);
-                    //let thePos = vec2u(vec2i(pos - floor(refPos)) + 54321);
-                    rand = blueNoise2(thePos, seed);
+                    rand = bayerPattern(position);
                 }
 
                 // Render or drop the fragment?

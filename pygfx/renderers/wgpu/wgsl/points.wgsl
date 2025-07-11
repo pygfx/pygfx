@@ -172,7 +172,6 @@ fn vs_main(in: VertexInput) -> Varyings {
     // Position
     varyings.position = vec4<f32>(the_pos_n);
     varyings.world_pos = vec3<f32>(ndc_to_world_pos(the_pos_n));
-    varyings.elementPosition = vec4<f32>(pos_n);
     varyings.elementIndex = u32(node_index);
 
     // Coordinates

@@ -171,7 +171,7 @@ class VaryingResolver:
 
         # For a few names we always declare them as assigned, so that when they're used, but not *really* assigned, they're all zeros, which can be handled.
         # In practice, it means that for (custom) shaders that don't set these varyings, dithered blending still works, although maybe a bit less pretty.
-        for name, type in [("elementPosition", "vec4<f32>"), ("elementIndex", "u32")]:
+        for name, type in [("elementIndex", "u32")]:
             self.assigned_varyings.setdefault(name, [])
             self.types[name] = type
 

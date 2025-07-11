@@ -92,10 +92,10 @@ fn blueNoise2(p_: vec2u, seed: u32) -> f32 {
     return f32(v) / f32(1u << (s << 1u));
     }
 
-fn bayerNoise(p_: vec2u) -> f32 {
+fn bayerPattern(p_: vec2u) -> f32 {
     // From https://observablehq.com/@fil/pseudoblue
-    // produces Bayer pattern noise. Looks interesting,
-    // but is not so suited for blending multiple transparent layers.
+    // produces Bayer pattern. Looks interesting,
+    // but is not so suited for blending multiple transparent layers, because there is no variation.
     var x = p_.x;
     var y = p_.y;
     var v = 0u;

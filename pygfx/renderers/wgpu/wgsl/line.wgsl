@@ -659,7 +659,6 @@ fn vs_main(in: VertexInput) -> Varyings {
     // Position
     varyings.position = vec4<f32>(the_pos_n);
     varyings.world_pos = vec3<f32>(ndc_to_world_pos(the_pos_n));
-    varyings.elementPosition = vec4<f32>((pos_n_node + pos_n_other) * 0.5);
     varyings.elementIndex = u32(face_index);
 
     //  Thickness and segment coord. These are corrected for perspective, otherwise the dashes are malformed in 3D.

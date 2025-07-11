@@ -163,14 +163,9 @@ fn vs_main(in: VertexInput) -> Varyings {
     let world_pos = vertices[ indexmap[index] ];
     let ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * vec4<f32>(world_pos, 1.0);
 
-    let mean_world_pos = mean_vertex;
-    let mean_ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * vec4<f32>(mean_world_pos, 1.0);
-
     var varyings : Varyings;
     varyings.position = vec4<f32>(ndc_pos);
     varyings.world_pos = vec3<f32>(world_pos);
-    varyings.elementPosition = vec4<f32>(mean_ndc_pos);
-    varyings.elementIndex = u32(0);
     varyings.texcoord = vec3<f32>(texcoords[ indexmap[index] ]);
     return varyings;
 }

@@ -27,14 +27,9 @@ fn vs_main(in: VertexInput) -> Varyings {
     let world_pos = u_wobject.world_transform * data_pos;
     let ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos;
 
-    let mean_data_pos = vec4<f32>(0.25 * (geo.positions[0] + geo.positions[1] + geo.positions[2] + geo.positions[3]), 1.0);
-    let mean_world_pos = u_wobject.world_transform * mean_data_pos;
-    let mean_ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * mean_world_pos;
-
     var varyings: Varyings;
     varyings.position = vec4<f32>(ndc_pos);
     varyings.world_pos = vec3<f32>(world_pos.xyz);
-    varyings.elementPosition = vec4<f32>(mean_ndc_pos);
     varyings.elementIndex = u32(0);
     varyings.texcoord = vec2<f32>(geo.texcoords[i0]);
     return varyings;
