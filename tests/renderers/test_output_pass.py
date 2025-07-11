@@ -316,7 +316,7 @@ def test_extra_kernel_support():
 # %% Testing produced images
 
 
-class TestableOutputPass(MyOutpusPass):
+class RunnableOutputPass(MyOutpusPass):
     def __init__(self):
         super().__init__()
         self.t1 = None
@@ -408,7 +408,7 @@ ref_image = ref_image[0:256, 0:256].copy()
 
 
 def test_outpass_result_scale_1():
-    p = TestableOutputPass()
+    p = RunnableOutputPass()
 
     p.set_image(ref_image)
 
@@ -480,7 +480,7 @@ def _test_that_kernel_is_exact_correct_size(filter, scale_factor, tol=0.0019):
     We compare the output image to one that we create with a *smaller* kernel.
     If the image matches, our kernel could be smaller!
     """
-    p = TestableOutputPass()
+    p = RunnableOutputPass()
     p.filter = filter
 
     p.set_image(ref_image)
@@ -509,7 +509,7 @@ def _test_that_kernel_is_exact_correct_size(filter, scale_factor, tol=0.0019):
 
 
 def test_outpass_opt_scale2():
-    p = TestableOutputPass()
+    p = RunnableOutputPass()
     p.set_image(ref_image)
 
     for tol, filter in [
