@@ -26,7 +26,7 @@ background = gfx.Background.from_color("#000")
 
 sphere = gfx.Mesh(gfx.sphere_geometry(10), gfx.MeshPhongMaterial())
 
-geometry = gfx.plane_geometry(50, 50)
+geometry = gfx.plane_geometry(50, 50, 10, 10)
 
 # Note: Setting opacity<1 implicitly sets transparency to True, and depth_write to False.
 plane1 = gfx.Mesh(geometry, gfx.MeshBasicMaterial(color="r", opacity=0.2))

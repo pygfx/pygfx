@@ -95,7 +95,7 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
         // While we figure out exactly how best to return it.
         // Much of this information may soon be redundant.
         // https://github.com/pygfx/pygfx/pull/700
-        out.pick = pick_pack(u32(u_wobject.id), 20);
+        out.pick = pick_pack(u32(u_wobject.global_id), 20);
     $$ endif
     return out;
 }
