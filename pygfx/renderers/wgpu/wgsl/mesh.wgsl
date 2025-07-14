@@ -36,7 +36,7 @@ struct VertexInput {
 $$ if instanced
 struct InstanceInfo {
     transform: mat4x4<f32>,
-    id: u32,
+    global_id: u32,
 };
 @group(1) @binding(0)
 var<storage,read> s_instance_infos: array<InstanceInfo>;
@@ -204,6 +204,7 @@ fn vs_main(in: VertexInput) -> Varyings {
     // Set position
     varyings.world_pos = vec3<f32>(world_pos.xyz / world_pos.w);
     varyings.position = vec4<f32>(ndc_pos.xyz, ndc_pos.w);
+    varyings.elementIndex = u32(face_index);
 
     // per-vertex or per-face coloring
     $$ if use_vertex_color
@@ -328,9 +329,9 @@ fn vs_main(in: VertexInput) -> Varyings {
     // that indicate how close the fragment is to each vertex (barycentric
     // coordinates). This allows the selection of the nearest vertex or edge.
     $$ if instanced
-        let pick_id = instance_info.id;
+        let pick_id = instance_info.global_id;
     $$ else
-        let pick_id = u_wobject.id;
+        let pick_id = u_wobject.global_id;
     $$ endif
 
     varyings.pick_id = u32(pick_id);

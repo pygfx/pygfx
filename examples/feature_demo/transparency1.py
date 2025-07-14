@@ -13,11 +13,11 @@ Press 1-4 to select the blending mode.
 # sphinx_gallery_pygfx_docs = 'screenshot'
 # sphinx_gallery_pygfx_test = 'run'
 
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 
 
-canvas = WgpuCanvas()
+canvas = RenderCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
@@ -96,4 +96,4 @@ def animate():
 if __name__ == "__main__":
     print(__doc__)
     canvas.request_draw(animate)
-    run()
+    loop.run()

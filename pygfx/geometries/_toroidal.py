@@ -71,7 +71,7 @@ def klein_bottle_geometry(scale=1.0, stitch=False):
         np.arange(indices.shape[1], dtype=np.uint32),
         n * np.arange(indices.shape[0], dtype=np.uint32),
     )
-    indices += (gx + gy).reshape(indices.shape[:2] + (1,))
+    indices += (gx + gy).reshape((*indices.shape[:2], 1))
 
     # Stitch the faces at the tube's edge.
     indices[-1, :, 2:5] -= n * n
@@ -228,7 +228,7 @@ def torus_knot_geometry(
         np.arange(indices.shape[1], dtype=np.uint32),
         radial_verts * np.arange(indices.shape[0], dtype=np.uint32),
     )
-    indices += (gx + gy).reshape(indices.shape[:2] + (1,))
+    indices += (gx + gy).reshape((*indices.shape[:2], 1))
 
     # Correct the faces at the tube's ends
     if stitch:

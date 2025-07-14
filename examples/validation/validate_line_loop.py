@@ -5,7 +5,6 @@ Line loop
 Drawing multiple line loops using material.loop and separating line-pieces with nans.
 """
 
-# ruff: noqa: RUF005
 
 # sphinx_gallery_pygfx_docs = 'screenshot'
 # sphinx_gallery_pygfx_test = 'compare'

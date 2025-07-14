@@ -16,12 +16,12 @@ blocks move in a wave.
 
 from time import perf_counter
 
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 import numpy as np
 
 
-renderer = gfx.renderers.WgpuRenderer(WgpuCanvas())
+renderer = gfx.renderers.WgpuRenderer(RenderCanvas())
 scene = gfx.Scene()
 
 
@@ -75,4 +75,4 @@ def animate():
 
 if __name__ == "__main__":
     renderer.request_draw(animate)
-    run()
+    loop.run()

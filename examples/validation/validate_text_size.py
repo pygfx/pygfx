@@ -13,12 +13,12 @@ This example shows text with different sizes.
 # sphinx_gallery_pygfx_docs = 'screenshot'
 # sphinx_gallery_pygfx_test = 'compare'
 
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 import pylinalg as la
 
 
-renderer = gfx.renderers.WgpuRenderer(WgpuCanvas())
+renderer = gfx.renderers.WgpuRenderer(RenderCanvas())
 scene = gfx.Scene()
 scene.add(gfx.Background.from_color("#000"))
 
@@ -112,4 +112,4 @@ renderer.request_draw(lambda: renderer.render(scene, camera))
 
 if __name__ == "__main__":
     print(__doc__)
-    run()
+    loop.run()

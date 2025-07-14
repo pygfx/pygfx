@@ -136,7 +136,7 @@ struct VertexInput {
 $$ if instanced
 struct InstanceInfo {
     transform: mat4x4<f32>,
-    id: u32,
+    global_id: u32,
 };
 @group(1) @binding(0)
 var<storage,read> s_instance_infos: array<InstanceInfo>;
@@ -659,6 +659,8 @@ fn vs_main(in: VertexInput) -> Varyings {
     // Position
     varyings.position = vec4<f32>(the_pos_n);
     varyings.world_pos = vec3<f32>(ndc_to_world_pos(the_pos_n));
+    varyings.elementIndex = u32(face_index);
+
     //  Thickness and segment coord. These are corrected for perspective, otherwise the dashes are malformed in 3D.
     varyings.w = f32(w);
     varyings.thickness_pw = f32(thickness * l2p * w);  // the real thickness, in physical coords
@@ -748,7 +750,6 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
 
     // clipping planes
     {$ include 'pygfx.clipping_planes.wgsl' $}
-
 
     // Get the half-thickness in physical coordinates. This is the reference thickness.
     // If aa is used, the line is actually a bit thicker, leaving space to do aa.
@@ -1000,7 +1001,7 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
     coord = select(coord, coord - 1.0, coord > 0.5);
     let idx = varyings.pick_idx + select(0u, 1u, coord < 0.0);
     out.pick = (
-        pick_pack(u32(u_wobject.id), 20) +
+        pick_pack(u32(u_wobject.global_id), 20) +
         pick_pack(u32(idx), 26) +
         pick_pack(u32(coord * 100000.0 + 100000.0), 18)
     );

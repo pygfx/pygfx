@@ -55,6 +55,7 @@ preset_blending_dicts = {
     },
     "dither": {
         "mode": "dither",
+        "pattern": "blue",
     },
     "weighted": {
         "mode": "weighted",
@@ -369,7 +370,9 @@ class Material(Trackable):
         * ``alpha_dst``: as ``color_src`` but for alpha.
         * ``alpha_constant``: as ``color_constant`` but for alpha (default 0).
 
-        When the mode is "dither": there are (currently) no extra fields.
+        When the mode is "dither":
+            * ``pattern``: can be 'blue' for blue noise (default), 'white' for white noise, and 'bayer' for a Bayer pattern.
+              The Bayer option mixes objects but elemenys within objects.
 
         When the mode is "weighted", the extra fields are:
 
@@ -412,7 +415,9 @@ class Material(Trackable):
                         if key in blending_src:
                             blending_dict[key] = blending_src.pop(key)
                 elif mode == "dither":
-                    pass
+                    for key in ["pattern"]:
+                        if key in blending_src:
+                            blending_dict[key] = blending_src.pop(key)
                 elif mode == "weighted":
                     for key in ["weight", "alpha"]:
                         if key in blending_src:

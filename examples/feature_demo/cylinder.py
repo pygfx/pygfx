@@ -9,11 +9,11 @@ Example showing different types of geometric cylinders.
 # sphinx_gallery_pygfx_test = 'run'
 
 import numpy as np
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 
 
-canvas = WgpuCanvas()
+canvas = RenderCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
@@ -81,4 +81,4 @@ scene.add(ground)
 
 if __name__ == "__main__":
     canvas.request_draw(lambda: renderer.render(scene, camera))
-    run()
+    loop.run()

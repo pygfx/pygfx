@@ -29,6 +29,7 @@ fn get_vol_geometry() -> VolGeometry {
 
     let pos1 = vec3<f32>(-0.5);
     let pos2 = vec3<f32>(size) + pos1;
+
     geo.positions = array<vec3<f32>,8>(
         vec3<f32>(pos2.x, pos1.y, pos2.z),
         vec3<f32>(pos2.x, pos1.y, pos1.z),

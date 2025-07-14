@@ -20,7 +20,7 @@ would be a lot).
 # sphinx_gallery_pygfx_docs = 'screenshot'
 # sphinx_gallery_pygfx_test = 'compare'
 
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 
 scene = gfx.Scene()
@@ -89,9 +89,9 @@ for text in (text1, text2, text3, text4):
 
 camera = gfx.OrthographicCamera(24, 18)
 
-renderer = gfx.renderers.WgpuRenderer(WgpuCanvas(size=(800, 600)))
+renderer = gfx.renderers.WgpuRenderer(RenderCanvas(size=(800, 600)))
 
 renderer.request_draw(lambda: renderer.render(scene, camera))
 
 if __name__ == "__main__":
-    run()
+    loop.run()

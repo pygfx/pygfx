@@ -17,7 +17,7 @@ image with no background subtraction.
 
 import imageio.v3 as iio
 import numpy as np
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 from pygfx.renderers.wgpu import register_wgpu_render_function
 from pygfx.renderers.wgpu.shaders.imageshader import ImageShader
@@ -35,7 +35,7 @@ im *= 1 - radius[..., np.newaxis] / radius.max()
 im = im.astype(np.uint8)
 
 canvas_size = im.shape[0], im.shape[1]
-canvas = WgpuCanvas(size=canvas_size, max_fps=999)
+canvas = RenderCanvas(size=canvas_size, max_fps=999)
 renderer = gfx.renderers.WgpuRenderer(canvas, show_fps=True)
 scene = gfx.Scene()
 camera = gfx.OrthographicCamera(canvas_size[0], canvas_size[1])
@@ -160,4 +160,4 @@ gui_renderer.set_gui(draw_imgui)
 
 if __name__ == "__main__":
     canvas.request_draw(animate)
-    run()
+    loop.run()

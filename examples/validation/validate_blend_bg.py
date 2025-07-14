@@ -17,11 +17,11 @@ the OS and GUI library are configured to do so.
 # sphinx_gallery_pygfx_docs = 'screenshot'
 # sphinx_gallery_pygfx_test = 'compare'
 
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 
 
-canvas = WgpuCanvas(size=(600, 600))
+canvas = RenderCanvas(size=(600, 600))
 renderer = gfx.renderers.WgpuRenderer(canvas)
 
 geometry = gfx.plane_geometry(100, 100)
@@ -46,4 +46,4 @@ canvas.request_draw(lambda: renderer.render(scene, camera))
 
 if __name__ == "__main__":
     print(__doc__)
-    run()
+    loop.run()

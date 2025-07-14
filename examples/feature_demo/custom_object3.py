@@ -22,7 +22,7 @@ It demonstrates:
 
 import numpy as np
 import wgpu
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 from pygfx.renderers.wgpu import (
     Binding,
@@ -142,7 +142,7 @@ class TriangleShader(BaseShader):
 
 # Setup scene
 
-renderer = gfx.WgpuRenderer(WgpuCanvas())
+renderer = gfx.WgpuRenderer(RenderCanvas())
 camera = gfx.OrthographicCamera(10, 10)
 
 t = Triangle(
@@ -157,4 +157,4 @@ scene.add(t)
 
 if __name__ == "__main__":
     renderer.request_draw(lambda: renderer.render(scene, camera))
-    run()
+    loop.run()

@@ -10,12 +10,12 @@ but not for the y dimension.
 # sphinx_gallery_pygfx_docs = 'screenshot'
 # sphinx_gallery_pygfx_test = 'run'
 
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 import numpy as np
 
 
-renderer = gfx.renderers.WgpuRenderer(WgpuCanvas(size=(800, 800)))
+renderer = gfx.renderers.WgpuRenderer(RenderCanvas(size=(800, 800)))
 
 
 # Create a scene to display multiple times. It contains a point cloud
@@ -95,4 +95,4 @@ def animate():
 
 if __name__ == "__main__":
     renderer.request_draw(animate)
-    run()
+    loop.run()

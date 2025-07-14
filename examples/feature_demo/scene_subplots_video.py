@@ -9,11 +9,11 @@ Double click to re-center the images.
 # sphinx_gallery_pygfx_docs = 'screenshot'
 # sphinx_gallery_pygfx_test = 'run'
 
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 import numpy as np
 
-canvas = WgpuCanvas()
+canvas = RenderCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 
 dims = (512, 512)  # image dimensions
@@ -105,4 +105,4 @@ layout()
 
 if __name__ == "__main__":
     canvas.request_draw(animate)
-    run()
+    loop.run()

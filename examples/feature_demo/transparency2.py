@@ -14,11 +14,11 @@ Press 1-4 to select the blending mode.
 # sphinx_gallery_pygfx_docs = 'screenshot'
 # sphinx_gallery_pygfx_test = 'run'
 
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 import pylinalg as la
 
-canvas = WgpuCanvas()
+canvas = RenderCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
@@ -26,7 +26,7 @@ background = gfx.Background.from_color("#000")
 
 sphere = gfx.Mesh(gfx.sphere_geometry(10), gfx.MeshPhongMaterial())
 
-geometry = gfx.plane_geometry(50, 50)
+geometry = gfx.plane_geometry(50, 50, 10, 10)
 
 # Note: Setting opacity<1 implicitly sets transparency to True, and depth_write to False.
 plane1 = gfx.Mesh(geometry, gfx.MeshBasicMaterial(color="r", opacity=0.2))
@@ -95,4 +95,4 @@ def animate():
 if __name__ == "__main__":
     print(__doc__)
     canvas.request_draw(animate)
-    run()
+    loop.run()

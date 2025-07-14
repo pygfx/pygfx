@@ -10,11 +10,11 @@ images are used as weights.
 # sphinx_gallery_pygfx_test = 'run'
 
 import imageio.v3 as iio
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 import numpy as np
 
-canvas = WgpuCanvas()
+canvas = RenderCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene1 = gfx.Scene()
 scene1.add(gfx.Background.from_color("#000"))
@@ -82,4 +82,4 @@ def animate():
 
 if __name__ == "__main__":
     canvas.request_draw(animate)
-    run()
+    loop.run()

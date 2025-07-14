@@ -14,11 +14,11 @@ Show images with physical colorspace, and srgb colorspace via three methods.
 # sphinx_gallery_pygfx_test = 'compare'
 
 import numpy as np
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 
 
-renderer = gfx.renderers.WgpuRenderer(WgpuCanvas(size=(600, 600)))
+renderer = gfx.renderers.WgpuRenderer(RenderCanvas(size=(600, 600)))
 
 rgba = np.repeat(np.linspace(0, 255, 6).reshape(1, -1), 2, 0).astype(np.uint8)
 rgba.shape = (*rgba.shape, 1)
@@ -67,4 +67,4 @@ renderer.request_draw(lambda: renderer.render(scene, camera))
 
 
 if __name__ == "__main__":
-    run()
+    loop.run()

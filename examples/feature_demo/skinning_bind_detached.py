@@ -33,11 +33,13 @@ except NameError:
 
 import numpy as np
 import pygfx as gfx
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 
 gltf_path = model_dir / "Michelle.glb"
 
-canvas = WgpuCanvas(size=(640, 480), max_fps=-1, title="Skinnedmesh", vsync=False)
+canvas = RenderCanvas(
+    size=(640, 480), update_mode="fastest", title="Skinnedmesh", vsync=False
+)
 
 renderer = gfx.WgpuRenderer(canvas)
 camera = gfx.PerspectiveCamera(75, 640 / 480, depth_range=(0.1, 1000))
@@ -106,4 +108,4 @@ def animate():
 
 if __name__ == "__main__":
     renderer.request_draw(animate)
-    run()
+    loop.run()

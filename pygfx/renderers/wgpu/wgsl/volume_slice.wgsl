@@ -35,6 +35,11 @@ fn vs_main(in: VertexInput) -> Varyings {
     let plane = u_material.plane.xyzw;  // ax + by + cz + d
     let n = plane.xyz;
 
+    // TODO: the shader has a lot of arrays, which add up to register usage. I
+    // count 156 registers just for the arrays already, which is more than
+    // avalable on most hardware. So this shader is likely much slower than it
+    // could be!
+
     // Define edges (using vertex indices), and their matching plane
     // indices (each edge touches two planes). Note that these need to
     // match the above figure, and that needs to match with the actual
@@ -191,7 +196,7 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     $$ if write_pick
     // The wobject-id must be 20 bits. In total it must not exceed 64 bits.
     out.pick = (
-        pick_pack(u32(u_wobject.id), 20) +
+        pick_pack(u32(u_wobject.global_id), 20) +
         pick_pack(u32(varyings.texcoord.x * 16383.0), 14) +
         pick_pack(u32(varyings.texcoord.y * 16383.0), 14) +
         pick_pack(u32(varyings.texcoord.z * 16383.0), 14)

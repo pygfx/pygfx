@@ -266,7 +266,9 @@ class Ruler(WorldObject):
                 np.ones((2, 1), np.float64),
             ]
         )
-        ndc_full = (camera.camera_matrix @ positions[..., None]).reshape(-1, 4)
+        ndc_full = (
+            camera.camera_matrix @ self.world.matrix @ positions[..., None]
+        ).reshape(-1, 4)
         screen_full = (ndc_full[:, :2] / ndc_full[:, 3:4]) * half_canvas_size
 
         # Get what part of the line is visible

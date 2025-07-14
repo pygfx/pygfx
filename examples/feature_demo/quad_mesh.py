@@ -14,7 +14,7 @@ Contributed by S. Shaji
 # sphinx_gallery_pygfx_test = 'run'
 
 import numpy as np
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 
 
@@ -30,7 +30,7 @@ def generate_sample_quads(cols=9):
     return pos, indices.astype(np.int32)
 
 
-canvas = WgpuCanvas(
+canvas = RenderCanvas(
     title="Mesh Object with quads. Press 1,2 or 3 for wireframe, per vertex coloring or per face coloring"
 )
 renderer = gfx.renderers.WgpuRenderer(canvas)
@@ -123,4 +123,4 @@ def animate():
 
 if __name__ == "__main__":
     canvas.request_draw(animate)
-    run()
+    loop.run()

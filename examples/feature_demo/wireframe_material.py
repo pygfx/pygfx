@@ -12,7 +12,7 @@ not of equal thickness.
 
 import numpy as np
 import wgpu
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 from pygfx.renderers.wgpu import Binding, register_wgpu_render_function
 from pygfx.resources import Buffer
@@ -142,7 +142,7 @@ class WireframeShader(BaseShader):
 
 # Setup scene
 
-renderer = gfx.WgpuRenderer(WgpuCanvas(size=(640, 480)))
+renderer = gfx.WgpuRenderer(RenderCanvas(size=(640, 480)))
 
 thickness = 4
 
@@ -174,4 +174,4 @@ def animate():
 
 if __name__ == "__main__":
     renderer.request_draw(animate)
-    run()
+    loop.run()

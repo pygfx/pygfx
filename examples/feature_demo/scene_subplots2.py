@@ -8,12 +8,12 @@ Like scene_side_by_side, but now with a more plot-like idea, and mouse interacti
 # sphinx_gallery_pygfx_docs = 'screenshot'
 # sphinx_gallery_pygfx_test = 'run'
 
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 import numpy as np
 
 
-renderer = gfx.renderers.WgpuRenderer(WgpuCanvas())
+renderer = gfx.renderers.WgpuRenderer(RenderCanvas())
 
 
 # Create a scene to display multiple times. It contains three points clouds.
@@ -91,4 +91,4 @@ def animate():
 
 if __name__ == "__main__":
     renderer.request_draw(animate)
-    run()
+    loop.run()
