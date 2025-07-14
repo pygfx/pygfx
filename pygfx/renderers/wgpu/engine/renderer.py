@@ -868,6 +868,23 @@ class WgpuRenderer(RootEventHandler, Renderer):
                     command_encoder,
                 )
 
+                # Copy the color texture to the transmission framebuffer again
+                command_encoder.copy_texture_to_texture(
+                    {
+                        "texture": self._blender._textures.get("color"),
+                        "origin": (0, 0, 0),
+                    },
+                    {
+                        "texture": ensure_wgpu_object(
+                            self._shared.transmission_framebuffer
+                        ),
+                    },
+                    copy_size=self.physical_size,
+                )
+                generate_texture_mipmaps(
+                    self._shared.transmission_framebuffer, command_encoder
+                )
+
                 # Render front side
                 for item in flat.transparent_double_pass_objects:
                     item.wobject.material.side = "front"
@@ -892,6 +909,8 @@ class WgpuRenderer(RootEventHandler, Renderer):
                     physical_viewport,
                     command_encoder,
                 )
+
+            rendered_something = True
 
         # Lastly, render the weighted blending objects.
 
