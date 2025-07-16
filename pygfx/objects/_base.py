@@ -284,7 +284,7 @@ class WorldObject(EventTarget, Trackable):
     @render_mask.setter
     def render_mask(self, value):
         raise DeprecationWarning(
-            "render_mask is deprecated, see material.transparent to control how the rendere should treat an object."
+            "render_mask is deprecated, see material.alpha_mode to control how the renderer should treat an object."
         )
 
     @property

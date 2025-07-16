@@ -82,10 +82,11 @@ class FlatScene:
     def add_scene(self, scene):
         """Add a scene to the total flat scene. Is usually called just once."""
         # Flags for sorting
-        category_opaque = 1
-        category_semi_opaque = 2
-        category_fully_transparent = 3
-        category_weighted = 4
+        category_opaque1 = 1
+        category_opaque2 = 2
+        category_blend1 = 3
+        category_blend2 = 4
+        category_weighted = 5
 
         for wobject in scene.iter(skip_invisible=True):
             # Assign renderer id's
@@ -115,30 +116,30 @@ class FlatScene:
             # Renderable objects
             material = wobject._material
             if material is not None:
-                blending_mode = material.blending["mode"]
+                alpha_mode = material.alpha_mode
                 pass_type = "normal"  # one of 'normal' or 'weighted'
 
-                if blending_mode == "weighted":
+                if alpha_mode == "opaque":
+                    dist_sort_sign = +1
+                    category_flag = category_opaque1
+                    # NOTE: it may help performance to put objects that use discard into category_opaque2 so that they
+                    # render after the real opaque objects. This can help with early-z. Need benchmarks to know for sure
+                elif alpha_mode == "dither":
+                    dist_sort_sign = +1
+                    category_flag = category_opaque2
+                elif alpha_mode == "blend":
+                    # NOTE: threeJS renders double-sided objects twice, maybe we should too? (we can look at this later)
+                    dist_sort_sign = -1
+                    if material.depth_write:
+                        category_flag = category_blend1
+                    else:
+                        category_flag = category_blend2
+                elif alpha_mode == "weighted":
                     dist_sort_sign = 0
                     category_flag = category_weighted
                     pass_type = "weighted"
-                elif blending_mode == "dither":
-                    dist_sort_sign = +1
-                    category_flag = category_opaque
-                else:  # blending_mode == 'classic'
-                    transparent = material.transparent
-                    if transparent:
-                        # NOTE: threeJS renders double-sided objects twice, maybe we should too? (we can look at this later)
-                        dist_sort_sign = -1
-                        category_flag = category_fully_transparent
-                    elif transparent is None:
-                        dist_sort_sign = -1
-                        category_flag = category_semi_opaque
-                    else:
-                        dist_sort_sign = +1
-                        category_flag = category_opaque
-                        # NOTE: it may help performance to put objects that use discard into category_semi_opaque so that they
-                        # render after the real opaque objects. This can help with early-z. Need benchmarks to know for sure
+                else:
+                    raise RuntimeError(f"Unexpected alpha_mode {alpha_mode!r}")
 
                 # Get depth sorting flag. Note that use camera's view matrix, since the projection does not affect the depth order.
                 # It also means we can set projection=False optimalization.
@@ -484,13 +485,13 @@ class WgpuRenderer(RootEventHandler, Renderer):
     @property
     def blend_mode(self):
         raise DeprecationWarning(
-            "renderer.blend_mode is removed. Use material.blending instead."
+            "renderer.blend_mode is removed. Use material.alpha_mode instead."
         )
 
     @blend_mode.setter
     def blend_mode(self, value):
         raise DeprecationWarning(
-            "renderer.blend_mode is removed. Use material.blending instead."
+            "renderer.blend_mode is removed. Use material.alpha_mode instead."
         )
 
     @property
