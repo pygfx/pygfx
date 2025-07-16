@@ -353,17 +353,14 @@ class PipelineContainer:
             self.wobject_info = {}
             with tracker.track_usage("reset"):
                 self.wobject_info["pick_write"] = wobject.material.pick_write
-                blending_mode = wobject.material._store.blending_mode
-                # If the blending mode is dither or weighted, the generated wgsl in blender.get_shader_kwargs()
-                # differs on the additional fields in the blending dict.
-                if blending_mode in ("dither", "weighted"):
-                    self.wobject_info["blending"] = wobject.material.blending.copy()
-                    if (
-                        blending_mode == "dither"
-                        and wobject.material.transparent == False  # noqa
-                    ):
-                        # Dither with an opaque object -> we can drop the discard in blender.py
-                        self.wobject_info["blending_no_discard"] = True
+                alpha_mode = wobject.material.alpha_mode
+                self.wobject_info["alpha_mode"] = alpha_mode
+                # If the alpha mode is dither or weighted, the generated wgsl in blender.get_shader_kwargs()
+                # differs on the additional fields in the details dict.
+                if alpha_mode in ("dither", "weighted"):
+                    self.wobject_info["alpha_mode_details"] = (
+                        wobject.material._gfx_get_alpha_mode_details()
+                    )
 
             changed.update(("bindings", "pipeline_info", "render_info"))
             self.wgpu_shader = None
@@ -383,7 +380,10 @@ class PipelineContainer:
                 self.wobject_info["depth_test"] = wobject.material.depth_test
                 self.wobject_info["depth_compare"] = wobject.material.depth_compare
                 self.wobject_info["depth_write"] = wobject.material.depth_write
-                self.wobject_info["blending"] = wobject.material.blending
+                # For blend, the details need a new pipeline, but not a new shader
+                self.wobject_info["alpha_mode_details"] = (
+                    wobject.material._gfx_get_alpha_mode_details()
+                )
             self._check_pipeline_info()
             changed.add("render_info")
             self.wgpu_pipeline = None
@@ -590,13 +590,10 @@ class RenderPipelineContainer(PipelineContainer):
         blender = renderstate.blender
         renderstate_bind_group_index = len(self.wgpu_bind_groups)
 
-        # Resolve a tweak to the blending dict. We do that here, and not where its first put in wobject_info,
-        # because the dict gets set in two places.
-        blending = self.wobject_info["blending"]
-        if self.wobject_info.get("blending_no_discard"):
-            blending = {**blending, "no_discard": True}
         blender_kwargs = blender.get_shader_kwargs(
-            self.wobject_info["pick_write"], blending
+            self.wobject_info["pick_write"],
+            self.wobject_info["alpha_mode"],
+            self.wobject_info["alpha_mode_details"],
         )
         renderstate_kwargs = renderstate.get_shader_kwargs(renderstate_bind_group_index)
         shader_kwargs = blender_kwargs.copy()
@@ -629,7 +626,9 @@ class RenderPipelineContainer(PipelineContainer):
         depth_compare = self.wobject_info["depth_compare"]
         depth_write = self.wobject_info["depth_write"]
         color_descriptors = blender.get_color_descriptors(
-            self.wobject_info["pick_write"], self.wobject_info["blending"]
+            self.wobject_info["pick_write"],
+            self.wobject_info["alpha_mode"],
+            self.wobject_info["alpha_mode_details"],
         )
         depth_descriptor = blender.get_depth_descriptor(
             depth_test, depth_compare, depth_write

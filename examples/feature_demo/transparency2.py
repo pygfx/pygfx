@@ -47,7 +47,7 @@ scene.add(camera.add(gfx.DirectionalLight()))
 
 scene_overlay = gfx.Scene()
 blend_text = gfx.Text(
-    text=f"Blending: {plane1.material.blending['name']}",
+    text=f"alpha_mode: {plane1.material.alpha_mode}",
     anchor="bottom-left",
     material=gfx.TextMaterial(outline_thickness=0.3),
 )
@@ -69,17 +69,17 @@ def handle_event(event):
     elif event.key in "12345":
         m = [
             None,
-            "no",  # 1
-            "normal",  # 2
-            "additive",  # 3
+            "opaque",  # 1
+            "over",  # 2
+            "add",  # 3
             "dither",  # 4
             "weighted",  # 5
         ]
-        blending = m[int(event.key)]
+        preset = m[int(event.key)]
         for plane in plane1, plane2, plane3:
-            plane.material.blending = blending
-        print("Selecting blending", blending)
-        blend_text.set_text(f"Blending: {blending}")
+            plane.material.alpha_mode = preset
+        print("Selecting alpha mode preset", preset)
+        blend_text.set_text(f"alpha_mode: {preset}")
     canvas.request_draw()
 
 

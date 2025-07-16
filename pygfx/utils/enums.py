@@ -44,6 +44,15 @@ class Enum(BaseEnum):
     """Enum base class for pygfx."""
 
 
+class AlphaMode(Enum):
+    """Emum that defines how the alpha value of an object is used to to combine the resulting color with the target color texture."""
+
+    dither = None  #: stochastic transparency
+    opaque = None  #: opaque object
+    blend = None  #: per-fragment blending
+    weighted = None  #: weighted blending
+
+
 class EdgeMode(Enum):
     centered = None  #: Centered edges (half the width on each side).
     inner = None  #: Inner edges (the width is added to the inside).

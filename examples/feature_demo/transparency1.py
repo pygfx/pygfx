@@ -51,7 +51,7 @@ camera = gfx.OrthographicCamera(100, 100)
 scene_overlay = gfx.Scene()
 
 blend_text = gfx.Text(
-    text=f"Blending: {plane1.material.blending['name']}",
+    text=f"alpha_mode: {plane1.material.alpha_mode}",
     anchor="top-left",
     material=gfx.TextMaterial(outline_thickness=0.3),
 )
@@ -81,11 +81,11 @@ def handle_event(event):
             "dither",  # 4
             "weighted",  # 5
         ]
-        blending = m[int(event.key)]
+        preset = m[int(event.key)]
         for plane in plane1, plane2, plane3:
-            plane.material.blending = blending
-        print("Selecting blending", blending)
-        blend_text.set_text(f"Blending: {blending}")
+            plane.material.alpha_mode = preset
+        print("Selecting blending", preset)
+        blend_text.set_text(f"Blending: {preset}")
 
 
 def animate():

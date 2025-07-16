@@ -28,7 +28,7 @@ for i in range(n):
     alpha = (i + 1) / n
     # Blend
     m = gfx.Mesh(
-        plane, gfx.MeshBasicMaterial(color="#fff", opacity=alpha, blending="normal")
+        plane, gfx.MeshBasicMaterial(color="#fff", opacity=alpha, alpha_mode="blend")
     )
     m.local.x = i
     m.local.y = 0
@@ -36,16 +36,14 @@ for i in range(n):
     # Dither bayer
     m = gfx.Mesh(
         plane,
-        gfx.MeshBasicMaterial(
-            color="#fff", opacity=alpha, blending={"mode": "dither", "pattern": "bayer"}
-        ),
+        gfx.MeshBasicMaterial(color="#fff", opacity=alpha, alpha_mode="bayer"),
     )
     m.local.x = i
     m.local.y = 1 * dy
     scene.add(m)
     # Dither
     m = gfx.Mesh(
-        plane, gfx.MeshBasicMaterial(color="#fff", opacity=alpha, blending="dither")
+        plane, gfx.MeshBasicMaterial(color="#fff", opacity=alpha, alpha_mode="dither")
     )
     m.local.x = i
     m.local.y = 2 * dy
