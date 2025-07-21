@@ -227,6 +227,9 @@ class WgpuRenderer(RootEventHandler, Renderer):
     ppaa : str, optional
         The post-processing anti-aliasing to apply: "default", "none", "fxaa", "ddaa".
         By default it resolves to "ddaa".
+    output_colorspace : str, optional
+        The colorspace of the output. Can be "srgb" or "physical". Default "srgb".
+        If render target is a texture, this is ignored, the texture's colorspace is used.
     """
 
     def __init__(
@@ -240,6 +243,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         enable_events=True,
         gamma_correction=1.0,
         ppaa="default",
+        output_colorspace="srgb",
         **kwargs,
     ):
         blend_mode = kwargs.pop("blend_mode", None)
@@ -277,21 +281,9 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # Get target format
         self.gamma_correction = gamma_correction
         self._gamma_correction_srgb = 1.0
-        if isinstance(target, AnyBaseCanvas):
-            self._canvas_context = self._target.get_context("wgpu")
-            # Select output format. We currently don't have a way of knowing
-            # what formats are available, so if not srgb, we gamma-correct in shader.
-            target_format = self._canvas_context.get_preferred_format(
-                self._shared.adapter
-            )
-            if not target_format.endswith("srgb"):
-                self._gamma_correction_srgb = 1 / 2.2  # poor man's srgb
-            # Also configure the canvas
-            self._canvas_context.configure(
-                device=self._device,
-                format=target_format,
-            )
-        else:
+
+        self.output_colorspace = output_colorspace
+        if not isinstance(target, AnyBaseCanvas):
             # Also enable the texture for render and display usage
             self._target._wgpu_usage |= wgpu.TextureUsage.RENDER_ATTACHMENT
             self._target._wgpu_usage |= wgpu.TextureUsage.TEXTURE_BINDING
@@ -457,6 +449,38 @@ class WgpuRenderer(RootEventHandler, Renderer):
             raise ValueError(f"Invalid value for renderer.ppaa: {ppaa!r}")
 
         self.effect_passes = effect_passes
+
+    @property
+    def output_colorspace(self):
+        """The output colorspace for the renderer."""
+        return self._output_colorspace
+
+    @output_colorspace.setter
+    def output_colorspace(self, output_colorspace):
+        assert output_colorspace in ("srgb", "physical"), (
+            f"Invalid output colorspace {output_colorspace!r}. "
+            "Must be 'srgb' or 'physical'."
+        )
+        self._output_colorspace = output_colorspace
+        if isinstance(self._target, AnyBaseCanvas):
+            self._canvas_context = self._target.get_context("wgpu")
+            # Select output format. We currently don't have a way of knowing
+            # what formats are available, so if not srgb, we gamma-correct in shader.
+            target_format = self._canvas_context.get_preferred_format(
+                self._shared.adapter
+            )
+
+            if output_colorspace == "srgb":
+                if not target_format.endswith("srgb"):
+                    self._gamma_correction_srgb = 1 / 2.2  # poor man's srgb
+            else:  # physical
+                if target_format.endswith("srgb"):
+                    target_format = target_format[: -len("-srgb")]
+            # Also configure the canvas
+            self._canvas_context.configure(
+                device=self._device,
+                format=target_format,
+            )
 
     @property
     def rect(self):
