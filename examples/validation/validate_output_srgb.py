@@ -1,12 +1,12 @@
 """
-srgb texture colorspace
-=======================
+srgb output colorspace
+======================
 
-Show images with physical colorspace, and srgb colorspace via three methods.
+Show different colorspace textures in srgb colorspace.
 
-* The top image shows physical colorspace, very non-linear.
-* The 2nd shows srgb colorspace, interpolated in srgb (srgb-to-linear happens in shader).
-* The 3d shows srgb texture, interpolated in linear space (srgb-to-linear is automatic).
+* The top image shows linear data in physical colorspace, and converted to srgb colorspace, looks very non-linear.
+* The 2nd shows linear data in srgb colorspace, It undergoes a round-trip conversion (srgb → linear → srgb), with interpolation happening in srgb space. looks non-linear.
+* The 3d shows linear data in srgb colorspace, twice conversion too(srgb → linear → srgb), interpolated in linear space (srgb-to-linear is automatic).
 * The 4th is the same, using an explicit texture format.
 """
 
