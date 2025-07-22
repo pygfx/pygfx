@@ -456,12 +456,14 @@ class WgpuRenderer(RootEventHandler, Renderer):
         return self._output_colorspace
 
     @output_colorspace.setter
-    def output_colorspace(self, output_colorspace):
-        assert output_colorspace in ("srgb", "physical"), (
-            f"Invalid output colorspace {output_colorspace!r}. "
-            "Must be 'srgb' or 'physical'."
+    def output_colorspace(self, value: str):
+        assert value in ("srgb", "physical"), (
+            f"Invalid output colorspace {value!r}. Must be 'srgb' or 'physical'."
         )
-        self._output_colorspace = output_colorspace
+        if value == getattr(self, "_output_colorspace", None):
+            return
+
+        self._output_colorspace = value
         if isinstance(self._target, AnyBaseCanvas):
             self._canvas_context = self._target.get_context("wgpu")
             # Select output format. We currently don't have a way of knowing
@@ -470,7 +472,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
                 self._shared.adapter
             )
 
-            if output_colorspace == "srgb":
+            if value == "srgb":
                 if not target_format.endswith("srgb"):
                     self._gamma_correction_srgb = 1 / 2.2  # poor man's srgb
             else:  # physical
