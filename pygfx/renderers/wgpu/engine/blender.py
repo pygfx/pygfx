@@ -375,14 +375,14 @@ class Blender:
                 "name": "accum",
                 "resolve_target": None,
                 "clear_value": accum_clear_value,
-                "load_op": wgpu.LoadOp.clear,
+                "load_op": wgpu.LoadOp.load,
                 "store_op": wgpu.StoreOp.store,
             }
             reveal_attachment = {
                 "name": "reveal",
                 "resolve_target": None,
                 "clear_value": reveal_clear_value,
-                "load_op": wgpu.LoadOp.clear,
+                "load_op": wgpu.LoadOp.load,
                 "store_op": wgpu.StoreOp.store,
             }
             attachments = [accum_attachment, reveal_attachment]
