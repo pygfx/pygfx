@@ -81,12 +81,10 @@ class FlatScene:
 
     def add_scene(self, scene):
         """Add a scene to the total flat scene. Is usually called just once."""
-        # Flags for sorting
-        category_opaque1 = 1
-        category_opaque2 = 2
-        category_blend1 = 3
-        category_blend2 = 4
-        category_weighted = 5
+
+        # Put some attributes as vars in this namespace for faster access
+        view_matrix = self._view_matrix
+        wobject_wrappers = self._wobject_wrappers
 
         for wobject in scene.iter(skip_invisible=True):
             # Assign renderer id's
@@ -116,47 +114,55 @@ class FlatScene:
             # Renderable objects
             material = wobject._material
             if material is not None:
-                alpha_mode = material.alpha_mode
-                pass_type = "normal"  # one of 'normal' or 'weighted'
+                # Get material props related to sorting
+                depth_write = material.depth_write
+                mix_config = material.mix_config
+                mix_mode = mix_config["mode"]
+                transparency_pass = mix_config["transparency_pass"]
+                # typically this is ``mix_mode in ("opaque", "stochastic")``, but users can override
 
-                if alpha_mode == "opaque":
-                    dist_sort_sign = +1
-                    category_flag = category_opaque1
-                    # NOTE: it may help performance to put objects that use discard into category_opaque2 so that they
-                    # render after the real opaque objects. This can help with early-z. Need benchmarks to know for sure
-                elif alpha_mode == "dither":
-                    dist_sort_sign = +1
-                    category_flag = category_opaque2
-                elif alpha_mode == "blend":
-                    # NOTE: threeJS renders double-sided objects twice, maybe we should too? (we can look at this later)
-                    dist_sort_sign = -1
-                    if material.depth_write:
-                        category_flag = category_blend1
-                    else:
-                        category_flag = category_blend2
-                elif alpha_mode == "weighted":
-                    dist_sort_sign = 0
-                    category_flag = category_weighted
+                # Get pass type and distance sort sign
+                if mix_mode == "weighted":
+                    # Weighted blending is a bit like a sub-pass (to usually the transparency pass).
+                    # The grouping occurs naturally because of the dist_flag.
                     pass_type = "weighted"
+                    dist_sort_sign = 0
+                elif not transparency_pass:
+                    # Opaque objects. See how opaque objects that don't write depth are rendered later.
+                    pass_type = "opaque"
+                    if depth_write:
+                        dist_sort_sign = +1
+                    else:
+                        dist_sort_sign = -1
                 else:
-                    raise RuntimeError(f"Unexpected alpha_mode {alpha_mode!r}")
+                    # The regular transparency pass
+                    pass_type = "transparency"
+                    dist_sort_sign = -1
 
                 # Get depth sorting flag. Note that use camera's view matrix, since the projection does not affect the depth order.
                 # It also means we can set projection=False optimalization.
                 # Also note that we look down -z.
-                dist_flag = 0
-                if self._view_matrix is not None and dist_sort_sign:
+                if dist_sort_sign == 0:  # mix_mode == "weighted"
+                    dist_flag = 0
+                elif view_matrix is None:
+                    dist_flag = -1
+                else:
                     relative_pos = la.vec_transform(
-                        wobject.world.position, self._view_matrix, projection=False
+                        wobject.world.position, view_matrix, projection=False
                     )
                     # Cam looks towards -z: negate to get distance
                     distance_to_camera = float(-relative_pos[2])
                     dist_flag = distance_to_camera * dist_sort_sign
 
-                sort_key = (wobject.render_order, category_flag, dist_flag)
-                self._wobject_wrappers.append(
-                    WobjectWrapper(wobject, sort_key, pass_type)
+                render_group = 0
+                render_order = wobject.render_order
+                sort_key = (
+                    render_group,
+                    transparency_pass,
+                    render_order,
+                    dist_flag,
                 )
+                wobject_wrappers.append(WobjectWrapper(wobject, sort_key, pass_type))
 
     def sort(self):
         """Sort the world objects."""
@@ -187,7 +193,7 @@ class FlatScene:
             yield pipeline_container
 
     def iter_render_pipelines_per_pass_type(self):
-        """Generator that yields (pass_type, wobjects), with pass_type 'normal' or 'weighted'."""
+        """Generator that yields (pass_type, wobjects), with pass_type 'opaque', 'transparency' or 'weighted'."""
         current_pass_type = ""
         current_pipeline_containers = []
         for wrapper in self._wobject_wrappers:
@@ -485,13 +491,13 @@ class WgpuRenderer(RootEventHandler, Renderer):
     @property
     def blend_mode(self):
         raise DeprecationWarning(
-            "renderer.blend_mode is removed. Use material.alpha_mode instead."
+            "renderer.blend_mode is removed. Use material.mix instead."
         )
 
     @blend_mode.setter
     def blend_mode(self, value):
         raise DeprecationWarning(
-            "renderer.blend_mode is removed. Use material.alpha_mode instead."
+            "renderer.blend_mode is removed. Use material.mix instead."
         )
 
     @property

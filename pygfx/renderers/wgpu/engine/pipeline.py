@@ -353,14 +353,10 @@ class PipelineContainer:
             self.wobject_info = {}
             with tracker.track_usage("reset"):
                 self.wobject_info["pick_write"] = wobject.material.pick_write
-                alpha_mode = wobject.material.alpha_mode
-                self.wobject_info["alpha_mode"] = alpha_mode
-                # If the alpha mode is dither or weighted, the generated wgsl in blender.get_shader_kwargs()
-                # differs on the additional fields in the details dict.
-                if alpha_mode in ("dither", "weighted"):
-                    self.wobject_info["alpha_mode_details"] = (
-                        wobject.material._gfx_get_alpha_mode_details()
-                    )
+                mix_mode = wobject.material._store.mix_mode
+                self.wobject_info["mix_mode"] = mix_mode
+                if mix_mode in ["opaque", "stochastic", "weighted"]:
+                    self.wobject_info["mix_config"] = wobject.material.mix_config
 
             changed.update(("bindings", "pipeline_info", "render_info"))
             self.wgpu_shader = None
@@ -380,10 +376,8 @@ class PipelineContainer:
                 self.wobject_info["depth_test"] = wobject.material.depth_test
                 self.wobject_info["depth_compare"] = wobject.material.depth_compare
                 self.wobject_info["depth_write"] = wobject.material.depth_write
-                # For blend, the details need a new pipeline, but not a new shader
-                self.wobject_info["alpha_mode_details"] = (
-                    wobject.material._gfx_get_alpha_mode_details()
-                )
+                # For composite, the details need a new pipeline, but not a new shader
+                self.wobject_info["mix_config"] = wobject.material.mix_config
             self._check_pipeline_info()
             changed.add("render_info")
             self.wgpu_pipeline = None
@@ -592,8 +586,7 @@ class RenderPipelineContainer(PipelineContainer):
 
         blender_kwargs = blender.get_shader_kwargs(
             self.wobject_info["pick_write"],
-            self.wobject_info["alpha_mode"],
-            self.wobject_info["alpha_mode_details"],
+            self.wobject_info["mix_config"],
         )
         renderstate_kwargs = renderstate.get_shader_kwargs(renderstate_bind_group_index)
         shader_kwargs = blender_kwargs.copy()
@@ -627,8 +620,7 @@ class RenderPipelineContainer(PipelineContainer):
         depth_write = self.wobject_info["depth_write"]
         color_descriptors = blender.get_color_descriptors(
             self.wobject_info["pick_write"],
-            self.wobject_info["alpha_mode"],
-            self.wobject_info["alpha_mode_details"],
+            self.wobject_info["mix_config"],
         )
         depth_descriptor = blender.get_depth_descriptor(
             depth_test, depth_compare, depth_write

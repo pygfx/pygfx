@@ -93,7 +93,7 @@ class LineShader(BaseShader):
         # if (
         #     self["color_mode"] == "uniform"
         #     and not self["dashing"]
-        #     and material.alpha_mode == "opaque"
+        #     and material.mix_config['mode'] == "opaque"
         #     and not_using_colors_that_may_have_alpha
         # ):
         #     # self["line_type"] = "quickline"
