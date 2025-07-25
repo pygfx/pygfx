@@ -24,9 +24,11 @@ import numpy as np
 canvas = RenderCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 
-scene = gfx.Scene()
 camera = gfx.OrthographicCamera()
 camera.local.scale_y = -1
+
+# Set up camera controller for user interaction
+controller = gfx.PanZoomController(camera, register_events=renderer)
 
 # A prior needs to be used to setup the camera correctly since we don't have the full scene information.
 # In this case, we copied the parameters from the feature_demo/image_stitching.py example.
@@ -73,49 +75,57 @@ blending = {
     "alpha": "1.0",
 }
 
-x = 0
-# Here the image is read in from disk.
-# The PyGFX scene is created
-# And then the memory can be cleared from the GPU and the CPU
-# To make space for the next image
-for image_name in ["wood.jpg", "bricks.jpg"]:
-    rgb = iio.imread(f"imageio:{image_name}")[:, :, :3]  # Drop alpha if it has it
-    rgba = np.empty((*rgb.shape[:2], 4), np.uint8)
-    weights = create_pyramid_weights(*rgb.shape[:2])
-    weights = (weights * 255).astype("u1")
-    rgba = np.dstack([rgb, weights])
-    image = gfx.Image(
-        gfx.Geometry(grid=gfx.Texture(rgba, dim=2)),
-        gfx.ImageBasicMaterial(
-            clim=(0, 255),
-            blending=blending,
-            # We want these images to write to the depth map
-            # since the background should be placed behind them.
-            depth_write=True,
-            # The standard depth test is "<"
-            # which won't work for blending these kinds of images
-            # since they are positioned at the exact same depth
-            depth_compare="<=",
-        ),
-    )
-    scene.add(image)
-    image.local.x = x
-    renderer.render(scene, camera, flush=False)
-    scene.clear()
-    x += rgba.shape[1] - 200
+image_names = ["wood.jpg", "bricks.jpg"]
 
-# Now that we are done streaming in the images, we can add the overlay text
-# and the background to render the final image.
+# Create the text and background objects once, outside the animation loop
+scene_text_and_background = gfx.Scene()
 text = gfx.Text("Streamed image stitching", font_size=64, anchor="top-left")
 text.local.scale_y = -1
-scene.add(text)
+scene_text_and_background.add(text)
 # Add a colorful background
-scene.add(gfx.Background.from_color("#C04848", "#480048"))
-renderer.render(scene, camera, flush=False)
+scene_text_and_background.add(gfx.Background.from_color("#C04848", "#480048"))
 
-# Once we have finished overlaying the text, we can flush the renderer
-# to ensure that the final image is rendered.
-renderer.flush()
+
+def animate():
+    # Here the images are read in from disk.
+    # The PyGFX scene is created
+    # And then the memory can be cleared from the GPU and the CPU
+    # To make space for the next image
+    x = 0
+    for image_name in image_names:
+        rgb = iio.imread(f"imageio:{image_name}")[:, :, :3]  # Drop alpha if it has it
+        rgba = np.empty((*rgb.shape[:2], 4), np.uint8)
+        weights = create_pyramid_weights(*rgb.shape[:2])
+        weights = (weights * 255).astype("u1")
+        rgba = np.dstack([rgb, weights])
+        image = gfx.Image(
+            gfx.Geometry(grid=gfx.Texture(rgba, dim=2)),
+            gfx.ImageBasicMaterial(
+                clim=(0, 255),
+                blending=blending,
+                # We want these images to write to the depth map
+                # since the background should be placed behind them.
+                depth_write=True,
+                # The standard depth test is "<"
+                # which won't work for blending these kinds of images
+                # since they are positioned at the exact same depth
+                depth_compare="<=",
+            ),
+        )
+        scene = gfx.Scene()
+        scene.add(image)
+        image.local.x = x
+        renderer.render(scene, camera, flush=False)
+        x += rgba.shape[1] - 200
+
+    # Now that we are done streaming in the images, we can add the overlay text
+    # and the background to render the final image.
+    # Once we have finished overlaying the text, we can flush the renderer
+    # to ensure that the final image is rendered.
+    renderer.render(scene_text_and_background, camera)
+
+
+canvas.request_draw(animate)
 
 if __name__ == "__main__":
     loop.run()
