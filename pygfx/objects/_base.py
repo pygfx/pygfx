@@ -141,6 +141,7 @@ class WorldObject(EventTarget, Trackable):
         material: Material | None = None,
         *,
         visible: bool = True,
+        render_group: int = 0,
         render_order: float = 0,
         name: str = "",
     ) -> None:
@@ -188,6 +189,7 @@ class WorldObject(EventTarget, Trackable):
 
         # Init visibility and render props
         self.visible = visible
+        self.render_group = render_group
         self.render_order = render_order
         self.cast_shadow = False
         self.receive_shadow = False
@@ -264,10 +266,29 @@ class WorldObject(EventTarget, Trackable):
         self._store.visible = bool(visible)
 
     @property
+    def render_group(self) -> int:
+        """ A number indicating the render group.
+
+        Instead of maintaining multiple scenes and calling ``renderer.render()`` multiple times,
+        one can simply create multiple groups within the same scene.
+        Typical use-cases are backgrounds (``render_group=-1``) and overlays (``render_group==1``).
+        Applies to the current object and its children.
+        """
+        # Note: the render order is on the object, not the material, because it affects
+        # a specific object, and materials are often shared between multiple objects.
+        return self._store.render_group
+
+    @render_group.setter
+    def render_group(self, value: int) -> None:
+        self._store.render_group = int(value)
+
+    @property
     def render_order(self) -> float:
         """A number that helps control the order in which objects are rendered.
-        Objects with higher ``render_order`` get rendered later.
-        Default 0. Also see ``Renderer.sort_objects``.
+
+        Objects with higher ``render_order`` get rendered later than other objects in the same
+        render pass (i.e. either the opaque or transparency pass).
+        Default 0. Applies to the current object and its children. Also see ``Renderer.sort_objects``.
         """
         # Note: the render order is on the object, not the material, because it affects
         # a specific object, and materials are often shared between multiple objects.

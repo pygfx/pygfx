@@ -154,7 +154,7 @@ class FlatScene:
                     distance_to_camera = float(-relative_pos[2])
                     dist_flag = distance_to_camera * dist_sort_sign
 
-                render_group = 0
+                render_group = wobject.render_group
                 render_order = wobject.render_order
                 sort_key = (
                     render_group,
