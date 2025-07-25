@@ -136,7 +136,7 @@ class FlatScene:
                     has_transmission = getattr(material, "transmission", None)
                     if has_transmission:
                         self.has_transmissive_objects = True
-                        if material.side == "both":
+                        if material.side == "both" and not material.force_single_pass:
                             self.transparent_double_pass_objects.append(renderable_item)
                 else:
                     self.opaque_objects.append(renderable_item)
