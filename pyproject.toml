@@ -23,7 +23,11 @@ dependencies = [
     "pylinalg >=0.6.7,<0.7.0",
     "numpy",
     "freetype-py",
-    "uharfbuzz",
+    # Something broke in uharfbuzz 0.51
+    # https://github.com/harfbuzz/uharfbuzz/releases/tag/v0.51.0
+    # https://github.com/pygfx/pygfx/issues/1149
+    # This is a temporary bandaid
+    "uharfbuzz <0.51.0",
     "jinja2",
     "hsluv >=5.0.0,<6.0.0",
 ]
