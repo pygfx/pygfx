@@ -79,6 +79,15 @@ class FlatScene:
         self.object_count = object_count
         self.add_scene(scene)
 
+    def _iter_scene(self, ob, render_group=0, render_order=0):
+        if not ob.visible:
+            return
+        render_group += ob.render_group
+        render_order += ob.render_order
+        yield ob, render_group, render_order
+        for child in ob._children:
+            yield from self._iter_scene(child, render_group, render_order)
+
     def add_scene(self, scene):
         """Add a scene to the total flat scene. Is usually called just once."""
 
@@ -86,7 +95,7 @@ class FlatScene:
         view_matrix = self._view_matrix
         wobject_wrappers = self._wobject_wrappers
 
-        for wobject in scene.iter(skip_invisible=True):
+        for wobject, render_group, render_order in self._iter_scene(scene):
             # Assign renderer id's
             self.object_count += wobject._assign_renderer_id(self.object_count + 1)
             # Update things like transform and uniform buffers
@@ -154,8 +163,6 @@ class FlatScene:
                     distance_to_camera = float(-relative_pos[2])
                     dist_flag = distance_to_camera * dist_sort_sign
 
-                render_group = wobject.render_group
-                render_order = wobject.render_order
                 sort_key = (
                     render_group,
                     transparency_pass,
