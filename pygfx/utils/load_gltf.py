@@ -1305,7 +1305,9 @@ class GLTFMaterialsSheenExtension(GLTFBaseMaterialsExtension):
 
         sheen_color_texture = extension.get("sheenColorTexture", None)
         if sheen_color_texture is not None:
-            material.sheen_color_map = self._load_texture(sheen_color_texture)
+            material.sheen_color_map = self.parser._load_gltf_texture_map(
+                sheen_color_texture
+            )
 
         sheen_roughness_factor = extension.get("sheenRoughnessFactor", None)
         if sheen_roughness_factor is not None:
@@ -1313,7 +1315,9 @@ class GLTFMaterialsSheenExtension(GLTFBaseMaterialsExtension):
 
         sheen_roughness_texture = extension.get("sheenRoughnessTexture", None)
         if sheen_roughness_texture is not None:
-            material.sheen_roughness_map = self._load_texture(sheen_roughness_texture)
+            material.sheen_roughness_map = self.parser._load_gltf_texture_map(
+                sheen_roughness_texture
+            )
 
 
 class GLTFMaterialsEmissiveStrengthExtension(GLTFBaseMaterialsExtension):
