@@ -18,11 +18,12 @@ TEST_COMPARE_VALUES = "<", "<=", "==", "!=", ">=", ">"  # for alpha_test and dep
 
 
 ALPHA_MODES = {
-    "solid": {  # TODO: maybe the default solid should pre-multiply, so you at least see when it's wrong.
+    # alpha_mode auto is resolved in the code
+    "solid": {
         "method": "opaque",
         "premultiply_alpha": False,
     },
-    "solid_premultiply": {
+    "solid_premul": {
         "method": "opaque",
         "premultiply_alpha": True,
     },
@@ -156,7 +157,7 @@ class Material(Trackable):
         opacity: float = 1,
         clipping_planes: Sequence[ABCDTuple] = (),
         clipping_mode: Literal["ANY", "ALL"] = "ANY",
-        alpha_mode: str = "solid",
+        alpha_mode: str = "auto",
         alpha_config: Optional[dict] = None,
         depth_test: bool = True,
         depth_compare: str = "<",
@@ -251,6 +252,7 @@ class Material(Trackable):
         value = min(max(float(value), 0), 1)
         self.uniform_buffer.data["opacity"] = value
         self.uniform_buffer.update_full()
+        self._store.opacity_is_one = value == 1
 
     @property
     def clipping_planes(self) -> Sequence[ABCDTuple]:
@@ -328,7 +330,7 @@ class Material(Trackable):
         Modes for method "opaque" (overwrites the value in the output texture):
 
         * "solid": alpha is ignored.
-        * "solid_premultiply": the alpha is multipled with the color (making it darker).
+        * "solid_premul": the alpha is multipled with the color (making it darker).
 
         Modes for method "stochastic" (alpha represents the chance of a fragment being visible):
 
@@ -337,6 +339,7 @@ class Material(Trackable):
 
         Modes for method "composite" (per-fragment blending of the object's color and the color in the output texture):
 
+        * "auto": same as "blend", except that ``depth_write`` defaults to True if ``opacity==1``. ``*``
         * "blend": use classic alpha blending using the over-operator.
         * "add": use additive blending that adds the fragment color, multiplied by alpha.
         * "subtract": use subtractuve blending that removes the fragment color.
@@ -347,6 +350,17 @@ class Material(Trackable):
         * "weighted_blend": weighted blended order independent transparency.
         * "weighted_depth": weighted blended order independent transparency, weighted by depth.
         * "weighted_solid": fragments are combined based on alpha, but the final alpha is always 1. Great for e.g. image stitching.
+
+        ``*`` The special 'auto' mode produces reasonable results for common
+        use-cases and can even handle objects that produce a mix of opaque
+        (alpha=1) and transparent (alpha<1) fragments. Although it can also
+        quickly produce artifacts, in which case one should consider one of the
+        other alpha modes.
+
+        Note that for methods 'opaque' and 'stochastic', the ``depth_write``
+        defaults to True, and for methods 'composite' and 'weighted' the
+        ``depth_write`` defaults to False. The one exception being alpha-mode
+        'auto'.
 
         Note that the value of ``material.alpha_mode`` can be "custom" in case
         ``alpa_config`` is set to a configuration not covered by a prefix.
@@ -373,13 +387,15 @@ class Material(Trackable):
             raise ValueError(
                 f"material.alpha_mode is set to {alpha_mode!r} which is an alpha-method. Maybe you meant {suggestion!r}?"
             )
-        if alpha_mode not in AlphaMode:
-            raise ValueError(
-                f"material.alpha_mode must be one of {AlphaMode}, not {alpha_mode!r}"
-            )
-        if alpha_mode == "custom":
-            raise ValueError("Cannot set material.alpha_mode with 'custom'")
-        self.alpha_config = ALPHA_MODES[alpha_mode]
+            if alpha_mode not in AlphaMode:
+                raise ValueError("Cannot set material.alpha_mode with 'custom'")
+
+        if alpha_mode == "auto":
+            d = ALPHA_MODES["blend"].copy()
+            d["mode"] = "auto"
+        else:
+            d = ALPHA_MODES[alpha_mode]
+        self.alpha_config = d
 
     @property
     def alpha_config(self) -> dict:
@@ -456,7 +472,7 @@ class Material(Trackable):
 
         # Init with a preset?
         mode = alpha_config.get("mode", None)
-        if mode and mode != "custom":
+        if mode and mode not in ("auto", "custom"):
             if mode not in ALPHA_MODES:
                 raise ValueError(f"Invalid mode in material.alpha_config: {mode!r}")
             d = ALPHA_MODES[mode]
@@ -503,6 +519,8 @@ class Material(Trackable):
                 if mode_dict == options:
                     the_mode = mode_name
                     break
+        if mode == "auto" and the_mode == "blend":
+            the_mode = "auto"
 
         # Save
         self._store.alpha_method = method
@@ -590,7 +608,10 @@ class Material(Trackable):
         """
         depth_write = self._store.depth_write
         if depth_write is None:
-            depth_write = not self.transparency_pass
+            if self._store.alpha_config["mode"] == "auto":
+                depth_write = self._store.opacity_is_one
+            else:
+                depth_write = not self._store.alpha_config["transparency_pass"]
         return depth_write
 
     @depth_write.setter

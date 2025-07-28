@@ -66,14 +66,15 @@ def handle_event(event):
         clr = "#fff" if background.material.color_bottom_left == "#000" else "#000"
         print(f"Changing background color to {clr}")
         background.material.set_colors(clr)
-    elif event.key in "12345":
+    elif event.key in "123456":
         m = [
             None,
             "solid",  # 1
-            "blend",  # 2
-            "add",  # 3
-            "dither",  # 4
-            "weighted_blend",  # 5
+            "solid_premul", # 2
+            "blend",  # 3
+            "add",  # 4
+            "dither",  # 5
+            "weighted_blend",  # 6
         ]
         alpha_mode = m[int(event.key)]
         for plane in plane1, plane2, plane3:

@@ -15,11 +15,9 @@ import pygfx as gfx
 import numpy as np
 
 canvas = RenderCanvas()
-renderer = gfx.renderers.WgpuRenderer(canvas, pixel_ratio=0.5, pixel_filter="nearest")
+renderer = gfx.renderers.WgpuRenderer(canvas)
 scene1 = gfx.Scene()
 scene1.add(gfx.Background.from_color("#000"))
-
-# add image
 
 
 def create_texcoords_array(ny, nx):
@@ -34,20 +32,6 @@ def create_pyramid_weights(ny, nx):
     return center_coords.min(axis=2)
 
 
-# TODO: CLEAN UP
-# Define the weighted_mode using a dict. We use weighted alpha_mode, using the alpha
-# channel as weights, and setting the final alpha to 1.
-#
-# The commented line shows how we could use the shader texcoord to create the
-# same effect. This avoids having to create the pyramid alpha channel for the
-# image, but it's a less portable solution because it assumes that the shader
-# has a 'texcoord' on its varying.
-weighted_mode = {
-    "weight": "alpha",
-    # "weight": "1.0 - 2.0*max(abs(varyings.texcoord.x - 0.5), abs(varyings.texcoord.y - 0.5))",
-    "alpha": "1.0",
-}
-
 x = 0
 for image_name in ["wood.jpg", "bricks.jpg"]:
     rgb = iio.imread(f"imageio:{image_name}")[:, :, :3]  # Drop alpha if it has it
@@ -59,8 +43,6 @@ for image_name in ["wood.jpg", "bricks.jpg"]:
         gfx.Geometry(grid=gfx.Texture(rgba, dim=2)),
         gfx.ImageBasicMaterial(
             clim=(0, 255),
-            # alpha_mode="weighted",
-            # weighted_mode=weighted_mode,
             alpha_mode="weighted_solid",
             depth_write=False,
         ),
@@ -69,10 +51,9 @@ for image_name in ["wood.jpg", "bricks.jpg"]:
     image.local.x = x
     x += rgba.shape[1] - 200
 
-scene2 = gfx.Scene()
+
+# Text is rendered as an overlay (using render_group=1)
 text = gfx.Text("Image stitching", font_size=64, anchor="top-left", render_group=1)
-text.material.alpha_mode = "solid"
-# text.render_order = 1  # render the text on top
 text.local.scale_y = -1
 scene1.add(text)
 

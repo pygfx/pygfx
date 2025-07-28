@@ -197,7 +197,7 @@ All fragment functions in Pygfx look somewhat like this:
                 out.color = vec4<f32>(...);
                 return out;
             }
-            """s
+            """
 
 Picking
 -------

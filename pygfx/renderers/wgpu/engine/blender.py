@@ -230,10 +230,16 @@ class Blender:
 
         # Get the color_blend mini-dict
         if alpha_method == "opaque":
-            color_blend = {
-                "alpha": blend_dict(bf.one, bf.zero, bo.add),
-                "color": blend_dict(bf.one, bf.zero, bo.add),
-            }
+            if alpha_config["premultiply_alpha"]:
+                color_blend = {
+                    "alpha": blend_dict(bf.one, bf.zero, bo.add),
+                    "color": blend_dict(bf.src_alpha, bf.zero, bo.add),
+                }
+            else:
+                color_blend = {
+                    "alpha": blend_dict(bf.one, bf.zero, bo.add),
+                    "color": blend_dict(bf.one, bf.zero, bo.add),
+                }
         elif alpha_method == "composite":
             color_blend = {
                 "color": blend_dict(

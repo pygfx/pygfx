@@ -56,10 +56,11 @@ class AlphaMethod(Enum):
 class AlphaMode(Enum):
     """Emum that defines how the alpha value of an object is used to to combine the resulting color with the target color texture."""
 
-    solid = None  #: alpha is ignored.
-    solid_premultiply = (
-        None  #: the alpha is multipled with the color (making it darker).
+    auto = (
+        None  #: use classic blending, while depth_write defaults to True if opacity==1.
     )
+    solid = None  #: alpha is ignored.
+    solid_premul = None  #: the alpha is multiplied with the color (making it darker).
     dither = None  #: stochastic transparency with blue noise.
     bayer4 = None  #: stochastic transparency with a 4x4 Bayer pattern.
     blend = None  #: use classic alpha blending using the over-operator.
