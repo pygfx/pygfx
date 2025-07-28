@@ -465,13 +465,18 @@ class Blender:
             # * varyings.elementIndex to prevent two regions of the same object
             #   to get the same pattern, e.g. two points in a points object.
 
-            pattern = alpha_config.get("pattern", "blue_noise").lower()
-            random_call = "blueNoise2(upos2)"
-            if pattern == "white_noise":
-                random_call = "hash_to_f32(hashu(upos2.x)*hashu(upos2.y))"
-            elif pattern == "bayer":
-                # Using upos2 becomes too noise, but upos1 (i.e. including the per-object seed) seems quite alright!
-                random_call = "bayerPattern(upos1)"
+            seed = alpha_config.get("seed", "screen").lower()
+            upos = "upos" + str({"screen": 0, "object": 1, "element": 2}[seed])
+            pattern = alpha_config.get("pattern", "blue").lower().replace("_", "-")
+            if pattern in ("blue-noise", "blue"):
+                random_call = f"blueNoise2({upos})"
+            elif pattern in ("white-noise", "white"):
+                random_call = f"whiteNoise({upos})"
+            elif pattern in ("bayer8", "bayer"):
+                # Using upos2 becomes too noisy, but upos1 (i.e. including the per-object seed) seems quite alright!
+                random_call = f"bayerPattern({upos})"
+            else:
+                raise ValueError(f"Unexpected stochastic pattern: {pattern!r}")
 
             fragment_output_code = load_wgsl("noise.wgsl")  # cannot use include here
 

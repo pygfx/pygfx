@@ -48,7 +48,7 @@ material = gfx.PointsGaussianBlobMaterial(
     color_mode="vertex",
     size_mode="vertex",
     size_space="world",
-    alpha_mode="bayer4",
+    alpha_mode="bayer",
 )
 points = gfx.Points(geometry, material)
 scene.add(points)

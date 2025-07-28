@@ -36,7 +36,7 @@ for i in range(n):
     # Dither bayer
     m = gfx.Mesh(
         plane,
-        gfx.MeshBasicMaterial(color="#fff", opacity=alpha, alpha_mode="bayer4"),
+        gfx.MeshBasicMaterial(color="#fff", opacity=alpha, alpha_mode="bayer"),
     )
     m.local.x = i
     m.local.y = 1 * dy

@@ -18,7 +18,7 @@ TEST_COMPARE_VALUES = "<", "<=", "==", "!=", ">=", ">"  # for alpha_test and dep
 
 
 ALPHA_MODES = {
-    # alpha_mode auto is resolved in the code
+    # alpha_mode 'auto' is resolved in the code
     "solid": {
         "method": "opaque",
         "premultiply_alpha": False,
@@ -30,10 +30,12 @@ ALPHA_MODES = {
     "dither": {
         "method": "stochastic",
         "pattern": "blue_noise",
+        "seed": "element",
     },
-    "bayer4": {
+    "bayer": {
         "method": "stochastic",
-        "pattern": "bayer4",
+        "pattern": "bayer",
+        "seed": "object",  # bc not enough variation to do 'element'
     },
     "blend": {
         "method": "composite",
@@ -84,11 +86,6 @@ ALPHA_MODES = {
         "weight": "alpha",
         "alpha": "alpha",
     },
-    "weighted_depth": {
-        "method": "weighted",
-        "weight": "alpha",
-        "alpha": "alpha",
-    },  # TODO: weighted blend
     "weighted_solid": {
         "method": "weighted",
         "weight": "alpha",
@@ -335,7 +332,7 @@ class Material(Trackable):
         Modes for method "stochastic" (alpha represents the chance of a fragment being visible):
 
         * "dither": stochastic transparency with blue noise.
-        * "bayer4": stochastic transparency with a 4x4 Bayer pattern.
+        * "bayer": stochastic transparency with an 8x8 Bayer pattern.
 
         Modes for method "composite" (per-fragment blending of the object's color and the color in the output texture):
 
@@ -348,7 +345,6 @@ class Material(Trackable):
         Modes for method "weighted" (order independent blending):
 
         * "weighted_blend": weighted blended order independent transparency.
-        * "weighted_depth": weighted blended order independent transparency, weighted by depth.
         * "weighted_solid": fragments are combined based on alpha, but the final alpha is always 1. Great for e.g. image stitching.
 
         ``*`` The special 'auto' mode produces reasonable results for common
@@ -428,9 +424,11 @@ class Material(Trackable):
 
         Options for method 'stochastic':
 
-        * "pattern": can be 'blue_noise' for blue noise (default), 'white_noise' for white
-          noise, and 'bayer4' for a Bayer pattern. The Bayer option mixes objects
+        * "pattern": can be 'blue-noise' for blue noise (default), 'white-noise' for white
+          noise, and 'bayer' for a Bayer pattern. The Bayer option mixes objects
           but not elements within objects.
+        * "seed": can be 'screen' to have a uniform pattern for the whole screen, 'object' to
+          use a per-object seed, and 'element' to have a per-element seed.
 
         Options for method 'composite':
 
@@ -484,8 +482,8 @@ class Material(Trackable):
             keys = ["premultiply_alpha"]
             defaults = {}
         elif method == "stochastic":
-            keys = ["pattern"]
-            defaults = {"pattern": "blue_noise"}
+            keys = ["pattern", "seed"]
+            defaults = {"pattern": "blue_noise", "seed": "screen"}
         elif method == "composite":
             keys = [
                 "color_op",
