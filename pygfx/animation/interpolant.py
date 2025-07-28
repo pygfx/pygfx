@@ -52,7 +52,7 @@ class Interpolant:
         t0 = pp[i1 - 1] if i1 > 0 else None
 
         # check if t is in the interval of the cached index, scan the 2 adjacent intervals at most
-        if (t1 is None and t > t0) or t >= t1:
+        if (t1 is not None and t >= t1) or (t1 is None and t >= t0):
             # scan the right side of the interval, at most 2 intervals
             for _ in range(2):
                 i1 += 1
