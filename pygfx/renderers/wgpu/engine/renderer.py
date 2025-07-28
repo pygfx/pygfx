@@ -125,13 +125,13 @@ class FlatScene:
             if material is not None:
                 # Get material props related to sorting
                 depth_write = material.depth_write
-                mix_config = material.mix_config
-                mix_mode = mix_config["mode"]
-                transparency_pass = mix_config["transparency_pass"]
-                # typically this is ``mix_mode in ("opaque", "stochastic")``, but users can override
+                alpha_config = material.alpha_config
+                alpha_method = alpha_config["method"]
+                transparency_pass = alpha_config["transparency_pass"]
+                # typically this is ``alpha_method in ("opaque", "stochastic")``, but users can override
 
                 # Get pass type and distance sort sign
-                if mix_mode == "weighted":
+                if alpha_method == "weighted":
                     # Weighted blending is a bit like a sub-pass (to usually the transparency pass).
                     # The grouping occurs naturally because of the dist_flag.
                     pass_type = "weighted"
@@ -151,7 +151,7 @@ class FlatScene:
                 # Get depth sorting flag. Note that use camera's view matrix, since the projection does not affect the depth order.
                 # It also means we can set projection=False optimalization.
                 # Also note that we look down -z.
-                if dist_sort_sign == 0:  # mix_mode == "weighted"
+                if dist_sort_sign == 0:  # alpha_method == "weighted"
                     dist_flag = 0
                 elif view_matrix is None:
                     dist_flag = -1
@@ -498,13 +498,13 @@ class WgpuRenderer(RootEventHandler, Renderer):
     @property
     def blend_mode(self):
         raise DeprecationWarning(
-            "renderer.blend_mode is removed. Use material.mix instead."
+            "renderer.blend_mode is removed. Use material.alpha_mode instead."
         )
 
     @blend_mode.setter
     def blend_mode(self, value):
         raise DeprecationWarning(
-            "renderer.blend_mode is removed. Use material.mix instead."
+            "renderer.blend_mode is removed. Use material.alpha_mode instead."
         )
 
     @property

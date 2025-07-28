@@ -69,17 +69,17 @@ def handle_event(event):
     elif event.key in "12345":
         m = [
             None,
-            "opaque",  # 1
-            "over",  # 2
+            "solid",  # 1
+            "blend",  # 2
             "add",  # 3
             "dither",  # 4
-            "weighted",  # 5
+            "weighted_blend",  # 5
         ]
-        preset = m[int(event.key)]
+        alpha_mode = m[int(event.key)]
         for plane in plane1, plane2, plane3:
-            plane.material.alpha_mode = preset
-        print("Selecting alpha mode preset", preset)
-        blend_text.set_text(f"alpha_mode: {preset}")
+            plane.material.alpha_mode = alpha_mode
+        print("Selecting alpha_mode", alpha_mode)
+        blend_text.set_text(f"alpha_mode: {alpha_mode}")
     canvas.request_draw()
 
 

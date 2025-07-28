@@ -297,7 +297,7 @@ class WorldObject(EventTarget, Trackable):
 
         The final sort order is typically determined by:
             1. effective ``render_group``
-            2. ``material.mix_config['transparent_pass']``
+            2. ``material.alpha_config['transparent_pass']``
             3. effective ``render_order``
             4. distance to camera (for transparent/composite passes)
 
@@ -317,7 +317,7 @@ class WorldObject(EventTarget, Trackable):
     @render_mask.setter
     def render_mask(self, value):
         raise DeprecationWarning(
-            "render_mask is deprecated, see material.mix to control how the renderer should treat an object."
+            "render_mask is deprecated, see material.alpha_mode to control how the renderer should treat an object."
         )
 
     @property

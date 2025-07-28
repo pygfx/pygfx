@@ -44,8 +44,8 @@ class Enum(BaseEnum):
     """Enum base class for pygfx."""
 
 
-class MixMode(Enum):
-    """Enum hat defined the different mix modes."""
+class AlphaMethod(Enum):
+    """Enum hat defined the different alpha methods."""
 
     opaque = None  #: opaque object
     stochastic = None  #: stochastic transparency
@@ -53,7 +53,7 @@ class MixMode(Enum):
     weighted = None  #: weighted blending
 
 
-class MixPreset(Enum):
+class AlphaMode(Enum):
     """Emum that defines how the alpha value of an object is used to to combine the resulting color with the target color texture."""
 
     solid = None  #: alpha is ignored.
@@ -71,7 +71,7 @@ class MixPreset(Enum):
         None  #: weighted blended order independent transparency, weighted by depth.
     )
     weighted_solid = None  #: fragments are combined based on alpha, but the final alpha is always 1. Great for e.g. image stitching.
-    custom = None  #: value to indicate a custom mix config.
+    custom = None  #: value to indicate a custom alpha config.
 
 
 class EdgeMode(Enum):

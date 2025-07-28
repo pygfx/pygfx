@@ -52,12 +52,12 @@ scene_overlay = gfx.Scene()
 
 blend_text = gfx.Text(
     text=f"alpha_mode: {plane1.material.alpha_mode}",
-    anchor="top-left",
+    anchor="bottom-left",
     material=gfx.TextMaterial(outline_thickness=0.3),
 )
 scene_overlay.add(blend_text)
 
-screen_camera = gfx.ScreenCoordsCamera(invert_y=True)
+screen_camera = gfx.ScreenCoordsCamera()
 
 controller = gfx.OrbitController(camera, register_events=renderer)
 
@@ -75,17 +75,17 @@ def handle_event(event):
     elif event.key in "12345":
         m = [
             None,
-            "no",  # 1
-            "normal",  # 2
-            "additive",  # 3
+            "solid",  # 1
+            "blend",  # 2
+            "add",  # 3
             "dither",  # 4
-            "weighted",  # 5
+            "weighted_blend",  # 5
         ]
-        preset = m[int(event.key)]
+        alpha_mode = m[int(event.key)]
         for plane in plane1, plane2, plane3:
-            plane.material.alpha_mode = preset
-        print("Selecting blending", preset)
-        blend_text.set_text(f"Blending: {preset}")
+            plane.material.alpha_mode = alpha_mode
+        print("Selecting blending", alpha_mode)
+        blend_text.set_text(f"alpha_mode: {alpha_mode}")
 
 
 def animate():

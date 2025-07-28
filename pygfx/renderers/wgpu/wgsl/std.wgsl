@@ -9,7 +9,7 @@
 //
 // Also adds auto-generated code for:
 //
-// * FragmentOutput (implementation depends on alpha mode and picking)
+// * FragmentOutput (implementation depends on alpha_method and picking)
 // * Bindings (as specified via shader.define_binding())
 //
 // In addition to this, the shader will also:

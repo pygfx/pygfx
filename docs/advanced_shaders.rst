@@ -197,35 +197,7 @@ All fragment functions in Pygfx look somewhat like this:
                 out.color = vec4<f32>(...);
                 return out;
             }
-            """
-
-TODO: I think we should remove this part of the API
-For some alpha modes the output struct is modified automatically,
-and users can influence this process. E.g. to explicitly set a seed for
-the 'dither' mode:
-
-.. code-block::
-
-    ...
-    var out: FragmentOutput;
-    out.color = vec4<f32>(...);
-    $$ if alpha_mode == 'dither'
-    out.seed1 = f32(...);
-    $$ endif
-    return out;
-
-... or set the weight for 'weighted' mode:
-
-.. code-block::
-
-    ...
-    var out: FragmentOutput;
-    out.color = vec4<f32>(...);
-    $$ if alpha_mode == 'weighted'
-    out.weight = f32(...);
-    $$ endif
-    return out;
-
+            """s
 
 Picking
 -------

@@ -15,7 +15,7 @@ import pygfx as gfx
 import numpy as np
 
 canvas = RenderCanvas()
-renderer = gfx.renderers.WgpuRenderer(canvas)
+renderer = gfx.renderers.WgpuRenderer(canvas, pixel_ratio=0.5, pixel_filter="nearest")
 scene1 = gfx.Scene()
 scene1.add(gfx.Background.from_color("#000"))
 
@@ -34,6 +34,7 @@ def create_pyramid_weights(ny, nx):
     return center_coords.min(axis=2)
 
 
+# TODO: CLEAN UP
 # Define the weighted_mode using a dict. We use weighted alpha_mode, using the alpha
 # channel as weights, and setting the final alpha to 1.
 #
@@ -58,8 +59,9 @@ for image_name in ["wood.jpg", "bricks.jpg"]:
         gfx.Geometry(grid=gfx.Texture(rgba, dim=2)),
         gfx.ImageBasicMaterial(
             clim=(0, 255),
-            alpha_mode="weighted",
-            weighted_mode=weighted_mode,
+            # alpha_mode="weighted",
+            # weighted_mode=weighted_mode,
+            alpha_mode="weighted_solid",
             depth_write=False,
         ),
     )
@@ -68,8 +70,9 @@ for image_name in ["wood.jpg", "bricks.jpg"]:
     x += rgba.shape[1] - 200
 
 scene2 = gfx.Scene()
-text = gfx.Text("Image stitching", font_size=64, anchor="top-left")
-text.render_order = 1  # render the text on top
+text = gfx.Text("Image stitching", font_size=64, anchor="top-left", render_group=1)
+text.material.alpha_mode = "solid"
+# text.render_order = 1  # render the text on top
 text.local.scale_y = -1
 scene1.add(text)
 
@@ -81,7 +84,7 @@ controller = gfx.PanZoomController(camera, register_events=renderer)
 
 
 def animate():
-    renderer.render(scene1, camera)
+    renderer.render(scene1, camera, flush=True)
 
 
 if __name__ == "__main__":

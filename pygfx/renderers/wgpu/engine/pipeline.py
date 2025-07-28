@@ -353,10 +353,10 @@ class PipelineContainer:
             self.wobject_info = {}
             with tracker.track_usage("reset"):
                 self.wobject_info["pick_write"] = wobject.material.pick_write
-                mix_mode = wobject.material._store.mix_mode
-                self.wobject_info["mix_mode"] = mix_mode
-                if mix_mode in ["opaque", "stochastic", "weighted"]:
-                    self.wobject_info["mix_config"] = wobject.material.mix_config
+                alpha_method = wobject.material._store.alpha_method
+                self.wobject_info["alpha_method"] = alpha_method
+                if alpha_method in ["opaque", "stochastic", "weighted"]:
+                    self.wobject_info["alpha_config"] = wobject.material.alpha_config
 
             changed.update(("bindings", "pipeline_info", "render_info"))
             self.wgpu_shader = None
@@ -377,7 +377,7 @@ class PipelineContainer:
                 self.wobject_info["depth_compare"] = wobject.material.depth_compare
                 self.wobject_info["depth_write"] = wobject.material.depth_write
                 # For composite, the details need a new pipeline, but not a new shader
-                self.wobject_info["mix_config"] = wobject.material.mix_config
+                self.wobject_info["alpha_config"] = wobject.material.alpha_config
             self._check_pipeline_info()
             changed.add("render_info")
             self.wgpu_pipeline = None
@@ -586,7 +586,7 @@ class RenderPipelineContainer(PipelineContainer):
 
         blender_kwargs = blender.get_shader_kwargs(
             self.wobject_info["pick_write"],
-            self.wobject_info["mix_config"],
+            self.wobject_info["alpha_config"],
         )
         renderstate_kwargs = renderstate.get_shader_kwargs(renderstate_bind_group_index)
         shader_kwargs = blender_kwargs.copy()
@@ -620,7 +620,7 @@ class RenderPipelineContainer(PipelineContainer):
         depth_write = self.wobject_info["depth_write"]
         color_descriptors = blender.get_color_descriptors(
             self.wobject_info["pick_write"],
-            self.wobject_info["mix_config"],
+            self.wobject_info["alpha_config"],
         )
         depth_descriptor = blender.get_depth_descriptor(
             depth_test, depth_compare, depth_write

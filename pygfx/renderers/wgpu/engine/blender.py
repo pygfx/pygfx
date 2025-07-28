@@ -1,5 +1,5 @@
 """
-The blender is the part of the renderer that manages output targets and alpha mode configuration, based on material.mix_config.
+The blender is the part of the renderer that manages output targets and alpha_config.
 """
 
 import wgpu  # only for flags/enums
@@ -219,43 +219,43 @@ class Blender:
         # All textures are invalidated too
         self._textures = {}
 
-    def get_color_descriptors(self, material_pick_write, mix_config):
+    def get_color_descriptors(self, material_pick_write, alpha_config):
         """Get the dict color-descriptors that pipeline.py needs to create the render pipeline.
 
         Called per object when the pipeline is created.
         """
         bf, bo = wgpu.BlendFactor, wgpu.BlendOperation
 
-        mix_mode = mix_config["mode"]
+        alpha_method = alpha_config["method"]
 
         # Get the color_blend mini-dict
-        if mix_mode == "opaque":
+        if alpha_method == "opaque":
             color_blend = {
                 "alpha": blend_dict(bf.one, bf.zero, bo.add),
                 "color": blend_dict(bf.one, bf.zero, bo.add),
             }
-        elif mix_mode == "composite":
+        elif alpha_method == "composite":
             color_blend = {
                 "color": blend_dict(
-                    mix_config["color_src"],
-                    mix_config["color_dst"],
-                    mix_config.get("color_op", "add"),
+                    alpha_config["color_src"],
+                    alpha_config["color_dst"],
+                    alpha_config.get("color_op", "add"),
                 ),
                 "alpha": blend_dict(
-                    mix_config["alpha_src"],
-                    mix_config["alpha_dst"],
-                    mix_config.get("alpha_op", "add"),
+                    alpha_config["alpha_src"],
+                    alpha_config["alpha_dst"],
+                    alpha_config.get("alpha_op", "add"),
                 ),
             }
-        elif mix_mode == "stochastic":
+        elif alpha_method == "stochastic":
             color_blend = {
                 "alpha": blend_dict(bf.one, bf.zero, bo.add),
                 "color": blend_dict(bf.one, bf.zero, bo.add),
             }
-        elif mix_mode == "weighted":
+        elif alpha_method == "weighted":
             color_blend = None  # handled below
         else:
-            raise RuntimeError(f"Unexpected mix_mode {mix_mode!r}")
+            raise RuntimeError(f"Unexpected alpha_method {alpha_method!r}")
 
         # Build target state dicts
         color_target_state = {
@@ -265,8 +265,8 @@ class Blender:
         }
         target_states = [color_target_state]
 
-        # More work for 'weighted' mode
-        if mix_mode == "weighted":
+        # More work for 'weighted' method5
+        if alpha_method == "weighted":
             accum_target_state = {
                 "name": "accum",
                 "blend": {
@@ -422,12 +422,12 @@ class Blender:
             "depth_store_op": wgpu.StoreOp.store,
         }
 
-    def get_shader_kwargs(self, material_pick_write, mix_config):
-        """Get the shader templating variables for the given alpha mode."""
+    def get_shader_kwargs(self, material_pick_write, alpha_config):
+        """Get the shader templating variables for the given alpha config."""
 
-        mix_mode = mix_config["mode"]
+        alpha_method = alpha_config["method"]
 
-        if mix_mode in ("opaque", "composite"):
+        if alpha_method in ("opaque", "composite"):
             fragment_output_code = """
             struct FragmentOutput {
                 @location(0) color: vec4<f32>,
@@ -435,7 +435,7 @@ class Blender:
             };
             """
 
-        elif mix_mode == "stochastic":
+        elif alpha_method == "stochastic":
             # We want the seed for the random function to be such that the
             # result is deterministic, so that rendered images can be visually
             # compared. We also (in general) want the seed to be stable for e.g.
@@ -459,7 +459,7 @@ class Blender:
             # * varyings.elementIndex to prevent two regions of the same object
             #   to get the same pattern, e.g. two points in a points object.
 
-            pattern = mix_config.get("pattern", "blue_noise").lower()
+            pattern = alpha_config.get("pattern", "blue_noise").lower()
             random_call = "blueNoise2(upos2)"
             if pattern == "white_noise":
                 random_call = "hash_to_f32(hashu(upos2.x)*hashu(upos2.y))"
@@ -516,12 +516,12 @@ class Blender:
             }
             """.replace("RANDOM_CALL", random_call)
 
-        elif mix_mode == "weighted":
+        elif alpha_method == "weighted":
             use_alpha = "alpha", "use_alpha", "weighted_blending_use_alpha"
-            weight_default = mix_config.get("weight", "alpha")
+            weight_default = alpha_config.get("weight", "alpha")
             if weight_default in use_alpha:
                 weight_default = "weighted_blending_use_alpha"
-            alpha_default = mix_config.get("alpha", "alpha")
+            alpha_default = alpha_config.get("alpha", "alpha")
             if alpha_default in use_alpha:
                 alpha_default = "weighted_blending_use_alpha"
 
@@ -554,7 +554,7 @@ class Blender:
             #    out.reveal = 1.0 - 1.0 / (1.0 - alpha);
 
         else:
-            raise RuntimeError(f"Unexpected mix_mode {mix_mode!r}")
+            raise RuntimeError(f"Unexpected alpha_method {alpha_method!r}")
 
         # Enable/disable picking in the shader
         do_pick = material_pick_write and "pick" in self._texture_info
@@ -563,7 +563,7 @@ class Blender:
         )
 
         return {
-            "mix_mode": mix_mode,
+            "alpha_method": alpha_method,
             "fragment_output_code": fragment_output_code,
             "write_pick": do_pick,
         }

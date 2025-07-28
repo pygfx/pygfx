@@ -33,8 +33,8 @@ class BackgroundMaterial(Material):
         color_top_right="4xf4",
     )
 
-    def __init__(self, *colors, mix="solid", **kwargs):
-        super().__init__(mix=mix, **kwargs)
+    def __init__(self, *colors, alpha_mode="solid", **kwargs):
+        super().__init__(alpha_mode=alpha_mode, **kwargs)
         self.set_colors(*colors)
 
     def set_colors(self, *colors):

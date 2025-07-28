@@ -33,7 +33,7 @@ for i, color in enumerate(colors):
         plane,
         gfx.MeshBasicMaterial(
             color=color,
-            alpha_mode="add",  # short for alpha_mode='blend', blend_mode='add'
+            alpha_mode="add",
         ),
     )
     m.local.x = x

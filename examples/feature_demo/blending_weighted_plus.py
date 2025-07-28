@@ -32,7 +32,6 @@ scene = gfx.Scene()
 background = gfx.Background.from_color("#000")
 
 sphere = gfx.Mesh(gfx.sphere_geometry(10), gfx.MeshPhongMaterial())
-sphere.material.alpha_mode = "opaque"
 
 geometry = gfx.plane_geometry(50, 50)
 
@@ -70,8 +69,10 @@ opaque_objects = [sphere]
 transparent_objects = [plane1, plane2, plane3]
 objects = opaque_objects + transparent_objects
 
+for ob in opaque_objects:
+    ob.material.alpha_mode = "solid"
 for ob in transparent_objects:
-    ob.material.alpha_mode = "weighted"
+    ob.material.alpha_mode = "weighted_blend"
 
 for ob in objects:
     # Clone the material

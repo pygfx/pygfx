@@ -75,7 +75,7 @@ def make_object_ordered2(ob1):
     ob2 = clone(ob1)
 
     # The original object is used to draw only opaque fragments (alpha == 1)
-    ob1.material.alpha_mode = "opaque"
+    ob1.material.alpha_mode = "solid"
     ob1.material.alpha_test = 0.999
     ob1.material.alpha_compare = "<"
 

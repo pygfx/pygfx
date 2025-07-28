@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 from ..utils.trackable import Trackable
 from ..utils import array_from_shadertype, ReadOnlyDict
 from ..resources import Buffer
-from ..utils.enums import MixMode, MixPreset
+from ..utils.enums import AlphaMethod, AlphaMode
 
 
 if TYPE_CHECKING:
@@ -17,25 +17,25 @@ if TYPE_CHECKING:
 TEST_COMPARE_VALUES = "<", "<=", "==", "!=", ">=", ">"  # for alpha_test and depth_test
 
 
-MIX_PRESETS = {
+ALPHA_MODES = {
     "solid": {  # TODO: maybe the default solid should pre-multiply, so you at least see when it's wrong.
-        "mode": "opaque",
+        "method": "opaque",
         "premultiply_alpha": False,
     },
     "solid_premultiply": {
-        "mode": "opaque",
+        "method": "opaque",
         "premultiply_alpha": True,
     },
     "dither": {
-        "mode": "stochastic",
+        "method": "stochastic",
         "pattern": "blue_noise",
     },
     "bayer4": {
-        "mode": "stochastic",
+        "method": "stochastic",
         "pattern": "bayer4",
     },
     "blend": {
-        "mode": "composite",
+        "method": "composite",
         "color_op": "add",
         "alpha_op": "add",
         "color_constant": (0, 0, 0),
@@ -46,7 +46,7 @@ MIX_PRESETS = {
         "alpha_dst": "one-minus-src-alpha",
     },
     "add": {
-        "mode": "composite",
+        "method": "composite",
         "color_op": "add",
         "alpha_op": "add",
         "color_constant": (0, 0, 0),
@@ -57,7 +57,7 @@ MIX_PRESETS = {
         "alpha_dst": "one",
     },
     "subtract": {
-        "mode": "composite",
+        "method": "composite",
         "color_op": "add",
         "alpha_op": "add",
         "color_constant": (0, 0, 0),
@@ -68,7 +68,7 @@ MIX_PRESETS = {
         "alpha_dst": "one",
     },
     "multiply": {
-        "mode": "composite",
+        "method": "composite",
         "color_op": "add",
         "alpha_op": "add",
         "color_constant": (0, 0, 0),
@@ -79,17 +79,17 @@ MIX_PRESETS = {
         "alpha_dst": "src",
     },
     "weighted_blend": {
-        "mode": "weighted",
+        "method": "weighted",
         "weight": "alpha",
         "alpha": "alpha",
     },
     "weighted_depth": {
-        "mode": "weighted",
+        "method": "weighted",
         "weight": "alpha",
         "alpha": "alpha",
     },  # TODO: weighted blend
     "weighted_solid": {
-        "mode": "weighted",
+        "method": "weighted",
         "weight": "alpha",
         "alpha": "1.0",
     },
@@ -114,12 +114,12 @@ class Material(Trackable):
         is "any" (the default) a fragment is discarded if it is clipped by any
         clipping plane. If this is "all", a fragment is discarded only if it is
         clipped by *all* of the clipping planes.
-    mix : str
-        How the alpha value of an object is used to to mix the resulting color
+    alpha_mode : str
+        How the alpha value of an object is used to to combine the resulting color
         with the target color texture.
-    mix_config : dict
-        An advanced way to fully control the mixing behaviour. When both ``mix``
-        and ``mix_config`` are given, the latter is used.
+    alpha_config : dict
+        An advanced way to fully control the alpha behaviour. When both ``alpha_mode``
+        and ``alpha_config`` are given, the latter is used.
     depth_test :  bool
         Whether the object takes the depth buffer into account (and how).
         Default True.
@@ -156,8 +156,8 @@ class Material(Trackable):
         opacity: float = 1,
         clipping_planes: Sequence[ABCDTuple] = (),
         clipping_mode: Literal["ANY", "ALL"] = "ANY",
-        mix: str = "solid",
-        mix_config: Optional[dict] = None,
+        alpha_mode: str = "solid",
+        alpha_config: Optional[dict] = None,
         depth_test: bool = True,
         depth_compare: str = "<",
         depth_write: Literal[None, False, True] = None,
@@ -174,10 +174,10 @@ class Material(Trackable):
         self.opacity = opacity
         self.clipping_planes = clipping_planes
         self.clipping_mode = clipping_mode
-        if mix_config is None:
-            self.mix = mix
+        if alpha_config is None:
+            self.alpha_mode = alpha_mode
         else:
-            self.mix_config = mix_config
+            self.alpha_config = alpha_config
         self.depth_test = depth_test
         self.depth_compare = depth_compare
         self.depth_write = depth_write
@@ -315,106 +315,108 @@ class Material(Trackable):
             raise ValueError(f"Unexpected clipping_mode: {value}")
 
     @property
-    def mix(self) -> MixPreset:
-        """Preset that defines how the the resulting colors are combined with the target color texture.
+    def alpha_mode(self) -> AlphaMode:
+        """Defines how the the resulting colors are combined with the target color texture.
 
-        Mixing happens based on the fragment's alpha value, but there are many
-        ways to mix the color with the colors of earlier rendered objects. The
-        ``material.mix`` is the recommended convenient way to set the
-        ``mix_config`` that serves the majority of use-cases, see ``mix_config``
-        if more control is needed. There are a range of presets to choose from,
-        divided over four groups that we call modes:
+        There are many ways to combine the object's color with the colors of
+        earlier rendered objects. The ``material.alpha_mode`` is the recommended
+        way to set the ``alpha_config`` that serves the majority of use-cases.
+        If more control is needed, see ``alpha_config`` to set a custom alpha
+        mode. There are a range of modes to choose from, divided over four
+        possible methods:
 
-        Presets for mode "opaque" (overwrites the value in the output texture):
+        Modes for method "opaque" (overwrites the value in the output texture):
 
         * "solid": alpha is ignored.
         * "solid_premultiply": the alpha is multipled with the color (making it darker).
 
-        Presets for mode "stochastic" (alpha represents the chance of a fragment being visible):
+        Modes for method "stochastic" (alpha represents the chance of a fragment being visible):
 
         * "dither": stochastic transparency with blue noise.
         * "bayer4": stochastic transparency with a 4x4 Bayer pattern.
 
-        Presets for mode "composite" (per-fragment blending of the object's color and the color in the output texture):
+        Modes for method "composite" (per-fragment blending of the object's color and the color in the output texture):
 
         * "blend": use classic alpha blending using the over-operator.
         * "add": use additive blending that adds the fragment color, multiplied by alpha.
         * "subtract": use subtractuve blending that removes the fragment color.
         * "multiply": use multiplicative blending that multiplies the fragment color.
 
-        Presets for mode "weighted" (order independent blending):
+        Modes for method "weighted" (order independent blending):
 
         * "weighted_blend": weighted blended order independent transparency.
         * "weighted_depth": weighted blended order independent transparency, weighted by depth.
         * "weighted_solid": fragments are combined based on alpha, but the final alpha is always 1. Great for e.g. image stitching.
 
-        Note that the value of ``material.mix`` can be "custom" in case
-        ``mix_pattern`` is set to a configuration not covered by a prefix.
+        Note that the value of ``material.alpha_mode`` can be "custom" in case
+        ``alpa_config`` is set to a configuration not covered by a prefix.
         """
-        return self._store.mix_config["preset"]
+        return self._store.alpha_config["mode"]
 
-    @mix.setter
-    def mix(self, preset: MixPreset):
-        if isinstance(preset, dict):
+    @alpha_mode.setter
+    def alpha_mode(self, alpha_mode: AlphaMode):
+        if isinstance(alpha_mode, dict):
             raise TypeError(
-                "material.mix must be a str, not a dict, maybe you meant material.mix_config?"
+                "material.alpha_mode must be a str, not a dict, maybe you meant material.alpha_config?"
             )
-        if not isinstance(preset, str):
-            raise TypeError(f"material.mix must be a str, not {preset!r}")
-        preset = preset.lower()
-        if preset in MixMode:
+        if not isinstance(alpha_mode, str):
+            raise TypeError(f"material.alpha_mode must be a str, not {alpha_mode!r}")
+        alpha_mode = alpha_mode.lower()
+        if alpha_mode in AlphaMethod:
             m = {
                 "opaque": "solid",
                 "stochastic": "dither",
                 "composie": "blemd",
                 "weighted": "weighted_blend",
             }
-            suggestion = m.get(preset, "solid")
+            suggestion = m.get(alpha_mode, "solid")
             raise ValueError(
-                f"material.mix must be mix-preset, but {preset!r} is a mix-mode. Maybe you meant {suggestion!r}?"
+                f"material.alpha_mode is set to {alpha_mode!r} which is an alpha-method. Maybe you meant {suggestion!r}?"
             )
-        if preset not in MixPreset:
-            raise ValueError(f"material.mix must be one of {MixPreset}, not {preset!r}")
-        if preset == "custom":
-            raise ValueError("Cannot set material.mix with 'custom'")
-        self.mix_config = MIX_PRESETS[preset]
+        if alpha_mode not in AlphaMode:
+            raise ValueError(
+                f"material.alpha_mode must be one of {AlphaMode}, not {alpha_mode!r}"
+            )
+        if alpha_mode == "custom":
+            raise ValueError("Cannot set material.alpha_mode with 'custom'")
+        self.alpha_config = ALPHA_MODES[alpha_mode]
 
     @property
-    def mix_config(self) -> dict:
+    def alpha_config(self) -> dict:
         """Dict that defines how the the resulting colors are combined with the target color texture.
 
-        The ``mix_config`` property is repesented as a dictionary that fully
+        The ``alpha_config`` property is repesented as a dictionary that fully
         describes how the object is combined with other objects rendered at the
-        same time. See ``material.mix`` for convenient presets.
+        same time. See ``material.alpha_mode`` for convenient presets.
 
-        All possible mix configurations are grouped in four possible modes:
+        All possible alpha configurations are grouped in four methods:
 
         * "opaque": colors simply overwrite the texture, no transparency.
         * "stochastic": stochastic transparency, alpha represents the chance of a fragment being visible.
         * "composite": colors are blended with the buffer per-fragment.
         * "weighted": weighted blended order independent transparency, and variants thereof.
 
-        The ``mix_config`` dict has at least the following fields:
+        The ``alpha_config`` dict has at least the following fields:
 
-        * "mode": select the mix-mode (mandatory when setting).
-        * "preset": the corresponding preset (optional when setting).
+        * "method": select the alpha-method (mandatory when setting).
+        * "mode": the corresponding mode or 'custom' (optional when setting).
         * "transparency_pass": whether the object is in the transparency-pass or the opaque-pass.
           Can be used when setting, but this override is meant for highly specific use-cases.
 
-        For each mode, different options are available, which are represented as
-        items in the ``mix_config`` dict.
+        For each method, different options are available, which are represented as
+        items in the ``alpha_config`` dict.
 
-        Options for mode 'opaque':
+        Options for method 'opaque':
 
         * "premultiply": whether to pre-multiply the color with the alpha values.
 
-        Options for mode 'stochastic':
+        Options for method 'stochastic':
 
         * "pattern": can be 'blue_noise' for blue noise (default), 'white_noise' for white
           noise, and 'bayer4' for a Bayer pattern. The Bayer option mixes objects
           but not elements within objects.
 
-        Options for mode 'composite':
+        Options for method 'composite':
 
         * "color_op": the blend operation/equation, any value from ``wgpu.BlendOperation``. Default "add".
         * "color_src": source factor, any value of ``wgpu.BlendFactor``. Mandatory.
@@ -425,48 +427,50 @@ class Material(Trackable):
         * "alpha_dst": as ``color_src`` but for alpha.
         * "alpha_constant": as ``color_constant`` but for alpha (default 0).
 
-        Options for mode 'weighted':
+        Options for method 'weighted':
 
         * ``weight``: the weight factor as wgsl code. Default "alpha", which means use the color's alpha value.
         * ``alpha``: the used alpha value. Default "alpha", which means use as-is. Can e.g. be set to 1.0
           so that the alpha channel can be used as the weight factor, while the object is otherwise opaque.
 
         """
-        return self._store.mix_config.copy()
+        return self._store.alpha_config.copy()
 
-    @mix_config.setter
-    def mix_config(self, mix_config: dict) -> None:
-        if not isinstance(mix_config, dict):
-            raise TypeError(f"material.mix_config expects a dict, not {mix_config!r}")
+    @alpha_config.setter
+    def alpha_config(self, alpha_config: dict) -> None:
+        if not isinstance(alpha_config, dict):
+            raise TypeError(
+                f"material.alpha_config expects a dict, not {alpha_config!r}"
+            )
 
-        # Get the mix mode
-        mode = mix_config["mode"]
-        if mode not in MixMode:
+        # Get the alpha method
+        method = alpha_config["method"]
+        if method not in AlphaMethod:
             raise ValueError(
-                f"Invalid mode in material.mix_config: {mode!r}, expected on of {MixMode}"
+                f"Invalid 'method' in material.alpha_config: {method!r}, expected one of {AlphaMethod}"
             )
 
         # Get transparency pass
-        transparency_pass = mode in {"composite", "weighted"}
-        transparency_pass = mix_config.get("transparency_pass", transparency_pass)
+        transparency_pass = method in {"composite", "weighted"}
+        transparency_pass = alpha_config.get("transparency_pass", transparency_pass)
 
         # Init with a preset?
-        preset = mix_config.get("preset", None)
-        if preset and preset != "custom":
-            if preset not in MIX_PRESETS:
-                raise ValueError(f"Invalid preset in material.mix_config: {preset!r}")
-            d = MIX_PRESETS[preset]
-            if d["mode"] != mode:
-                raise ValueError(f"Invalid preset {preset!r} for mode {mode!r}.")
-            mix_config = {**d, **mix_config}
+        mode = alpha_config.get("mode", None)
+        if mode and mode != "custom":
+            if mode not in ALPHA_MODES:
+                raise ValueError(f"Invalid mode in material.alpha_config: {mode!r}")
+            d = ALPHA_MODES[mode]
+            if d["method"] != method:
+                raise ValueError(f"Invalid mode {mode!r} for method {method!r}.")
+            alpha_config = {**d, **alpha_config}
 
-        if mode == "opaque":
+        if method == "opaque":
             keys = ["premultiply_alpha"]
             defaults = {}
-        elif mode == "stochastic":
+        elif method == "stochastic":
             keys = ["pattern"]
             defaults = {"pattern": "blue_noise"}
-        elif mode == "composite":
+        elif method == "composite":
             keys = [
                 "color_op",
                 "color_src",
@@ -483,29 +487,29 @@ class Material(Trackable):
                 "color_constant": (0, 0, 0),
                 "alpha_constant": 0,
             }
-        elif mode == "weighted":
+        elif method == "weighted":
             keys = ["weight", "alpha"]
             defaults = {"weight": "alpha", "alpha": "alpha"}
         else:
             assert False, "if-tree is missing a case"  # noqa: B011
 
-        # Get options. This has the same form as the values in MIX_PRESETS, so they can be compared
-        options = self._get_mix_config_options(mode, keys, defaults, mix_config)
+        # Get options. This has the same form as the values in ALPHA_MODES, so they can be compared
+        options = self._get_alpha_config_options(method, keys, defaults, alpha_config)
 
-        # Derive preset
-        the_preset = "custom"
-        for preset_name, preset_dict in MIX_PRESETS.items():
-            if preset_dict["mode"] == mode:
-                if preset_dict == options:
-                    the_preset = preset_name
+        # Derive mode
+        the_mode = "custom"
+        for mode_name, mode_dict in ALPHA_MODES.items():
+            if mode_dict["method"] == method:
+                if mode_dict == options:
+                    the_mode = mode_name
                     break
 
         # Save
-        self._store.mix_mode = mode
-        self._store.mix_config = ReadOnlyDict(
+        self._store.alpha_method = method
+        self._store.alpha_config = ReadOnlyDict(
             {
-                "mode": mode,
-                "preset": the_preset,
+                "method": method,
+                "mode": the_mode,
                 "transparency_pass": transparency_pass,
                 **options,
             }
@@ -515,21 +519,21 @@ class Material(Trackable):
     def transparency_pass(self):
         """Whether this object is rendered in the transparency pass.
 
-        This is a convenient alias for ``.mix['mode']``.
+        This is a convenient alias for ``.alpha_config['transparency_pass']``.
 
         This is a readonly property. To override the default derived value,
-        use the 'transparency_pass' key in the mix_config.
+        use the 'transparency_pass' key in the alpha_config.
         """
-        return self._store.mix_config["transparency_pass"]
+        return self._store.alpha_config["transparency_pass"]
 
-    def _get_mix_config_options(
-        self, mode: str, keys: list, default_dict: dict, given_dict: dict
+    def _get_alpha_config_options(
+        self, method: str, keys: list, default_dict: dict, given_dict: dict
     ):
-        err_preamble = f"material.mix_config for mode {mode!r}"
+        err_preamble = f"material.alpha_config for method {method!r}"
         assert isinstance(given_dict, dict)
         source_dict = given_dict.copy()
-        result_dict = {"mode": mode, **default_dict}
-        for key in ["mode", "preset", "transparency_pass"]:
+        result_dict = {"method": method, **default_dict}
+        for key in ["method", "mode", "transparency_pass"]:
             source_dict.pop(key, None)
         try:
             for key in keys:
