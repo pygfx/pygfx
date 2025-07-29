@@ -440,11 +440,6 @@ class AudioShader(BaseShader):
 ################################################################################
 
 fragment_shader_code1 = """
-    fn srgb2physical(color: vec3<f32>) -> vec3<f32> {
-        let f = pow((color + 0.055) / 1.055, vec3<f32>(2.4));
-        let t = color / 12.92;
-        return select(f, t, color <= vec3<f32>(0.04045));
-    }
 
     @fragment
     fn fs_main(varyings: Varyings) -> FragmentOutput {
@@ -470,19 +465,13 @@ fragment_shader_code1 = """
         // let led = step(d, 0.5 - gap);
 
         let ledColor = led*color*mask;
-        out.color = vec4<f32>(srgb2physical(ledColor), 1.0);
+        out.color = vec4<f32>(ledColor, 1.0);
         return out;
     }
 
 """
 
 fragment_shader_code2 = """
-
-    fn srgb2physical(color: vec3<f32>) -> vec3<f32> {
-        let f = pow((color + 0.055) / 1.055, vec3<f32>(2.4));
-        let t = color / 12.92;
-        return select(f, t, color <= vec3<f32>(0.04045));
-    }
 
     @fragment
     fn fs_main(varyings: Varyings) -> FragmentOutput {
@@ -536,19 +525,13 @@ fragment_shader_code2 = """
 
         col = clamp(col, vec3f(0.0), vec3f(1.0));
 
-        out.color = vec4<f32>(srgb2physical(col), 1.0);
+        out.color = vec4<f32>(col, 1.0);
         return out;
     }
 
 """
 
 fragment_shader_code3 = """
-
-    fn srgb2physical(color: vec3<f32>) -> vec3<f32> {
-        let f = pow((color + 0.055) / 1.055, vec3<f32>(2.4));
-        let t = color / 12.92;
-        return select(f, t, color <= vec3<f32>(0.04045));
-    }
 
     fn light(d: f32, att: f32) -> f32 {
         return 1.0 / (1.0 + pow(abs(d * att), 1.3));
@@ -635,19 +618,13 @@ fragment_shader_code3 = """
             t += me;
         }
 
-        out.color = vec4<f32>(srgb2physical(col), 1.0);
+        out.color = vec4<f32>(col, 1.0);
         return out;
     }
 
 """
 
 fragment_shader_code4 = """
-
-    fn srgb2physical(color: vec3<f32>) -> vec3<f32> {
-        let f = pow((color + 0.055) / 1.055, vec3<f32>(2.4));
-        let t = color / 12.92;
-        return select(f, t, color <= vec3<f32>(0.04045));
-    }
 
     fn getAmp(frequency: f32) -> f32{
         return textureSample(t_data_map, s_data_map, vec2f(frequency / 512.0, 0.0)).r;
@@ -680,7 +657,7 @@ fragment_shader_code4 = """
             color += vec3f(glowWidth * (1.5 ), glowWidth * (1.5 ), glowWidth * (0.5 ));
         }
 
-        out.color = vec4<f32>(srgb2physical(color), 1.0);
+        out.color = vec4<f32>(color, 1.0);
         return out;
     }
 
@@ -692,7 +669,8 @@ fragment_shader_code4 = """
 FFT_SIZE = 128
 
 renderer = gfx.WgpuRenderer(
-    RenderCanvas(title="audio visualizer", max_fps=60, size=(1280, 720))
+    RenderCanvas(title="audio visualizer", max_fps=60, size=(1280, 720)),
+    output_colorspace="physical",
 )
 camera = gfx.NDCCamera()  # Not actually used
 
