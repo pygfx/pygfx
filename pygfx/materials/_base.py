@@ -5,60 +5,91 @@ from typing import TYPE_CHECKING
 from ..utils.trackable import Trackable
 from ..utils import array_from_shadertype, ReadOnlyDict
 from ..resources import Buffer
+from ..utils.enums import AlphaMethod, AlphaMode
 
 
 if TYPE_CHECKING:
-    from typing import Union, ClassVar, TypeAlias, Literal, Sequence
+    from typing import Optional, ClassVar, TypeAlias, Literal, Sequence
 
     ABCDTuple: TypeAlias = tuple[float, float, float, float]
 
 
 TEST_COMPARE_VALUES = "<", "<=", "==", "!=", ">=", ">"  # for alpha_test and depth_test
 
-# The blending presets
-# note: we assume alpha is not pre-multiplied
-preset_blending_dicts = {
-    "no": {
-        "mode": "classic",
-        "color_src": "one",
-        "color_dst": "zero",
-        "alpha_src": "one",
-        "alpha_dst": "zero",
+
+ALPHA_MODES = {
+    # alpha_mode 'auto' is resolved in the code
+    "solid": {
+        "method": "opaque",
+        "premultiply_alpha": False,
     },
-    "normal": {
-        "mode": "classic",
+    "solid_premul": {
+        "method": "opaque",
+        "premultiply_alpha": True,
+    },
+    "dither": {
+        "method": "stochastic",
+        "pattern": "blue_noise",
+        "seed": "element",
+    },
+    "bayer": {
+        "method": "stochastic",
+        "pattern": "bayer",
+        "seed": "object",  # bc not enough variation to do 'element'
+    },
+    "blend": {
+        "method": "composite",
+        "color_op": "add",
+        "alpha_op": "add",
+        "color_constant": (0, 0, 0),
+        "alpha_constant": 0,
         "color_src": "src-alpha",
         "color_dst": "one-minus-src-alpha",
         "alpha_src": "one",
         "alpha_dst": "one-minus-src-alpha",
     },
-    "additive": {
-        "mode": "classic",
+    "add": {
+        "method": "composite",
+        "color_op": "add",
+        "alpha_op": "add",
+        "color_constant": (0, 0, 0),
+        "alpha_constant": 0,
         "color_src": "src-alpha",
         "color_dst": "one",
         "alpha_src": "src-alpha",
         "alpha_dst": "one",
     },
-    "subtractive": {
-        "mode": "classic",
+    "subtract": {
+        "method": "composite",
+        "color_op": "add",
+        "alpha_op": "add",
+        "color_constant": (0, 0, 0),
+        "alpha_constant": 0,
         "color_src": "zero",
         "color_dst": "one-minus-src",
         "alpha_src": "zero",
         "alpha_dst": "one",
     },
     "multiply": {
-        "mode": "classic",
+        "method": "composite",
+        "color_op": "add",
+        "alpha_op": "add",
+        "color_constant": (0, 0, 0),
+        "alpha_constant": 0,
         "color_src": "zero",
         "color_dst": "src",
         "alpha_src": "zero",
         "alpha_dst": "src",
     },
-    "dither": {
-        "mode": "dither",
-        "pattern": "blue",
+    "weighted_blend": {
+        "method": "weighted",
+        "weight": "alpha",
+        "alpha": "alpha",
     },
-    "weighted": {
-        "mode": "weighted",
+    "weighted_solid": {
+        "method": "weighted",
+        "weight": "alpha",
+        "alpha": "1.0",
     },
 }
 
@@ -81,27 +112,27 @@ class Material(Trackable):
         is "any" (the default) a fragment is discarded if it is clipped by any
         clipping plane. If this is "all", a fragment is discarded only if it is
         clipped by *all* of the clipping planes.
-    transparent : bool | None
-        Whether the object is (semi) transparent. The renderer sorts transparent
-        objects different from opaque fragments. This value also determines the
-        auto-value of ``depth_write``. Default (None) will consider the object
-        transparent if ``opacity < 1``.
-    blending : str | dict
-        The way to blend semi-transparent fragments  (alpha < 1) for this material.
+    alpha_mode : str
+        How the alpha value of an object is used to to combine the resulting color
+        with the target color texture.
+    alpha_config : dict
+        An advanced way to fully control the alpha behaviour. When both ``alpha_mode``
+        and ``alpha_config`` are given, the latter is used.
     depth_test :  bool
         Whether the object takes the depth buffer into account (and how).
         Default True.
     depth_compare : str
-        How to compare depth values ("<", "<=", "==", "!=", ">=", ">"). Default "<".
+        How to compare depth values ("<", "<=", "==", "!=", ">=", ">"). Default
+        "<".
     depth_write : bool | None
-        Whether the object writes to the depth buffer. With None (default) this
-        is considerd False if ``transparent`` is True, and True if ``transparent`` is
-        False or None.
+        Whether the object writes to the depth buffer. With None (default) the
+        value resolves to ``not material.transparency_pass``.
     alpha_test : float
         The alpha test value for this material. Default 0.0, meaning no alpha
         test is performed.
     alpha_compare : str
-        How to compare alpha values ("<", "<=", "==", "!=", ">=", ">"). Default "<".
+        How to compare alpha values ("<", "<=", "==", "!=", ">=", ">"). Default
+        "<".
     """
 
     # Note that in the material classes we define what properties are stored as
@@ -123,8 +154,8 @@ class Material(Trackable):
         opacity: float = 1,
         clipping_planes: Sequence[ABCDTuple] = (),
         clipping_mode: Literal["ANY", "ALL"] = "ANY",
-        transparent: Literal[None, False, True] = None,
-        blending: Union[str, dict] = "normal",
+        alpha_mode: str = "auto",
+        alpha_config: Optional[dict] = None,
         depth_test: bool = True,
         depth_compare: str = "<",
         depth_write: Literal[None, False, True] = None,
@@ -138,13 +169,13 @@ class Material(Trackable):
             array_from_shadertype(self.uniform_type), force_contiguous=True
         )
 
-        self._user_transparent = None
-
         self.opacity = opacity
         self.clipping_planes = clipping_planes
         self.clipping_mode = clipping_mode
-        self.transparent = transparent
-        self.blending = blending
+        if alpha_config is None:
+            self.alpha_mode = alpha_mode
+        else:
+            self.alpha_config = alpha_config
         self.depth_test = depth_test
         self.depth_compare = depth_compare
         self.depth_write = depth_write
@@ -218,7 +249,7 @@ class Material(Trackable):
         value = min(max(float(value), 0), 1)
         self.uniform_buffer.data["opacity"] = value
         self.uniform_buffer.update_full()
-        self._resolve_transparent()
+        self._store.opacity_is_one = value == 1
 
     @property
     def clipping_planes(self) -> Sequence[ABCDTuple]:
@@ -283,169 +314,252 @@ class Material(Trackable):
             raise ValueError(f"Unexpected clipping_mode: {value}")
 
     @property
-    def transparent(self) -> Literal[None, False, True]:
-        """Defines whether this material is transparent or opaque.
+    def alpha_mode(self) -> AlphaMode:
+        """Defines how the the resulting colors are combined with the target color texture.
 
-        If set to None, the object is considered transparent if ``.opacity < 1``
-        or ``.color.a < 1`` (if this material has a color).
-        Setting this value to True will set the auto/implicit value for
-        ``depth_write`` to False. Setting this value to False will influence how
-        the renderer sorts the object to avoid overdraw, which may improve
-        performance.
+        There are many ways to combine the object's color with the colors of
+        earlier rendered objects. The ``material.alpha_mode`` is the recommended
+        way to set the ``alpha_config`` that serves the majority of use-cases.
+        If more control is needed, see ``alpha_config`` to set a custom alpha
+        mode. There are a range of modes to choose from, divided over four
+        possible methods:
 
-        The final transparency value is one of:
+        Modes for method "opaque" (overwrites the value in the output texture):
 
-        * True: the object is (considered) fully transparent. The renderer draws
-          these after opaque objects, and sorts back-to-front to increase the
-          chance of correct blending. The ``depth_write`` defaults to False.
-        * False: the object is (considered) fully opaque. The renderer draws
-          these first, and sorts front-to-back to avoid overdrawing. The
-          ``depth_write`` defaults to True.
-        * None: the object is considered to (possibly) have both opaque and
-          transparent fragments. The renderer draws these in between opaque and
-          transparent passes, back-to-front. The ``depth_write`` defaults to
-          True.
-        """
-        return self._store.transparent
+        * "solid": alpha is ignored.
+        * "solid_premul": the alpha is multipled with the color (making it darker).
 
-    @transparent.setter
-    def transparent(self, value: Literal[None, False, True]):
-        if value is None:
-            self._user_transparent = None
-        elif isinstance(value, bool):
-            self._user_transparent = bool(value)
-        else:
-            raise TypeError("material.transparent must be bool or None.")
-        self._resolve_transparent()
+        Modes for method "stochastic" (alpha represents the chance of a fragment being visible):
 
-    @property
-    def transparent_is_set(self):
-        """Whether the ``transparent`` property is set. Otherwise it's auto-determined."""
-        return self._user_transparent is not None
+        * "dither": stochastic transparency with blue noise.
+        * "bayer": stochastic transparency with an 8x8 Bayer pattern.
 
-    def _resolve_transparent(self):
-        # This method must be called from the appropriate places
-        transparent = self._user_transparent
-        if transparent is None:
-            looks_transparent = self._looks_transparent()
-            if looks_transparent is not None:
-                transparent = bool(looks_transparent)
-        self._store.transparent = transparent
+        Modes for method "composite" (per-fragment blending of the object's color and the color in the output texture):
 
-    def _looks_transparent(self):
-        # This could be overloaded in subclasses.
-        transparent = None
-        if self.opacity < 1:
-            transparent = True
-        return transparent
-
-    @property
-    def blending(self):
-        """The way to blend semi-transparent fragments (alpha < 1) for this material.
-
-        The blending can be set using one of the following preset names:
-
-        * "no": no blending, render as opaque.
-        * "normal": use classic alpha blending using the *over operator* (the default).
-        * "additive": use additive blending that adds the fragment color, multiplied by alpha.
-        * "subtractive": use subtractuve blending that removes the fragment color.
+        * "auto": same as "blend", except that ``depth_write`` defaults to True if ``opacity==1``. ``*``
+        * "blend": use classic alpha blending using the over-operator.
+        * "add": use additive blending that adds the fragment color, multiplied by alpha.
+        * "subtract": use subtractuve blending that removes the fragment color.
         * "multiply": use multiplicative blending that multiplies the fragment color.
-        * "dither": use stochastic transparency blending. All fragments are opaque, and the chance
-          of a fragment being discared (invisible) is one minus alpha.
-        * "weighted": use weighted blending, where the order of objects does not matter for the end-result.
 
-        The blending property returns a dict. It can also be set as a dict. Such a dict has the following fields:
+        Modes for method "weighted" (order independent blending):
 
-        * ``name``: the preset name of this blending, or "custom". (This field is ignored by the setter.)
-        * ``mode``: the blend-mode, one of "classic", "dither", "weighted".
+        * "weighted_blend": weighted blended order independent transparency.
+        * "weighted_solid": fragments are combined based on alpha, but the final alpha is always 1. Great for e.g. image stitching.
 
-        When the mode is "classic", the following fields must/can be provided:
+        ``*`` The special 'auto' mode produces reasonable results for common
+        use-cases and can even handle objects that produce a mix of opaque
+        (alpha=1) and transparent (alpha<1) fragments. Although it can also
+        quickly produce artifacts, in which case one should consider one of the
+        other alpha modes.
 
-        * ``color_op``: the blend operation/equation, any value from ``wgpu.BlendOperation``. Default "add".
-        * ``color_src``: source factor, any value of ``wgpu.BlendFactor``. Mandatory.
-        * ``color_dst``: destination factor, any value of ``wgpu.BlendFactor``. Mandatory.
-        * ``color_constant``: represents the constant value of the constant blend color. Default black.
-        * ``alpha_op``: as ``color_op`` but for alpha.
-        * ``alpha_src``: as ``color_dst`` but for alpha.
-        * ``alpha_dst``: as ``color_src`` but for alpha.
-        * ``alpha_constant``: as ``color_constant`` but for alpha (default 0).
+        Note that for methods 'opaque' and 'stochastic', the ``depth_write``
+        defaults to True, and for methods 'composite' and 'weighted' the
+        ``depth_write`` defaults to False. The one exception being alpha-mode
+        'auto'.
 
-        When the mode is "dither":
-            * ``pattern``: can be 'blue' for blue noise (default), 'white' for white noise, and 'bayer' for a Bayer pattern.
-              The Bayer option mixes objects but elemenys within objects.
+        Note that the value of ``material.alpha_mode`` can be "custom" in case
+        ``alpa_config`` is set to a configuration not covered by a prefix.
+        """
+        return self._store.alpha_config["mode"]
 
-        When the mode is "weighted", the extra fields are:
+    @alpha_mode.setter
+    def alpha_mode(self, alpha_mode: AlphaMode):
+        if isinstance(alpha_mode, dict):
+            raise TypeError(
+                "material.alpha_mode must be a str, not a dict, maybe you meant material.alpha_config?"
+            )
+        if not isinstance(alpha_mode, str):
+            raise TypeError(f"material.alpha_mode must be a str, not {alpha_mode!r}")
+        alpha_mode = alpha_mode.lower()
+        if alpha_mode in AlphaMethod:
+            m = {
+                "opaque": "solid",
+                "stochastic": "dither",
+                "composie": "blemd",
+                "weighted": "weighted_blend",
+            }
+            suggestion = m.get(alpha_mode, "solid")
+            raise ValueError(
+                f"material.alpha_mode is set to {alpha_mode!r} which is an alpha-method. Maybe you meant {suggestion!r}?"
+            )
+            if alpha_mode not in AlphaMode:
+                raise ValueError("Cannot set material.alpha_mode with 'custom'")
+
+        if alpha_mode == "auto":
+            d = ALPHA_MODES["blend"].copy()
+            d["mode"] = "auto"
+        else:
+            d = ALPHA_MODES[alpha_mode]
+        self.alpha_config = d
+
+    @property
+    def alpha_config(self) -> dict:
+        """Dict that defines how the the resulting colors are combined with the target color texture.
+
+        The ``alpha_config`` property is repesented as a dictionary that fully
+        describes how the object is combined with other objects rendered at the
+        same time. See ``material.alpha_mode`` for convenient presets.
+
+        All possible alpha configurations are grouped in four methods:
+
+        * "opaque": colors simply overwrite the texture, no transparency.
+        * "stochastic": stochastic transparency, alpha represents the chance of a fragment being visible.
+        * "composite": colors are blended with the buffer per-fragment.
+        * "weighted": weighted blended order independent transparency, and variants thereof.
+
+        The ``alpha_config`` dict has at least the following fields:
+
+        * "method": select the alpha-method (mandatory when setting).
+        * "mode": the corresponding mode or 'custom' (optional when setting).
+        * "transparency_pass": whether the object is in the transparency-pass or the opaque-pass.
+          Can be used when setting, but this override is meant for highly specific use-cases.
+
+        For each method, different options are available, which are represented as
+        items in the ``alpha_config`` dict.
+
+        Options for method 'opaque':
+
+        * "premultiply": whether to pre-multiply the color with the alpha values.
+
+        Options for method 'stochastic':
+
+        * "pattern": can be 'blue-noise' for blue noise (default), 'white-noise' for white
+          noise, and 'bayer' for a Bayer pattern. The Bayer option mixes objects
+          but not elements within objects.
+        * "seed": can be 'screen' to have a uniform pattern for the whole screen, 'object' to
+          use a per-object seed, and 'element' to have a per-element seed.
+
+        Options for method 'composite':
+
+        * "color_op": the blend operation/equation, any value from ``wgpu.BlendOperation``. Default "add".
+        * "color_src": source factor, any value of ``wgpu.BlendFactor``. Mandatory.
+        * "color_dst": destination factor, any value of ``wgpu.BlendFactor``. Mandatory.
+        * "color_constant": represents the constant value of the constant blend color. Default black.
+        * "alpha_op": as ``color_op`` but for alpha.
+        * "alpha_src": as ``color_dst`` but for alpha.
+        * "alpha_dst": as ``color_src`` but for alpha.
+        * "alpha_constant": as ``color_constant`` but for alpha (default 0).
+
+        Options for method 'weighted':
 
         * ``weight``: the weight factor as wgsl code. Default "alpha", which means use the color's alpha value.
         * ``alpha``: the used alpha value. Default "alpha", which means use as-is. Can e.g. be set to 1.0
           so that the alpha channel can be used as the weight factor, while the object is otherwise opaque.
 
         """
-        return self._store.blending_dict
+        return self._store.alpha_config.copy()
 
-    @blending.setter
-    def blending(self, blending):
-        if blending is None:
-            blending = "normal"
+    @alpha_config.setter
+    def alpha_config(self, alpha_config: dict) -> None:
+        if not isinstance(alpha_config, dict):
+            raise TypeError(
+                f"material.alpha_config expects a dict, not {alpha_config!r}"
+            )
 
-        if isinstance(blending, str):
-            preset_keys = set(preset_blending_dicts.keys())
-            if blending not in preset_keys:
-                raise ValueError(
-                    f"Blending is {blending!r} but expected one of {preset_keys!r}"
-                )
-            blending_dict = preset_blending_dicts[blending]
+        # Get the alpha method
+        method = alpha_config["method"]
+        if method not in AlphaMethod:
+            raise ValueError(
+                f"Invalid 'method' in material.alpha_config: {method!r}, expected one of {AlphaMethod}"
+            )
 
-        elif isinstance(blending, dict):
-            # we pop elements from the given dict, so we can detect invalid fields
-            blending_src = blending.copy()
-            blending_dict = {}
-            try:
-                blending_src.pop("name", None)
-                blending_dict["mode"] = mode = blending_src.pop("mode")
-                if mode == "classic":
-                    for key in ["color_src", "color_dst", "alpha_src", "alpha_dst"]:
-                        blending_dict[key] = blending_src.pop(key)
-                    for key in [
-                        "color_op",
-                        "alpha_op",
-                        "color_constant",
-                        "alpha_constant",
-                    ]:
-                        if key in blending_src:
-                            blending_dict[key] = blending_src.pop(key)
-                elif mode == "dither":
-                    for key in ["pattern"]:
-                        if key in blending_src:
-                            blending_dict[key] = blending_src.pop(key)
-                elif mode == "weighted":
-                    for key in ["weight", "alpha"]:
-                        if key in blending_src:
-                            blending_dict[key] = blending_src.pop(key)
-                else:
-                    raise ValueError(f"Unexpected blending mode {mode!r}")
-            except KeyError as err:
-                raise KeyError(
-                    f"Blending dict is missing field {err.args[0]!r}"
-                ) from None
-            if blending_src:
-                raise ValueError(
-                    f"Blending dict contains invalid fields: {blending_src!r}"
-                )
+        # Get transparency pass
+        transparency_pass = method in {"composite", "weighted"}
+        transparency_pass = alpha_config.get("transparency_pass", transparency_pass)
 
+        # Init with a preset?
+        mode = alpha_config.get("mode", None)
+        if mode and mode not in ("auto", "custom"):
+            if mode not in ALPHA_MODES:
+                raise ValueError(f"Invalid mode in material.alpha_config: {mode!r}")
+            d = ALPHA_MODES[mode]
+            if d["method"] != method:
+                raise ValueError(f"Invalid mode {mode!r} for method {method!r}.")
+            alpha_config = {**d, **alpha_config}
+
+        if method == "opaque":
+            keys = ["premultiply_alpha"]
+            defaults = {}
+        elif method == "stochastic":
+            keys = ["pattern", "seed"]
+            defaults = {"pattern": "blue_noise", "seed": "screen"}
+        elif method == "composite":
+            keys = [
+                "color_op",
+                "color_src",
+                "color_dst",
+                "color_constant",
+                "alpha_op",
+                "alpha_src",
+                "alpha_dst",
+                "alpha_constant",
+            ]
+            defaults = {
+                "color_op": "add",
+                "alpha_op": "add",
+                "color_constant": (0, 0, 0),
+                "alpha_constant": 0,
+            }
+        elif method == "weighted":
+            keys = ["weight", "alpha"]
+            defaults = {"weight": "alpha", "alpha": "alpha"}
         else:
-            raise TypeError("Material.blending must be None, str or dict.")
+            assert False, "if-tree is missing a case"  # noqa: B011
 
-        # Prepend the preset name if the dict matches a preset
-        for preset_name, preset_dict in preset_blending_dicts.items():
-            if blending_dict == preset_dict:
-                blending_dict = {"name": preset_name, **blending_dict}
-                break
-        else:
-            blending_dict = {"name": "custom", **blending_dict}
+        # Get options. This has the same form as the values in ALPHA_MODES, so they can be compared
+        options = self._get_alpha_config_options(method, keys, defaults, alpha_config)
 
-        self._store.blending_dict = ReadOnlyDict(blending_dict)
-        self._store.blending_mode = blending_dict["mode"]
+        # Derive mode
+        the_mode = "custom"
+        for mode_name, mode_dict in ALPHA_MODES.items():
+            if mode_dict["method"] == method:
+                if mode_dict == options:
+                    the_mode = mode_name
+                    break
+        if mode == "auto" and the_mode == "blend":
+            the_mode = "auto"
+
+        # Save
+        self._store.alpha_method = method
+        self._store.alpha_config = ReadOnlyDict(
+            {
+                "method": method,
+                "mode": the_mode,
+                "transparency_pass": transparency_pass,
+                **options,
+            }
+        )
+
+    @property
+    def transparency_pass(self):
+        """Whether this object is rendered in the transparency pass.
+
+        This is a convenient alias for ``.alpha_config['transparency_pass']``.
+
+        This is a readonly property. To override the default derived value,
+        use the 'transparency_pass' key in the alpha_config.
+        """
+        return self._store.alpha_config["transparency_pass"]
+
+    def _get_alpha_config_options(
+        self, method: str, keys: list, default_dict: dict, given_dict: dict
+    ):
+        err_preamble = f"material.alpha_config for method {method!r}"
+        assert isinstance(given_dict, dict)
+        source_dict = given_dict.copy()
+        result_dict = {"method": method, **default_dict}
+        for key in ["method", "mode", "transparency_pass"]:
+            source_dict.pop(key, None)
+        try:
+            for key in keys:
+                if key in source_dict:
+                    result_dict[key] = source_dict.pop(key)
+        except KeyError as err:
+            raise KeyError(f"{err_preamble} is missing field {err.args[0]!r}") from None
+        if source_dict:
+            raise ValueError(f"{err_preamble} contains invalid fields: {source_dict!r}")
+        return result_dict
 
     @property
     def depth_test(self) -> bool:
@@ -484,7 +598,7 @@ class Material(Trackable):
 
         * True: yes, write depth.
         * False: no, don't write depth.
-        * None: auto-determine (default): yes unless ``.transparent`` is True.
+        * None: auto-determine (default): ``not transparency_pass``.
 
         The auto-option provides good default behaviour for common use-case, but
         if you know what you're doing you should probably just set this value to
@@ -492,12 +606,10 @@ class Material(Trackable):
         """
         depth_write = self._store.depth_write
         if depth_write is None:
-            if self._store.blending_mode == "dither":
-                # The great thing with stochastic transparency is that everything is opaque (from a depth testing perspective)
-                depth_write = True
+            if self._store.alpha_config["mode"] == "auto":
+                depth_write = self._store.opacity_is_one
             else:
-                # Write depth when transparent is False or None
-                depth_write = not bool(self._store.transparent)
+                depth_write = not self._store.alpha_config["transparency_pass"]
         return depth_write
 
     @depth_write.setter

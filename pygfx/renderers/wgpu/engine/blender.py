@@ -1,5 +1,5 @@
 """
-The blender is the part of the renderer that manages output targets and blending configuration, based on material.blending.
+The blender is the part of the renderer that manages output targets and alpha_config.
 """
 
 import wgpu  # only for flags/enums
@@ -219,38 +219,49 @@ class Blender:
         # All textures are invalidated too
         self._textures = {}
 
-    def get_color_descriptors(self, material_pick_write, blending):
+    def get_color_descriptors(self, material_pick_write, alpha_config):
         """Get the dict color-descriptors that pipeline.py needs to create the render pipeline.
 
         Called per object when the pipeline is created.
         """
         bf, bo = wgpu.BlendFactor, wgpu.BlendOperation
 
-        blending_mode = blending["mode"]
+        alpha_method = alpha_config["method"]
 
         # Get the color_blend mini-dict
-        if blending_mode == "classic":
+        if alpha_method == "opaque":
+            if alpha_config["premultiply_alpha"]:
+                color_blend = {
+                    "alpha": blend_dict(bf.one, bf.zero, bo.add),
+                    "color": blend_dict(bf.src_alpha, bf.zero, bo.add),
+                }
+            else:
+                color_blend = {
+                    "alpha": blend_dict(bf.one, bf.zero, bo.add),
+                    "color": blend_dict(bf.one, bf.zero, bo.add),
+                }
+        elif alpha_method == "composite":
             color_blend = {
                 "color": blend_dict(
-                    blending["color_src"],
-                    blending["color_dst"],
-                    blending.get("color_op", "add"),
+                    alpha_config["color_src"],
+                    alpha_config["color_dst"],
+                    alpha_config.get("color_op", "add"),
                 ),
                 "alpha": blend_dict(
-                    blending["alpha_src"],
-                    blending["alpha_dst"],
-                    blending.get("alpha_op", "add"),
+                    alpha_config["alpha_src"],
+                    alpha_config["alpha_dst"],
+                    alpha_config.get("alpha_op", "add"),
                 ),
             }
-        elif blending_mode == "dither":
+        elif alpha_method == "stochastic":
             color_blend = {
                 "alpha": blend_dict(bf.one, bf.zero, bo.add),
                 "color": blend_dict(bf.one, bf.zero, bo.add),
             }
-        elif blending_mode == "weighted":
+        elif alpha_method == "weighted":
             color_blend = None  # handled below
         else:
-            raise RuntimeError(f"Unexpected blending mode {blending_mode!r}")
+            raise RuntimeError(f"Unexpected alpha_method {alpha_method!r}")
 
         # Build target state dicts
         color_target_state = {
@@ -260,8 +271,8 @@ class Blender:
         }
         target_states = [color_target_state]
 
-        # More work for weighted blending
-        if blending_mode == "weighted":
+        # More work for 'weighted' method5
+        if alpha_method == "weighted":
             accum_target_state = {
                 "name": "accum",
                 "blend": {
@@ -417,20 +428,20 @@ class Blender:
             "depth_store_op": wgpu.StoreOp.store,
         }
 
-    def get_shader_kwargs(self, material_pick_write, blending):
-        """Get the shader templating variables for the given blending."""
+    def get_shader_kwargs(self, material_pick_write, alpha_config):
+        """Get the shader templating variables for the given alpha config."""
 
-        blending_mode = blending["mode"]
+        alpha_method = alpha_config["method"]
 
-        if blending_mode == "classic":
-            blending_code = """
+        if alpha_method in ("opaque", "composite"):
+            fragment_output_code = """
             struct FragmentOutput {
                 @location(0) color: vec4<f32>,
                 MAYBE_PICK@location(1) pick: vec4<u32>,
             };
             """
 
-        elif blending_mode == "dither":
+        elif alpha_method == "stochastic":
             # We want the seed for the random function to be such that the
             # result is deterministic, so that rendered images can be visually
             # compared. We also (in general) want the seed to be stable for e.g.
@@ -454,17 +465,22 @@ class Blender:
             # * varyings.elementIndex to prevent two regions of the same object
             #   to get the same pattern, e.g. two points in a points object.
 
-            pattern = blending.get("pattern", "blue").lower()
-            random_call = "blueNoise2(upos2)"
-            if pattern == "white":
-                random_call = "hash_to_f32(hashu(upos2.x)*hashu(upos2.y))"
-            elif pattern == "bayer":
-                # Using upos2 becomes too noise, but upos1 (i.e. including the per-object seed) seems quite alright!
-                random_call = "bayerPattern(upos1)"
+            seed = alpha_config.get("seed", "screen").lower()
+            upos = "upos" + str({"screen": 0, "object": 1, "element": 2}[seed])
+            pattern = alpha_config.get("pattern", "blue").lower().replace("_", "-")
+            if pattern in ("blue-noise", "blue"):
+                random_call = f"blueNoise2({upos})"
+            elif pattern in ("white-noise", "white"):
+                random_call = f"whiteNoise({upos})"
+            elif pattern in ("bayer8", "bayer"):
+                # Using upos2 becomes too noisy, but upos1 (i.e. including the per-object seed) seems quite alright!
+                random_call = f"bayerPattern({upos})"
+            else:
+                raise ValueError(f"Unexpected stochastic pattern: {pattern!r}")
 
-            blending_code = load_wgsl("noise.wgsl")  # cannot use include here
+            fragment_output_code = load_wgsl("noise.wgsl")  # cannot use include here
 
-            blending_code += """
+            fragment_output_code += """
             struct FragmentOutput {
                 // virtualfield position: vec3f = varyings.position.xyz;
                 // virtualfield objectId: u32 = u_wobject.renderer_id;
@@ -474,6 +490,11 @@ class Blender:
             };
 
             fn apply_virtual_fields_of_fragment_output(outp: ptr<function,FragmentOutput>, position: vec3f, objectId: u32, elementIndex: u32) {
+
+                // Early exit
+                let alpha = (*outp).color.a;
+                if (alpha >= 1.0) { return; }
+
                 let screenSize = u_stdinfo.physical_size.xy;
 
                 // Compose seeds
@@ -501,30 +522,21 @@ class Blender:
                 }
 
                 // Render or drop the fragment?
-                let alpha = (*outp).color.a;
                 if ( alpha < 1.0 - ALPHA_COMPARE_EPSILON && alpha < rand ) { discard; }
                 (*outp).color.a = 1.0;  // fragments that pass through are opaque
             }
             """.replace("RANDOM_CALL", random_call)
 
-            # Optimization for the case when the object is known (or determined) to be opaque.
-            # The discard will not happen then. By removing it from the shader, we enable early-z optimizations.
-            # By disabling the whole function, it behaves as classic blending for opaque-declared objects.
-            if blending.get("no_discard"):
-                blending_code, selector, rest = blending_code.partition("let rand")
-                assert selector, "looks like dither code changed, selector not present"
-                blending_code = blending_code.rstrip() + "}"
-
-        elif blending_mode == "weighted":
+        elif alpha_method == "weighted":
             use_alpha = "alpha", "use_alpha", "weighted_blending_use_alpha"
-            weight_default = blending.get("weight", "alpha")
+            weight_default = alpha_config.get("weight", "alpha")
             if weight_default in use_alpha:
                 weight_default = "weighted_blending_use_alpha"
-            alpha_default = blending.get("alpha", "alpha")
+            alpha_default = alpha_config.get("alpha", "alpha")
             if alpha_default in use_alpha:
                 alpha_default = "weighted_blending_use_alpha"
 
-            blending_code = """
+            fragment_output_code = """
             struct FragmentOutput {
                 // virtualfield color : vec4<f32> = vec4<f32>(0.0)
                 // virtualfield alpha : f32 = ALPHA_DEFAULT
@@ -553,15 +565,17 @@ class Blender:
             #    out.reveal = 1.0 - 1.0 / (1.0 - alpha);
 
         else:
-            raise RuntimeError(f"Unexpected blending mode {blending_mode!r}")
+            raise RuntimeError(f"Unexpected alpha_method {alpha_method!r}")
 
         # Enable/disable picking in the shader
         do_pick = material_pick_write and "pick" in self._texture_info
-        blending_code = blending_code.replace("MAYBE_PICK", "" if do_pick else "// ")
+        fragment_output_code = fragment_output_code.replace(
+            "MAYBE_PICK", "" if do_pick else "// "
+        )
 
         return {
-            "blending_mode": blending_mode,
-            "blending_code": blending_code,
+            "alpha_method": alpha_method,
+            "fragment_output_code": fragment_output_code,
             "write_pick": do_pick,
         }
 

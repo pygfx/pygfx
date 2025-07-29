@@ -27,10 +27,10 @@ renderer = gfx.renderers.WgpuRenderer(canvas)
 geometry = gfx.plane_geometry(100, 100)
 
 plane_bg = gfx.Mesh(
-    geometry, gfx.MeshBasicMaterial(color=(0, 0, 0, 1), transparent=True)
+    geometry, gfx.MeshBasicMaterial(color=(0, 0, 0, 1), alpha_mode="blend")
 )
 plane_red = gfx.Mesh(
-    geometry, gfx.MeshBasicMaterial(color=(0, 1, 0, 0.3), transparent=True)
+    geometry, gfx.MeshBasicMaterial(color=(0, 1, 0, 0.3), alpha_mode="blend")
 )
 
 plane_bg.local.position = -50, 0, 0

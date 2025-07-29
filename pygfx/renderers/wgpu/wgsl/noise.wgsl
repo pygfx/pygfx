@@ -92,6 +92,10 @@ fn blueNoise2(xy: vec2u) -> f32 {
     return f32(v) / f32(1u << (s << 1u));
     }
 
+fn whiteNoise(xy: vec2u) -> f32 {
+    return hash_to_f32(hashu(xy.x) * hashu(xy.y));
+}
+
 fn bayerPattern(xy: vec2u) -> f32 {
     // From https://observablehq.com/@fil/pseudoblue
     // produces Bayer pattern. Looks interesting,

@@ -141,6 +141,7 @@ class WorldObject(EventTarget, Trackable):
         material: Material | None = None,
         *,
         visible: bool = True,
+        render_group: int = 0,
         render_order: float = 0,
         name: str = "",
     ) -> None:
@@ -188,6 +189,7 @@ class WorldObject(EventTarget, Trackable):
 
         # Init visibility and render props
         self.visible = visible
+        self.render_group = render_group
         self.render_order = render_order
         self.cast_shadow = False
         self.receive_shadow = False
@@ -264,10 +266,41 @@ class WorldObject(EventTarget, Trackable):
         self._store.visible = bool(visible)
 
     @property
+    def render_group(self) -> int:
+        """Specifies the high-level rendering group this object belongs to (e.g. background, main scene, overlay).
+
+        Objects are rendered in ascending order of ``render_group`` before
+        considering finer per-object sorting. Use this to control broad render
+        layering, independent of depth or transparency. Typical use-cases are
+        backgrounds (``render_group=-1``) and overlays (``render_group==1``).
+
+        The effective render group is the sum of its render group and thet of all its parents.
+
+        Note that this is equivalent to manually splitting rendering into
+        multiple calls to `renderer.render()`, one per group, in the desired order.
+        """
+        return self._store.render_group
+
+    @render_group.setter
+    def render_group(self, value: int) -> None:
+        self._store.render_group = int(value)
+
+    @property
     def render_order(self) -> float:
-        """A number that helps control the order in which objects are rendered.
-        Objects with higher ``render_order`` get rendered later.
-        Default 0. Also see ``Renderer.sort_objects``.
+        """Per-object rendering priority used to fine-tune the draw order within a render_group.
+
+        Objects with higher render_order values are rendered later than those with lower values.
+        This affects both opaque and transparent objects and can be used to resolve z-fighting,
+        or control draw order beyond automatic depth sorting.
+
+        The effective render order is the sum of its render order and thet of all its parents.
+
+        The final sort order is typically determined by:
+            1. effective ``render_group``
+            2. ``material.alpha_config['transparent_pass']``
+            3. effective ``render_order``
+            4. distance to camera (for transparent/composite passes)
+
         """
         # Note: the render order is on the object, not the material, because it affects
         # a specific object, and materials are often shared between multiple objects.
@@ -284,7 +317,7 @@ class WorldObject(EventTarget, Trackable):
     @render_mask.setter
     def render_mask(self, value):
         raise DeprecationWarning(
-            "render_mask is deprecated, see material.transparent to control how the rendere should treat an object."
+            "render_mask is deprecated, see material.alpha_mode to control how the renderer should treat an object."
         )
 
     @property
