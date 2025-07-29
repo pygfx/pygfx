@@ -21,10 +21,10 @@ from .binding import Binding
 
 PIPELINE_CONTAINER_GROUPS = WeakAssociativeContainer()
 
-# These caches use a WeakValueDictionary; they don't actually store object, but
-# enable sharing gpu resources for similar objects. It makes creating such
-# objects faster (i.e. faster startup). It also saves gpu resources. It does not
-# necessarily make the visualization faster.
+# These caches use an LRU strategy.
+# They store a limited number of recently used GPU resources to improve cache hit rates.
+# This enables reuse of GPU resources across similar objects, reducing the overhead of
+# repeatedly creating/destroying GPU resources, especially in dynamic rendering scenarios.
 LAYOUT_CACHE = GpuCache("layouts")
 BINDING_CACHE = GpuCache("bindings")
 SHADER_CACHE = GpuCache("shader_modules")
