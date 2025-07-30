@@ -197,6 +197,7 @@ class _GLTF:
         self._register_plugin(GLTFMaterialsUnlitExtension)
         self._register_plugin(GLTFLightsExtension)
         self._register_plugin(GLTFTextureTransformExtension)
+        self._register_plugin(GLTFTextureWebPExtension)
 
     def _register_plugin(self, plugin_class):
         plugin = plugin_class(self)
@@ -718,6 +719,8 @@ class _GLTF:
             extensions = texture_info.extensions or {}
 
         texture = self._load_gltf_texture(texture_index)
+        if texture is None:
+            return None
 
         texture_map = gfx.TextureMap(texture, uv_channel=uv_channel)
 
@@ -770,7 +773,17 @@ class _GLTF:
     @lru_cache(maxsize=None)
     def _load_gltf_texture(self, texture_index):
         texture_desc = self._gltf.model.textures[texture_index]
+
+        extensions = texture_desc.extensions or {}
+        for extension in extensions:
+            if extension in self._plugins:
+                plugin = self._plugins[extension]
+                if hasattr(plugin, "load_texture"):
+                    return plugin.load_texture(texture_desc)
+
         source = texture_desc.source
+        if source is None:
+            return None
         image = self._load_image(source)
         texture = gfx.Texture(image, dim=2)
         return texture
@@ -1456,3 +1469,21 @@ class GLTFTextureTransformExtension(GLTFExtension):
         texcoord = extension.get("texCoord", None)
         if texcoord is not None:
             texture_map.uv_channel = texcoord
+
+
+class GLTFTextureWebPExtension(GLTFExtension):
+    EXTENSION_NAME = "EXT_texture_webp"
+
+    def load_texture(self, texture_desc):
+        extensions = texture_desc.extensions or {}
+        if self.EXTENSION_NAME not in extensions:
+            return
+
+        extension = extensions[self.EXTENSION_NAME]
+
+        source = extension.get("source", None)
+        if source is None:
+            source = texture_desc.source
+        image = self.parser._load_image(source)
+        texture = gfx.Texture(image, dim=2)
+        return texture
