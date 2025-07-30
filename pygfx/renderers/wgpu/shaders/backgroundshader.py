@@ -19,7 +19,7 @@ from .. import (
 class BackgroundShader(BaseShader):
     type = "render"
 
-    def get_bindings(self, wobject, shared):
+    def get_bindings(self, wobject, shared, scene):
         material = wobject.material
 
         bindings = {}

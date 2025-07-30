@@ -1,6 +1,7 @@
 import numpy as np
 from ..utils.trackable import Trackable
 from ..resources import Buffer
+from ..resources import Texture
 from ..utils import array_from_shadertype
 
 
@@ -42,7 +43,7 @@ class TextureMap(Trackable):
 
     def __init__(
         self,
-        texture,
+        texture: Texture,
         *,
         uv_channel=0,
         filter="linear",
@@ -72,12 +73,12 @@ class TextureMap(Trackable):
         self.update_matrix()
 
     @property
-    def texture(self):
+    def texture(self) -> Texture:
         """The texture to use for this map."""
         return self._store.texture
 
     @texture.setter
-    def texture(self, value):
+    def texture(self, value: Texture):
         self._store.texture = value
 
     @property
