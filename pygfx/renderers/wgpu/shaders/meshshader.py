@@ -581,6 +581,10 @@ class MeshStandardShader(MeshShader):
                 )  # check=False because we don't need texcoords for env_map
             )
 
+            width, height, _ = env_map.texture.size
+            max_level = math.floor(math.log2(max(width, height))) + 1
+            material.uniform_buffer.data["env_map_max_mip_level"] = float(max_level)
+
             self["USE_IBL"] = True
             self["env_mapping_mode"] = getattr(
                 material, "env_mapping_mode", "CUBE-REFLECTION"
