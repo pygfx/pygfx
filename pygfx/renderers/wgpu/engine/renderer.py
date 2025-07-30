@@ -77,6 +77,7 @@ class FlatScene:
         }
         self.shadow_objects = []
         self.object_count = object_count
+        self.scene = scene
         self.add_scene(scene)
 
     def add_scene(self, scene):
@@ -166,7 +167,9 @@ class FlatScene:
         self._compute_pipeline_containers = compute_pipeline_containers = []
         self._bake_functions = bake_functions = []
         for wrapper in self._wobject_wrappers:
-            container_group = get_pipeline_container_group(wrapper.wobject, renderstate)
+            container_group = get_pipeline_container_group(
+                wrapper.wobject, self.scene, renderstate
+            )
             compute_pipeline_containers.extend(container_group.compute_containers)
             wrapper.render_containers = container_group.render_containers
             for func in container_group.bake_functions:

@@ -64,7 +64,7 @@ class TriangleMaterial(gfx.Material):
 class TriangleShader(BaseShader):
     type = "render"
 
-    def get_bindings(self, wobject, shared):
+    def get_bindings(self, wobject, shared, scene):
         geometry = wobject.geometry
 
         # This is how we set templating variables (dict-like access on the shader).

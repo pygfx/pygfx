@@ -25,7 +25,7 @@ class GridShader(BaseShader):
         self["draw_major"] = material._gfx_draw_major
         self["draw_minor"] = material._gfx_draw_minor
 
-    def get_bindings(self, wobject, shared):
+    def get_bindings(self, wobject, shared, scene):
         material = wobject.material
 
         bindings = {}
