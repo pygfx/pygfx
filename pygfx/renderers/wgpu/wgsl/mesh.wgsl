@@ -658,6 +658,10 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
         }
     $$ endif
 
+    $$ if OPAQUE is defined
+        opacity = 1.0;
+    $$ endif
+
     $$ if USE_TRANSMISSION is defined
         opacity *= material.transmission_alpha;
     $$ endif

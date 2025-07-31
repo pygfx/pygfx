@@ -64,6 +64,9 @@ class MeshShader(BaseShader):
         # Per-vertex color, colormap, or a plane color?
         self["colorspace"] = "srgb"
 
+        if material.transparent is False:
+            self["OPAQUE"] = True
+
         color_mode = str(material.color_mode).split(".")[-1]
 
         self["color_mode"] = color_mode
