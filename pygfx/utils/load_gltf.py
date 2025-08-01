@@ -164,8 +164,6 @@ class _GLTF:
         "TANGENT": "tangents",
         "TEXCOORD_0": "texcoords",
         "TEXCOORD_1": "texcoords1",
-        "TEXCOORD_2": "texcoords2",
-        "TEXCOORD_3": "texcoords3",
         "COLOR_0": "colors",
         "JOINTS_0": "skin_indices",
         "WEIGHTS_0": "skin_weights",
@@ -198,6 +196,7 @@ class _GLTF:
         self._register_plugin(GLTFLightsExtension)
         self._register_plugin(GLTFTextureTransformExtension)
         self._register_plugin(GLTFTextureWebPExtension)
+        self._register_plugin(GLTFDracoMeshCompressionExtension)
 
     def _register_plugin(self, plugin_class):
         plugin = plugin_class(self)
@@ -424,10 +423,6 @@ class _GLTF:
                 gfx.utils.logger.warning(
                     f"This GLTF used extensions: {unsupported_extensions_used}, which are not supported yet, so the display may not be so correct."
                 )
-
-        # bind the actual data to the buffers
-        for buffer in self._gltf.model.buffers:
-            buffer.data = self._get_resource_by_uri(buffer.uri).data
 
         # mark the node types
         self._node_marks = self._mark_nodes()
@@ -813,41 +808,57 @@ class _GLTF:
         return image
 
     def _load_gltf_geometry(self, primitive):
-        indices_accessor = primitive.indices
+        extensions = primitive.extensions or {}
 
-        geometry_args = {}
+        geometry = None
 
-        for attr, accessor_index in primitive.attributes.__dict__.items():
-            if accessor_index is not None:
-                geometry_attr = self.ATTRIBUTE_NAME[attr]
-                data = self._load_accessor(accessor_index)
+        if extensions:
+            for extension in extensions:
+                if extension in self._plugins:
+                    plugin = self._plugins[extension]
+                    if hasattr(plugin, "load_geometry"):
+                        geometry = plugin.load_geometry(primitive)
 
-                # pygfx not support int attributes now, so we need to convert them to float.
-                if geometry_attr in (
-                    "positions",
-                    "normals",
-                    "tangents",
-                    "texcoords",
-                    "texcoords1",
-                    "texcoords2",
-                    "texcoords3",
-                ):
-                    data = data.astype(np.float32, copy=False)
+        if geometry is None:
+            indices_accessor = primitive.indices
+            geometry_args = {}
 
-                geometry_args[geometry_attr] = data
+            for attr, accessor_index in primitive.attributes.__dict__.items():
+                if accessor_index is not None:
+                    if attr in self.ATTRIBUTE_NAME:
+                        geometry_attr = self.ATTRIBUTE_NAME[attr]
+                    else:
+                        if attr.startswith("TEXCOORD_"):
+                            geometry_attr = f"texcoords{attr[-1]}"
+                        else:
+                            geometry_attr = attr.lower()
 
-        if indices_accessor is not None:
-            indices = self._load_accessor(indices_accessor).reshape(-1, 3)
-        else:
-            # TODO: For now, pygfx not support non-indexed geometry, so we need to generate indices for them.
-            # Remove this after pygfx support non-indexed geometry.
-            indices = np.arange(
-                len(geometry_args["positions"]) // 3 * 3, dtype=np.int32
-            ).reshape((-1, 3))
+                    data = self._load_accessor(accessor_index)
 
-        geometry_args["indices"] = indices
+                    # pygfx not support int attributes now, so we need to convert them to float.
+                    if geometry_attr in (
+                        "positions",
+                        "normals",
+                        "tangents",
+                        "texcoords",
+                        "texcoords1",
+                    ) or geometry_attr.startswith("texcoords"):
+                        data = data.astype(np.float32, copy=False)
 
-        geometry = gfx.Geometry(**geometry_args)
+                    geometry_args[geometry_attr] = data
+
+            if indices_accessor is not None:
+                indices = self._load_accessor(indices_accessor).reshape(-1, 3)
+            else:
+                # TODO: For now, pygfx not support non-indexed geometry, so we need to generate indices for them.
+                # Remove this after pygfx support non-indexed geometry.
+                indices = np.arange(
+                    len(geometry_args["positions"]) // 3 * 3, dtype=np.int32
+                ).reshape((-1, 3))
+
+            geometry_args["indices"] = indices
+
+            geometry = gfx.Geometry(**geometry_args)
 
         if primitive.targets:
             for target in primitive.targets:
@@ -875,7 +886,8 @@ class _GLTF:
         gltf = self._gltf
         buffer_view = gltf.model.bufferViews[buffer_view_index]
         buffer = gltf.model.buffers[buffer_view.buffer]
-        m = memoryview(buffer.data)
+        resource = self._get_resource_by_uri(buffer.uri)
+        m = memoryview(resource.data)
         view = m[
             buffer_view.byteOffset : (buffer_view.byteOffset or 0)
             + buffer_view.byteLength
@@ -901,13 +913,15 @@ class _GLTF:
         accessor_offset = accessor.byteOffset or 0
         accessor_type_size = self.ACCESSOR_TYPE_SIZE[accessor_type]
 
-        if buffer_view.byteStride is not None:
+        item_bytes = accessor_type_size * accessor_dtype.itemsize
+
+        if buffer_view.byteStride and buffer_view.byteStride != item_bytes:
             # It's a interleaved buffer
             # pygfx not support interleaved buffer now, so we pick out the data we need from the interleaved buffer.
             # TODO: optimize this after pygfx support interleaved buffer.
             ar = np.lib.stride_tricks.as_strided(
                 view[accessor_offset:],
-                shape=(accessor_count, accessor_type_size * accessor_dtype.itemsize),
+                shape=(accessor_count, item_bytes),
                 strides=(buffer_view.byteStride, 1),
             )
             ar = np.frombuffer(np.ascontiguousarray(ar), dtype=accessor_dtype)
@@ -1487,3 +1501,51 @@ class GLTFTextureWebPExtension(GLTFExtension):
         image = self.parser._load_image(source)
         texture = gfx.Texture(image, dim=2)
         return texture
+
+
+class GLTFDracoMeshCompressionExtension(GLTFExtension):
+    EXTENSION_NAME = "KHR_draco_mesh_compression"
+
+    def __init__(self, parser: _GLTF):
+        super().__init__(parser)
+
+    def load_geometry(self, primitive):
+        if (
+            primitive.extensions is None
+            or self.EXTENSION_NAME not in primitive.extensions
+        ):
+            return None
+
+        if not find_spec("DracoPy"):
+            raise ImportError(
+                """The `DracoPy` library is required for loading Draco compressed meshes. \n
+                Please install it with `pip install DracoPy`."""
+            )
+
+        import DracoPy
+
+        draco_extension = primitive.extensions[self.EXTENSION_NAME]
+        buffer_view_index = draco_extension["bufferView"]
+
+        buffer_view = self.parser._get_buffer_memory_view(buffer_view_index)
+        draco_mesh = DracoPy.decode(bytes(buffer_view))
+
+        geometry_args = {}
+
+        if draco_mesh.points is not None:
+            geometry_args["positions"] = draco_mesh.points.astype(
+                np.float32, copy=False
+            )
+        if draco_mesh.normals is not None:
+            geometry_args["normals"] = draco_mesh.normals.astype(np.float32, copy=False)
+        if draco_mesh.faces is not None:
+            geometry_args["indices"] = draco_mesh.faces.astype(np.uint32, copy=False)
+        if draco_mesh.colors is not None:
+            geometry_args["colors"] = draco_mesh.colors.astype(np.float32, copy=False)
+        if draco_mesh.tex_coord is not None:
+            geometry_args["texcoords"] = draco_mesh.tex_coord.astype(
+                np.float32, copy=False
+            )
+
+        geometry = gfx.Geometry(**geometry_args)
+        return geometry
