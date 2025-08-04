@@ -569,7 +569,12 @@ class _GLTF:
 
             elif primitive_mode in (4, 5):
                 # todo: distinguish triangles, triangle_strip, triangle_fan
-                if skin_index is not None:
+                if (
+                    skin_index is not None
+                    and hasattr(geometry, "skin_indices")
+                    and hasattr(geometry, "skin_weights")
+                ):
+                    # If the geometry has skin indices and weights, create a skinned mesh
                     gfx_mesh = gfx.SkinnedMesh(geometry, material)
                     skeleton = self._load_skins(skin_index)
                     gfx_mesh.bind(skeleton, np.identity(4))
@@ -1538,14 +1543,19 @@ class GLTFDracoMeshCompressionExtension(GLTFExtension):
             )
         if draco_mesh.normals is not None:
             geometry_args["normals"] = draco_mesh.normals.astype(np.float32, copy=False)
-        if draco_mesh.faces is not None:
-            geometry_args["indices"] = draco_mesh.faces.astype(np.uint32, copy=False)
         if draco_mesh.colors is not None:
             geometry_args["colors"] = draco_mesh.colors.astype(np.float32, copy=False)
         if draco_mesh.tex_coord is not None:
             geometry_args["texcoords"] = draco_mesh.tex_coord.astype(
                 np.float32, copy=False
             )
+
+        if draco_mesh.faces is not None:
+            geometry_args["indices"] = draco_mesh.faces.astype(np.uint32, copy=False)
+        else:
+            geometry_args["indices"] = np.arange(
+                len(geometry_args["positions"]) // 3 * 3, dtype=np.int32
+            ).reshape((-1, 3))
 
         geometry = gfx.Geometry(**geometry_args)
         return geometry
