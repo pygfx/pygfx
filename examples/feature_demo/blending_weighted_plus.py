@@ -65,16 +65,17 @@ screen_camera = gfx.ScreenCoordsCamera()
 
 # Give the objects some special treatment ...
 
-opaque_objects = [sphere]
+opaque_objects = [background, sphere]
 transparent_objects = [plane1, plane2, plane3]
 objects = opaque_objects + transparent_objects
 
 for ob in opaque_objects:
     ob.material.alpha_mode = "solid"
+    ob.material.depth_compare = "<="
 for ob in transparent_objects:
     ob.material.alpha_mode = "weighted_blend"
 
-for ob in objects:
+for ob in transparent_objects:
     # Clone the material
     ob.material1 = ob.material
     ob.material2 = type(ob.material)(
@@ -84,6 +85,7 @@ for ob in objects:
     ob.material1.depth_write = True
     ob.material1.depth_test = True
     ob.material1.depth_compare = "<="
+    ob.material1.alpha_mode = "blend"
 
     ob.material2.depth_write = False
     ob.material2.depth_test = True
@@ -92,24 +94,27 @@ for ob in objects:
 
 def animate():
     # Render the scene with material 1, to prime the depth buffer
+    for ob in transparent_objects:
+        ob.material = ob.material1
     renderer.render(scene, camera, flush=False)
 
     # Clear the color (not the depth)
     renderer.clear(color=True)
+    renderer.render(scene, camera, flush=False)
 
     # Now render again with material 2, to render fragments behind the first layer, blended.
     # Note that because of the weird depth test, opaque objects are not rendered very well :(
-    for ob in objects:
-        ob.material = ob.material2
-    renderer.render(scene, camera, flush=False)
+    # for ob in objects:
+    #     ob.material = ob.material2
+    # renderer.render(scene, camera, flush=False)
 
     # And now again with material 1, to bring back that first layer.
-    for ob in objects:
-        ob.material = ob.material1
-    renderer.render(scene, camera, flush=False)
+    # for ob in objects:
+    #     ob.material = ob.material1
+    # renderer.render(scene, camera, flush=False)
 
     # The overlay
-    renderer.render(scene_overlay, screen_camera, flush=False)
+    # renderer.render(scene_overlay, screen_camera, flush=False)
 
     renderer.flush()
 

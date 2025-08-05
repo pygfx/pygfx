@@ -51,9 +51,9 @@ for image_name in ["wood.jpg", "bricks.jpg"]:
     image.local.x = x
     x += rgba.shape[1] - 200
 
-# Text is rendered as an overlay (using render_group=1)
-text = gfx.Text("Image stitching", font_size=64, anchor="top-left", render_group=1)
-text.render_order = 1  # render the text on top
+# Text is rendered as an overlay (using render_queue)
+text = gfx.Text("Image stitching", font_size=64, anchor="top-left")
+text.material.render_queue = 4000  # render the text as an overlay
 text.local.scale_y = -1
 scene.add(text)
 
