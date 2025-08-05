@@ -208,7 +208,6 @@ class Text(WorldObject):
         text_align="start",
         text_align_last="auto",
         visible: bool = True,
-        render_group: int = 0,
         render_order: float = 0,
         name: str = "",
     ):
@@ -224,7 +223,6 @@ class Text(WorldObject):
             geometry,
             material,
             visible=visible,
-            render_group=render_group,
             render_order=render_order,
             name=name,
         )

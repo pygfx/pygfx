@@ -79,14 +79,13 @@ class FlatScene:
         self.object_count = object_count
         self.add_scene(scene)
 
-    def _iter_scene(self, ob, render_group=0, render_order=0):
+    def _iter_scene(self, ob, render_order=0):
         if not ob.visible:
             return
-        render_group += ob.render_group
         render_order += ob.render_order
-        yield ob, render_group, render_order
+        yield ob, render_order
         for child in ob._children:
-            yield from self._iter_scene(child, render_group, render_order)
+            yield from self._iter_scene(child, render_order)
 
     def add_scene(self, scene):
         """Add a scene to the total flat scene. Is usually called just once."""
@@ -95,7 +94,7 @@ class FlatScene:
         view_matrix = self._view_matrix
         wobject_wrappers = self._wobject_wrappers
 
-        for wobject, render_group, render_order in self._iter_scene(scene):
+        for wobject, render_order in self._iter_scene(scene):
             # Assign renderer id's
             self.object_count += wobject._assign_renderer_id(self.object_count + 1)
             # Update things like transform and uniform buffers
@@ -123,35 +122,21 @@ class FlatScene:
             # Renderable objects
             material = wobject._material
             if material is not None:
-                # Get material props related to sorting
-                depth_write = material.depth_write
-                alpha_config = material.alpha_config
-                alpha_method = alpha_config["method"]
-                transparency_pass = alpha_config["transparency_pass"]
-                # typically this is ``alpha_method in ("opaque", "stochastic")``, but users can override
+                render_queue = material.render_queue
+                alpha_method = material.alpha_config["method"]
 
-                # Get pass type and distance sort sign
-                if alpha_method == "weighted":
-                    # Weighted blending is a bit like a sub-pass (to usually the transparency pass).
-                    # The grouping occurs naturally because of the dist_flag.
-                    pass_type = "weighted"
-                    dist_sort_sign = 0
-                elif not transparency_pass:
-                    # Opaque objects. See how opaque objects that don't write depth are rendered later.
-                    pass_type = "opaque"
-                    if depth_write:
-                        dist_sort_sign = +1
-                    else:
-                        dist_sort_sign = -1
-                else:
-                    # The regular transparency pass
-                    pass_type = "transparency"
-                    dist_sort_sign = -1
+                # By default sort back-to-front, for correct blending.
+                dist_sort_sign = -1
+                # But for opaque queues, render front-to-back to avoid overdraw.
+                if 1500 < render_queue <= 2500:
+                    dist_sort_sign = 1
+
+                pass_type = alpha_method
 
                 # Get depth sorting flag. Note that use camera's view matrix, since the projection does not affect the depth order.
                 # It also means we can set projection=False optimalization.
                 # Also note that we look down -z.
-                if dist_sort_sign == 0:  # alpha_method == "weighted"
+                if alpha_method == "weighted":
                     dist_flag = 0
                 elif view_matrix is None:
                     dist_flag = -1
@@ -163,12 +148,7 @@ class FlatScene:
                     distance_to_camera = float(-relative_pos[2])
                     dist_flag = distance_to_camera * dist_sort_sign
 
-                sort_key = (
-                    render_group,
-                    transparency_pass,
-                    render_order,
-                    dist_flag,
-                )
+                sort_key = (render_queue, render_order, dist_flag)
                 wobject_wrappers.append(WobjectWrapper(wobject, sort_key, pass_type))
 
     def sort(self):
