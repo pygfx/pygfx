@@ -17,6 +17,7 @@ from pygfx.renderers.wgpu.engine.pipeline import get_pipeline_container_group
 from pygfx.renderers.wgpu.engine.renderstate import get_renderstate
 from pygfx.renderers.wgpu.engine.renderer import FlatScene
 
+
 from ..testutils import can_use_wgpu_lib
 import pytest
 
@@ -113,7 +114,9 @@ def test_updating_mesh_blending():
     # Create a mesh
     mesh = gfx.Mesh(
         gfx.box_geometry(200, 200, 200),
-        gfx.MeshPhongMaterial(color=(1, 0, 0), color_mode="uniform"),
+        gfx.MeshPhongMaterial(
+            color=(1, 0, 0), color_mode="uniform", alpha_mode="blend"
+        ),
     )
     scene.add(mesh)
 
@@ -123,27 +126,33 @@ def test_updating_mesh_blending():
     snapshotter.check(shaders_same=True, pipelines_same=True, bindings_same=True)
 
     # Changing to a slightly different blend mode only affects the pipeline
-    mesh.material.blending = "additive"
+    mesh.material.alpha_mode = "add"
     snapshotter.check(shaders_same=True, pipelines_same=False, bindings_same=True)
 
     # Same for custom classic blending
-    # mesh.material.blending = {"mode": "classic", "color_src": "one", "color_dst": "zero", "alpha_src": "src", "alpha_dst": "one"}
-    # snapshotter.check(shaders_same=True, pipelines_same=False, bindings_same=True)
+    mesh.material.alpha_config = {
+        "method": "composite",
+        "color_src": "one",
+        "color_dst": "zero",
+        "alpha_src": "src",
+        "alpha_dst": "one",
+    }
+    snapshotter.check(shaders_same=True, pipelines_same=False, bindings_same=True)
 
     # Now use dither, which uses a different pipeline
-    mesh.material.blending = "dither"
+    mesh.material.alpha_mode = "dither"
     snapshotter.check(shaders_same=False, pipelines_same=False, bindings_same=False)
 
     # Now use weighted, dito.
-    mesh.material.blending = "weighted"
+    mesh.material.alpha_mode = "weighted_blend"
     snapshotter.check(shaders_same=False, pipelines_same=False, bindings_same=False)
 
     # Now use classic again
-    mesh.material.blending = "normal"
+    mesh.material.alpha_mode = "blend"
     snapshotter.check(shaders_same=False, pipelines_same=False, bindings_same=False)
 
     # Now use classic again
-    mesh.material.blending = "multiply"
+    mesh.material.alpha_mode = "multiply"
     snapshotter.check(shaders_same=True, pipelines_same=False, bindings_same=True)
 
 
@@ -214,3 +223,10 @@ def test_updating_mesh_geometry_color():
     # This is not because an alpha channel was added; also happens for grayscale
     mesh.geometry.colors = gfx.Buffer(np.random.uniform(size=(24, 1)).astype("f4"))
     snapshotter.check(shaders_same=False, pipelines_same=False, bindings_same=False)
+
+
+if __name__ == "__main__":
+    test_updating_image_material_map()
+    test_updating_mesh_blending()
+    test_updating_mesh_material_color_and_opacity()
+    test_updating_mesh_geometry_color()

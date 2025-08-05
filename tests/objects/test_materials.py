@@ -31,41 +31,36 @@ def test_automatic_props():
     m = pygfx.Material()
 
     # Default case
-    assert not m.transparent_is_set
     assert not m.depth_write_is_set
-    assert m.transparent is None
     assert m.depth_write is True
 
     # Use opacity
     m.opacity = 0.5
-    assert not m.transparent_is_set
     assert not m.depth_write_is_set
-    assert m.transparent is True
+    assert m.render_queue == 2600  # > 2500
     assert m.depth_write is False
 
-    # Use transparent True
+    # Set to "transparent" queue
     m.opacity = 1
-    m.transparent = True
-    assert m.transparent_is_set
+    m.render_queue = 3000
     assert not m.depth_write_is_set
-    assert m.transparent is True
+    assert m.render_queue == 3000
     assert m.depth_write is False
 
-    # Use transparent False
+    # Set to "opaque" queue
     m.opacity = 1
-    m.transparent = False
+    m.render_queue = 2000
     assert m.transparent_is_set
     assert not m.depth_write_is_set
-    assert m.transparent is False
+    assert m.render_queue == 2000
     assert m.depth_write is True
 
     # Use depth_write
     m.opacity = 1
-    m.transparent = None
+    m.render_queue = None
     m.depth_write = False
-    assert not m.transparent_is_set
     assert m.depth_write_is_set
-    assert m.transparent is None
+    assert m.transparent == 0
     assert m.depth_write is False
 
 
