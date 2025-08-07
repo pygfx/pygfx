@@ -140,7 +140,12 @@ def load_model(model_path):
         state["selected_action"] = 0
 
         camera.show_object(model_obj, scale=1.4)
-        actions = None
+
+        if actions:
+            for action in actions:
+                action.stop()
+            actions = []
+
         clips = gltf.animations
         if clips:
             actions = [mixer.clip_action(clip) for clip in clips]
