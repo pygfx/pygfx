@@ -153,7 +153,7 @@ class Material(Trackable):
         opacity: float = 1,
         clipping_planes: Sequence[ABCDTuple] = (),
         clipping_mode: Literal["ANY", "ALL"] = "ANY",
-        alpha_mode: str = "solid",
+        alpha_mode: str = "auto",
         alpha_config: Optional[dict] = None,
         depth_test: bool = True,
         depth_compare: str = "<",
@@ -248,7 +248,10 @@ class Material(Trackable):
         value = min(max(float(value), 0), 1)
         self.uniform_buffer.data["opacity"] = value
         self.uniform_buffer.update_full()
-        self._store.opacity_is_one = value == 1
+        opacity_is_one = value == 1
+        if opacity_is_one != self._store["opacity_is_one"]:
+            self._store.opacity_is_one = opacity_is_one
+            self._derive_render_queue()
 
     @property
     def clipping_planes(self) -> Sequence[ABCDTuple]:
@@ -327,39 +330,41 @@ class Material(Trackable):
         * "solid": alpha is ignored.
         * "solid_premul": the alpha is multipled with the color (making it darker).
 
-        Modes for method "stochastic" (alpha represents the chance of a fragment being visible):
-
-        * "dither": stochastic transparency with blue noise.
-        * "bayer": stochastic transparency with an 8x8 Bayer pattern.
-
         Modes for method "composite" (per-fragment blending of the object's color and the color in the output texture):
 
-        * "blend": use classic alpha blending using the over-operator.
-        * "add": use additive blending that adds the fragment color, multiplied by alpha.
-        * "subtract": use subtractuve blending that removes the fragment color.
-        * "multiply": use multiplicative blending that multiplies the fragment color.
+        * "auto": classic alpha blending, with ``depth_write`` defaulting to True if ``.opacity==1``. See note below.
+        * "blend": classic alpha blending using the over-operator. ``depth_write`` defaults to False.
+        * "add": additive blending that adds the fragment color, multiplied by alpha.
+        * "subtract": subtractuve blending that removes the fragment color.
+        * "multiply": multiplicative blending that multiplies the fragment color.
+
+        Modes for method "stochastic" (alpha represents the chance of a fragment being visible):
+
+        * "dither": stochastic transparency with blue noise. This mode handles
+          order-independent transparency exceptionally well, but it produces
+          results that can look somewhat noisy.
+        * "bayer": stochastic transparency with an 8x8 Bayer pattern.
 
         Modes for method "weighted" (order independent blending):
 
         * "weighted_blend": weighted blended order independent transparency.
         * "weighted_solid": fragments are combined based on alpha, but the final alpha is always 1. Great for e.g. image stitching.
 
+        Note that the special mode "auto" produces reasonable results for common
+        use-cases and can handle objects that produce a mix of opaque (alpha=1)
+        and transparent (alpha<1) fragments, i.e. it can handle lines, points,
+        and text with ``material.aa=True``. If ``.opacity<1``, the "auto" mode
+        is equal to "blend". Artifacts can occur when objects are rendered out
+        of order and/or when objects intersect. A different method such as
+        "blend", "dither", or "weighted_blend" is then recommended.
+
         Note that for methods 'opaque' and 'stochastic', the ``depth_write``
         defaults to True, and for methods 'composite' and 'weighted' the
-        ``depth_write`` defaults to False.
+        ``depth_write`` defaults to False. Mode "auto" is an exception to this rule.
 
         Note that the value of ``material.alpha_mode`` can be "custom" in case
         ``alpa_config`` is set to a configuration not covered by a builtin mode.
         """
-
-        # TODO: properly implement+document 'blend_solid', maybe rename to 'auto'. Or remove it.
-        # Note that it's currently implemented but not documented.
-        # * "blend_solid": like "blend" but it makes ``depth_write`` default to True. See note below.
-        #  Note that mode "blend_solid" is a bit special, but it produces
-        # reasonable results for common use-cases and can even handle objects that
-        # produce a mix of opaque (alpha=1) and transparent (alpha<1) fragments.
-        # That said, if objects intersect, it will cause artifacts, and another
-        # mode such as "blend", "dither", or "weighted_blend" is recommended.
 
         return self._store.alpha_config["mode"]
 
@@ -386,9 +391,9 @@ class Material(Trackable):
             if alpha_mode not in AlphaMode:
                 raise ValueError("Cannot set material.alpha_mode with 'custom'")
 
-        if alpha_mode == "blend_solid":
+        if alpha_mode == "auto":
             d = ALPHA_MODES["blend"].copy()
-            d["mode"] = "blend_solid"
+            d["mode"] = "auto"
         else:
             d = ALPHA_MODES[alpha_mode]
         self.alpha_config = d
@@ -464,7 +469,7 @@ class Material(Trackable):
 
         # Init with a preset?
         mode = alpha_config.get("mode", None)
-        if mode and mode not in ("blend_solid", "custom"):
+        if mode and mode not in ("auto", "custom"):
             if mode not in ALPHA_MODES:
                 raise ValueError(f"Invalid mode in material.alpha_config: {mode!r}")
             d = ALPHA_MODES[mode]
@@ -511,8 +516,8 @@ class Material(Trackable):
                 if mode_dict == options:
                     the_mode = mode_name
                     break
-        if mode == "blend_solid" and the_mode == "blend":
-            the_mode = "blend_solid"
+        if mode == "auto" and the_mode == "blend":
+            the_mode = "auto"
 
         # Save
         self._store.alpha_method = method
@@ -643,8 +648,8 @@ class Material(Trackable):
         """
         depth_write = self._store.depth_write
         if depth_write is None:
-            if self._store.alpha_config["mode"] == "blend_solid":
-                depth_write = True  # or self._store.opacity_is_one ?
+            if self._store.alpha_config["mode"] == "auto":
+                depth_write = self._store.opacity_is_one
             else:
                 alpha_method = self._store.alpha_config["method"]
                 depth_write = alpha_method in ("opaque", "stochastic")

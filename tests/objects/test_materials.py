@@ -28,7 +28,7 @@ def test_uniform_types_uniform_type():
 
 
 def test_automatic_props():
-    m = pygfx.Material()
+    m = pygfx.Material(alpha_mode="auto")
 
     # Default case
     assert not m.depth_write_is_set
@@ -45,12 +45,11 @@ def test_automatic_props():
     m.render_queue = 3000
     assert not m.depth_write_is_set
     assert m.render_queue == 3000
-    assert m.depth_write is False
+    assert m.depth_write is True
 
     # Set to "opaque" queue
     m.opacity = 1
     m.render_queue = 2000
-    assert m.transparent_is_set
     assert not m.depth_write_is_set
     assert m.render_queue == 2000
     assert m.depth_write is True
@@ -60,7 +59,7 @@ def test_automatic_props():
     m.render_queue = None
     m.depth_write = False
     assert m.depth_write_is_set
-    assert m.transparent == 0
+    assert m.render_queue == 3000
     assert m.depth_write is False
 
 

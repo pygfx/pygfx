@@ -163,7 +163,7 @@ def test_updating_mesh_material_color_and_opacity():
     # Create a mesh
     mesh = gfx.Mesh(
         gfx.box_geometry(200, 200, 200),
-        gfx.MeshPhongMaterial(color=(1, 0, 0), color_mode="uniform"),
+        gfx.MeshPhongMaterial(color=(1, 0, 0), color_mode="uniform", alpha_mode="auto"),
     )
     scene.add(mesh)
 
@@ -180,9 +180,10 @@ def test_updating_mesh_material_color_and_opacity():
     mesh.material.color = "red"
     snapshotter.check(shaders_same=True, pipelines_same=True, bindings_same=True)
 
-    # Using a transparent color also triggers a change, depending on color_mode
+    # Using a transparent color does not trigger a change.
+    # Maybe this behaviour will change; we could set opacity of an rgba color is set.
     mesh.material.color = (1, 1, 0, 0.5)
-    snapshotter.check(shaders_same=True, pipelines_same=False, bindings_same=True)
+    snapshotter.check(shaders_same=True, pipelines_same=True, bindings_same=True)
 
     # Restore and set color mode
     mesh.material.color = (1, 1, 0, 1)
