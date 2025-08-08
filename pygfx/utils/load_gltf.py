@@ -637,7 +637,7 @@ class _GLTF:
                             material_type = _material_type
                             break
 
-            gfx_material = material_type()
+            gfx_material = material_type(name=material.name)
 
             # check if any plugin can extend the material
             for extension in extensions:

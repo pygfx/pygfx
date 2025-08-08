@@ -123,6 +123,7 @@ class Material(Trackable):
     def __init__(
         self,
         *,
+        name="",
         opacity: float = 1,
         clipping_planes: Sequence[ABCDTuple] = (),
         clipping_mode: Literal["ANY", "ALL"] = "ANY",
@@ -137,6 +138,8 @@ class Material(Trackable):
         alpha_compare: str = "<",
     ):
         super().__init__()
+
+        self.name = name
 
         self._store.uniform_buffer = Buffer(
             array_from_shadertype(self.uniform_type), force_contiguous=True
