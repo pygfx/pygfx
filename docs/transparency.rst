@@ -26,6 +26,30 @@ Although this config can be set in great detail, the majority of cases can be
 captured with a handful of presets that we call *alpha modes*.
 
 
+Controlling alpha
+-----------------
+
+There are 3 levels of control with regard to dealing with transparency:
+
+* Use the default ``material.alpha_mode = "auto"``.
+    - In this mode, solid objects write depth but do also blend. Objects that
+      are actually opaque (alpha=1) are rendered correctly, and objects that are
+      (partially) translucent are blended as expected, as long as the objects
+      don't intersect (i.e. can be sorted based on their distance from the
+      camera). Objects with ``material.opacity<1`` behave the same as with
+      ``alpha_mode`` "blend". This is a relatively safe default, especially for
+      2D cases with objects layered in z.
+- Set ``material.alpha_mode`` to a preset string.
+	- These provide configurations for common cases. Examples are "solid",
+      "blend", "dither", and several more. We recommend users to familiarize
+      the different available alpha modes.
+- Set the ``alpha_config`` dictionary to have full control.
+	- In this advanced approach you can choose between four methods ("opaque",
+      "composite", "stochastic", "weighted"), which each have a set of options.
+      You probably also want to set ``material.depth_write``, and maybe
+      ``material.render_queue`` and/or ``ob.render_order``.
+
+
 Alpha modes
 -----------
 
@@ -37,26 +61,23 @@ Method "opaque" (overwrites the value in the output texture):
 * "solid": alpha is ignored.
 * "solid_premul": the alpha is multipled with the color (making it darker).
 
+Method "composite" (per-fragment blending of the object's color and the color in the output texture):
+
+* "auto": classic alpha blending, with ``depth_write`` defaulting to True if ``.opacity==1``.
+* "blend": classic alpha blending using the over-operator.
+* "add": additive blending that adds the fragment color, multiplied by alpha.
+* "subtract": subtractuve blending that removes the fragment color.
+* "multiply": multiplicative blending that multiplies the fragment color.
+
 Method "stochastic" (alpha represents the chance of a fragment being visible):
 
 * "dither": stochastic transparency with blue noise.
 * "bayer": stochastic transparency with a Bayer pattern.
 
-Method "composite" (per-fragment blending of the object's color and the color in the output texture):
-
-* "blend": use classic alpha blending using the over-operator.
-* "add": use additive blending that adds the fragment color, multiplied by alpha.
-* "subtract": use subtractuve blending that removes the fragment color.
-* "multiply": use multiplicative blending that multiplies the fragment color.
-
 Method "weighted" (order independent blending):
 
 * "weighted_blend": weighted blended order independent transparency.
 * "weighted_solid": fragments are combined based on alpha, but the final alpha is always 1. Great for e.g. image stitching.
-
-And finally, there is the "auto" mode, which is the same as "blend", except that when used, the ``depth_write`` defaults to
-True if ``opacity==1``. This gives sensible results out of the box for a relatively wide range of use-cases. When artifacts
-occur, consider any of the other modes.
 
 
 Alpha methods
@@ -104,7 +125,7 @@ Alpha config
 ------------
 
 The ``material.alpha_config`` is a dictionary that fully describes how the combining based on alpha occurs.
-This dictionary has at least three keys: the 'method', 'mode', and 'pass'. It may have additional keys for the options
+This dictionary has at least two keys: the 'method' and 'mode'. It has additional keys for the options
 available for the used method. The different presets represent common combinations of these options.
 
 Most users just set ``material.alpha_mode`` which implicitly sets
@@ -113,21 +134,31 @@ Most users just set ``material.alpha_mode`` which implicitly sets
 options. In this case the 'mode' field and ``material.alpha_mode`` become "custom".
 
 
-Render group and render order
------------------------------
+Render queue
+------------
+
+The ``material.render_queue`` is an integer that represents the group that the renderer uses to sort objects.
+The property is intended for advanced use; it is determined automatically
+based on ``alpha_method``, ``depth_write`` and ``alpha_test``. It's values lays between 1 and 4999,
+with the following default values:
+
+* 1000: background.
+* 2000: opaque non-blending objects.
+* 2400: opaque objects with a discard based on alpha (i.e. using ``alpha_test`` or "stochasric" alpha-mode).
+* 2600: transparent objects that write depth.
+* 3000: transparent objects that don't write depth.
+* 4000: overlay.
+
+Objects with ``render_queue`` between 1501 and 2500 are sorted front-to-back. Otherwise objects are sorted back-to-front.
+
+
+Render order
+------------
 
 The ``object.render_order`` is a float that allows users to more precisely
 control the order in which objects are rendered with respect to other objects in
-the same pass (the opaque or transparent render pass). You typically don't need
-this, but when you do, it's good that you can. The value applies to the object
-and its children.
-
-The ``object.render_group`` is a signed integer that enables grouping of
-objects. Marking an object with ``.render_group=1`` means that the object (and
-its children) are rendered later, as an overlay. Similarly a negative value can
-be used for backgrounds. Note that this behaviour can always be implemented
-using multiple calls to ``renderer.render()``, but allowing to specify multiple
-render groups in one scene has its advantages.
+the same ``render_queue``. You typically don't need this, but when you do, it's
+good that you can. The value applies to the object and its children.
 
 
 How the renderer sorts objects
@@ -135,12 +166,9 @@ How the renderer sorts objects
 
 The renderer sorts objects based on the following factors:
 
-* The ``object.render_group``.
-* The ``material.alpha_config['pass']`` TODO: what's the final name of this field?
+* The ``material.render_queue``.
 * The ``object.render_order``.
-* The object's distance to the camera. The order is front to back in the
-  opaque-pass, and back-to-front in the transparency-pass (to get correct
-  blending). Weighted objects are not sorted.
+* The object's distance to the camera, either front-to-back or back-to-front, depending on the ``render_queue``. Weighted objects are not sorted.
 
 Even with this sorting, objects can still intersect other objects (and themselves).
 To prevent drawing the (parts of) objects that are occluded by other objects, a depth buffer is used.
@@ -304,7 +332,7 @@ Here's a list of both common and special use-cases, explaining how to implement 
     .. code-block:: py
 
         # Pygfx
-        ob.render_group = -1
+        ob.material.render_queue = 1000
 
     .. code-block:: js
 
@@ -318,7 +346,7 @@ Here's a list of both common and special use-cases, explaining how to implement 
     .. code-block:: py
 
         # Pygfx
-        ob.render_group = 1
+        ob.material.render_queue = 4000
 
     .. code-block:: js
 
