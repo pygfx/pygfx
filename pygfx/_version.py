@@ -51,7 +51,9 @@ def get_extended_version():
     version = release
     if post and post != "0":
         version += f".post{post}"
-    if labels:
+        if labels:
+            version += "+" + ".".join(labels)
+    elif labels and labels[-1] == "dirty":
         version += "+" + ".".join(labels)
 
     return version
