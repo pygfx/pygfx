@@ -1,5 +1,5 @@
-Transparency
-============
+Transparency in PyGfx
+=====================
 
 When rendering objects with PyGfx, the shader calculates the color and alpha
 value for each fragment (i.e. output pixel) and then writes these to the output
@@ -31,27 +31,32 @@ Controlling alpha
 
 There are 3 levels of control with regard to dealing with transparency:
 
-* Use the default ``material.alpha_mode = "auto"``.
-    - In this mode, solid objects write depth but also blend. Objects that
-      are actually opaque (alpha=1) are rendered correctly, and objects that are
-      (partially) translucent are blended as expected, as long as the objects
-      don't intersect (i.e. can be sorted based on their distance from the
-      camera). Objects with ``material.opacity<1`` behave the same as with
-      ``alpha_mode`` "blend". This is a relatively safe default, especially for
-      2D cases with objects layered in z.
-- Set ``material.alpha_mode`` to a preset string.
-	- These provide configurations for common cases. Examples are "solid",
-      "blend", "dither", and several more. We recommend users to familiarize
-      the different available alpha modes.
-- Set the ``alpha_config`` dictionary to have full control.
-	- In this advanced approach you can choose between four methods ("opaque",
-      "composite", "stochastic", "weighted"), which each have a set of options.
-      You probably also want to set ``material.depth_write``, and maybe
-      ``material.render_queue`` and/or ``ob.render_order``.
+1. Use the default ``material.alpha_mode = "auto"``:
+
+In this mode, solid objects write depth but also blend. Objects that
+are actually opaque (alpha=1) are rendered correctly, and objects that are
+(partially) translucent are blended as expected, as long as the objects
+don't intersect (i.e. can be sorted based on their distance from the
+camera). Objects with ``material.opacity<1`` behave the same as with
+``alpha_mode`` "blend". This is a relatively safe default, especially for
+2D cases with objects layered in z.
+
+2. Set ``material.alpha_mode`` to a preset string:
+
+These provide configurations for common cases. Examples are "solid",
+"blend", "dither", and several more. We recommend users to familiarize
+the different available alpha modes.
+
+3. Set the ``alpha_config`` dictionary to have full control:
+
+In this advanced approach you can choose between four methods ("opaque",
+"composite", "stochastic", "weighted"), which each have a set of options.
+You probably also want to set ``material.depth_write``, and maybe
+``material.render_queue`` and/or ``ob.render_order``.
 
 
-A quick guide to select a suitable alpha mode
----------------------------------------------
+A quick guide to select alpha mode
+----------------------------------
 
 If your scene is 2D, you can probably use ``alpha_mode`` "blend". It is advisable
 to use the z-dimension to "layer" your objects, which will help the renderer
