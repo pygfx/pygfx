@@ -32,7 +32,7 @@ Controlling alpha
 There are 3 levels of control with regard to dealing with transparency:
 
 * Use the default ``material.alpha_mode = "auto"``.
-    - In this mode, solid objects write depth but do also blend. Objects that
+    - In this mode, solid objects write depth but also blend. Objects that
       are actually opaque (alpha=1) are rendered correctly, and objects that are
       (partially) translucent are blended as expected, as long as the objects
       don't intersect (i.e. can be sorted based on their distance from the
@@ -48,6 +48,40 @@ There are 3 levels of control with regard to dealing with transparency:
       "composite", "stochastic", "weighted"), which each have a set of options.
       You probably also want to set ``material.depth_write``, and maybe
       ``material.render_queue`` and/or ``ob.render_order``.
+
+
+A quick guide to select a suitable alpha mode
+---------------------------------------------
+
+If your scene is 2D, you can probably use ``alpha_mode`` "blend". It is advisable
+to use the z-dimension to "layer" your objects, which will help the renderer
+to draw the objects in the correct order (from back to front). The "auto" mode will
+also work (but writes to the depth buffer if ``opacity==1``). And you can always use mode "solid"
+for objects that are known to be opaque (and don't have ``material.aa`` set), to help performance.
+
+If your scene is 3D, and you only have a few transparent objects, it's probably best/easiest
+to render solid objects with mode "solid", and the few transparent objects with mode "blend".
+
+If you have multiple transparent objects that intersect each-other, the above will not produce
+satisfactory results. Maybe you can split the objects into multiple smaller objects, so that they
+no longer intersect and can be unambiguously sorted by the renderer, based on their distance to the camera.
+
+Another option to deal with complex transparent geometry is to use mode
+"dither". This produces excellent results from a technical perspective (correct
+"blending") but produces somewhat noisy images. You can also apply mode "dither"
+to *some* of the transparent objects, e.g. the ones with the more complex geometry, and use
+"blend" for the rest.
+
+And finally, you can use mode "weighted_blend" to produce a result where the
+pixel values of all transparent objects are combined in a way that's independent
+of their order or depth. This produces "clear" images, although not really correct, and
+intersections of transparent objects are not visible.
+
+A special note for objects that have both opaque and semi-transparent regions:
+the "auto" mode may render these correctly, assuming objects can be sorted without intersections.
+Otherwise mode "dither" can handle this case perfectly. Though note that using
+'dither' to handle the semi-transparent anti-aliased pixels at the edge of an
+object is a bad idea.
 
 
 Alpha modes
@@ -88,7 +122,7 @@ that the "opaque" and "stochastic" methods produce opaque fragments, and by defa
 The renderer sorts these objects front-to back to avoid overdraw (for performance).
 
 In contrast, the "composite" and "weighted" methods result in semi-transparent fragments,
-and by default have ``depth_write=False``. The renderer sorts these object back to front to
+and by default have ``depth_write=False``. The renderer sorts these object back-to-front to
 improve the chance of correct blending. Note that the 'auto' mode is an exception to this rule.
 
 
