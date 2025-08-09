@@ -18,7 +18,7 @@ import sounddevice as sd
 import soundfile as sf
 import requests
 from tqdm import tqdm
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 from pygfx.renderers.wgpu import (
     Binding,
     GfxSampler,
@@ -692,7 +692,7 @@ fragment_shader_code4 = """
 FFT_SIZE = 128
 
 renderer = gfx.WgpuRenderer(
-    WgpuCanvas(title="audio visualizer", max_fps=60, size=(1280, 720))
+    RenderCanvas(title="audio visualizer", max_fps=60, size=(1280, 720))
 )
 camera = gfx.NDCCamera()  # Not actually used
 
@@ -764,4 +764,4 @@ if __name__ == "__main__":
     song_path = "https://audio-download.ngfiles.com/376000/376737_Skullbeatz___Bad_Cat_Maste.mp3"
     audio_player.play(song_path)
     renderer.request_draw(animate)
-    run()
+    loop.run()

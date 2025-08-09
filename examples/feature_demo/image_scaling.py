@@ -31,12 +31,12 @@ to better understand how they can adapt the provided classes to their needs.
 
 import imageio.v3 as iio
 import numpy as np
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 
 
 canvas_size = 512 * 2 + 50, 512 + 100
-canvas = WgpuCanvas(size=canvas_size, max_fps=999)
+canvas = RenderCanvas(size=canvas_size, update_mode="fastest")
 renderer = gfx.renderers.WgpuRenderer(canvas, show_fps=True)
 scene = gfx.Scene()
 camera = gfx.OrthographicCamera(canvas_size[0], canvas_size[1])
@@ -82,4 +82,4 @@ scene.add(line)
 
 if __name__ == "__main__":
     canvas.request_draw(lambda: renderer.render(scene, camera))
-    run()
+    loop.run()

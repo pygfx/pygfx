@@ -17,10 +17,12 @@ The enums used in pygfx. The enums are all available from the root ``pygfx`` nam
     TextAlign
     TextAnchor
     VisibleSide
+    PixelFilter
 
 """
 
 from wgpu.utils import BaseEnum
+from typing import TypeAlias, Literal
 
 
 __all__ = [
@@ -30,6 +32,7 @@ __all__ = [
     "EdgeMode",
     "ElementFormat",
     "MarkerShape",
+    "PixelFilter",
     "SizeMode",
     "TextAlign",
     "TextAnchor",
@@ -179,5 +182,25 @@ class TextAnchor(Enum):
     bottom_center = "bottom-center"
     bottom_right = "bottom-right"
 
+
+# TODO: I experimented with using a Literal[] here, an idea discussed in https://github.com/pygfx/wgpu-py/issues/720.
+# We should eventually use the same approach to all enums (either an Enum class, or Literal type aliases).
+
+PixelFilter: TypeAlias = Literal[
+    "nearest", "linear", "tent", "disk", "bspline", "mitchell", "catmull"
+]  #:
+""" The type of interpolation for flushing the result of a renderer to a target.
+
+The filter is used both when upsampling and downsampling. The recommended (and default) is "mitchell".
+Note that when the source and target image are of the same size, the filter is always nearest.
+
+* "nearest": nearest-neighbour interpolation. Note that this introduces aliasing when downsampling.
+* "linear": linear interpolation. Note that this introduces aliasing when downsampling.
+* "tent": linearly combines samples based on their distance using a smaller kernel than the cubic filters. When upsampling, it does the same a 'linear'.
+* "disk": a circular filter shape to show individual pixels in upsampling cases.
+* "bspline": cubic spline of the type b-spline, which is rather smooth but has no overshoot.
+* "mitchell": cubic spline of the type Mitchel-Netravali, which is optimized for image interpolation.
+* "catmull": cubic spline of the type Catmull-Rom, which is sharper, but has more ringing effects.
+"""
 
 # NOTE: Don't forget to add new enums to the toctree and __all__

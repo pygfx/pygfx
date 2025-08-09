@@ -28,7 +28,7 @@ from pathlib import Path
 import imageio.v3 as imageio
 import numpy as np
 from imgui_bundle import imgui
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 from wgpu.utils.imgui import ImguiRenderer
 
 import pygfx as gfx
@@ -84,7 +84,7 @@ else:
 
 canvas_size = 800, 800
 
-canvas = WgpuCanvas(size=canvas_size)
+canvas = RenderCanvas(size=canvas_size)
 renderer = gfx.renderers.WgpuRenderer(canvas)
 
 w, h = canvas.get_logical_size()
@@ -287,4 +287,4 @@ def animate():
 gui_renderer.set_gui(draw_imgui)
 if __name__ == "__main__":
     canvas.request_draw(animate)
-    run()
+    loop.run()

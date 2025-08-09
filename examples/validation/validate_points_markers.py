@@ -16,11 +16,11 @@ To this end, we repeat the pattern with the inner and outer edge painted.
 # sphinx_gallery_pygfx_test = 'compare'
 
 import numpy as np
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 
 
-canvas = WgpuCanvas(size=(1200, 1000))
+canvas = RenderCanvas(size=(1200, 1000))
 renderer = gfx.WgpuRenderer(canvas)
 
 colors = np.array(
@@ -276,4 +276,4 @@ def handle_event(event):
 
 if __name__ == "__main__":
     print(__doc__)
-    run()
+    loop.run()

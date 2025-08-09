@@ -14,11 +14,11 @@ texture is manipilated directly using ``send_data()``.
 # sphinx_gallery_pygfx_test = 'run'
 
 import wgpu
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 import numpy as np
 
-renderer = gfx.renderers.WgpuRenderer(WgpuCanvas())
+renderer = gfx.renderers.WgpuRenderer(RenderCanvas())
 scene = gfx.Scene()
 
 scene.add(gfx.Background.from_color("#cde"))
@@ -68,4 +68,4 @@ controller.controls = {
 
 if __name__ == "__main__":
     renderer.request_draw(lambda: renderer.render(scene, camera))
-    run()
+    loop.run()

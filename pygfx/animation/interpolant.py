@@ -42,18 +42,21 @@ class Interpolant:
         i1 = self._cached_index
         len_pp = len(pp)
 
+        if len_pp == 0:
+            raise ValueError("The parameter_positions array is empty.")
+
+        if len_pp == 1:
+            return self.sample_values[0]
+
         t1 = pp[i1] if i1 < len_pp else None
         t0 = pp[i1 - 1] if i1 > 0 else None
 
         # check if t is in the interval of the cached index, scan the 2 adjacent intervals at most
-        if t1 is None or t >= t1:
+        if (t1 is not None and t >= t1) or (t1 is None and t >= t0):
             # scan the right side of the interval, at most 2 intervals
             for _ in range(2):
                 i1 += 1
                 if i1 >= len_pp:
-                    if t < t0:
-                        break  # break to the binary search
-
                     # after the end
                     i1 = len_pp
                     self._cached_index = i1

@@ -9,7 +9,7 @@ A custom material for drawing geometry by depth
 # sphinx_gallery_pygfx_test = 'run'
 
 import wgpu
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 from pygfx.renderers.wgpu import Binding, register_wgpu_render_function
 from pygfx.renderers.wgpu.shaders.meshshader import MeshShader
@@ -95,7 +95,7 @@ class DepthShader(MeshShader):
 
 # Setup scene
 
-renderer = gfx.WgpuRenderer(WgpuCanvas(size=(640, 480)))
+renderer = gfx.WgpuRenderer(RenderCanvas(size=(640, 480)))
 
 camera = gfx.PerspectiveCamera(45, 640 / 480, depth_range=(8, 12))
 camera.local.z = 10
@@ -116,4 +116,4 @@ def animate():
 
 if __name__ == "__main__":
     renderer.request_draw(animate)
-    run()
+    loop.run()

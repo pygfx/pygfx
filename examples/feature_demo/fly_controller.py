@@ -12,12 +12,12 @@ Tip: try using different blending.
 # sphinx_gallery_pygfx_docs = 'screenshot'
 # sphinx_gallery_pygfx_test = 'run'
 
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 import numpy as np
 
 
-canvas = WgpuCanvas()
+canvas = RenderCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 scene.add(gfx.Background.from_color("#000"))
@@ -31,7 +31,6 @@ grid = gfx.Grid(
         major_thickness=2,
         minor_thickness=0.1,
         infinite=True,
-        # aa=False,
     ),
     orientation="xz",
 )
@@ -49,8 +48,7 @@ material = gfx.PointsGaussianBlobMaterial(
     color_mode="vertex",
     size_mode="vertex",
     size_space="world",
-    blending="normal",
-    transparent=True,
+    blending="dither",
 )
 points = gfx.Points(geometry, material)
 scene.add(points)
@@ -62,4 +60,4 @@ controller = gfx.FlyController(camera, register_events=renderer)
 
 if __name__ == "__main__":
     canvas.request_draw(lambda: renderer.render(scene, camera))
-    run()
+    loop.run()

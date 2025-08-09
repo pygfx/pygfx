@@ -16,7 +16,7 @@ import pickle
 from pathlib import Path
 
 from observ import reactive, watch
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 
 
@@ -24,7 +24,7 @@ HERE = Path(__file__).parent
 state_file = HERE / "reactive_rendering_state.pkl"
 
 
-canvas = WgpuCanvas()
+canvas = RenderCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 viewport = gfx.Viewport.from_viewport_or_renderer(renderer)
 scene = gfx.Scene()
@@ -150,4 +150,4 @@ if __name__ == "__main__":
     canvas.request_draw(render_frame)
 
     # start!
-    run()
+    loop.run()

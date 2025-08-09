@@ -13,13 +13,15 @@ import numpy as np
 import pygfx as gfx
 import wgpu
 import imageio.v3 as iio
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 from pygfx.utils.compute import ComputeShader
 from imgui_bundle import imgui
 from wgpu.utils.imgui import ImguiRenderer
 from wgpu.utils.imgui import Stats
 
-canvas = WgpuCanvas(size=(1280, 720), max_fps=-1, title="compute cloth", vsync=False)
+canvas = RenderCanvas(
+    size=(1280, 720), update_mode="fastest", title="compute cloth", vsync=False
+)
 renderer = gfx.WgpuRenderer(canvas)
 camera = gfx.PerspectiveCamera(45, 1280 / 720, depth_range=(0.01, 10))
 
@@ -709,4 +711,4 @@ def animate():
 
 if __name__ == "__main__":
     renderer.request_draw(animate)
-    run()
+    loop.run()

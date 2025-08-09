@@ -131,7 +131,8 @@ class WorldObject(EventTarget, Trackable):
     uniform_type: ClassVar[dict[str, str]] = dict(
         world_transform="4x4xf4",
         world_transform_inv="4x4xf4",
-        id="i4",
+        global_id="u4",
+        renderer_id="u4",
     )
 
     def __init__(
@@ -168,9 +169,15 @@ class WorldObject(EventTarget, Trackable):
             self.local, is_camera_space=self._FORWARD_IS_MINUS_Z, reference_up=(0, 1, 0)
         )
 
-        # Set id
-        self._id = id_provider.claim_id(self)
-        buffer.data["id"] = self._id
+        # Set id that is global to the process. For identification of the object
+        self._global_id = id_provider.claim_id(self)
+        buffer.data["global_id"] = self._global_id
+
+        # Init id assigned by the renderer. This id will be set once, by the first
+        # renderer to render this object. That way, within one "visualization"
+        # (consisting of a renderer and a scene with fresh objects) these id's are
+        # reproducable. I.e. validation examples have reproducable locally unique id's.
+        self._renderer_id = 0
 
         # Bounds
         self._bounds_geometry = None
@@ -186,6 +193,15 @@ class WorldObject(EventTarget, Trackable):
         self.receive_shadow = False
 
         self.name = name
+
+    def _assign_renderer_id(self, id):
+        if self._renderer_id == 0:
+            assert id > 0
+            self._renderer_id = id
+            self.uniform_buffer.data["renderer_id"] = id
+            self.uniform_buffer.update_full()
+            return 1
+        return 0
 
     def _update_object(self):
         """This gets called (by the renderer) right before being drawn. Good time for lazy updates."""
@@ -236,7 +252,7 @@ class WorldObject(EventTarget, Trackable):
     @property
     def id(self) -> int:
         """An integer id smaller than 2**31 (read-only)."""
-        return self._id
+        return self._global_id
 
     @property
     def visible(self) -> bool:

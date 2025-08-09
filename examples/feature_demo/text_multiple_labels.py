@@ -17,7 +17,7 @@ can re-allocate its buffers if the number of text blocks changes.
 # sphinx_gallery_pygfx_docs = 'screenshot'
 # sphinx_gallery_pygfx_test = 'run'
 
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 
 import pygfx as gfx
 import numpy as np
@@ -63,11 +63,11 @@ scene.add(points)
 camera = gfx.PerspectiveCamera()
 camera.show_object(scene)
 
-renderer = gfx.renderers.WgpuRenderer(WgpuCanvas(size=(800, 600)))
+renderer = gfx.renderers.WgpuRenderer(RenderCanvas(size=(800, 600)))
 controller = gfx.OrbitController(camera, register_events=renderer)
 
 renderer.request_draw(lambda: renderer.render(scene, camera))
 
 
 if __name__ == "__main__":
-    run()
+    loop.run()

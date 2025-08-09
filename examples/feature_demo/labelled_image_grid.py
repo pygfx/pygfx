@@ -12,7 +12,7 @@ import random
 
 import imageio.v3 as iio
 import numpy as np
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 
 import pygfx as gfx
 
@@ -29,7 +29,7 @@ images = [iio.imread(f"imageio:{name}") for name in image_names]
 
 grid_shape = (24, 16)
 
-canvas = WgpuCanvas()
+canvas = RenderCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas, show_fps=True)
 scene = gfx.Scene()
 
@@ -112,4 +112,4 @@ def update_scene():
 
 
 canvas.request_draw(update_scene)
-run()
+loop.run()
