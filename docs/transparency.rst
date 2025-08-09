@@ -26,26 +26,28 @@ Although this config can be set in great detail, the majority of cases can be
 captured with a handful of presets that we call *alpha modes*.
 
 
-Controlling alpha
------------------
+Controlling transparency
+------------------------
+
+Transparency is a notoriously tricky topic in 3D rendering. Methods that produce
+good results out of the box do exist, but are slow and/or consume considerably more memory.
+In PyGfx we provide a few different methods that are relatively lean.
 
 There are 3 levels of control with regard to dealing with transparency:
 
 1. Use the default ``material.alpha_mode = "auto"``:
 
 In this mode, solid objects write depth but also blend. Objects that
-are actually opaque (alpha=1) are rendered correctly, and objects that are
-(partially) translucent are blended as expected, as long as the objects
+are opaque (alpha=1) are rendered correctly, and objects that are
+(partially) transparent too, as long as the objects
 don't intersect (i.e. can be sorted based on their distance from the
 camera). Objects with ``material.opacity<1`` behave the same as with
-``alpha_mode`` "blend". This is a relatively safe default, especially for
-2D cases with objects layered in z.
+``alpha_mode`` "blend".
 
 2. Set ``material.alpha_mode`` to a preset string:
 
 These provide configurations for common cases. Examples are "solid",
-"blend", "dither", and several more. We recommend users to familiarize
-the different available alpha modes.
+"blend", "dither", and several more.
 
 3. Set the ``alpha_config`` dictionary to have full control:
 
