@@ -37,7 +37,7 @@ def test_automatic_props():
     # Use opacity
     m.opacity = 0.5
     assert not m.depth_write_is_set
-    assert m.render_queue == 2600  # > 2500
+    assert m.render_queue == 3000  # > 2500
     assert m.depth_write is False
 
     # Set to "transparent" queue

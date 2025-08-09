@@ -171,6 +171,7 @@ class Material(Trackable):
         self._given_render_queue = (
             2000  # init with a value to avoid resolving many times
         )
+        self._store["opacity_is_one"] = None
         self.opacity = opacity
         self.clipping_planes = clipping_planes
         self.clipping_mode = clipping_mode
