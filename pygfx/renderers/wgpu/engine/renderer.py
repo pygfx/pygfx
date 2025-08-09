@@ -79,15 +79,22 @@ class FlatScene:
         self.object_count = object_count
         self.add_scene(scene)
 
+    def _iter_scene(self, ob, render_order=0):
+        if not ob.visible:
+            return
+        render_order += ob.render_order
+        yield ob, render_order
+        for child in ob._children:
+            yield from self._iter_scene(child, render_order)
+
     def add_scene(self, scene):
         """Add a scene to the total flat scene. Is usually called just once."""
-        # Flags for sorting
-        category_opaque = 1
-        category_semi_opaque = 2
-        category_fully_transparent = 3
-        category_weighted = 4
 
-        for wobject in scene.iter(skip_invisible=True):
+        # Put some attributes as vars in this namespace for faster access
+        view_matrix = self._view_matrix
+        wobject_wrappers = self._wobject_wrappers
+
+        for wobject, render_order in self._iter_scene(scene):
             # Assign renderer id's
             self.object_count += wobject._assign_renderer_id(self.object_count + 1)
             # Update things like transform and uniform buffers
@@ -115,47 +122,34 @@ class FlatScene:
             # Renderable objects
             material = wobject._material
             if material is not None:
-                blending_mode = material.blending["mode"]
-                pass_type = "normal"  # one of 'normal' or 'weighted'
+                render_queue = material.render_queue
+                alpha_method = material.alpha_config["method"]
 
-                if blending_mode == "weighted":
-                    dist_sort_sign = 0
-                    category_flag = category_weighted
-                    pass_type = "weighted"
-                elif blending_mode == "dither":
-                    dist_sort_sign = +1
-                    category_flag = category_opaque
-                else:  # blending_mode == 'classic'
-                    transparent = material.transparent
-                    if transparent:
-                        # NOTE: threeJS renders double-sided objects twice, maybe we should too? (we can look at this later)
-                        dist_sort_sign = -1
-                        category_flag = category_fully_transparent
-                    elif transparent is None:
-                        dist_sort_sign = -1
-                        category_flag = category_semi_opaque
-                    else:
-                        dist_sort_sign = +1
-                        category_flag = category_opaque
-                        # NOTE: it may help performance to put objects that use discard into category_semi_opaque so that they
-                        # render after the real opaque objects. This can help with early-z. Need benchmarks to know for sure
+                # By default sort back-to-front, for correct blending.
+                dist_sort_sign = -1
+                # But for opaque queues, render front-to-back to avoid overdraw.
+                if 1500 < render_queue <= 2500:
+                    dist_sort_sign = 1
+
+                pass_type = alpha_method
 
                 # Get depth sorting flag. Note that use camera's view matrix, since the projection does not affect the depth order.
                 # It also means we can set projection=False optimalization.
                 # Also note that we look down -z.
-                dist_flag = 0
-                if self._view_matrix is not None and dist_sort_sign:
+                if alpha_method == "weighted":
+                    dist_flag = 0
+                elif view_matrix is None:
+                    dist_flag = -1
+                else:
                     relative_pos = la.vec_transform(
-                        wobject.world.position, self._view_matrix, projection=False
+                        wobject.world.position, view_matrix, projection=False
                     )
                     # Cam looks towards -z: negate to get distance
                     distance_to_camera = float(-relative_pos[2])
                     dist_flag = distance_to_camera * dist_sort_sign
 
-                sort_key = (wobject.render_order, category_flag, dist_flag)
-                self._wobject_wrappers.append(
-                    WobjectWrapper(wobject, sort_key, pass_type)
-                )
+                sort_key = (render_queue, render_order, dist_flag)
+                wobject_wrappers.append(WobjectWrapper(wobject, sort_key, pass_type))
 
     def sort(self):
         """Sort the world objects."""
@@ -186,7 +180,7 @@ class FlatScene:
             yield pipeline_container
 
     def iter_render_pipelines_per_pass_type(self):
-        """Generator that yields (pass_type, wobjects), with pass_type 'normal' or 'weighted'."""
+        """Generator that yields (pass_type, wobjects), with pass_type 'opaque', 'transparency' or 'weighted'."""
         current_pass_type = ""
         current_pipeline_containers = []
         for wrapper in self._wobject_wrappers:
@@ -484,13 +478,13 @@ class WgpuRenderer(RootEventHandler, Renderer):
     @property
     def blend_mode(self):
         raise DeprecationWarning(
-            "renderer.blend_mode is removed. Use material.blending instead."
+            "renderer.blend_mode is removed. Use material.alpha_mode instead."
         )
 
     @blend_mode.setter
     def blend_mode(self, value):
         raise DeprecationWarning(
-            "renderer.blend_mode is removed. Use material.blending instead."
+            "renderer.blend_mode is removed. Use material.alpha_mode instead."
         )
 
     @property

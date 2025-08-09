@@ -177,13 +177,18 @@ def test_render_picking_and_depth2():
     # Create a couple of objects
 
     ob1 = gfx.Mesh(
-        gfx.plane_geometry(10, 10), gfx.MeshBasicMaterial(color="#f00", pick_write=True)
+        gfx.plane_geometry(10, 10),
+        gfx.MeshBasicMaterial(
+            color="#f00", alpha_mode="blend", depth_write=True, pick_write=True
+        ),
     )
     ob1.local.x = 5  # centered around 5 -> 0..10
 
     ob2 = gfx.Mesh(
         gfx.plane_geometry(10, 10),
-        gfx.MeshBasicMaterial(color="#0f0", pick_write=False),
+        gfx.MeshBasicMaterial(
+            color="#0f0", alpha_mode="blend", depth_write=True, pick_write=False
+        ),
     )
     ob2.local.x = 5  # centered around 5 -> 0..10
 
@@ -211,14 +216,14 @@ def test_render_picking_and_depth2():
     assert info["world_object"] is ob1  # huh?
 
     # The thing is that the red square is rendered first, writing
-    # to both the color and pick buffer. Theen the green square is drawn,
+    # to both the color and pick buffer. Then the green square is drawn,
     # but it only draws to the color buffer.
 
     # If we mark the objects as opaque, the renderer will sort them front-to-back
     # to avoid overdraw, causing green to be rendered first, and then
     # the red fragments dont event hit the fragment shader.
-    ob1.material.transparent = False
-    ob2.material.transparent = False
+    ob1.material.render_queue = 2000
+    ob2.material.render_queue = 2000
 
     # Render and pick!
     renderer.render(scene, camera)

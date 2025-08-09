@@ -2,7 +2,7 @@
 Image stitching
 ===============
 
-Show stitching of images using weighted blending. The alpha value of the
+Show stitching of images using weighted alpha mode. The alpha value of the
 images are used as weights.
 """
 
@@ -19,8 +19,6 @@ renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 scene.add(gfx.Background.from_color("#000"))
 
-# add image
-
 
 def create_texcoords_array(ny, nx):
     texcoord_x = np.linspace(0, 1, nx, dtype="f4")
@@ -34,20 +32,6 @@ def create_pyramid_weights(ny, nx):
     return center_coords.min(axis=2)
 
 
-# Define the blending using a dict. We use weighted blending, using the alpha
-# channel as weights, and setting the final alpha to 1.
-#
-# The commented line shows how we could use the shader texcoord to create the
-# same effect. This avoids having to create the pyramid alpha channel for the
-# image, but it's a less portable solution because it assumes that the shader
-# has a 'texcoord' on its varying.
-blending = {
-    "mode": "weighted",
-    "weight": "alpha",
-    # "weight": "1.0 - 2.0*max(abs(varyings.texcoord.x - 0.5), abs(varyings.texcoord.y - 0.5))",
-    "alpha": "1.0",
-}
-
 x = 0
 for image_name in ["wood.jpg", "bricks.jpg"]:
     rgb = iio.imread(f"imageio:{image_name}")[:, :, :3]  # Drop alpha if it has it
@@ -57,14 +41,19 @@ for image_name in ["wood.jpg", "bricks.jpg"]:
     rgba = np.dstack([rgb, weights])
     image = gfx.Image(
         gfx.Geometry(grid=gfx.Texture(rgba, dim=2)),
-        gfx.ImageBasicMaterial(clim=(0, 255), blending=blending, depth_write=False),
+        gfx.ImageBasicMaterial(
+            clim=(0, 255),
+            alpha_mode="weighted_solid",
+            depth_write=False,
+        ),
     )
     scene.add(image)
     image.local.x = x
     x += rgba.shape[1] - 200
 
+# Text is rendered as an overlay (using render_queue)
 text = gfx.Text("Image stitching", font_size=64, anchor="top-left")
-text.render_order = 1  # render the text on top
+text.material.render_queue = 4000  # render the text as an overlay
 text.local.scale_y = -1
 scene.add(text)
 

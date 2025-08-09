@@ -556,7 +556,7 @@ To turn it off, set the renderer's ``pixel_ratio`` to one and its ``pixel_filter
 
 Secondly, some objects produce semi-transparent fragments to soften their edges (i.e. remove jagggies).
 Objects that do this include lines and points. Note that the introduction of the semi-transparent fragments
-can have side-effects, depending on the used ``Material.blending``. To turn it off, set the material's ``aa`` to False.
+can have side-effects, depending on the used ``Material.alpha_mode``. To turn it off, set the material's ``aa`` to False.
 
 Multisample anti-aliasing (MSAA), a common method intended mostly for mesh objects, is currently not implemented.
 

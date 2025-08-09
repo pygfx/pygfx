@@ -265,9 +265,19 @@ class WorldObject(EventTarget, Trackable):
 
     @property
     def render_order(self) -> float:
-        """A number that helps control the order in which objects are rendered.
-        Objects with higher ``render_order`` get rendered later.
-        Default 0. Also see ``Renderer.sort_objects``.
+        """Per-object rendering priority used to fine-tune the draw order within a render queue.
+
+        Objects with higher render_order values are rendered later than those with lower values.
+        This affects both opaque and transparent objects and can be used to resolve z-fighting,
+        or control draw order beyond automatic depth sorting.
+
+        The effective render order is the sum of its render order and thet of all its parents.
+
+        The final sort order is typically determined by:
+            1. the ``material.render_queue``
+            2. effective ``render_order``
+            3. distance to camera (for transparent/composite passes)
+
         """
         # Note: the render order is on the object, not the material, because it affects
         # a specific object, and materials are often shared between multiple objects.
@@ -284,7 +294,7 @@ class WorldObject(EventTarget, Trackable):
     @render_mask.setter
     def render_mask(self, value):
         raise DeprecationWarning(
-            "render_mask is deprecated, see material.transparent to control how the rendere should treat an object."
+            "render_mask is deprecated, see material.alpha_mode to control how the renderer should treat an object."
         )
 
     @property

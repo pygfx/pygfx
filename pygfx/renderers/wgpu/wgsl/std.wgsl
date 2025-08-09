@@ -9,7 +9,7 @@
 //
 // Also adds auto-generated code for:
 //
-// * FragmentOutput (implementation depends on blending mode and picking)
+// * FragmentOutput (implementation depends on alpha_method and picking)
 // * Bindings (as specified via shader.define_binding())
 //
 // In addition to this, the shader will also:
@@ -62,7 +62,7 @@ fn is_orthographic() -> bool {
 // ----- Things related to output
 
 // Implements FragmentOutput and optionally apply_virtual_fields_of_fragment_output()
-{{ blending_code }}
+{{ fragment_output_code }}
 struct StubColorWrapper {
     color: vec4<f32>,
 }

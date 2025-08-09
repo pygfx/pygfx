@@ -21,13 +21,13 @@ sphere = gfx.Mesh(gfx.sphere_geometry(10), gfx.MeshPhongMaterial())
 
 geometry = gfx.plane_geometry(50, 50)
 plane1 = gfx.Mesh(
-    geometry, gfx.MeshBasicMaterial(blending="dither", color="r", opacity=0.3)
+    geometry, gfx.MeshBasicMaterial(alpha_mode="dither", color="r", opacity=0.3)
 )
 plane2 = gfx.Mesh(
-    geometry, gfx.MeshBasicMaterial(blending="dither", color="g", opacity=0.5)
+    geometry, gfx.MeshBasicMaterial(alpha_mode="dither", color="g", opacity=0.5)
 )
 plane3 = gfx.Mesh(
-    geometry, gfx.MeshBasicMaterial(blending="dither", color="b", opacity=0.7)
+    geometry, gfx.MeshBasicMaterial(alpha_mode="dither", color="b", opacity=0.7)
 )
 
 plane1.local.rotation = la.quat_from_axis_angle((1, 0, 0), 1.571)
