@@ -94,8 +94,6 @@ for ob in transparent_objects:
 
 def animate():
     # Render the scene with material 1, to prime the depth buffer
-    for ob in transparent_objects:
-        ob.material = ob.material1
     renderer.render(scene, camera, flush=False)
 
     # Clear the color (not the depth)
@@ -104,17 +102,17 @@ def animate():
 
     # Now render again with material 2, to render fragments behind the first layer, blended.
     # Note that because of the weird depth test, opaque objects are not rendered very well :(
-    # for ob in objects:
-    #     ob.material = ob.material2
-    # renderer.render(scene, camera, flush=False)
+    for ob in transparent_objects:
+        ob.material = ob.material2
+    renderer.render(scene, camera, flush=False)
 
     # And now again with material 1, to bring back that first layer.
-    # for ob in objects:
-    #     ob.material = ob.material1
-    # renderer.render(scene, camera, flush=False)
+    for ob in transparent_objects:
+        ob.material = ob.material1
+    renderer.render(scene, camera, flush=False)
 
     # The overlay
-    # renderer.render(scene_overlay, screen_camera, flush=False)
+    renderer.render(scene_overlay, screen_camera, flush=False)
 
     renderer.flush()
 
