@@ -145,15 +145,16 @@ class Shared(Trackable):
         """A buffer containing per-glyph metadata (rects and more)."""
         return self._store.glyph_atlas_info_buffer
 
-    def ensure_transmission_framebuffer_size(self, size):
-        if self.transmission_framebuffer is None or self.transmission_framebuffer.size[
-            :2
-        ] != (size[0], size[1]):
+    def ensure_transmission_framebuffer(self, size, format):
+        if (
+            self.transmission_framebuffer is None
+            or self.transmission_framebuffer.size[:2] != (size[0], size[1])
+            or self.transmission_framebuffer.format != format
+        ):
             self._store.transmission_framebuffer = Texture(
                 dim=2,
                 size=(size[0], size[1], 1),
-                colorspace="tex-srgb",
-                format="rgba8unorm-srgb",
+                format=format,
                 generate_mipmaps=True,
                 usage=wgpu.TextureUsage.COPY_DST
                 | wgpu.TextureUsage.TEXTURE_BINDING

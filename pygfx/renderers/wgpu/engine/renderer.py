@@ -153,9 +153,20 @@ class FlatScene:
 
         if self._view_matrix is not None and sort_sign:
             # stack the positions of the objects for batch processing
-            positions = np.array([item.wobject.world.position for item in render_items])
+            bbox = np.array(
+                [
+                    b
+                    if (b := item.wobject.get_world_bounding_box()) is not None
+                    else np.zeros((2, 3))
+                    for item in render_items
+                ]
+            )
+
+            # bbox is ndarray of shape (N, 2, 3), where N is the number of items
+            centers = (bbox[:, 0] + bbox[:, 1]) / 2
+
             dist_flags = (
-                la.vec_transform(positions, self._view_matrix, projection=False)
+                la.vec_transform(centers, self._view_matrix, projection=False)
                 * sort_sign
             )
 
@@ -675,7 +686,9 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # Get renderstate object
         renderstate = get_renderstate(flat.lights, self._blender)
         self._renderstates_per_flush[0].append(renderstate)
-        self._shared.ensure_transmission_framebuffer_size(self.physical_size)
+        self._shared.ensure_transmission_framebuffer(
+            self.physical_size, self._blender.texture_info["color"]["format"]
+        )
 
         # Make sure pipeline objects exist for all wobjects. This also collects the bake functons.
         flat.collect_pipelines_container_groups(renderstate)

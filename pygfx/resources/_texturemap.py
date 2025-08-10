@@ -52,6 +52,7 @@ class TextureMap(Trackable):
         wrap="repeat",
         wrap_s=None,
         wrap_t=None,
+        name="",
     ):
         super().__init__()
         self.texture = texture
@@ -61,6 +62,7 @@ class TextureMap(Trackable):
         self.mipmap_filter = mipmap_filter or filter
         self.wrap_s = wrap_s or wrap
         self.wrap_t = wrap_t or wrap
+        self.name = name
 
         self._offset = (0, 0)
         self._scale = (1, 1)
