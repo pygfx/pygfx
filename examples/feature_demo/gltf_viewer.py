@@ -554,28 +554,36 @@ def show_inspector():
 def show_material_properties(material):
     imgui.separator_text("Transparency Settings")
 
-    imgui.text("Use Presets")
+    imgui.text("Transparency Presets")
     imgui.same_line()
 
     if imgui.small_button("Opaque"):
         material.transparent = False
         material.blending = "normal"
         material.alpha_test = 0
+        material.depth_write = True
+        material.depth_test = True
     imgui.same_line()
     if imgui.small_button("Mask"):
         material.transparent = False
         material.blending = "normal"
         material.alpha_test = 0.5
+        material.depth_write = True
+        material.depth_test = True
     imgui.same_line()
     if imgui.small_button("Blend"):
         material.transparent = True
         material.blending = "normal"
         material.alpha_test = 0
+        material.depth_write = False
+        material.depth_test = True
     imgui.same_line()
     if imgui.small_button("Dither"):
-        material.transparent = True
+        material.transparent = True  # todo: should be False, but now raise an error
         material.blending = "dither"
         material.alpha_test = 0
+        material.depth_write = False
+        material.depth_test = True
 
     imgui.separator()
 
