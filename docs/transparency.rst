@@ -180,8 +180,8 @@ Render queue
 
 The ``material.render_queue`` is an integer that represents the group that the renderer uses to sort objects.
 The property is intended for advanced use; it is determined automatically
-based on ``alpha_method``, ``depth_write`` and ``alpha_test``. Its values lays between 1 and 4999,
-with the following default values:
+based on ``alpha_method``, ``depth_write`` and ``alpha_test``. Its value can be any integer between 1 and 4999,
+and it comes with the following 'builtin' values:
 
 * 1000: background.
 * 2000: opaque non-blending objects.
@@ -190,7 +190,8 @@ with the following default values:
 * 3000: transparent objects that don't write depth.
 * 4000: overlay.
 
-Objects with ``render_queue`` between 1501 and 2500 are sorted front-to-back. Otherwise objects are sorted back-to-front.
+These values are not accessible as enums because that would inhibit assignment of custom values. The set value
+also affects behaviour: objects with ``render_queue`` between 1501 and 2500 are sorted front-to-back. Otherwise objects are sorted back-to-front.
 
 
 Render order
@@ -209,7 +210,7 @@ The renderer sorts objects based on the following factors:
 
 * The ``material.render_queue``.
 * The ``object.render_order``.
-* The object's distance to the camera, either front-to-back or back-to-front, depending on the ``render_queue``. Weighted objects are not sorted.
+* The object's distance to the camera, either front-to-back or back-to-front, depending on the ``render_queue``. Objects with alpha-method 'weighted' are not sorted.
 
 Even with this sorting, objects can still intersect other objects (and themselves).
 To prevent drawing the (parts of) objects that are occluded by other objects, a depth buffer is used.
@@ -281,7 +282,7 @@ Here's a list of both common and special use-cases, explaining how to implement 
     .. code-block:: py
 
         # Pygfx
-        # (the object gets automatically rendered at the very start of the transparency-pass)
+        # (because depth_write is set, the render_queue will be 2600; smaller than 'real' transparent objects (3000))
         m.alpha_mode = "add"
         m.depth_write = True
 
@@ -378,7 +379,7 @@ Here's a list of both common and special use-cases, explaining how to implement 
     .. code-block:: js
 
         // ThreeJS
-        // (put at the beginning of the opaque-pass, so no blending possible.)
+        // (put at the beginning of the opaque-pass)
         m.transparent = false;
         m.renderOrder = -99;
 
