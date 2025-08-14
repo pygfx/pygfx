@@ -21,8 +21,8 @@ Although alpha values are commonly used to represent transparency, this is not a
 the case; they can e.g. be used as the reference value in alpha testing.
 
 In any case, the alpha value represents a weight for how the object is combined with
-other objects, and it's applicance is fully defined by ``material.alpha_config``.
-Although this config can be set in great detail, the majority of cases can be
+other objects, and its application is fully defined by ``material.alpha_config``.
+Although this config can be customized, the majority of cases can be
 captured with a handful of presets that we call *alpha modes*.
 
 
@@ -33,21 +33,21 @@ Transparency is a notoriously tricky topic in 3D rendering. Methods that produce
 good results out of the box do exist, but are slow and/or consume considerably more memory.
 In PyGfx we provide a few different methods that are relatively lean.
 
-There are 3 levels of control with regard to dealing with transparency:
+There are 3 levels of control:
 
 1. Use the default ``material.alpha_mode = "auto"``:
 
-In this mode, solid objects write depth but also blend. Objects that
-are opaque (alpha=1) are rendered correctly, and objects that are
-(partially) transparent too, as long as the objects
-don't intersect (i.e. can be sorted based on their distance from the
+In this mode, solid objects write depth and blend. Objects that
+are opaque (alpha=1) are rendered correctly, as are objects that are
+(partially) transparent, as long as the objects
+don't intersect (in other words, they can be sorted based on their distance from the
 camera). Objects with ``material.opacity<1`` behave the same as with
 ``alpha_mode`` "blend".
 
 2. Set ``material.alpha_mode`` to a preset string:
 
 These provide configurations for common cases. Examples are "solid",
-"blend", "dither", and several more.
+"blend", "dither", and several more. See below for a full list of options and descriptions.
 
 3. Set the ``alpha_config`` dictionary to have full control:
 
@@ -100,14 +100,14 @@ is used to combine it with the output texture. There are a range of values to ch
 Method "opaque" (overwrites the value in the output texture):
 
 * "solid": alpha is ignored.
-* "solid_premul": the alpha is multipled with the color (making it darker).
+* "solid_premul": the alpha is multiplied with the color (making it darker).
 
 Method "composite" (per-fragment blending of the object's color and the color in the output texture):
 
 * "auto": classic alpha blending, with ``depth_write`` defaulting to True if ``.opacity==1``.
 * "blend": classic alpha blending using the over-operator.
 * "add": additive blending that adds the fragment color, multiplied by alpha.
-* "subtract": subtractuve blending that removes the fragment color.
+* "subtract": subtractive blending that removes the fragment color.
 * "multiply": multiplicative blending that multiplies the fragment color.
 
 Method "stochastic" (alpha represents the chance of a fragment being visible):
@@ -126,7 +126,7 @@ Alpha methods
 
 Most users don't have to worry much about what the methods mean. Though it's good to understand
 that the "opaque" and "stochastic" methods produce opaque fragments, and by default have ``depth_write=True``.
-The renderer sorts these objects front-to back to avoid overdraw (for performance).
+The renderer sorts these objects front-to-back to avoid overdraw (for performance).
 
 In contrast, the "composite" and "weighted" methods result in semi-transparent fragments,
 and by default have ``depth_write=False``. The renderer sorts these object back-to-front to
@@ -142,7 +142,7 @@ overwrites the value in the output texture. A very common method in render engin
 **Alpha method 'composite'** represents alpha compositing: a common method in render
 engines in which objects are combined on a per-fragment basis. The object's
 fragment color and the current color in the output texture are blended using a
-mathematical formula. There are several common compositing configurations, the
+configurable operator. There are several common compositing configurations, the
 most-used being the "over operator" (also known as normal blending). When alpha
 compositing is used, the result will depend on the order in which the objects are
 rendered.
@@ -180,7 +180,7 @@ Render queue
 
 The ``material.render_queue`` is an integer that represents the group that the renderer uses to sort objects.
 The property is intended for advanced use; it is determined automatically
-based on ``alpha_method``, ``depth_write`` and ``alpha_test``. It's values lays between 1 and 4999,
+based on ``alpha_method``, ``depth_write`` and ``alpha_test``. Its values lays between 1 and 4999,
 with the following default values:
 
 * 1000: background.
@@ -247,7 +247,7 @@ Here's a list of both common and special use-cases, explaining how to implement 
     .. code-block:: js
 
         // ThreeJS
-        m.transparent.false;  // default
+        m.transparent = false;  // default
 
 * Classic transparency (the over operator)
 
@@ -373,7 +373,7 @@ Here's a list of both common and special use-cases, explaining how to implement 
     .. code-block:: py
 
         # Pygfx
-        ob.material.render_queue = 1000
+        ob.material.render_queue = 1000  # the render queue for backgrounds
 
     .. code-block:: js
 
@@ -392,7 +392,7 @@ Here's a list of both common and special use-cases, explaining how to implement 
     .. code-block:: js
 
         // ThreeJS
-        // (put at the end of the transparenct-pass, so no solid objects possible.)
+        // (put at the end of the transparency-pass, so no solid objects possible.)
         m.transparent = true;
         m.renderOrder = 99;
 
