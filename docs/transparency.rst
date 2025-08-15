@@ -130,7 +130,7 @@ The renderer sorts these objects front-to-back to avoid overdraw (for performanc
 
 In contrast, the "composite" and "weighted" methods result in semi-transparent fragments,
 and by default have ``depth_write=False``. The renderer sorts these object back-to-front to
-improve the chance of correct blending. Note that with the 'auto' mode, de default ``depth_write`` depends
+improve the chance of correct blending. Note that with the 'auto' mode, the default ``depth_write`` depends
 on the ``opacity``.
 
 
