@@ -33,8 +33,8 @@ from ....objects._lights import (
 from ....cameras import Camera
 from ....resources import Texture
 from ....resources._base import resource_update_registry
-from ....utils import Color
-from ....utils.enums import PixelFilter
+from ....utils import Color, ColorManagement
+from ....utils.enums import PixelFilter, ColorSpace
 
 from ... import Renderer
 from .blender import Blender
@@ -239,6 +239,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         sort_objects=True,
         enable_events=True,
         gamma_correction=1.0,
+        output_color_space=ColorSpace.srgb,
         ppaa="default",
         **kwargs,
     ):
@@ -274,24 +275,13 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # Cache renderstate objects for n draws
         self._renderstates_per_flush = []
 
+        self.output_color_space = output_color_space
+
         # Get target format
         self.gamma_correction = gamma_correction
         self._gamma_correction_srgb = 1.0
-        if isinstance(target, AnyBaseCanvas):
-            self._canvas_context = self._target.get_context("wgpu")
-            # Select output format. We currently don't have a way of knowing
-            # what formats are available, so if not srgb, we gamma-correct in shader.
-            target_format = self._canvas_context.get_preferred_format(
-                self._shared.adapter
-            )
-            if not target_format.endswith("srgb"):
-                self._gamma_correction_srgb = 1 / 2.2  # poor man's srgb
-            # Also configure the canvas
-            self._canvas_context.configure(
-                device=self._device,
-                format=target_format,
-            )
-        else:
+
+        if not isinstance(target, AnyBaseCanvas):
             # Also enable the texture for render and display usage
             self._target._wgpu_usage |= wgpu.TextureUsage.RENDER_ATTACHMENT
             self._target._wgpu_usage |= wgpu.TextureUsage.TEXTURE_BINDING
@@ -323,6 +313,71 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
         if enable_events:
             self.enable_events()
+
+    def _get_preferred_target_format(self):
+        capabilities = self._canvas_context._get_capabilities(self._shared.adapter)
+        available_formats = capabilities.get("formats", [])
+
+        # get the preferred format (without sRGB OETF)
+        # according to the wgpu docs, the preferred format Must only be "rgba8unorm" or "bgra8unorm"
+        # https://www.w3.org/TR/webgpu/#dom-gpu-getpreferredcanvasformat
+        # At present, the WebGPU specification only specifies the standards for SDR devices, and there is no specification for HDR devices
+        # But if device supports it, we can use it.
+        # todo: add support for HDR device (ouput_color_space is display-P3 etc)
+
+        if "rgba8unorm" in available_formats:
+            preferred_format = "rgba8unorm"
+        elif "bgra8unorm" in available_formats:
+            preferred_format = "bgra8unorm"
+        else:
+            # I think any device will support one of these two above formats, so this branch should not be hit.
+            # Just a safe fallback
+            preferred_format = (
+                available_formats[0] if available_formats else "rgba8unorm"
+            )
+
+        if self._output_color_space == ColorManagement.working_color_space:
+            # no conversion needed, just return the preferred format
+            return preferred_format
+
+        # If the hardware supports auto sRGB OETF, we can use that directly.
+        # todo: should we always do sRGB (or other color space, display-P3 etc) conversion in shader instead of using sRGB format?
+        # so that we have more control over the process.
+        # for example, we can do appropriate tone mapping in shader, and we can change the output color space at runtime.
+        if self._output_color_space == ColorSpace.srgb:
+            preferred_format_srgb = preferred_format + "-srgb"
+            if preferred_format_srgb in available_formats:
+                return preferred_format_srgb
+            else:
+                # fallback to non-srgb format, and do gamma correction in blender
+                self._gamma_correction_srgb = 1 / 2.2  # poor man's srgb
+                return preferred_format
+        else:
+            # output_color_space == ColorSpace.linear_srgb
+            # and working_color_space == ColorSpace.srgb
+
+            # self._gamma_correction_srgb = 2.2
+
+            # we should use srgb -> linear_srgb conversion, but in practice,
+            # such cases are extremely rare—most occurrences are due to the user mistakenly configuring the ColorSpace.
+            # Therefore, we simply issue a warning here.
+            # todo: We also can use self._gamma_correction_srgb = 2.2 here, not sure which is better.
+            logger.warning(
+                f"The working color space is {ColorManagement.working_color_space}, but the output color space is {self._output_color_space}. "
+                "Make sure to configure the color spaces correctly?"
+            )
+            return preferred_format
+
+    def _config_canvas(self):
+        self._canvas_context = self._target.get_context("wgpu")
+
+        # get the preferred target format with current output color space
+        target_format = self._get_preferred_target_format()
+
+        self._canvas_context.configure(
+            device=self._device,
+            format=target_format,
+        )
 
     @property
     def device(self):
@@ -405,6 +460,24 @@ class WgpuRenderer(RootEventHandler, Renderer):
             )
         self._output_pass.filter = value
         self._pixel_filter = value
+
+    @property
+    def output_color_space(self) -> ColorSpace:
+        """The color space used for the output when the target is a canvas.
+        If the target is a texture, the output color space is always texture's color space."""
+        return self._output_color_space
+
+    @output_color_space.setter
+    def output_color_space(self, value: ColorSpace):
+        if value not in (ColorSpace.srgb, ColorSpace.linear_srgb):
+            raise ValueError(
+                f"output_color_space must be either srgb or linear_srgb for now, not {value!r}"
+            )
+        self._output_color_space = value
+
+        if isinstance(self._target, AnyBaseCanvas):
+            # Reconfigure the canvas with the new color space
+            self._config_canvas()
 
     @property
     def ppaa(

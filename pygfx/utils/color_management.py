@@ -1,5 +1,4 @@
 from .enums import ColorSpace
-from .color import Color
 
 
 def _srgb_to_linear(c):
@@ -7,6 +6,7 @@ def _srgb_to_linear(c):
     # two steps in the range 0..255.
     # return c ** 2.2
     return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
+
 
 def _linear_to_srgb(c):
     # return c ** (1 / 2.2)
@@ -29,7 +29,7 @@ class _ColorManagement:
             raise ValueError("working_color_space must be either linear_srgb or srgb")
         self._working_color_space = value
 
-    def convert_to_working_space(self, color: Color, colorspace):
+    def convert_to_working_space(self, color, colorspace):
         """Convert a color from a given colorspace to the working color space."""
         if colorspace == ColorSpace.no_colorspace:
             return color
@@ -38,13 +38,17 @@ class _ColorManagement:
             return color
 
         if colorspace == ColorSpace.srgb:
-            color.r = _srgb_to_linear(color.r)
-            color.g = _srgb_to_linear(color.g)
-            color.b = _srgb_to_linear(color.b)
+            r = _srgb_to_linear(color.r)
+            g = _srgb_to_linear(color.g)
+            b = _srgb_to_linear(color.b)
+            color._set_from_rgba(r, g, b, color.a)
         elif colorspace == ColorSpace.linear_srgb:
-            color.r = _linear_to_srgb(color.r)
-            color.g = _linear_to_srgb(color.g)
-            color.b = _linear_to_srgb(color.b)
+            r = _linear_to_srgb(color.r)
+            g = _linear_to_srgb(color.g)
+            b = _linear_to_srgb(color.b)
+            color._set_from_rgba(r, g, b, color.a)
+
+        return color
 
 
 ColorManagement = _ColorManagement()

@@ -163,7 +163,7 @@ class Color:
         if colorspace is not None:
             ColorManagement.convert_to_working_space(self, colorspace)
 
-    def _set_from_str(self, color):
+    def _set_from_str(self, color, colorspace=None):
         color = color.lower()
         if color.startswith("#"):
             # A hex number
@@ -238,6 +238,12 @@ class Color:
                 raise ValueError(f"Unknown color: '{color}'") from None
             else:
                 self._set_from_str(color_int)
+
+        if colorspace is None:
+            # for css colors, we assume in srgb colorspace default
+            colorspace = ColorSpace.srgb
+
+        ColorManagement.convert_to_working_space(self, colorspace)
 
     @property
     def rgba(self):
