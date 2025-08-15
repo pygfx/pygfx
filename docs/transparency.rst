@@ -124,13 +124,14 @@ Method "weighted" (order independent blending):
 Alpha methods
 -------------
 
-Most users don't have to worry much about what the methods mean. Though it's good to understand
+Most users don't have to worry much about what the alpha-methods mean. Though it's good to understand
 that the "opaque" and "stochastic" methods produce opaque fragments, and by default have ``depth_write=True``.
 The renderer sorts these objects front-to-back to avoid overdraw (for performance).
 
 In contrast, the "composite" and "weighted" methods result in semi-transparent fragments,
 and by default have ``depth_write=False``. The renderer sorts these object back-to-front to
-improve the chance of correct blending. Note that the 'auto' mode is an exception to this rule.
+improve the chance of correct blending. Note that with the 'auto' mode, de default ``depth_write`` depends
+on the ``opacity``.
 
 
 Alpha methods in detail
