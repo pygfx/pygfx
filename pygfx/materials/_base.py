@@ -86,6 +86,9 @@ class Material(Trackable):
         objects different from opaque fragments. This value also determines the
         auto-value of ``depth_write``. Default (None) will consider the object
         transparent if ``opacity < 1``.
+    force_single_pass : bool
+        Whether double-sided, transmissive objects should be rendered with a single pass or not.
+        Default is False.
     blending : str | dict
         The way to blend semi-transparent fragments  (alpha < 1) for this material.
     depth_test :  bool
@@ -120,10 +123,12 @@ class Material(Trackable):
     def __init__(
         self,
         *,
+        name="",
         opacity: float = 1,
         clipping_planes: Sequence[ABCDTuple] = (),
         clipping_mode: Literal["ANY", "ALL"] = "ANY",
         transparent: Literal[None, False, True] = None,
+        force_single_pass: bool = False,
         blending: Union[str, dict] = "normal",
         depth_test: bool = True,
         depth_compare: str = "<",
@@ -133,6 +138,8 @@ class Material(Trackable):
         alpha_compare: str = "<",
     ):
         super().__init__()
+
+        self.name = name
 
         self._store.uniform_buffer = Buffer(
             array_from_shadertype(self.uniform_type), force_contiguous=True
@@ -144,6 +151,7 @@ class Material(Trackable):
         self.clipping_planes = clipping_planes
         self.clipping_mode = clipping_mode
         self.transparent = transparent
+        self.force_single_pass = force_single_pass
         self.blending = blending
         self.depth_test = depth_test
         self.depth_compare = depth_compare
@@ -338,6 +346,17 @@ class Material(Trackable):
         if self.opacity < 1:
             transparent = True
         return transparent
+
+    @property
+    def force_single_pass(self):
+        """Whether double-sided, transmissive objects should be rendered with a single pass or not.
+        Default is False.
+        """
+        return self._force_single_pass
+
+    @force_single_pass.setter
+    def force_single_pass(self, value: bool):
+        self._force_single_pass = bool(value)
 
     @property
     def blending(self):
