@@ -17,6 +17,14 @@ from .animation import *
 from .renderers import *
 
 from .utils.color import Color
+
+from .utils.show import show, Display
+from .utils.viewport import Viewport
+from .utils.text import font_manager
+from .utils import cm, enums, logger
+from .utils.enums import *
+from .utils.color_management import ColorManagement
+
 from .utils.load import load_mesh, load_meshes, load_scene
 from .utils.load_gltf import (
     load_gltf,
@@ -25,11 +33,6 @@ from .utils.load_gltf import (
     load_gltf_mesh_async,
     print_scene_graph,
 )
-from .utils.show import show, Display
-from .utils.viewport import Viewport
-from .utils.text import font_manager
-from .utils import cm, enums, logger
-from .utils.enums import *
 
 # Temp fix for pyinstaller to pick up pylinalg
 import pylinalg

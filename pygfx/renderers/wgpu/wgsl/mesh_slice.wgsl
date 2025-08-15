@@ -226,9 +226,8 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     // No aa. This is something we need to decide on. See line renderer.
     let alpha = 1.0;
     // Set color
-    let physical_color = srgb2physical(albeido);
     let opacity = min(1.0, color_value.a) * alpha;
-    let out_color = vec4<f32>(physical_color, opacity);
+    let out_color = vec4<f32>(albeido, opacity);
 
     do_alpha_test(opacity);
 

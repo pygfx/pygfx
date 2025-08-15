@@ -36,3 +36,15 @@ def test_keyframe_track_optimize():
         track.values
         == np.array([[0, 0, 0], [0, 0, 0], [1, 1, 1], [1, 1, 1], [0, 0, 0], [0, 0, 0]])
     )
+
+
+if __name__ == "__main__":
+    times = np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13])
+    values = np.array([0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0])
+
+    track = KeyframeTrack("test", None, None, times, values, lambda *_: None)
+
+    print("Original times:", track.times)
+    print("Original values:", track.values)
+
+    test_keyframe_track_optimize()

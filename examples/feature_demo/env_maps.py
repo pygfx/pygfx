@@ -47,7 +47,11 @@ env_img.shape = 6, cube_size, cube_size, env_img.shape[-1]
 
 # Create environment map
 env_tex = gfx.Texture(
-    env_img, dim=2, size=(cube_size, cube_size, 6), generate_mipmaps=True
+    env_img,
+    dim=2,
+    size=(cube_size, cube_size, 6),
+    generate_mipmaps=True,
+    colorspace="tex-srgb",
 )
 
 teapot = trimesh.load(TEAPOT)

@@ -75,10 +75,11 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
             + u_material.color_top_left * (1.0 - f.x) * f.y
             + u_material.color_top_right * f.x * f.y
         );
+        final_color = vec4<f32>(final_color.rgb, final_color.a);
     $$ endif
 
     // Make physical color with combined alpha
-    let physical_color = srgb2physical(final_color.rgb);
+    let physical_color = final_color.rgb;
     let opacity = final_color.a * u_material.opacity;
     let out_color = vec4<f32>(physical_color, opacity);
 

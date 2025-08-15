@@ -8,7 +8,7 @@
     view_dir: vec3<f32>,
     albeido: vec3<f32>,
 ) -> vec3<f32> {
-    let light_color = srgb2physical(vec3<f32>(1.0, 1.0, 1.0));
+    let light_color = vec3<f32>(1.0, 1.0, 1.0);
 
     // Light parameters
     let ambient_factor = 0.1;
@@ -35,7 +35,7 @@
     let specular_color = specular_factor * specular_term * light_color;
 
     // Emissive color is additive and unaffected by lights
-    let emissive_color = srgb2physical(u_material.emissive_color.rgb);
+    let emissive_color = u_material.emissive_color.rgb;
 
     // Put together
     return albeido * (ambient_color + diffuse_color) + specular_color + emissive_color;

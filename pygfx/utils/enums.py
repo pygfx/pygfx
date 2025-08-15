@@ -28,6 +28,7 @@ from typing import TypeAlias, Literal
 __all__ = [
     "BindMode",
     "ColorMode",
+    "ColorSpace",
     "CoordSpace",
     "EdgeMode",
     "ElementFormat",
@@ -181,6 +182,12 @@ class TextAnchor(Enum):
     bottom_left = "bottom-left"
     bottom_center = "bottom-center"
     bottom_right = "bottom-right"
+
+
+class ColorSpace(Enum):
+    no_colorspace = ""
+    linear_srgb = "linear_srgb"
+    srgb = "srgb"
 
 
 # TODO: I experimented with using a Literal[] here, an idea discussed in https://github.com/pygfx/wgpu-py/issues/720.

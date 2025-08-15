@@ -42,7 +42,7 @@ renderer = gfx.renderers.WgpuRenderer(canvas)
 meshes = gfx.load_gltf_mesh(model_dir / "lightmap" / "scene.gltf", materials=False)
 
 light_map = iio.imread(model_dir / "lightmap" / "lightmap-ao-shadow.png")
-light_map_tex = gfx.Texture(light_map, dim=2)
+light_map_tex = gfx.Texture(light_map, dim=2, colorspace="tex-srgb")
 
 # Create camera and controller
 camera = gfx.PerspectiveCamera(45, 1)
