@@ -23,7 +23,7 @@ class KeyframeTrack:
             # remove adjacent keyframes scheduled at the same times
             if time != prev_time:
                 if np.any(value != prev_value):
-                    if prev_time is not None:
+                    if prev_time != optimized_times[-1] if optimized_times else None:
                         optimized_times.append(prev_time)
                         optimized_values.append(prev_value)
                     optimized_times.append(time)
