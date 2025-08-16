@@ -288,7 +288,7 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     // Get color for this fragment
     let base_srgb = u_material.color;
     let outline_srgb = u_material.outline_color;
-    let color = mix(srgb2physical(base_srgb.rgb), srgb2physical(outline_srgb.rgb), outline);
+    let color = mix(base_srgb.rgb, outline_srgb.rgb, outline);
     let color_alpha = mix(base_srgb.a, outline_srgb.a, outline);
 
     // Compose total opacity and the output color

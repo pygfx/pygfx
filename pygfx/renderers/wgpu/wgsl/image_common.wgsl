@@ -31,45 +31,7 @@ fn yuv_full_to_rgb(y: f32, u: f32, v: f32) -> vec4<f32> {
 
 fn sample_im(texcoord: vec2<f32>, sizef: vec2<f32>) -> vec4<f32> {
     $$ if img_format == 'f32'
-        $$ if colorspace == 'yuv420p'
-            $$ if three_grid_yuv
-            let y = textureSample(t_img, s_img, texcoord.xy).x;
-            let u = textureSample(t_u_img, s_img, texcoord.xy).x;
-            let v = textureSample(t_v_img, s_img, texcoord.xy).x;
-            $$ else
-            // In this implementation we share a single 2D texture between U and V
-            // We must therefore take care to not sample at the edge where
-            // the texture will be poorly interpolated. See
-            // https://github.com/pygfx/pygfx/pull/873#issuecomment-2516613301
-            let txy = clamp(texcoord.xy / 2.0, 0.5 / sizef, 0.5 - 0.5 / sizef);
-            let y = textureSample(t_img, s_img, texcoord.xy, 0).x;
-            let u = textureSample(t_img, s_img, txy, 1).x;
-            let v = textureSample(t_img, s_img, txy + vec2<f32>(0.5, 0.0), 1).x;
-            $$ endif
-
-            $$ if colorrange == "limited"
-            return yuv_limited_to_rgb(y, u, v);
-            $$ else
-            return yuv_full_to_rgb(y, u, v);
-            $$ endif
-        $$ elif colorspace == "yuv444p"
-            $$ if three_grid_yuv
-            let y = textureSample(t_img, s_img, texcoord.xy).x;
-            let u = textureSample(t_u_img, s_img, texcoord.xy).x;
-            let v = textureSample(t_v_img, s_img, texcoord.xy).x;
-            $$ else
-            let y = textureSample(t_img, s_img, texcoord.xy, 0).x;
-            let u = textureSample(t_img, s_img, texcoord.xy, 1).x;
-            let v = textureSample(t_img, s_img, texcoord.xy, 2).x;
-            $$ endif
-            $$ if colorrange == "limited"
-            return yuv_limited_to_rgb(y, u, v);
-            $$ else
-            return yuv_full_to_rgb(y, u, v);
-            $$ endif
-        $$ else
-            return textureSample(t_img, s_img, texcoord.xy);
-        $$ endif
+        return textureSample(t_img, s_img, texcoord.xy);
     $$ else
         let texcoords_u = vec2<i32>(texcoord.xy * sizef.xy);
         return vec4<f32>(textureLoad(t_img, texcoords_u, 0));

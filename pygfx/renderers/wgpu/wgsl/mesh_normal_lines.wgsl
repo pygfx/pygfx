@@ -57,17 +57,10 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
     {$ include 'pygfx.clipping_planes.wgsl' $}
 
     let color_value = u_material.color;
-    let albeido = color_value.rgb;
 
-    // Move to physical colorspace (linear photon count) so we can do math
-    $$ if colorspace == 'srgb'
-        let physical_albeido = srgb2physical(albeido);
-    $$ else
-        let physical_albeido = albeido;
-    $$ endif
     let opacity = color_value.a * u_material.opacity;
 
-    var physical_color = physical_albeido;
+    var physical_color = color_value.rgb;
     let out_color = vec4<f32>(physical_color, opacity);
 
     do_alpha_test(opacity);

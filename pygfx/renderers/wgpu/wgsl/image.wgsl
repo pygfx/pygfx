@@ -45,14 +45,8 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     let value = sample_im(varyings.texcoord.xy, sizef);
     let color = sampled_value_to_color(value);
 
-    // Move to physical colorspace (linear photon count) so we can do math
-    $$ if colorspace == 'srgb' or colorspace.startswith('yuv')
-        let physical_color = srgb2physical(color.rgb);
-    $$ else
-        let physical_color = color.rgb;
-    $$ endif
     let opacity = color.a * u_material.opacity;
-    let out_color = vec4<f32>(physical_color, opacity);
+    let out_color = vec4<f32>(color.rgb, opacity);
 
     do_alpha_test(opacity);
 

@@ -485,7 +485,7 @@ class ThinLineShader(LineShader):
                 let color = u_material.color;
             $$ endif
 
-            let physical_color = srgb2physical(color.rgb);
+            let physical_color = color.rgb;
             let opacity = color.a * u_material.opacity;
             let out_color = vec4<f32>(physical_color, opacity);
 
