@@ -46,11 +46,11 @@ scene = gfx.Scene()
 earth_geometry = gfx.sphere_geometry(63.71, 100, 50)
 
 
-def load_texture(path, flip=False, colorspace="tex-srgb"):
+def load_texture(path, flip=False):
     img = iio.imread(path)
     if flip:
         img = np.ascontiguousarray(np.flipud(img))
-    tex = gfx.Texture(img, dim=2, colorspace=colorspace)
+    tex = gfx.Texture(img, dim=2)
     return tex
 
 
@@ -75,7 +75,7 @@ earth_material.emissive_intensity = 3.0
 # earth_material.light_map_intensity = 3.0
 
 earth_material.normal_map = load_texture(
-    model_dir / "planets" / "earth_normal_2048.jpg", flip=True, colorspace="physical"
+    model_dir / "planets" / "earth_normal_2048.jpg", flip=True
 )
 earth_material.normal_scale = 0.85, -0.85
 

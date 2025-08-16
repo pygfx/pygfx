@@ -92,7 +92,11 @@ background = gfx.Background(None, gfx.BackgroundSkyboxMaterial(map=env_tex))
 background.visible = False
 scene.add(background)
 
-scene.add(gfx.Background.from_color(gfx.Color(0.1, 0.1, 0.1, 1).to_physical()))
+scene.add(
+    gfx.Background.from_color(
+        gfx.Color(0.1, 0.1, 0.1, 1, colorspace=gfx.ColorSpace.srgb)
+    )
+)
 
 
 def add_env_map(obj, env_map):

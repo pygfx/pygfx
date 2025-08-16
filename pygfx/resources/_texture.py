@@ -101,7 +101,7 @@ class Texture(Resource):
         self._force_contiguous = bool(force_contiguous)
         assert dim in (1, 2, 3)
         self._store.dim = int(dim)
-        self._colorspace = colorspace
+        self.colorspace = colorspace
 
         self._generate_mipmaps = bool(generate_mipmaps)
 
@@ -261,6 +261,16 @@ class Texture(Resource):
     def colorspace(self):
         """If this data is used as color, it is interpreted to be in this colorspace."""
         return self._colorspace
+
+    @colorspace.setter
+    def colorspace(self, value):
+        if value not in (
+            ColorSpace.no_colorspace,
+            ColorSpace.srgb,
+            ColorSpace.linear_srgb,
+        ):
+            raise TypeError("colorspace must be a ColorSpace instance.")
+        self._colorspace = value
 
     @property
     def generate_mipmaps(self):

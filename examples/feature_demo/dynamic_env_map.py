@@ -36,11 +36,7 @@ cube_size = env_img.shape[1]
 env_img.shape = 6, cube_size, cube_size, env_img.shape[-1]
 
 env_static = gfx.Texture(
-    env_img,
-    dim=2,
-    size=(cube_size, cube_size, 6),
-    generate_mipmaps=True,
-    colorspace="tex-srgb",
+    env_img, dim=2, size=(cube_size, cube_size, 6), generate_mipmaps=True
 )
 
 # Create the dynamic env map
