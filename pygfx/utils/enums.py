@@ -45,7 +45,7 @@ class Enum(BaseEnum):
 
 
 class AlphaMethod(Enum):
-    """Enum hat defined the different alpha methods."""
+    """Enum that defines the different alpha methods."""
 
     opaque = None  #: opaque object
     stochastic = None  #: stochastic transparency
@@ -54,7 +54,7 @@ class AlphaMethod(Enum):
 
 
 class AlphaMode(Enum):
-    """Emum that defines how the alpha value of an object is used to to combine the resulting color with the target color texture."""
+    """Emum that defines the predefined modes for for how the alpha value of an object's fragment is used to combine it with the output texture."""
 
     auto = (
         None  #: use classic blending, while depth_write defaults to True if opacity==1.
