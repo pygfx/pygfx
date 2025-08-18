@@ -44,6 +44,34 @@ class Enum(BaseEnum):
     """Enum base class for pygfx."""
 
 
+class AlphaMethod(Enum):
+    """Enum that defines the different alpha methods."""
+
+    opaque = None  #: opaque object
+    stochastic = None  #: stochastic transparency
+    composite = None  #: per-fragment blending
+    weighted = None  #: weighted blending
+
+
+class AlphaMode(Enum):
+    """Emum that defines the predefined modes for for how the alpha value of an object's fragment is used to combine it with the output texture."""
+
+    auto = (
+        None  #: use classic blending, while depth_write defaults to True if opacity==1.
+    )
+    solid = None  #: alpha is ignored.
+    solid_premul = None  #: the alpha is multiplied with the color (making it darker).
+    dither = None  #: stochastic transparency with blue noise.
+    bayer = None  #: stochastic transparency with a Bayer pattern.
+    blend = None  #: use classic alpha blending using the over-operator.
+    add = None  #: use additive blending that adds the fragment color, multiplied by alpha.
+    subtract = None  #: use subtractive blending that removes the fragment color.
+    multiply = None  #: use multiplicative blending that multiplies the fragment color.
+    weighted_blend = None  #: weighted blended order independent transparency.
+    weighted_solid = None  #: fragments are combined based on alpha, but the final alpha is always 1. Great for e.g. image stitching.
+    custom = None  #: value to indicate a custom alpha config.
+
+
 class EdgeMode(Enum):
     centered = None  #: Centered edges (half the width on each side).
     inner = None  #: Inner edges (the width is added to the inside).

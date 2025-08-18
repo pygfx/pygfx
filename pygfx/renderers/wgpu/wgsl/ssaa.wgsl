@@ -308,7 +308,7 @@ fn fs_main(varyings: Varyings) -> @location(0) vec4<f32> {
     // are how they end up in the target texture.
     // We assume pre-multiply alpha for now.
     // We should at some point look into this, if we want to support transparent windows,
-    // and change the code here based on the ``alpha_mode`` of the ``GPUCanvasContext``.
+    // and change the code here based on the ``alpha_method`` of the ``GPUCanvasContext``.
     // Note tha alpha is multiplied with itself, which is probbaly wrong.
 
     return vec4f(rgb * a, a * a);

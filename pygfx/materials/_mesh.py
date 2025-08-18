@@ -60,13 +60,6 @@ class MeshAbstractMaterial(Material):
         self.map = map
         self.side = side
 
-    def _looks_transparent(self):
-        if self.opacity < 1:
-            return True
-        if self._store.get("color_mode") in ("auto", "uniform"):
-            if self.color.a < 1:
-                return True
-
     @property
     def color(self):
         """The uniform color of the mesh.
@@ -79,7 +72,6 @@ class MeshAbstractMaterial(Material):
         color = Color(color)
         self.uniform_buffer.data["color"] = color
         self.uniform_buffer.update_full()
-        self._resolve_transparent()
 
     @property
     def color_mode(self):
@@ -98,7 +90,6 @@ class MeshAbstractMaterial(Material):
                 f"MeshMaterial.color_mode must be a string in {ColorMode}, not {value!r}"
             )
         self._store.color_mode = value
-        self._resolve_transparent()
 
     @property
     def vertex_colors(self):

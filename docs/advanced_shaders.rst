@@ -178,9 +178,8 @@ FragmentOutput
 --------------
 
 In a somewhat similar way, the output of the fragment shader is
-predefined. Though in this case the output is determined by the blending
-mode, and the details are hidden
-from the shader author. This way, Pygfx can support special blending modes
+predefined. Though in this case the precise output is determined by the ``alpha_mode``,
+and the details are hidden from the shader author. This way, Pygfx can support multiple alpha modes
 without affecting individual shaders.
 All fragment functions in Pygfx look somewhat like this:
 
@@ -199,33 +198,6 @@ All fragment functions in Pygfx look somewhat like this:
                 return out;
             }
             """
-
-For some types of blending the output struct is modified automatically,
-and users can influence this process. E.g. to explicitly set a seed for
-dithered blending:
-
-.. code-block::
-
-    ...
-    var out: FragmentOutput;
-    out.color = vec4<f32>(...);
-    $$ if blending == 'dither'
-    out.seed1 = f32(...);
-    $$ endif
-    return out;
-
-... or set the weight for weighted blending:
-
-.. code-block::
-
-    ...
-    var out: FragmentOutput;
-    out.color = vec4<f32>(...);
-    $$ if blending == 'weighted'
-    out.weight = f32(...);
-    $$ endif
-    return out;
-
 
 Picking
 -------
