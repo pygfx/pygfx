@@ -515,82 +515,133 @@ class WorldObject(EventTarget, Trackable):
             self._bounds_geometry = None
         return self._bounds_geometry
 
-    def get_geometry_bounding_box(self) -> np.ndarray | None:
-        bounds = self._get_bounds_from_geometry()
-        if bounds is not None:
-            return bounds.aabb
+    def get_bounds_local(self):
+        """Get the Bounds based on this objects's geometry only, or None."""
+        return self._get_bounds_from_geometry()
 
-    def get_bounding_box(self) -> np.ndarray | None:
-        """Axis-aligned bounding box in parent space.
-
-        Returns
-        -------
-        aabb : ndarray, [2, 3] or None
-            An axis-aligned bounding box, or None when the object does
-            not take up a particular space.
-        """
-
-        # Collect bounding boxes
-        _aabbs = []
+    def get_bounds_local_recursive(self):
+        """Get the Bounds, local to this objects space, of itself and all its children."""
+        # TODO: this replicates get_bounding_box(), but should it not include this local.matrix??
+        # TODO: when is this actually useful?
+        bounds_list = []
         for child in self._children:
-            aabb = child.get_bounding_box()
-            if aabb is not None:
-                trafo = child.local.matrix
-                _aabbs.append(la.aabb_transform(aabb, trafo))
+            bounds = child.get_bounds_local()
+            if bounds is not None:
+                bounds_list.append(bounds.transform(child.local.matrix))
         bounds = self._get_bounds_from_geometry()
         if bounds is not None:
-            _aabbs.append(bounds.aabb)
+            bounds_list.append(bounds.aabb)
+        return Bounds.combine(bounds_list)
 
-        # Combine
-        if _aabbs:
-            aabbs = np.stack(_aabbs)
-            final_aabb = np.zeros((2, 3), dtype=float)
-            final_aabb[0] = np.min(aabbs[:, 0, :], axis=0)
-            final_aabb[1] = np.max(aabbs[:, 1, :], axis=0)
-        else:
-            final_aabb = None
+    def get_bounds_world(self):
+        """Get the Bounds of this object, in the world space, or None."""
+        # NOTE: This is especially useful for CPU-picking in world space.
+        bounds = self._get_bounds_from_geometry()
+        if bounds is not None:
+            return bounds.transform(self.world.matrix)
 
-        return final_aabb
+    def get_bounds_world_recursive(self):
+        """Get the Bounds of this object and all its chilrden, in world space, or None."""
+        # NOTE: transforms are not applied recursively, leading to higher performance than get_bounds_local_recursive and more accurate results.
+        # NOTE: This is especially useful for stuff like camera.show_object()
+        bounds_list = []
+        for child in self._children:
+            bounds = child.get_bounds_world()
+            if bounds is not None:
+                bounds_list.append(bounds)
+        bounds = self.get_bounds_world()
+        if bounds is not None:
+            bounds_list.append(bounds.aabb)
+        return Bounds.combine(bounds_list)
 
-    def get_bounding_sphere(self) -> np.ndarray | None:
-        """Bounding Sphere in parent space.
+    def pick_point(self, xyz):
+        # I'm just experimenting here:
+        # * Should this be on the WorldObject, or the Scene, or a function somewhere else?
+        # * Do we want something similar for lines, planes, ... ?
+        found = []
+        for child in self.iter():
+            bounds = child.get_bounds_world()
+            if bounds is not None:
+                if bounds.intesects_point(xyz):
+                    found.append(child)
+        return found
 
-        Returns
-        -------
-        bounding_shere : ndarray, [4] or None
-            A sphere (x, y, z, radius), or None when the object does
-            not take up a particular space.
+    # def get_geometry_bounding_box(self) -> np.ndarray | None:
+    #     bounds = self._get_bounds_from_geometry()
+    #     if bounds is not None:
+    #         return bounds.aabb
 
-        """
-        # NOTE: this currently does not even use the sphere-data from the geometry!
-        aabb = self.get_bounding_box()
-        return None if aabb is None else la.aabb_to_sphere(aabb)
+    # def get_bounding_box(self) -> np.ndarray | None:
+    #     """Axis-aligned bounding box in parent space.
 
-    def get_world_bounding_box(self) -> np.ndarray | None:
-        """Axis aligned bounding box in world space.
+    #     Returns
+    #     -------
+    #     aabb : ndarray, [2, 3] or None
+    #         An axis-aligned bounding box, or None when the object does
+    #         not take up a particular space.
+    #     """
 
-        Returns
-        -------
-        aabb : ndarray, [2, 3] or None
-            The transformed axis-aligned bounding box, or None when the
-            object does not take up a particular space.
+    #     # Collect bounding boxes
+    #     _aabbs = []
+    #     for child in self._children:
+    #         aabb = child.get_bounding_box()
+    #         if aabb is not None:
+    #             trafo = child.local.matrix
+    #             _aabbs.append(la.aabb_transform(aabb, trafo))
+    #     bounds = self._get_bounds_from_geometry()
+    #     if bounds is not None:
+    #         _aabbs.append(bounds.aabb)
 
-        """
-        aabb = self.get_bounding_box()
-        return None if aabb is None else la.aabb_transform(aabb, self.world.matrix)
+    #     # Combine
+    #     if _aabbs:
+    #         aabbs = np.stack(_aabbs)
+    #         final_aabb = np.zeros((2, 3), dtype=float)
+    #         final_aabb[0] = np.min(aabbs[:, 0, :], axis=0)
+    #         final_aabb[1] = np.max(aabbs[:, 1, :], axis=0)
+    #     else:
+    #         final_aabb = None
 
-    def get_world_bounding_sphere(self) -> np.ndarray | None:
-        """Bounding Sphere in world space.
+    #     return final_aabb
 
-        Returns
-        -------
-        bounding_shere : ndarray, [4] or None
-            A sphere (x, y, z, radius), or None when the object does
-            not take up a particular space.
+    # def get_bounding_sphere(self) -> np.ndarray | None:
+    #     """Bounding Sphere in parent space.
 
-        """
-        aabb = self.get_world_bounding_box()
-        return None if aabb is None else la.aabb_to_sphere(aabb)
+    #     Returns
+    #     -------
+    #     bounding_shere : ndarray, [4] or None
+    #         A sphere (x, y, z, radius), or None when the object does
+    #         not take up a particular space.
+
+    #     """
+    #     # NOTE: this currently does not even use the sphere-data from the geometry!
+    #     aabb = self.get_bounding_box()
+    #     return None if aabb is None else la.aabb_to_sphere(aabb)
+
+    # def get_world_bounding_box(self) -> np.ndarray | None:
+    #     """Axis aligned bounding box in world space.
+
+    #     Returns
+    #     -------
+    #     aabb : ndarray, [2, 3] or None
+    #         The transformed axis-aligned bounding box, or None when the
+    #         object does not take up a particular space.
+
+    #     """
+    #     aabb = self.get_bounding_box()
+    #     return None if aabb is None else la.aabb_transform(aabb, self.world.matrix)
+
+    # def get_world_bounding_sphere(self) -> np.ndarray | None:
+    #     """Bounding Sphere in world space.
+
+    #     Returns
+    #     -------
+    #     bounding_shere : ndarray, [4] or None
+    #         A sphere (x, y, z, radius), or None when the object does
+    #         not take up a particular space.
+
+    #     """
+    #     aabb = self.get_world_bounding_box()
+    #     return None if aabb is None else la.aabb_to_sphere(aabb)
 
     def _wgpu_get_pick_info(self, pick_value) -> dict:
         # In most cases the material handles this.
