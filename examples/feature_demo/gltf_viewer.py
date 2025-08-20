@@ -554,40 +554,43 @@ def show_inspector():
 def show_material_properties(material):
     imgui.separator_text("Transparency Settings")
 
-    imgui.text("Transparency Presets")
-    imgui.same_line()
+    alpha_config = material.alpha_config
+    alpha_mode = alpha_config["mode"]
 
-    if imgui.small_button("Opaque"):
-        material.transparent = False
-        material.blending = "normal"
-        material.alpha_test = 0
-        material.depth_write = True
-        material.depth_test = True
-    imgui.same_line()
-    if imgui.small_button("Mask"):
-        material.transparent = False
-        material.blending = "normal"
-        material.alpha_test = 0.5
-        material.depth_write = True
-        material.depth_test = True
-    imgui.same_line()
-    if imgui.small_button("Blend"):
-        material.transparent = True
-        material.blending = "normal"
-        material.alpha_test = 0
-        material.depth_write = False
-        material.depth_test = True
-    imgui.same_line()
-    if imgui.small_button("Dither"):
-        material.transparent = True  # todo: should be False, but now raise an error
-        material.blending = "dither"
-        material.alpha_test = 0
-        material.depth_write = False
-        material.depth_test = True
+    alpha_modes = [
+        "solid",
+        "solid_premul",
+        "blend",
+        "add",
+        "subtract",
+        "dither",
+        "bayer",
+        "weighted_blend",
+        "weighted_solid",
+    ]
 
-    imgui.separator()
+    imgui.set_next_item_width(200)
+    current_idx = alpha_modes.index(alpha_mode) if alpha_mode in alpha_modes else 0
+    changed, alpha_mode_idx = imgui.combo("Alpha Mode", current_idx, alpha_modes)
 
-    _, material.transparent = imgui.checkbox("Transparent", material.transparent)
+    if changed:
+        alpha_mode = alpha_modes[alpha_mode_idx]
+        material.alpha_mode = alpha_mode
+
+    imgui.text(f"Render Queue: {material.render_queue}")
+
+    imgui.begin_table(
+        "Alpha Config", 2, imgui.TableFlags_.row_bg | imgui.TableFlags_.resizable
+    )
+
+    for key, value in alpha_config.items():
+        imgui.table_next_row()
+        imgui.table_next_column()
+        imgui.text(key)
+        imgui.table_next_column()
+        imgui.text(f"{value}")
+
+    imgui.end_table()
 
     imgui.set_next_item_width(200)
     _, material.opacity = imgui.slider_float(
@@ -604,21 +607,6 @@ def show_material_properties(material):
 
     _, material.depth_write = imgui.checkbox("Depth Write", material.depth_write)
     _, material.depth_test = imgui.checkbox("Depth Test", material.depth_test)
-
-    blending_names = ["No", "Normal", "Additive", "Subtractive", "Multiply", "Dither"]
-    current_idx = {
-        "no": 0,
-        "normal": 1,
-        "additive": 2,
-        "subtractive": 3,
-        "multiply": 4,
-        "dither": 5,
-    }.get(material.blending["name"], 0)
-
-    imgui.set_next_item_width(200)
-    changed, blending_index = imgui.combo("Blending Mode", current_idx, blending_names)
-    if changed:
-        material.blending = blending_names[blending_index].lower()
 
     imgui.separator_text("Detailed Properties")
 
