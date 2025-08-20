@@ -22,6 +22,7 @@ from ....objects import (
     WheelEvent,
     WindowEvent,
     WorldObject,
+    Group,
 )
 from ....objects._lights import (
     Light,
@@ -56,10 +57,11 @@ AnyBaseCanvas = BaseRenderCanvas, WgpuCanvasBase
 class RenderableItem:
     """To temporary wrap each renderable item for each draw."""
 
-    __slots__ = ["container_group", "wobject", "z"]
+    __slots__ = ["container_group", "sort_key", "wobject", "z"]
 
-    def __init__(self, wobject, z=0):
+    def __init__(self, wobject, sort_key, z=0):
         self.wobject = wobject
+        self.sort_key = sort_key
         self.z = z
         self.container_group = None
 
@@ -82,20 +84,28 @@ class FlatScene:
         self.opaque_objects = []
         self.transparent_objects = []
         self.transparent_double_pass_objects = []
-        # self.transmissive_objects = []
         self.weighted_objects = []
 
         self.has_transmissive_objects = False
 
-        # todo:
-        # self.ui_objects = []  # UI objects, which are rendered in a separate UI pass
-
         self.object_count = object_count
         self.add_scene(scene)
 
+    def _iter_scene(self, wobject, group_order=0):
+        if not wobject.visible:
+            return
+
+        if isinstance(wobject, Group):
+            group_order = wobject.render_order
+
+        yield wobject, group_order
+
+        for child in wobject._children:
+            yield from self._iter_scene(child, group_order)
+
     def add_scene(self, scene):
         """Add a scene to the total flat scene. Is usually called just once."""
-        for wobject in scene.iter(skip_invisible=True):
+        for wobject, group_order in self._iter_scene(scene):
             # Assign renderer id's
             self.object_count += wobject._assign_renderer_id(self.object_count + 1)
             # Update things like transform and uniform buffers
@@ -123,29 +133,32 @@ class FlatScene:
             # Renderable objects
             material = wobject._material
             if material is not None:
-                blending_mode = material.blending["mode"]
+                alpha_method = material.alpha_config["method"]
+                render_queue = material.render_queue
+                sort_key = (render_queue, group_order, wobject.render_order)
 
-                renderable_item = RenderableItem(wobject)
+                renderable_item = RenderableItem(wobject, sort_key)
 
                 if (
-                    blending_mode == "weighted"
+                    alpha_method == "weighted"
                 ):  # special render pass for weighted objects
                     self.weighted_objects.append(renderable_item)
-                elif material.transparent or getattr(material, "transmission", None):
-                    self.transparent_objects.append(renderable_item)
-                    has_transmission = getattr(material, "transmission", None)
-                    if has_transmission:
-                        self.has_transmissive_objects = True
-                        if material.side == "both" and not material.force_single_pass:
-                            self.transparent_double_pass_objects.append(renderable_item)
-                else:
+                elif render_queue <= 2500:  # opaque objects
                     self.opaque_objects.append(renderable_item)
+                else:  # transparent objects
+                    self.transparent_objects.append(renderable_item)
+                    need_transmission = getattr(material, "transmission", None)
+                    if need_transmission:
+                        self.has_transmissive_objects = True
+
+                    if material.side == "both" and not material.force_single_pass:
+                        # we need rendering twice in a double pass for these objects
+                        self.transparent_double_pass_objects.append(renderable_item)
 
     def sort(self):
         """Sort the world objects."""
         self._sort(self.opaque_objects, sort_sign=1)  # closest first
         self._sort(self.transparent_objects, sort_sign=-1)  # farthest first
-        # self._sort(self.transmissive_objects, sort_sign=-1)  # farthest first
 
     def _sort(self, render_items: list, sort_sign=1):
         if not render_items:
@@ -162,10 +175,10 @@ class FlatScene:
             for i, item in enumerate(render_items):
                 item.z = -dist_flags[i][2]
 
-            render_items.sort(key=lambda item: (item.wobject.render_order, item.z))
+            render_items.sort(key=lambda item: (item.sort_key, item.z))
         else:
             # No view matrix, so we cannot sort by distance
-            render_items.sort(key=lambda item: item.wobject.render_order)
+            render_items.sort(key=lambda item: item.sort_key)
 
     def collect_pipelines_container_groups(self, renderstate):
         """Select and resolve the pipeline, compiling shaders, building pipelines and composing binding as needed."""
@@ -174,7 +187,6 @@ class FlatScene:
         for objects in [
             self.opaque_objects,
             self.transparent_objects,
-            # self.transmissive_objects,
             self.weighted_objects,
         ]:
             for item in objects:
@@ -484,13 +496,13 @@ class WgpuRenderer(RootEventHandler, Renderer):
     @property
     def blend_mode(self):
         raise DeprecationWarning(
-            "renderer.blend_mode is removed. Use material.blending instead."
+            "renderer.blend_mode is removed. Use material.alpha_mode instead."
         )
 
     @blend_mode.setter
     def blend_mode(self, value):
         raise DeprecationWarning(
-            "renderer.blend_mode is removed. Use material.blending instead."
+            "renderer.blend_mode is removed. Use material.alpha_mode instead."
         )
 
     @property

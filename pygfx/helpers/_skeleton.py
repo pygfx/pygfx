@@ -28,7 +28,6 @@ class SkeletonHelper(Line):
                 thickness=thickness,
                 color_mode="vertex",
                 depth_test=False,
-                transparent=True,
             ),
         )
 
