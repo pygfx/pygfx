@@ -485,11 +485,12 @@ class Blender:
                 // virtualfield position: vec3f = varyings.position.xyz;
                 // virtualfield objectId: u32 = u_wobject.renderer_id;
                 // virtualfield elementIndex: u32 = varyings.elementIndex;
+                // virtualfield modelCoord: vec3f = vec3(varyings.model_coord.xy, 0.0);
                 @location(0) color: vec4<f32>,
                 MAYBE_PICK@location(1) pick: vec4<u 32>,
             };
 
-            fn apply_virtual_fields_of_fragment_output(outp: ptr<function,FragmentOutput>, position: vec3f, objectId: u32, elementIndex: u32) {
+            fn apply_virtual_fields_of_fragment_output(outp: ptr<function,FragmentOutput>, position: vec3f, objectId: u32, elementIndex: u32, modelCoord: vec3f) {
 
                 // Early exit
                 let alpha = (*outp).color.a;
@@ -511,12 +512,13 @@ class Blender:
                 // The bayer pattern looks nicer than the noise, but is not suited for mixing multiple transparent layers.
                 var rand = 0.0;
 
-                if true {  // set to false to use split-screen debug mode
+                if false {  // set to false to use split-screen debug mode
                     rand = RANDOM_CALL;
                 } else if position.x < 0.5 * screenSize.x {
+                    rand = wyman_hashed_dither(modelCoord);
                     //rand = blueNoise2(upos2);
                     //rand = random(position.x * position.y * position.z);  // more or less original white noise version
-                    rand = bayerPattern(upos1);
+                    //rand = bayerPattern(upos1);
                 } else {
                     rand = blueNoise2(upos2);
                 }

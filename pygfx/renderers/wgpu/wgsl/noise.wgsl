@@ -1,3 +1,13 @@
+fn wyman_hash2(in1: vec2f ) -> f32 {
+    var in = in1;
+    // if (in.x == 0.0) { in.x = 123.0; }
+    // if (in.y == 0.0) { in.y = 321.0; }
+    return fract( 1.0e4 * sin( 17.0*in.x + 0.1*in.y ) * ( 0.1 + abs( sin( 13.0*in.y + in.x ))));
+}
+fn wyman_hash3(in: vec3f) -> f32 {
+    return wyman_hash2( vec2f( wyman_hash2(in.xy), in.z));
+}
+
 
 fn hashu(val: u32 ) -> u32 {
     // https://stackoverflow.com/questions/4200224/random-noise-functions-for-glsl
@@ -71,6 +81,17 @@ fn _xmix(x: u32, y:u32) -> u32 {
 fn _ymix(x: u32, y:u32) -> u32 {
     return u32(f32((x * 484829 + y * 112279) & 0x5555555) * 0.002004008016032064);
 }
+fn _xmix3(x: u32, y: u32, z: u32) -> u32 {
+    return u32(f32((x * 212281u + y * 384817u + z * 918191u) & 0x5555555u) * 0.00325732899);
+}
+
+fn _ymix3(x: u32, y: u32, z: u32) -> u32 {
+    return u32(f32((x * 484829u + y * 112279u + z * 729727u) & 0x5555555u) * 0.00200400801);
+}
+
+fn _zmix3(x: u32, y: u32, z: u32) -> u32 {
+    return u32(f32((x * 338101u + y * 772349u + z * 192811u) & 0x5555555u) * 0.00163487738);
+}
 
 fn blueNoise2(xy: vec2u) -> f32 {
     // https://observablehq.com/@fil/pseudoblue
@@ -87,10 +108,40 @@ fn blueNoise2(xy: vec2u) -> f32 {
         y = y >> 1u;
         a = 1u & (a ^ _xmix(x, y));
         b = 1u & (b ^ _ymix(x, y));
-        v = (v << 2u) | (a + (b << 1u) + 1u) % 4u;
+        let digit = (a + (b << 1u) + 1u) % 4u;  // 2 bit octree index
+        v = (v << 2u) | digit;
     }
-    return f32(v) / f32(1u << (s << 1u));
+    return f32(v) / f32(1u << (s << 1u));  // denominator = 2^(2*s)
+}
+
+// A pseudo blue-noise generator for 3d input.
+// ChatGTP helped me write this. It seems like the z-component is not really blue yet.
+fn blueNoise3(xyz: vec3u) -> f32 {
+    var x = xyz.z;
+    var y = xyz.y;
+    var z = xyz.x;
+    const s = 8u;
+    var v = 0u;
+    var a: u32;
+    var b: u32;
+    var c: u32;
+    for (var i = 0u; i < s; i += 1u) {
+        let xx = x;
+        let yy = y;
+        let zz = z;
+        x = x >> 1u;
+        y = y >> 1u;
+        z = z >> 1u;
+
+        a = 1u & (xx ^ _xmix3(x, y, z));      // mix for x
+        b = 1u & (yy ^ _ymix3(x, y, z));      // mix for y
+        c = 1u & (zz ^ _zmix3(x, y, z));   // mix for z
+
+        let digit = (a + (b << 1u) + (c << 2u) + 1u) % 8u;  // 3 bit octree index
+        v = (v << 3u) | digit;
     }
+    return f32(v) / f32(1u << (s * 3u));  // denominator = 2^(3*s).
+}
 
 fn whiteNoise(xy: vec2u) -> f32 {
     return hash_to_f32(hashu(xy.x) * hashu(xy.y));
@@ -110,3 +161,69 @@ fn bayerPattern(xy: vec2u) -> f32 {
     }
     return f32(v) / f32(1u << (8u << 1u));
 }
+
+fn wyman_hashed_dither(objCoord: vec3f) -> f32 {
+
+    let g_HashScale = f32(1.0);  // he target noise scale in pixels (default 1.0).
+
+    // Find the discretized derivatives of our coordinates
+    let anisoDeriv: vec3f = max( abs(dpdx(objCoord.xyz)), abs(dpdy(objCoord.xyz)) );
+    let anisoScales = vec3f(
+        0.707 / (g_HashScale * anisoDeriv.x),
+        0.707 / (g_HashScale * anisoDeriv.y),
+        0.707 / (g_HashScale * anisoDeriv.z)
+    );
+    // Find log-discretized noise scales
+    let scaleFlr = vec3f(
+        exp2(floor(log2(anisoScales.x))),
+        exp2(floor(log2(anisoScales.y))),
+        exp2(floor(log2(anisoScales.z)))
+    );
+    let scaleCeil = vec3f(
+        exp2(ceil(log2(anisoScales.x))),
+        exp2(ceil(log2(anisoScales.y))),
+        exp2(ceil(log2(anisoScales.z)))
+    );
+
+
+    // Compute alpha thresholds at our two noise scales
+
+    // The original white noise hash in the paper
+    //let alpha = vec2f(wyman_hash3(floor(scaleFlr * objCoord.xyz)), wyman_hash3(floor(scaleCeil * objCoord.xyz)));
+    // A 2D variant
+    //let alpha = vec2f(wyman_hash2(floor(scaleFlr.xy * objCoord.xy)), wyman_hash2(floor(scaleCeil.xy * objCoord.xy)));
+    // Our blue noise version
+    let alpha = vec2f(blueNoise2(vec2u(1000.0 + floor(scaleFlr * objCoord.xyz).xy)), blueNoise2(vec2u(1000.0 + floor(scaleCeil * objCoord.xyz).xy)));
+    // An attempt to make the blue noise 3D, so a 3D input can be given (like a 3D model pos as in the paper)
+    //let alpha = vec2f(blueNoise3(vec3u(1000.0 + floor(scaleFlr * objCoord.xyz))), blueNoise3(vec3u(1000.0 + floor(scaleCeil * objCoord.xyz))));
+
+    // Factor to linearly interpolate with
+    let fractLoc = vec3f(
+        fract(log2( anisoScales.x )),
+        fract(log2( anisoScales.y )),
+        fract(log2( anisoScales.z ))
+    );
+    let toCorners = vec2f( length(fractLoc), length(vec3(1.0f)-fractLoc) );
+    let lerpFactor: f32 = toCorners.x / (toCorners.x + toCorners.y);
+    // Interpolate alpha threshold from noise at two scales
+    let x: f32 = (1.0 - lerpFactor) * alpha.x + lerpFactor * alpha.y;
+    // Pass into CDF to compute uniformly distrib threshold
+    let a: f32 = min( lerpFactor, 1.0 - lerpFactor );
+    let cases = vec3f(
+        x * x / (2 * a * (1 - a)),
+        (x - 0.5 * a) / (1 - a),
+        1.0 - ((1 - x) * (1 - x) / (2 * a * (1 - a)))
+    );
+    // Find our final, uniformly distributed alpha threshold
+    var at: f32 = cases.z;
+    if  (x < (1-a)) {
+        at = cases.y;
+        if (x < a) {
+            at = cases.x;
+        }
+    }
+    // Avoids at == 0. Could also do at = 1-at
+    at = clamp( at, 0.0, 1.0 );
+    return at;
+}
+

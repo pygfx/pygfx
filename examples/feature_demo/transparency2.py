@@ -39,6 +39,9 @@ plane3.local.rotation = la.quat_from_axis_angle((0, 0, 1), 1.571)
 
 scene.add(background, plane1, plane2, plane3, sphere)
 
+for plane in plane1, plane2, plane3:
+    plane.material.alpha_mode = 'dither'
+
 camera = gfx.PerspectiveCamera(70, 16 / 9)
 camera.show_object(scene, view_dir=(-1, -2, -3))
 controller = gfx.OrbitController(camera, register_events=renderer)
@@ -86,6 +89,11 @@ def handle_event(event):
 
 
 def animate():
+
+    import time, math
+    plane1.local.y = math.sin(time.time()) * 10
+    canvas.request_draw()
+
     renderer.render(scene, camera, flush=False)
     renderer.render(
         scene_overlay,

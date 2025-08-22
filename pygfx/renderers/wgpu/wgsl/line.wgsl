@@ -632,8 +632,12 @@ fn vs_main(in: VertexInput) -> Varyings {
     let ref_angle = select(angle1, angle3, use_456);
     let relative_vert_s = rotate_vec2(ref_coord + vertex_offset, ref_angle) * half_thickness;
 
-    // Calculate vertex position in NDC.The z and w are inter/extra-polated.
-    let the_pos_s = pos_s_node + relative_vert_s;
+    // Calculate vertex position in NDC. The z and w are inter/extra-polated.
+    // Snap to physical pixels to reduce jitter
+    var the_pos_s = pos_s_node + relative_vert_s;
+    $$ if True or not aa
+        the_pos_s = round(the_pos_s * l2p) / l2p;
+    $$ endif
     var the_pos_n = vec4<f32>((the_pos_s / screen_factor - 1.0) * w, z, w);
 
     $$ if loop
@@ -660,6 +664,9 @@ fn vs_main(in: VertexInput) -> Varyings {
     varyings.position = vec4<f32>(the_pos_n);
     varyings.world_pos = vec3<f32>(ndc_to_world_pos(the_pos_n));
     varyings.elementIndex = u32(face_index);
+    //varyings.model_coord =vec3<f32>(f32(vertex_index % 3 == 0), f32(vertex_index % 3 == 1), f32(vertex_index % 3 == 2));
+    varyings.model_coord = vec2<f32>(f32(vertex_index < 2) + f32(vertex_index < 4), the_coord.y);
+
 
     //  Thickness and segment coord. These are corrected for perspective, otherwise the dashes are malformed in 3D.
     varyings.w = f32(w);

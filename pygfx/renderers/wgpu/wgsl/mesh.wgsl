@@ -202,6 +202,7 @@ fn vs_main(in: VertexInput) -> Varyings {
     varyings.world_pos = vec3<f32>(world_pos.xyz / world_pos.w);
     varyings.position = vec4<f32>(ndc_pos.xyz, ndc_pos.w);
     varyings.elementIndex = u32(face_index);
+    varyings.model_coord = vec3<f32>(raw_pos.xyz);
 
     // per-vertex or per-face coloring
     $$ if use_vertex_color
