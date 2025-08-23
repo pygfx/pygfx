@@ -548,9 +548,11 @@ class WgpuRenderer(RootEventHandler, Renderer):
             )
         if all:
             self._blender.clear()
-        elif color:
+            return
+
+        if color:
             self._blender.texture_info["color"]["clear"] = True
-        elif depth:
+        if depth:
             self._blender.texture_info["depth"]["clear"] = True
 
     def render(
