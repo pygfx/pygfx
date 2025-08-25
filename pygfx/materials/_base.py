@@ -117,6 +117,9 @@ class Material(Trackable):
     alpha_config : dict
         An advanced way to fully control the alpha behaviour. When both ``alpha_mode``
         and ``alpha_config`` are given, the latter is used.
+    force_single_pass : bool
+        Whether double-sided, transmissive objects should be rendered with a single pass or not.
+        Default is False.
     depth_test :  bool
         Whether the object takes the depth buffer into account (and how).
         Default True.
@@ -154,6 +157,7 @@ class Material(Trackable):
         clipping_planes: Sequence[ABCDTuple] = (),
         clipping_mode: Literal["ANY", "ALL"] = "ANY",
         alpha_mode: str = "auto",
+        force_single_pass: bool = False,
         alpha_config: Optional[dict] = None,
         depth_test: bool = True,
         depth_compare: str = "<",
@@ -179,6 +183,7 @@ class Material(Trackable):
             self.alpha_mode = alpha_mode
         else:
             self.alpha_config = alpha_config
+        self.force_single_pass = force_single_pass
         self.depth_test = depth_test
         self.depth_compare = depth_compare
         self.depth_write = depth_write
@@ -393,7 +398,7 @@ class Material(Trackable):
                 raise ValueError("Cannot set material.alpha_mode with 'custom'")
 
         if alpha_mode == "auto":
-            d = ALPHA_MODES["blend"].copy()
+            d = ALPHA_MODES["solid"].copy()
             d["mode"] = "auto"
         else:
             d = ALPHA_MODES[alpha_mode]
@@ -570,7 +575,6 @@ class Material(Trackable):
             self._render_queue = self._given_render_queue
         else:
             alpha_method = self.alpha_config["method"]
-            depth_write = self.depth_write
             if alpha_method == "opaque":
                 if not self._store.use_alpha_test:
                     render_queue = 2000
@@ -579,10 +583,7 @@ class Material(Trackable):
             elif alpha_method == "stochastic":
                 render_queue = 2400
             else:  # alpha_method in ["composite", "weighted"]
-                if depth_write:
-                    render_queue = 2600
-                else:
-                    render_queue = 3000
+                render_queue = 3000
             self._render_queue = render_queue
 
     def _get_alpha_config_options(
