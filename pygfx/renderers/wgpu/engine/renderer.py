@@ -202,8 +202,12 @@ class WgpuRenderer(RootEventHandler, Renderer):
     target : WgpuCanvas or Texture
         The target to render to. It is also used to determine the size of the
         render buffer.
+    pixel_scale : float, optional
+        The scale between the internal resolution and the physical resolution of the canvas.
+        Setting to None (default) selects 1 if the screens looks to be HiDPI and 2 otherwise.
     pixel_ratio : float, optional
         The ratio between the number of internal pixels versus the logical pixels on the canvas.
+        If both ``pixel_ratio`` and ``pixel_scale`` are set, ``pixel_ratio`` is ignored.
     pixel_filter : str, PixelFilter, optional
         The type of interpolation / reconstruction filter to use. Default 'mitchell'.
     show_fps : bool
@@ -227,6 +231,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         self,
         target,
         *args,
+        pixel_scale=None,
         pixel_ratio=None,
         pixel_filter: PixelFilter = "mitchell",
         show_fps=False,
@@ -254,6 +259,8 @@ class WgpuRenderer(RootEventHandler, Renderer):
             )
         self._target = target
         self.pixel_ratio = pixel_ratio
+        if pixel_scale is not None:
+            self.pixel_scale = pixel_scale
 
         # Make sure we have a shared object (the first renderer creates the instance)
         self._shared = get_shared()
