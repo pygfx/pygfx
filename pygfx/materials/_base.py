@@ -37,7 +37,7 @@ ALPHA_MODES = {
         "seed": "object",  # bc not enough variation to do 'element'
     },
     "blend": {
-        "method": "git ",
+        "method": "blended",
         "color_op": "add",
         "alpha_op": "add",
         "color_constant": (0, 0, 0),
