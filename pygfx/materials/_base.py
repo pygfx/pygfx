@@ -37,7 +37,7 @@ ALPHA_MODES = {
         "seed": "object",  # bc not enough variation to do 'element'
     },
     "blend": {
-        "method": "composite",
+        "method": "git ",
         "color_op": "add",
         "alpha_op": "add",
         "color_constant": (0, 0, 0),
@@ -48,7 +48,7 @@ ALPHA_MODES = {
         "alpha_dst": "one-minus-src-alpha",
     },
     "add": {
-        "method": "composite",
+        "method": "blended",
         "color_op": "add",
         "alpha_op": "add",
         "color_constant": (0, 0, 0),
@@ -59,7 +59,7 @@ ALPHA_MODES = {
         "alpha_dst": "one",
     },
     "subtract": {
-        "method": "composite",
+        "method": "blended",
         "color_op": "add",
         "alpha_op": "add",
         "color_constant": (0, 0, 0),
@@ -70,7 +70,7 @@ ALPHA_MODES = {
         "alpha_dst": "one",
     },
     "multiply": {
-        "method": "composite",
+        "method": "blended",
         "color_op": "add",
         "alpha_op": "add",
         "color_constant": (0, 0, 0),
@@ -331,7 +331,7 @@ class Material(Trackable):
         * "solid": alpha is ignored.
         * "solid_premul": the alpha is multipled with the color (making it darker).
 
-        Modes for method "composite" (per-fragment blending of the object's color and the color in the output texture):
+        Modes for method "blended" (per-fragment blending of the object's color and the color in the output texture):
 
         * "auto": classic alpha blending, with ``depth_write`` defaulting to True if ``.opacity==1``. See note below.
         * "blend": classic alpha blending using the over-operator. ``depth_write`` defaults to False.
@@ -360,7 +360,7 @@ class Material(Trackable):
         "blend", "dither", or "weighted_blend" is then recommended.
 
         Note that for methods 'opaque' and 'stochastic', the ``depth_write``
-        defaults to True, and for methods 'composite' and 'weighted' the
+        defaults to True, and for methods 'blended' and 'weighted' the
         ``depth_write`` defaults to False. Mode "auto" is an exception to this rule.
 
         Note that the value of ``material.alpha_mode`` can be "custom" in case
@@ -382,7 +382,7 @@ class Material(Trackable):
             m = {
                 "opaque": "solid",
                 "stochastic": "dither",
-                "composie": "blemd",
+                "blended": "blend",
                 "weighted": "weighted_blend",
             }
             suggestion = m.get(alpha_mode, "solid")
@@ -411,7 +411,7 @@ class Material(Trackable):
 
         * "opaque": colors simply overwrite the texture, no transparency.
         * "stochastic": stochastic transparency, alpha represents the chance of a fragment being visible.
-        * "composite": colors are blended with the buffer per-fragment.
+        * "blended": colors are blended with the buffer per-fragment.
         * "weighted": weighted blended order independent transparency, and variants thereof.
 
         The ``alpha_config`` dict has at least the following fields:
@@ -434,7 +434,7 @@ class Material(Trackable):
           use a per-object seed, and 'element' to have a per-element seed.
           The default is 'element' for  the noise patterns and 'object' for the bayer pattern.
 
-        Options for method 'composite':
+        Options for method 'blended':
 
         * "color_op": the blend operation/equation, any value from ``wgpu.BlendOperation``. Default "add".
         * "color_src": source factor, any value of ``wgpu.BlendFactor``. Mandatory.
@@ -484,7 +484,7 @@ class Material(Trackable):
         elif method == "stochastic":
             keys = ["pattern", "seed"]
             defaults = {"pattern": "blue_noise", "seed": "screen"}
-        elif method == "composite":
+        elif method == "blended":
             keys = [
                 "color_op",
                 "color_src",
@@ -578,7 +578,7 @@ class Material(Trackable):
                     render_queue = 2400
             elif alpha_method == "stochastic":
                 render_queue = 2400
-            else:  # alpha_method in ["composite", "weighted"]
+            else:  # alpha_method in ["blended", "weighted"]
                 if depth_write:
                     render_queue = 2600
                 else:
