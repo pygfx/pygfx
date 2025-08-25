@@ -23,7 +23,7 @@ class TextShader(BaseShader):
         material = wobject.material
         self["is_screen_space"] = wobject.screen_space
         self["is_multi_text"] = wobject.is_multi
-        self["aa"] = material.aa
+        self["aa"] = material._gfx_effective_aa
         self["REF_GLYPH_SIZE"] = REF_GLYPH_SIZE
 
     def get_bindings(self, wobject, shared):
