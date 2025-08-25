@@ -49,7 +49,7 @@ class AlphaMethod(Enum):
 
     opaque = None  #: opaque object
     stochastic = None  #: stochastic transparency
-    composite = None  #: per-fragment blending
+    blended = None  #: per-fragment blending
     weighted = None  #: weighted blending
 
 

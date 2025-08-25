@@ -245,7 +245,7 @@ jsonencoder = JsonEncoderWithWgpuSupport()
 
 
 def hash_from_value(value):
-    """Simple way to create a hash from a (possibly composite) object.
+    """Simple way to create a hash from a (possibly compound) object.
     Assumes JSON encodable objects and GPU objects.
     """
     # Encode the value to string using json. The JSON encoder is so fast that
