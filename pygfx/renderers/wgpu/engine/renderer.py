@@ -202,8 +202,12 @@ class WgpuRenderer(RootEventHandler, Renderer):
     target : WgpuCanvas or Texture
         The target to render to. It is also used to determine the size of the
         render buffer.
+    pixel_scale : float, optional
+        The scale between the internal resolution and the physical resolution of the canvas.
+        Setting to None (default) selects 1 if the screens looks to be HiDPI and 2 otherwise.
     pixel_ratio : float, optional
         The ratio between the number of internal pixels versus the logical pixels on the canvas.
+        If both ``pixel_ratio`` and ``pixel_scale`` are set, ``pixel_ratio`` is ignored.
     pixel_filter : str, PixelFilter, optional
         The type of interpolation / reconstruction filter to use. Default 'mitchell'.
     show_fps : bool
@@ -227,6 +231,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         self,
         target,
         *args,
+        pixel_scale=None,
         pixel_ratio=None,
         pixel_filter: PixelFilter = "mitchell",
         show_fps=False,
@@ -254,6 +259,8 @@ class WgpuRenderer(RootEventHandler, Renderer):
             )
         self._target = target
         self.pixel_ratio = pixel_ratio
+        if pixel_scale is not None:
+            self.pixel_scale = pixel_scale
 
         # Make sure we have a shared object (the first renderer creates the instance)
         self._shared = get_shared()
@@ -329,42 +336,72 @@ class WgpuRenderer(RootEventHandler, Renderer):
         return self._target
 
     @property
-    def pixel_ratio(self):
+    def pixel_scale(self) -> float:
+        """The scale between the internal resolution and the physical resolution of the canvas.
+
+        * If the scale is 1, the internal texture has the same size as the target.
+        * If the scale is larger than 1, you're doing SSAA.
+        * If the scale is smaller than 1, you're rendering at a low resolution, and then upscaling the result.
+
+        Note that a ``pixel_scale`` of 1 or 2 is more performant than fractional values.
+
+        Setting this value to ``None``, will select a hirez configuration: It
+        selects 1 if the target looks like a HiDPI screen (i.e.
+        ``canvas.pixel_ratio>=2``), and 2 otherwise. That way, the internal
+        texture size is the same, regardless of the user's system/monitor.
+        """
+        return self._pixel_scale
+
+    @pixel_scale.setter
+    def pixel_scale(self, pixel_scale: None | int | float):
+        if pixel_scale is None:
+            # Select hirez config
+            self._pixel_scale = 2.0  # default
+            if isinstance(self._target, AnyBaseCanvas):
+                target_pixel_ratio = self._target.get_pixel_ratio()
+                if target_pixel_ratio >= 2.0:
+                    self._pixel_scale = 1.0
+        else:
+            pixel_scale = float(pixel_scale)
+            if pixel_scale < 0.1 or pixel_scale > 10:
+                raise ValueError("renderer.pixel_scale must be bwteen 0.1 and 10.")
+            self._pixel_scale = pixel_scale
+
+    @property
+    def pixel_ratio(self) -> float:
         """The ratio between the number of internal pixels versus the logical pixels on the canvas.
 
-        This can be used to configure the size of the render texture
-        relative to the canvas' *logical* size. Can be set to None to
-        set the default. By default the pixel_ratio is 2 on "regular"
-        screens, and the same as the screen pixel ratio on HiDPI screens
-        (usually also 2).
+        ``pixel_ratio = pixel_scale * canvas.pixel_ratio``
 
-        If the used pixel ratio causes the render texture to be larger
-        than the physical size of the canvas, SSAA (super sampling
-        antialiasing) is applied, resulting in a smoother final image
-        with less jagged edges. Alternatively, this value can be set
-        to e.g. 0.5 to *lower* the resolution.
+        Setting this prop also changes the ``pixel_scale``. This can be used to
+        configure the size of the internal texture relative to the canvas'
+        *logical* size.
+
+        Setting this value to ``None`` is the same as setting ``pixel_scale`` to None,
+        and results in a ``pixel_ratio`` of at least 2.
+
+        Note that setting ``pixel_ratio`` to 2.0 does not have the same effect, because the
+        canvas pixel_ratio can be e.g. 1.5, in which case the resulting ``pixel_scale`` becomes fractional.
         """
-        if self._pixel_ratio is not None:
-            return self._pixel_ratio
-        elif isinstance(self._target, AnyBaseCanvas):
+        target_pixel_ratio = 1
+        if isinstance(self._target, AnyBaseCanvas):
             target_pixel_ratio = self._target.get_pixel_ratio()
-            if target_pixel_ratio > 1.0:
-                return target_pixel_ratio
-        # Default
-        return 2.0
+        return self._pixel_scale * target_pixel_ratio
 
     @pixel_ratio.setter
-    def pixel_ratio(self, value):
-        if not value:
-            value = None
-        if value is None:
-            self._pixel_ratio = None
-        elif isinstance(value, (int, float)):
-            self._pixel_ratio = abs(float(value))
+    def pixel_ratio(self, pixel_ratio: None | float):
+        if pixel_ratio is None:
+            self.pixel_scale = None
         else:
-            raise TypeError(
-                f"Rendered.pixel_ratio expected None or number, not {value}"
-            )
+            target_pixel_ratio = 1
+            if isinstance(self._target, AnyBaseCanvas):
+                target_pixel_ratio = self._target.get_pixel_ratio()
+            pixel_scale = pixel_ratio / target_pixel_ratio
+            if 0.9 < pixel_scale < 1.1:
+                pixel_scale = 1  # snap
+            elif 1.9 < pixel_scale < 2.1:
+                pixel_scale = 2  # snap
+            self.pixel_scale = pixel_scale
 
     @property
     def pixel_filter(self) -> PixelFilter:
@@ -373,7 +410,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         See :obj:`pygfx.utils.enums.PixelFilter`.
 
         The renderer renders everything to an internal texture, which,
-        depending on the ``pixel_ratio``, may have a different physical size than
+        depending on the ``pixel_scale``, may have a different physical size than
         the target (i.e. canvas). In the process of rendering the result
         to the target, a filter is applied, resulting in SSAA if the
         target size is smaller, and upsampling when the target size is larger.
@@ -414,7 +451,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         The ``PYGFX_DEFAULT_PPAA`` environment variable can e.g. be set to "none" for image tests,
         so that the image tests don't fail when we update the ddaa method.
 
-        Note that SSAA can be achieved by using a pixel_ratio > 1. This can be well combined with PPAA,
+        Note that SSAA can be achieved by using a pixel_scale > 1. This can be well combined with PPAA,
         since the PPAA is applied before downsampling to the target texture.
         """
         ppaa = "none"
@@ -471,9 +508,14 @@ class WgpuRenderer(RootEventHandler, Renderer):
     @property
     def physical_size(self):
         """The physical size of the internal render texture."""
-        pixel_ratio = self.pixel_ratio
-        target_lsize = self.logical_size
-        return tuple(max(1, int(pixel_ratio * x)) for x in target_lsize)
+        target = self._target
+        if isinstance(self._target, AnyBaseCanvas):
+            target_physical_size = self._target.get_physical_size()
+        else:
+            target_physical_size = target.size[:2]
+        w, h = target_physical_size
+        pixel_scale = self._pixel_scale
+        return max(1, int(w * pixel_scale)), max(1, int(h * pixel_scale))
 
     @property
     def blend_mode(self):
@@ -649,7 +691,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
                 root=self,
                 width=logical_size[0],
                 height=logical_size[1],
-                pixel_ratio=self.pixel_ratio,
+                pixel_ratio=pixel_ratio,
             )
             self.dispatch_event(ev)
 
