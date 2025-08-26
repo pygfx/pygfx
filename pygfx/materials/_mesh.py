@@ -54,7 +54,7 @@ class MeshAbstractMaterial(Material):
         color_mode="auto",
         map=None,
         side="both",
-        force_single_pass: bool = False,
+        force_single_pass: bool = True,
         **kwargs,
     ):
         super().__init__(**kwargs)
