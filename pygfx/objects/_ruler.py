@@ -51,7 +51,7 @@ class Ruler(WorldObject):
 
         # Create a line and points object, with a shared geometry
         self._text = MultiText(
-            material=TextMaterial(color="#f00", aa=aa),
+            material=TextMaterial(color="#fff", aa=aa),
             screen_space=True,
         )
         geometry = self._text.geometry  # has .positions buffer
