@@ -52,7 +52,7 @@ These provide configurations for common cases. Examples are "solid",
 3. Set the ``alpha_config`` dictionary to have full control:
 
 In this advanced approach you can choose between four methods ("opaque",
-"composite", "stochastic", "weighted"), which each have a set of options.
+"blended", "stochastic", "weighted"), which each have a set of options.
 You probably also want to set ``material.depth_write``, and maybe
 ``material.render_queue`` and/or ``ob.render_order``.
 
@@ -102,7 +102,7 @@ Method "opaque" (overwrites the value in the output texture):
 * "solid": alpha is ignored.
 * "solid_premul": the alpha is multiplied with the color (making it darker).
 
-Method "composite" (per-fragment blending of the object's color and the color in the output texture):
+Method "blended" (per-fragment blending of the object's color and the color in the output texture):
 
 * "auto": classic alpha blending, with ``depth_write`` defaulting to True if ``.opacity==1``.
 * "blend": classic alpha blending using the over-operator.
@@ -128,7 +128,7 @@ Most users don't have to worry much about what the alpha-methods mean. Though it
 that the "opaque" and "stochastic" methods produce opaque fragments, and by default have ``depth_write=True``.
 The renderer sorts these objects front-to-back to avoid overdraw (for performance).
 
-In contrast, the "composite" and "weighted" methods result in semi-transparent fragments,
+In contrast, the "blended" and "weighted" methods result in semi-transparent fragments,
 and by default have ``depth_write=False``. The renderer sorts these object back-to-front to
 improve the chance of correct blending. Note that with the 'auto' mode, the default ``depth_write`` depends
 on the ``opacity``.
@@ -140,12 +140,12 @@ Alpha methods in detail
 **Alpha method 'opaque'** represents no transparency. The fragment color
 overwrites the value in the output texture. A very common method in render engines.
 
-**Alpha method 'composite'** represents alpha compositing: a common method in render
-engines in which objects are combined on a per-fragment basis. The object's
-fragment color and the current color in the output texture are blended using a
-configurable operator. There are several common compositing configurations, the
-most-used being the "over operator" (also known as normal blending). When alpha
-compositing is used, the result will depend on the order in which the objects are
+**Alpha method 'blended'** represents alpha compositing: a common method in
+render engines in which objects are combined on a per-fragment basis. The
+object's fragment color and the current color in the output texture are blended
+using a configurable operator. There are several common blending configurations,
+the most-used being the "over operator" (also known as normal blending). When
+blending is used, the result will depend on the order in which the objects are
 rendered.
 
 **Alpha method 'stochastic'** represents stochastic transparency. The alpha
@@ -315,7 +315,7 @@ Here's a list of both common and special use-cases, explaining how to implement 
 
         # Pygfx
         m.alpha_config = {
-            "method": "composite",
+            "method": "blended",
             "color_op": ..,  # wgpu.BlendOperation, default "add".
             "color_src": ..,  # wgpu.BlendFactor
             "color_dst": ..,  # wgpu.BlendFactor
