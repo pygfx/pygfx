@@ -20,12 +20,7 @@ because it matters, and it affects to what degree you need the other techniques.
 A HiDPI display (Apple calls it a Retina display) typically has twice as many
 pixels as a normal display; for every "logical pixel" there are four physical
 pixels (2 in each dimension). In other words, the actual pixels are so small
-that aliasing effects are much harder to see, and everything looks much smoother
-and sharper.
-
-That said, using one or more of the following techniques probably still adds to
-the perceived quality. Especially if you have a large screen, because larger
-screens have larger pixels.
+that aliasing effects are much less pronounced.
 
 
 Super-sample anti-aliasing (SSAA)
@@ -41,11 +36,18 @@ straightforward technique. However, it is relatively costly in terms of memory
 and performance (more pixels to render means more invocations for the fragment
 shaders).
 
-In PyGfx ``renderer.pixel_scale`` determines the size scale; a positive value
-means SSAA is used. By default, a factor 2 is used for normal displays, and a
-factor 1 for HiDPI displays. In effect, the resolution of the internal texture
-is more or less independent of the screen being used.
-If you don't want SSAA, set ``renderer.pixel_scale=1``.
+In PyGfxpixel_scale determines the scale in resolution of the internal texture:
+a value > 1 means that SSAA is used. A value < 1 means that a lower-resolution internal texture
+is used, which is then upscaled to the screen resolution (a performance trick).
+
+By default, ``renderer.pixel_scale`` is 2 for normal displays, and 1 for HiDPI
+displays. In effect, the resolution of the internal texture is more or less
+independent of the screen being used. If you don't want SSAA, set
+``renderer.pixel_scale=1``.
+
+The ``renderer.pixel_filter`` determines the filter being used. The default is the
+Mitchell filter, a quadratic filter suitable for image reconstruction.
+When ``pixel_scale==1``, no filtering is applied.
 
 
 Post-processing anti-aliasing (PPAA)
