@@ -276,7 +276,7 @@ class WorldObject(EventTarget, Trackable):
         The final sort order is typically determined by:
             1. the ``material.render_queue``
             2. effective ``render_order``
-            3. distance to camera (for transparent/composite passes)
+            3. distance to camera
 
         """
         # Note: the render order is on the object, not the material, because it affects
