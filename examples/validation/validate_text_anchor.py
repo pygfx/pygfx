@@ -23,7 +23,7 @@ def add_text(anchor, pos):
         anchor=anchor,
         font_size=20,
         screen_space=True,
-        material=gfx.TextMaterial(color="#0f0"),
+        material=gfx.TextMaterial(color="#0f0", aa=True),
     )
     obj.local.position = pos
     scene.add(obj)
@@ -34,7 +34,7 @@ line_positions += [(-1, -1), (1, -1), (-1, 1), (1, 1)]
 line_positions += [(-1, -1), (-1, 1), (1, -1), (1, 1)]
 line = gfx.Line(
     gfx.Geometry(positions=[(p[0] * 50, p[1] * 50, -1) for p in line_positions]),
-    gfx.LineSegmentMaterial(color="#00f"),
+    gfx.LineSegmentMaterial(color="#00f", aa=True),
 )
 scene.add(line)
 

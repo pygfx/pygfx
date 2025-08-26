@@ -37,7 +37,7 @@ text_bottom_right = gfx.Text(
     text_align="right",
     anchor="bottom-right",
     material=gfx.TextMaterial(
-        color="#DA9DFF", outline_color="#000", outline_thickness=0.15
+        color="#DA9DFF", outline_color="#000", outline_thickness=0.15, aa=True
     ),
 )
 
@@ -48,7 +48,7 @@ text_top_right = gfx.Text(
     text_align="end",
     anchor="top-right",
     material=gfx.TextMaterial(
-        color="#FFA99D", outline_color="#000", outline_thickness=0.15
+        color="#FFA99D", outline_color="#000", outline_thickness=0.15, aa=True
     ),
 )
 
@@ -59,7 +59,7 @@ text_bottom_left = gfx.Text(
     text_align="start",
     anchor="bottom-left",
     material=gfx.TextMaterial(
-        color="#C2FF9D", outline_color="#000", outline_thickness=0.15
+        color="#C2FF9D", outline_color="#000", outline_thickness=0.15, aa=True
     ),
 )
 
@@ -70,13 +70,13 @@ text_top_left = gfx.Text(
     text_align="left",
     anchor="top-left",
     material=gfx.TextMaterial(
-        color="#9DF3FF", outline_color="#000", outline_thickness=0.15
+        color="#9DF3FF", outline_color="#000", outline_thickness=0.15, aa=True
     ),
 )
 
 points = gfx.Points(
     gfx.Geometry(positions=[(0, 0, 0)]),
-    gfx.PointsMaterial(color="#f00", size=10),
+    gfx.PointsMaterial(color="#f00", size=10, aa=True),
 )
 scene.add(
     text_bottom_right,

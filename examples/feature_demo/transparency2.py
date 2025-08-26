@@ -49,7 +49,7 @@ scene_overlay = gfx.Scene()
 blend_text = gfx.Text(
     text=f"alpha_mode: {plane1.material.alpha_mode}",
     anchor="bottom-left",
-    material=gfx.TextMaterial(outline_thickness=0.3),
+    material=gfx.TextMaterial(outline_thickness=0.3, aa=True),
 )
 scene_overlay.add(blend_text)
 

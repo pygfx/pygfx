@@ -57,7 +57,7 @@ del position_data
 
 points = gfx.Points(
     gfx.Geometry(positions=buf),
-    gfx.PointsMaterial(color="cyan", size=15),
+    gfx.PointsMaterial(color="cyan", size=15, aa=True),
 )
 
 

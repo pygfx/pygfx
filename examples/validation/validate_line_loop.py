@@ -106,14 +106,14 @@ positions = np.vstack(
 
 line1 = gfx.Line(
     gfx.Geometry(positions=positions),
-    gfx.LineMaterial(thickness=14, color="red", opacity=0.7, loop=True),
+    gfx.LineMaterial(thickness=14, color="red", opacity=0.7, loop=True, aa=True),
 )
 scene.add(line1)
 
 
 line2 = gfx.Line(
     gfx.Geometry(positions=rect_points * 10),
-    gfx.LineMaterial(thickness=20, color="cyan", opacity=0.7, loop=True),
+    gfx.LineMaterial(thickness=20, color="cyan", opacity=0.7, loop=True, aa=True),
 )
 scene.add(line2)
 

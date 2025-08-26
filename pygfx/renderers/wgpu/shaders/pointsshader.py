@@ -87,7 +87,7 @@ class PointsShader(BaseShader):
 
         self["size_mode"] = str(material.size_mode).split(".")[-1]
         self["size_space"] = material.size_space
-        self["aa"] = material.aa
+        self["aa"] = material._gfx_effective_aa
 
         self["draw_line_on_edge"] = False
         if isinstance(material, PointsMarkerMaterial):
