@@ -240,7 +240,7 @@ class Blender:
                     "alpha": blend_dict(bf.one, bf.zero, bo.add),
                     "color": blend_dict(bf.one, bf.zero, bo.add),
                 }
-        elif alpha_method == "composite":
+        elif alpha_method == "blended":
             color_blend = {
                 "color": blend_dict(
                     alpha_config["color_src"],
@@ -433,7 +433,7 @@ class Blender:
 
         alpha_method = alpha_config["method"]
 
-        if alpha_method in ("opaque", "composite"):
+        if alpha_method in ("opaque", "blended"):
             fragment_output_code = """
             struct FragmentOutput {
                 @location(0) color: vec4<f32>,
