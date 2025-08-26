@@ -108,6 +108,7 @@ add_three_cubes(
         dash_pattern=[0, 2],
         color=(1.0, 0.0, 0.0),
         opacity=0.5,
+        aa=True,
     ),
 )
 
@@ -119,6 +120,7 @@ add_three_cubes(
         dash_pattern=[0, 2],
         color=(0.0, 1.0, 0.0),
         opacity=0.5,
+        aa=True,
     ),
 )
 
@@ -130,6 +132,7 @@ add_three_cubes(
         dash_pattern=[0, 2],
         color=(0.0, 0.0, 1.0),
         opacity=0.5,
+        aa=True,
     ),
 )
 
