@@ -151,7 +151,10 @@ class FlatScene:
                     if need_transmission:
                         self.has_transmissive_objects = True
 
-                    if material.side == "both" and not material.force_single_pass:
+                    if (
+                        getattr(material, "side", None) == "both"
+                        and not material.force_single_pass
+                    ):
                         # we need rendering twice in a double pass for these objects
                         self.transparent_double_pass_objects.append(renderable_item)
 

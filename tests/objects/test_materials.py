@@ -34,6 +34,11 @@ def test_automatic_props():
     assert not m.depth_write_is_set
     assert m.depth_write is True
 
+    m.opacity = 1.0
+    assert not m.depth_write_is_set
+    assert m.render_queue == 2000
+    assert m.depth_write is True
+
     # Use opacity
     m.opacity = 0.5
     assert not m.depth_write_is_set
@@ -59,7 +64,7 @@ def test_automatic_props():
     m.render_queue = None
     m.depth_write = False
     assert m.depth_write_is_set
-    assert m.render_queue == 3000
+    assert m.render_queue == 2000
     assert m.depth_write is False
 
 
