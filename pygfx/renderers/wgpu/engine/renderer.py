@@ -578,27 +578,33 @@ class WgpuRenderer(RootEventHandler, Renderer):
                 )
         self._effect_passes = effect_passes
 
-    def clear(self, *, all=False, color=False, depth=False, blend=False):
+    def clear(self, *, all=False, color=False, depth=False, weights=False):
         """Clear one or more of the render targets.
 
         Users typically don't need to use this method. But sometimes it can be convenient to e.g.
         render a scene, and then clear the depth before rendering another scene.
+
+        * all: clear all render targets; a fully clean sheeth.
+        * color: clear the color buffer to rgba all zeros.
+        * depth: clear the depth buffer.
+        * weights: clear the render targets for weighted blending (the accum and reveal textures).
+
         """
-        if not (all or color or depth or blend):
+        if not (all or color or depth or weights):
             raise ValueError(
-                "renderer.clear() needs at least color or depth set to True."
+                "renderer.clear() needs at least all, color, depth, or weights set to True."
             )
+
         if all:
             self._blender.clear()
-            return
-
-        if color:
-            self._blender.texture_info["color"]["clear"] = True
-        if depth:
-            self._blender.texture_info["depth"]["clear"] = True
-        if blend:
-            self._blender.texture_info["accum"]["clear"] = True
-            self._blender.texture_info["reveal"]["clear"] = True
+        else:
+            if color:
+                self._blender.texture_info["color"]["clear"] = True
+            if depth:
+                self._blender.texture_info["depth"]["clear"] = True
+            if weights:
+                self._blender.texture_info["accum"]["clear"] = True
+                self._blender.texture_info["reveal"]["clear"] = True
 
     def render(
         self,

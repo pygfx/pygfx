@@ -1,5 +1,5 @@
 """
-Streamed Image stitching
+Streamed image stitching
 ========================
 
 Show stitching of images using weighted blending. The alpha value of the
@@ -124,10 +124,9 @@ overlay_camera = gfx.NDCCamera()
 
 
 def animate():
-    # Here the images are read in from disk.
-    # The PyGFX scene is created
-    # And then the memory can be cleared from the GPU and the CPU
-    # To make space for the next image
+    # Here the images are read in from disk. The PyGFX scene is created, and
+    # then the memory can be cleared from the GPU and the CPU to make space for
+    # the next image.
     x = 0
     for image_name in image_names:
         rgb = iio.imread(f"imageio:{image_name}")[:, :, :3]  # Drop alpha if it has it
@@ -157,7 +156,7 @@ def animate():
 
     # The overlay scene contains objects that are also utilizing the weighted blending modes
     # So we must clear the blending parameters before proceeding
-    renderer.clear(blend=True)
+    renderer.clear(weights=True)
     renderer.render(scene_overlay, overlay_camera, flush=False)
     # Now that we are done streaming in the images, we can add the overlay text
     # and the background to render the final image.
