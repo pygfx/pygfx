@@ -79,7 +79,7 @@ class TextMaterial(Material):
 
         However, because semi-transparent fragments are introduced, artifacts
         may occur if certain cases. For the same reason, aa only works for the
-        "composite" and "weighted" alpha methods.
+        "blended" and "weighted" alpha methods.
 
         Note that by default, pygfx already uses SSAA and/or PPAA to anti-alias
         the total renderered result. Text-based aa is an *additional* visual
@@ -93,7 +93,7 @@ class TextMaterial(Material):
 
     @property
     def _gfx_effective_aa(self):
-        aa_able_methods = ("composite", "weighted")
+        aa_able_methods = ("blended", "weighted")
         return self._store.aa and self._store.alpha_config["method"] in aa_able_methods
 
     @property
