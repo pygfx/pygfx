@@ -64,8 +64,15 @@ class MeshShader(BaseShader):
         # Per-vertex color, colormap, or a plane color?
         self["colorspace"] = "srgb"
 
-        if material.alpha_config["method"] == "opaque":
+        if (
+            material.render_queue <= 2500
+            and material.alpha_config["method"] != "stochastic"
+        ):
             self["OPAQUE"] = True
+
+        # todo: access material.alpha_config makes bindings change?
+        # if material.alpha_config["method"] == "opaque":
+        #     self["OPAQUE"] = True
 
         color_mode = str(material.color_mode).split(".")[-1]
 
