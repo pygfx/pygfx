@@ -8,13 +8,13 @@ Example demonstrating clipping planes on a mesh.
 # sphinx_gallery_pygfx_docs = 'screenshot'
 # sphinx_gallery_pygfx_test = 'run'
 
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 
 
 # Create a canvas and a renderer
 
-canvas = WgpuCanvas(size=(800, 400))
+canvas = RenderCanvas(size=(800, 400))
 renderer = gfx.renderers.WgpuRenderer(canvas)
 
 # Compose two of the same scenes
@@ -64,4 +64,4 @@ def animate():
 
 if __name__ == "__main__":
     canvas.request_draw(animate)
-    run()
+    loop.run()

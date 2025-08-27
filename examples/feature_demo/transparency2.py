@@ -14,11 +14,11 @@ Press 1-4 to select the blending mode.
 # sphinx_gallery_pygfx_docs = 'screenshot'
 # sphinx_gallery_pygfx_test = 'run'
 
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 import pylinalg as la
 
-canvas = WgpuCanvas()
+canvas = RenderCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
@@ -26,7 +26,7 @@ background = gfx.Background.from_color("#000")
 
 sphere = gfx.Mesh(gfx.sphere_geometry(10), gfx.MeshPhongMaterial())
 
-geometry = gfx.plane_geometry(50, 50)
+geometry = gfx.plane_geometry(50, 50, 10, 10)
 
 # Note: Setting opacity<1 implicitly sets transparency to True, and depth_write to False.
 plane1 = gfx.Mesh(geometry, gfx.MeshBasicMaterial(color="r", opacity=0.2))
@@ -47,9 +47,9 @@ scene.add(camera.add(gfx.DirectionalLight()))
 
 scene_overlay = gfx.Scene()
 blend_text = gfx.Text(
-    text=f"Blending: {plane1.material.blending['name']}",
+    text=f"alpha_mode: {plane1.material.alpha_mode}",
     anchor="bottom-left",
-    material=gfx.TextMaterial(outline_thickness=0.3),
+    material=gfx.TextMaterial(outline_thickness=0.3, aa=True),
 )
 scene_overlay.add(blend_text)
 
@@ -66,20 +66,22 @@ def handle_event(event):
         clr = "#fff" if background.material.color_bottom_left == "#000" else "#000"
         print(f"Changing background color to {clr}")
         background.material.set_colors(clr)
-    elif event.key in "12345":
+    elif event.key in "1234567":
         m = [
             None,
-            "no",  # 1
-            "normal",  # 2
-            "additive",  # 3
-            "dither",  # 4
-            "weighted",  # 5
+            "solid",  # 1
+            "solid_premul",  # 2
+            "blend",  # 3
+            "add",  # 4
+            "dither",  # 5
+            "bayer",  # 6
+            "weighted_blend",  # 7
         ]
-        blending = m[int(event.key)]
+        alpha_mode = m[int(event.key)]
         for plane in plane1, plane2, plane3:
-            plane.material.blending = blending
-        print("Selecting blending", blending)
-        blend_text.set_text(f"Blending: {blending}")
+            plane.material.alpha_mode = alpha_mode
+        print("Selecting alpha_mode", alpha_mode)
+        blend_text.set_text(f"alpha_mode: {alpha_mode}")
     canvas.request_draw()
 
 
@@ -95,4 +97,4 @@ def animate():
 if __name__ == "__main__":
     print(__doc__)
     canvas.request_draw(animate)
-    run()
+    loop.run()

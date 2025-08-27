@@ -10,7 +10,7 @@ This example demonstrates loading glTF models from remote URLs (KhronosGroup glT
 # sphinx_gallery_pygfx_test = 'off'
 
 import pygfx as gfx
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import imageio.v3 as iio
 
 from wgpu.utils.imgui import ImguiRenderer
@@ -21,7 +21,9 @@ import httpx
 import threading
 import asyncio
 
-canvas = WgpuCanvas(size=(1280, 720), max_fps=-1, title="glTF viewer", vsync=False)
+canvas = RenderCanvas(
+    size=(1280, 720), update_mode="fastest", title="glTF viewer", vsync=False
+)
 
 renderer = gfx.WgpuRenderer(canvas)
 
@@ -138,7 +140,12 @@ def load_model(model_path):
         state["selected_action"] = 0
 
         camera.show_object(model_obj, scale=1.4)
-        actions = None
+
+        if actions:
+            for action in actions:
+                action.stop()
+            actions = []
+
         clips = gltf.animations
         if clips:
             actions = [mixer.clip_action(clip) for clip in clips]
@@ -268,4 +275,4 @@ def animate():
 
 if __name__ == "__main__":
     renderer.request_draw(animate)
-    run()
+    loop.run()

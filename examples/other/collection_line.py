@@ -10,11 +10,11 @@ this is still performant.
 # sphinx_gallery_pygfx_test = 'off'
 
 import numpy as np
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 
 
-canvas = WgpuCanvas(max_fps=999)
+canvas = RenderCanvas(max_fps=999)
 renderer = gfx.WgpuRenderer(canvas, show_fps=True)
 scene = gfx.Scene()
 
@@ -62,4 +62,4 @@ def animate():
 
 if __name__ == "__main__":
     canvas.request_draw(animate)
-    run()
+    loop.run()

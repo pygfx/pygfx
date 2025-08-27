@@ -32,14 +32,16 @@ except NameError:
 # sphinx_gallery_pygfx_test = 'run'
 
 import pygfx as gfx
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 
 from wgpu.utils.imgui import ImguiRenderer
 from imgui_bundle import imgui, hello_imgui, icons_fontawesome_6  # type: ignore
 
 gltf_path = model_dir / "Michelle.glb"
 
-canvas = WgpuCanvas(size=(640, 480), max_fps=-1, title="Skinnedmesh", vsync=False)
+canvas = RenderCanvas(
+    size=(640, 480), update_mode="fastest", title="Skinnedmesh", vsync=False
+)
 
 renderer = gfx.WgpuRenderer(canvas)
 camera = gfx.PerspectiveCamera(75, 640 / 480, depth_range=(0.1, 1000))
@@ -149,4 +151,4 @@ def animate():
 
 if __name__ == "__main__":
     renderer.request_draw(animate)
-    run()
+    loop.run()

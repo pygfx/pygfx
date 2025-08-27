@@ -9,11 +9,11 @@ aligned in the scene.
 # sphinx_gallery_pygfx_docs = 'screenshot'
 # sphinx_gallery_pygfx_test = 'compare'
 
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 
 
-renderer = gfx.renderers.WgpuRenderer(WgpuCanvas(size=(500, 500)))
+renderer = gfx.renderers.WgpuRenderer(RenderCanvas(size=(500, 500)))
 scene = gfx.Scene()
 
 
@@ -23,7 +23,7 @@ def add_text(anchor, pos):
         anchor=anchor,
         font_size=20,
         screen_space=True,
-        material=gfx.TextMaterial(color="#0f0"),
+        material=gfx.TextMaterial(color="#0f0", aa=True),
     )
     obj.local.position = pos
     scene.add(obj)
@@ -34,7 +34,7 @@ line_positions += [(-1, -1), (1, -1), (-1, 1), (1, 1)]
 line_positions += [(-1, -1), (-1, 1), (1, -1), (1, 1)]
 line = gfx.Line(
     gfx.Geometry(positions=[(p[0] * 50, p[1] * 50, -1) for p in line_positions]),
-    gfx.LineSegmentMaterial(color="#00f"),
+    gfx.LineSegmentMaterial(color="#00f", aa=True),
 )
 scene.add(line)
 
@@ -53,4 +53,4 @@ renderer.request_draw(lambda: renderer.render(scene, camera))
 
 if __name__ == "__main__":
     print(__doc__)
-    run()
+    loop.run()

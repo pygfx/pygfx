@@ -1,11 +1,12 @@
 """
-The blender is the part of the renderer that manages output targets and blending configuration, based on material.blending.
+The blender is the part of the renderer that manages output targets and alpha_config.
 """
 
 import wgpu  # only for flags/enums
 
 from .effectpasses import create_full_quad_pipeline
 from .shared import get_shared
+from ..wgsl import load_wgsl
 
 
 standard_texture_des = {
@@ -218,38 +219,49 @@ class Blender:
         # All textures are invalidated too
         self._textures = {}
 
-    def get_color_descriptors(self, material_pick_write, blending):
+    def get_color_descriptors(self, material_pick_write, alpha_config):
         """Get the dict color-descriptors that pipeline.py needs to create the render pipeline.
 
         Called per object when the pipeline is created.
         """
         bf, bo = wgpu.BlendFactor, wgpu.BlendOperation
 
-        blending_mode = blending["mode"]
+        alpha_method = alpha_config["method"]
 
         # Get the color_blend mini-dict
-        if blending_mode == "classic":
+        if alpha_method == "opaque":
+            if alpha_config["premultiply_alpha"]:
+                color_blend = {
+                    "alpha": blend_dict(bf.one, bf.zero, bo.add),
+                    "color": blend_dict(bf.src_alpha, bf.zero, bo.add),
+                }
+            else:
+                color_blend = {
+                    "alpha": blend_dict(bf.one, bf.zero, bo.add),
+                    "color": blend_dict(bf.one, bf.zero, bo.add),
+                }
+        elif alpha_method == "blended":
             color_blend = {
                 "color": blend_dict(
-                    blending["color_src"],
-                    blending["color_dst"],
-                    blending.get("color_op", "add"),
+                    alpha_config["color_src"],
+                    alpha_config["color_dst"],
+                    alpha_config.get("color_op", "add"),
                 ),
                 "alpha": blend_dict(
-                    blending["alpha_src"],
-                    blending["alpha_dst"],
-                    blending.get("alpha_op", "add"),
+                    alpha_config["alpha_src"],
+                    alpha_config["alpha_dst"],
+                    alpha_config.get("alpha_op", "add"),
                 ),
             }
-        elif blending_mode == "dither":
+        elif alpha_method == "stochastic":
             color_blend = {
                 "alpha": blend_dict(bf.one, bf.zero, bo.add),
                 "color": blend_dict(bf.one, bf.zero, bo.add),
             }
-        elif blending_mode == "weighted":
+        elif alpha_method == "weighted":
             color_blend = None  # handled below
         else:
-            raise RuntimeError(f"Unexpected blending mode {blending_mode:!r}")
+            raise RuntimeError(f"Unexpected alpha_method {alpha_method!r}")
 
         # Build target state dicts
         color_target_state = {
@@ -259,8 +271,8 @@ class Blender:
         }
         target_states = [color_target_state]
 
-        # More work for weighted blending
-        if blending_mode == "weighted":
+        # More work for 'weighted' method5
+        if alpha_method == "weighted":
             accum_target_state = {
                 "name": "accum",
                 "blend": {
@@ -363,14 +375,14 @@ class Blender:
                 "name": "accum",
                 "resolve_target": None,
                 "clear_value": accum_clear_value,
-                "load_op": wgpu.LoadOp.clear,
+                "load_op": wgpu.LoadOp.load,
                 "store_op": wgpu.StoreOp.store,
             }
             reveal_attachment = {
                 "name": "reveal",
                 "resolve_target": None,
                 "clear_value": reveal_clear_value,
-                "load_op": wgpu.LoadOp.clear,
+                "load_op": wgpu.LoadOp.load,
                 "store_op": wgpu.StoreOp.store,
             }
             attachments = [accum_attachment, reveal_attachment]
@@ -416,65 +428,115 @@ class Blender:
             "depth_store_op": wgpu.StoreOp.store,
         }
 
-    def get_shader_kwargs(self, material_pick_write, blending):
-        """Get the shader templating variables for the given blending."""
+    def get_shader_kwargs(self, material_pick_write, alpha_config):
+        """Get the shader templating variables for the given alpha config."""
 
-        blending_mode = blending["mode"]
+        alpha_method = alpha_config["method"]
 
-        if blending_mode == "classic":
-            blending_code = """
+        if alpha_method in ("opaque", "blended"):
+            fragment_output_code = """
             struct FragmentOutput {
                 @location(0) color: vec4<f32>,
                 MAYBE_PICK@location(1) pick: vec4<u32>,
             };
             """
 
-        elif blending_mode == "dither":
-            # We want the seed for the random function to be such that the result is
-            # deterministic, so that rendered images can be visually compared. This
-            # is why the object-id should not be used. Using the xy ndc coord is a
-            # no-brainer seed. Using only these will give an effect often observed
-            # in games, where the pattern is "stuck to the screen". We also seed with
-            # the depth, since this covers *a lot* of cases, e.g. different objects
-            # behind each-other, as well as the same object having different parts
-            # at the same screen pixel. This only does not cover cases where objects
-            # are exactly on top of each other. Therefore we use rgba as another seed.
-            # So the only case where the same pattern may be used for different
-            # fragments if an object is at the same depth and has the same color.
-            blending_code = """
+        elif alpha_method == "stochastic":
+            # We want the seed for the random function to be such that the
+            # result is deterministic, so that rendered images can be visually
+            # compared. We also (in general) want the seed to be stable for e.g.
+            # movement of the mouse or object.
+            #
+            # So, let's *not* use:
+            #
+            # * The global-id: because it's determined by how many objects have
+            #   been created earlier (in the current process).
+            # * Object position, because then it will flicker when it moves.
+            # * varyings.position.z, because then it will flicker when the
+            #   camera moves.
+            #
+            # We can use these:
+            #
+            # * varyings.position.xy (the screen coord) is a common seed. It
+            #   will give an effect often observed in games, where the pattern
+            #   is "stuck to the screen".
+            # * the renderer-id to distinguish objects while being reproducable
+            #   in a scene.
+            # * varyings.elementIndex to prevent two regions of the same object
+            #   to get the same pattern, e.g. two points in a points object.
+
+            seed = alpha_config.get("seed", "screen").lower()
+            upos = "upos" + str({"screen": 0, "object": 1, "element": 2}[seed])
+            pattern = alpha_config.get("pattern", "blue").lower().replace("_", "-")
+            if pattern in ("blue-noise", "blue"):
+                random_call = f"blueNoise2({upos})"
+            elif pattern in ("white-noise", "white"):
+                random_call = f"whiteNoise({upos})"
+            elif pattern in ("bayer8", "bayer"):
+                # Using upos2 becomes too noisy, but upos1 (i.e. including the per-object seed) seems quite alright!
+                random_call = f"bayerPattern({upos})"
+            else:
+                raise ValueError(f"Unexpected stochastic pattern: {pattern!r}")
+
+            fragment_output_code = load_wgsl("noise.wgsl")  # cannot use include here
+
+            fragment_output_code += """
             struct FragmentOutput {
-                // virtualfield seed1 : f32 = varyings.position.x * varyings.position.y * varyings.position.z
-                // virtualfield seed2 : f32 = out.color.r * 0.12 + out.color.g * 0.34 + out.color.b * 0.56 + out.color.a * 0.78
+                // virtualfield position: vec3f = varyings.position.xyz;
+                // virtualfield objectId: u32 = u_wobject.renderer_id;
+                // virtualfield elementIndex: u32 = varyings.elementIndex;
                 @location(0) color: vec4<f32>,
-                MAYBE_PICK@location(1) pick: vec4<u32>,
+                MAYBE_PICK@location(1) pick: vec4<u 32>,
             };
 
-            fn apply_virtual_fields_of_fragment_output(outp: ptr<function,FragmentOutput>, seed1:f32, seed2:f32) {
-                let rand = random2(vec2<f32>(seed1, seed2));
+            fn apply_virtual_fields_of_fragment_output(outp: ptr<function,FragmentOutput>, position: vec3f, objectId: u32, elementIndex: u32) {
+
+                // Early exit
                 let alpha = (*outp).color.a;
+                if (alpha >= 1.0) { return; }
+
+                let screenSize = u_stdinfo.physical_size.xy;
+
+                // Compose seeds
+                let seed1 = hashu(objectId);
+                let seed2 = hashu(objectId) ^ hashu(elementIndex+1);
+
+                // Compose positions
+                let upos0 = vec2u(position.xy);
+                let upos1 = upos0 + vec2u(seed1 >> 16, seed1 & 0xffff);
+                let upos2 = upos0 + vec2u(seed2 >> 16, seed2 & 0xffff);
+
+                // Generate a random number with a blue-noise distribution, i.e. resulting in uniformly sampled points with very little 'structure'
+                // Blue noise has is great for sampling problems like this, because it has few low-frequency components, so the noise is very 'fine'.
+                // The bayer pattern looks nicer than the noise, but is not suited for mixing multiple transparent layers.
+                var rand = 0.0;
+
+                if true {  // set to false to use split-screen debug mode
+                    rand = RANDOM_CALL;
+                } else if position.x < 0.5 * screenSize.x {
+                    //rand = blueNoise2(upos2);
+                    //rand = random(position.x * position.y * position.z);  // more or less original white noise version
+                    rand = bayerPattern(upos1);
+                } else {
+                    rand = blueNoise2(upos2);
+                }
+
+                // Render or drop the fragment?
                 if ( alpha < 1.0 - ALPHA_COMPARE_EPSILON && alpha < rand ) { discard; }
                 (*outp).color.a = 1.0;  // fragments that pass through are opaque
             }
-            """
+            """.replace("RANDOM_CALL", random_call)
 
-            # Optimization for the case when the object is known (or determined) to be opaque.
-            # The discard will not happen then. By removing it from the shader, we enable early-z optimizations.
-            # By disabling the whole function, it behaves as classic blending for opaque-declared objects.
-            if blending.get("no_discard"):
-                blending_code, selector, rest = blending_code.partition("let rand")
-                assert selector, "looks like dither code changed, selector not present"
-                blending_code = blending_code.rstrip() + "}"
-
-        elif blending_mode == "weighted":
+        elif alpha_method == "weighted":
             use_alpha = "alpha", "use_alpha", "weighted_blending_use_alpha"
-            weight_default = blending.get("weight", "alpha")
+            weight_default = alpha_config.get("weight", "alpha")
             if weight_default in use_alpha:
                 weight_default = "weighted_blending_use_alpha"
-            alpha_default = blending.get("alpha", "alpha")
+            alpha_default = alpha_config.get("alpha", "alpha")
             if alpha_default in use_alpha:
                 alpha_default = "weighted_blending_use_alpha"
 
-            blending_code = """
+            fragment_output_code = """
             struct FragmentOutput {
                 // virtualfield color : vec4<f32> = vec4<f32>(0.0)
                 // virtualfield alpha : f32 = ALPHA_DEFAULT
@@ -503,13 +565,19 @@ class Blender:
             #    out.reveal = 1.0 - 1.0 / (1.0 - alpha);
 
         else:
-            raise RuntimeError(f"Unexpected blending mode {blending_mode!r}")
+            raise RuntimeError(f"Unexpected alpha_method {alpha_method!r}")
 
         # Enable/disable picking in the shader
         do_pick = material_pick_write and "pick" in self._texture_info
-        blending_code = blending_code.replace("MAYBE_PICK", "" if do_pick else "// ")
+        fragment_output_code = fragment_output_code.replace(
+            "MAYBE_PICK", "" if do_pick else "// "
+        )
 
-        return {"blending_code": blending_code, "write_pick": do_pick}
+        return {
+            "alpha_method": alpha_method,
+            "fragment_output_code": fragment_output_code,
+            "write_pick": do_pick,
+        }
 
     def perform_weighted_resolve_pass(self, command_encoder):
         """Perform a render-pass to resolve the result of weighted blending."""

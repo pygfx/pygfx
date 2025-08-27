@@ -13,7 +13,7 @@ Example (and test) for the NDC coordinates. Draws a square that falls partly out
 # sphinx_gallery_pygfx_docs = 'screenshot'
 # sphinx_gallery_pygfx_test = 'compare'
 
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 from pygfx.renderers.wgpu import (
     Binding,
     BaseShader,
@@ -80,7 +80,7 @@ class SquareShader(BaseShader):
 
 # Setup scene
 
-canvas = WgpuCanvas()
+canvas = RenderCanvas()
 renderer = gfx.WgpuRenderer(canvas)
 
 scene = gfx.Scene()
@@ -93,4 +93,4 @@ canvas.request_draw(lambda: renderer.render(scene, camera))
 
 if __name__ == "__main__":
     print(__doc__)
-    run()
+    loop.run()

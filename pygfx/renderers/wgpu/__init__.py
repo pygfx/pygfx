@@ -69,7 +69,16 @@ from .engine.shared import (
     set_wgpu_limits,
 )
 from .engine.renderer import WgpuRenderer
-from .engine.effectpasses import EffectPass, CopyPass, NoisePass, FogPass, DepthPass
+from .engine.effectpasses import (
+    EffectPass,
+    CopyPass,
+    PPAAPass,
+    FXAAPass,
+    DDAAPass,
+    NoisePass,
+    FogPass,
+    DepthPass,
+)
 from .engine.pipeline import Binding
 
 # Shader classes

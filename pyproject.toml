@@ -18,12 +18,15 @@ keywords = [
 ]
 requires-python = ">= 3.10"
 dependencies = [
-    "rendercanvas >= 2",
+    "rendercanvas >= 2.2",
     "wgpu >=0.19.0,<0.23.0",
     "pylinalg >=0.6.7,<0.7.0",
     "numpy",
     "freetype-py",
-    "uharfbuzz",
+    # ttb font shaping was brokein in uharfbuzz 0.51.0
+    # https://github.com/harfbuzz/uharfbuzz/issues/248
+    # https://github.com/pygfx/pygfx/issues/1149
+    "uharfbuzz !=0.51.0",
     "jinja2",
     "hsluv >=5.0.0,<6.0.0",
 ]
@@ -36,7 +39,7 @@ examples = [
     "scikit-image",
     "trimesh <4.6",
     "gltflib",
-    "imgui-bundle>=1.2.1",
+    "imgui-bundle >=1.6,<1.92",
     "httpx",
 ]
 docs = [
@@ -49,7 +52,7 @@ docs = [
     "scikit-image",
     "trimesh <4.6",
     "gltflib",
-    "imgui-bundle>=1.6.0",
+    "imgui-bundle >=1.6,<1.92",
     "httpx",
 ]
 tests = ["pytest", "psutil", "trimesh <4.6", "httpx", "gltflib", "imageio"]

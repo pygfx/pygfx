@@ -11,11 +11,11 @@ Dashing
 # sphinx_gallery_pygfx_test = 'compare'
 
 import numpy as np
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 
 
-canvas = WgpuCanvas(size=(1000, 1000))
+canvas = RenderCanvas(size=(1000, 1000))
 renderer = gfx.WgpuRenderer(canvas)
 
 x = np.linspace(0, 4 * np.pi, 1000)
@@ -33,6 +33,7 @@ line1 = gfx.Line(
         dash_pattern=[0, 2, 2, 2],
         color=(0.0, 1.0, 1.0, 0.4),
         dash_offset=0,
+        aa=True,
     ),
 )
 
@@ -43,6 +44,7 @@ line2 = gfx.Line(
         dash_pattern=[0, 2, 2, 2],
         color=(0.0, 1.0, 1.0, 0.4),
         dash_offset=2,
+        aa=True,
     ),
 )
 line3 = gfx.Line(
@@ -52,6 +54,7 @@ line3 = gfx.Line(
         dash_pattern=[0, 2, 2, 2],
         color=(0.0, 1.0, 1.0, 0.4),
         dash_offset=3,
+        aa=True,
     ),
 )
 
@@ -62,6 +65,7 @@ line4 = gfx.Line(
         dash_pattern=[0, 2, 2, 2],
         color=(0.0, 1.0, 1.0, 0.4),
         dash_offset=6,
+        aa=True,
     ),
 )
 
@@ -85,4 +89,4 @@ canvas.request_draw(lambda: renderer.render(scene, camera))
 
 if __name__ == "__main__":
     print(__doc__)
-    run()
+    loop.run()

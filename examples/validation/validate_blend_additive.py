@@ -9,13 +9,13 @@ This example draws overlapping circles of reference colors with additive blendin
 # sphinx_gallery_pygfx_test = 'compare'
 
 import numpy as np
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 
 colors = ["#ff0000", "#00ff00", "#0000ff"]
 distance_from_center = 0.5
 
-canvas = WgpuCanvas()
+canvas = RenderCanvas()
 renderer = gfx.WgpuRenderer(canvas, gamma_correction=1.0)
 camera = gfx.OrthographicCamera()
 camera.show_rect(-2, 2, -2, 2)
@@ -31,7 +31,10 @@ for i, color in enumerate(colors):
 
     m = gfx.Mesh(
         plane,
-        gfx.MeshBasicMaterial(color=color, blending="additive", depth_write=False),
+        gfx.MeshBasicMaterial(
+            color=color,
+            alpha_mode="add",
+        ),
     )
     m.local.x = x
     m.local.y = y
@@ -43,4 +46,4 @@ canvas.request_draw(lambda: renderer.render(scene, camera))
 
 if __name__ == "__main__":
     print(__doc__)
-    run()
+    loop.run()

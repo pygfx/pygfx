@@ -9,14 +9,14 @@ by adding scatter points at click event locations
 # sphinx_gallery_pygfx_docs = 'screenshot'
 # sphinx_gallery_pygfx_test = 'run'
 
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 
 import pygfx as gfx
 import numpy as np
 
 from pylinalg import vec_transform, vec_unproject
 
-canvas = WgpuCanvas()
+canvas = RenderCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 
 # default cam position
@@ -124,4 +124,4 @@ layout()
 
 if __name__ == "__main__":
     canvas.request_draw(animate)
-    run()
+    loop.run()

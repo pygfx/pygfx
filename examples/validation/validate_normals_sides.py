@@ -13,12 +13,12 @@ at the front and back faces.
 # sphinx_gallery_pygfx_docs = 'screenshot'
 # sphinx_gallery_pygfx_test = 'compare'
 
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 import pylinalg as la
 
 
-renderer = gfx.WgpuRenderer(WgpuCanvas())
+renderer = gfx.WgpuRenderer(RenderCanvas())
 scene = gfx.Scene()
 
 geo = gfx.cylinder_geometry(radial_segments=16, height_segments=3, open_ended=True)
@@ -50,4 +50,4 @@ renderer.request_draw(lambda: renderer.render(scene, camera))
 
 if __name__ == "__main__":
     print(__doc__)
-    run()
+    loop.run()

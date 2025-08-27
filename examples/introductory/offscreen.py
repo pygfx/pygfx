@@ -12,17 +12,22 @@ decorate an object in another scene.
 # sphinx_gallery_pygfx_docs = 'screenshot'
 # sphinx_gallery_pygfx_test = 'run'
 
+import os
+import tempfile
+import webbrowser
+
 import imageio.v3 as iio
 import numpy as np
 import pygfx as gfx
 import pylinalg as la
-from wgpu.gui.offscreen import WgpuCanvas
+from rendercanvas.offscreen import RenderCanvas
 
 
 # Create offscreen canvas, renderer and scene
-canvas = WgpuCanvas(size=(640, 480), pixel_ratio=1)
+canvas = RenderCanvas(size=(640, 480), pixel_ratio=1)
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
+scene.add(gfx.Background.from_color("#000"))
 
 im = iio.imread("imageio:astronaut.png").astype("float32") / 255
 tex = gfx.Texture(im, dim=2)
@@ -54,4 +59,6 @@ if __name__ == "__main__":
     im2 = renderer.snapshot()
     print("Image from renderer.snapshot():", im2.shape)  # (960, 1280, 4)
 
-    iio.imwrite("offscreen.png", im1)
+    filename = os.path.join(tempfile.gettempdir(), "pygfx_offscreen.png")
+    iio.imwrite(filename, im2)
+    webbrowser.open("file://" + filename)

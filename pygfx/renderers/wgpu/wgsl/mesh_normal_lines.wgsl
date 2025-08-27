@@ -42,7 +42,7 @@ fn vs_main(in: VertexInput) -> Varyings {
 
     // Stub varyings, because the mesh varyings are based on face index
     varyings.normal = vec3<f32>(world_normal);
-    varyings.pick_id = u32(u_wobject.id);
+    varyings.pick_id = u32(u_wobject.global_id);
     varyings.pick_idx = u32(0);
     varyings.pick_coords = vec3<f32>(0.0);
 

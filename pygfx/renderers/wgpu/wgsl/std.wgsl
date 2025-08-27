@@ -9,7 +9,7 @@
 //
 // Also adds auto-generated code for:
 //
-// * FragmentOutput (implementation depends on blending mode and picking)
+// * FragmentOutput (implementation depends on alpha_method and picking)
 // * Bindings (as specified via shader.define_binding())
 //
 // In addition to this, the shader will also:
@@ -41,47 +41,6 @@ fn refract( light : vec3<f32>, normal : vec3<f32>, eta : f32 ) -> vec3<f32> {
     return rOutPerp + rOutParallel;
 }
 
-fn hashu(val: u32 ) -> u32 {
-    // https://stackoverflow.com/questions/4200224/random-noise-functions-for-glsl
-    // http://amindforeverprogramming.blogspot.com/2013/07/random-floats-in-glsl-330.html
-    // Bob Jenkins' OAT algorithm.
-    var x: u32 = val;
-    x += ( x << 10u );
-    x ^= ( x >>  6u );
-    x += ( x <<  3u );
-    x ^= ( x >> 11u );
-    x += ( x << 15u );
-    return x;
-}
-fn hashf(val: f32 ) -> u32 {
-   return hashu(bitcast<u32>(val));
-}
-fn hashi(val: i32 ) -> u32 {
-   return hashu(bitcast<u32>(val));
-}
-
-fn hash_to_f32(h: u32) -> f32 {
-    let mantissaMask: u32 = 0x007FFFFFu;
-    let one: u32          = 0x3F800000u;
-    var x: u32 = h;
-    x &= mantissaMask;
-    x |= one;
-    return bitcast<f32>(x) - 1.0;
-}
-fn random(f: f32) -> f32 {
-    // Produces a number between 0 and 1 (halfopen range). The result is deterministic based on the seed.
-    return hash_to_f32( hashf(f) );
-}
-fn random2(f: vec2<f32>) -> f32 {
-    return hash_to_f32( hashf(f.x) ^ hashf(f.y) );
-}
-fn random3(f: vec3<f32>) -> f32 {
-    return hash_to_f32( hashf(f.x) ^ hashf(f.y) ^ hashf(f.z) );
-}
-fn random4(f: vec4<f32>) -> f32 {
-    return hash_to_f32( hashf(f.x) ^ hashf(f.y) ^ hashf(f.z) ^ hashf(f.w) );
-}
-
 // ----- Transformations
 
 fn ndc_to_world_pos(ndc_pos: vec4<f32>) -> vec3<f32> {
@@ -103,7 +62,7 @@ fn is_orthographic() -> bool {
 // ----- Things related to output
 
 // Implements FragmentOutput and optionally apply_virtual_fields_of_fragment_output()
-{{ blending_code }}
+{{ fragment_output_code }}
 struct StubColorWrapper {
     color: vec4<f32>,
 }

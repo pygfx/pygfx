@@ -14,6 +14,7 @@ class Ruler(WorldObject):
     """An object to represent a ruler with tickmarks.
 
     Can be used to measure distances in a scene, or as an axis in a plot.
+    The ruler object is a "compound" object; it has text, lines, and points as child objects.
 
     Usage:
 
@@ -32,6 +33,7 @@ class Ruler(WorldObject):
         tick_side="left",
         min_tick_distance=50,
         ticks_at_end_points=False,
+        aa=True,
     ):
         super().__init__()
 
@@ -45,12 +47,23 @@ class Ruler(WorldObject):
         self.min_tick_distance = min_tick_distance
         self.ticks_at_end_points = ticks_at_end_points
 
+        aa = bool(aa)
+
         # Create a line and points object, with a shared geometry
-        self._text = MultiText(material=TextMaterial(), screen_space=True)
+        self._text = MultiText(
+            material=TextMaterial(color="#fff", aa=aa),
+            screen_space=True,
+        )
         geometry = self._text.geometry  # has .positions buffer
         geometry.sizes = Buffer(np.zeros(geometry.positions.nitems, "f4"))
-        self._line = Line(geometry, LineMaterial(color="w", thickness=2))
-        self._points = Points(geometry, PointsMaterial(color="w", size_mode="vertex"))
+        self._line = Line(
+            geometry,
+            LineMaterial(color="w", thickness=2, aa=aa),
+        )
+        self._points = Points(
+            geometry,
+            PointsMaterial(color="w", size_mode="vertex", aa=aa),
+        )
 
         self.add(self._line, self._points, self._text)
 
@@ -266,7 +279,9 @@ class Ruler(WorldObject):
                 np.ones((2, 1), np.float64),
             ]
         )
-        ndc_full = (camera.camera_matrix @ positions[..., None]).reshape(-1, 4)
+        ndc_full = (
+            camera.camera_matrix @ self.world.matrix @ positions[..., None]
+        ).reshape(-1, 4)
         screen_full = (ndc_full[:, :2] / ndc_full[:, 3:4]) * half_canvas_size
 
         # Get what part of the line is visible

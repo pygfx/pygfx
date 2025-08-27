@@ -44,7 +44,7 @@ class LineShader(BaseShader):
         self["line_type"] = "line"
         self["dashing"] = False
         self["thickness_space"] = material.thickness_space
-        self["aa"] = material.aa
+        self["aa"] = material._gfx_effective_aa
         self["loop"] = False
         self["debug"] = False
 
@@ -93,7 +93,7 @@ class LineShader(BaseShader):
         # if (
         #     self["color_mode"] == "uniform"
         #     and not self["dashing"]
-        #     and material.transparent == False
+        #     and material.alpha_config['mode'] == "opaque"
         #     and not_using_colors_that_may_have_alpha
         # ):
         #     # self["line_type"] = "quickline"

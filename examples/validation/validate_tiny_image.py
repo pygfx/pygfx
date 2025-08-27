@@ -15,11 +15,11 @@ where the applicability of an algorithm is tested against extreme bounds.
 
 import numpy as np
 import imageio.v3 as iio
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 
 
-canvas = WgpuCanvas(size=(180 * 5, 40 * 5))
+canvas = RenderCanvas(size=(180 * 5, 40 * 5))
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 camera = gfx.OrthographicCamera(180, 40)
@@ -69,4 +69,4 @@ canvas.request_draw(lambda: renderer.render(scene, camera))
 
 if __name__ == "__main__":
     print(__doc__)
-    run()
+    loop.run()

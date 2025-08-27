@@ -9,11 +9,11 @@ Showing off some ruler tricks.
 # sphinx_gallery_pygfx_test = 'compare'
 
 import numpy as np
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 
 
-canvas = WgpuCanvas()
+canvas = RenderCanvas()
 renderer = gfx.WgpuRenderer(canvas)
 
 scene = gfx.Scene()
@@ -26,7 +26,7 @@ positions = np.column_stack([x, y, np.ones_like(x)])
 
 line = gfx.Line(
     gfx.Geometry(positions=positions),
-    gfx.LineMaterial(thickness=4.0, color="#aaf"),
+    gfx.LineMaterial(thickness=4.0, color="#aaf", aa=True),
 )
 scene.add(background, line)
 
@@ -95,4 +95,4 @@ canvas.request_draw(animate)
 
 if __name__ == "__main__":
     print(__doc__)
-    run()
+    loop.run()

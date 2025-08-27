@@ -3,21 +3,24 @@ Simple Cube with Qt
 ===================
 
 Example showing a single geometric cube.
+
+Alternatively one can import the Qt library of your choice, and then use
+``from rendercanvas.qt import RenderCanvas`` to get the corresponding canvas class.
 """
 
 # sphinx_gallery_pygfx_docs = 'code'
 # sphinx_gallery_pygfx_test = 'off'
 
 import pygfx as gfx
-
-from PySide6 import QtWidgets  # Replace PySide6 with PyQt6, PyQt5 or PySide2
-from wgpu.gui.qt import WgpuCanvas
 import pylinalg as la
 
+# Select one
+# from rendercanvas.pyqt5 import RenderCanvas
+# from rendercanvas.pyqt6 import RenderCanvas
+from rendercanvas.pyside6 import RenderCanvas, loop
 
-app = QtWidgets.QApplication([])
 
-canvas = WgpuCanvas()
+canvas = RenderCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
@@ -46,4 +49,4 @@ def animate():
 
 if __name__ == "__main__":
     canvas.request_draw(animate)
-    app.exec()
+    loop.run()  # i.e. app.exec()

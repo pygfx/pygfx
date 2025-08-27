@@ -15,11 +15,11 @@ scene. The next two columns are smaller cubes, but placed in scaled containers.
 # sphinx_gallery_pygfx_test = 'compare'
 
 import numpy as np
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 
 
-canvas = WgpuCanvas(size=(1000, 1000))
+canvas = RenderCanvas(size=(1000, 1000))
 renderer = gfx.WgpuRenderer(canvas)
 
 position_pairs = [
@@ -107,6 +107,7 @@ add_three_cubes(
         size_space="screen",
         color=(1.0, 0.0, 0.0),
         opacity=0.5,
+        aa=True,
     ),
 )
 
@@ -117,6 +118,7 @@ add_three_cubes(
         size_space="world",
         color=(0.0, 1.0, 0.0),
         opacity=0.5,
+        aa=True,
     ),
 )
 
@@ -127,6 +129,7 @@ add_three_cubes(
         size_space="model",
         color=(0.0, 0.0, 1.0),
         opacity=0.5,
+        aa=True,
     ),
 )
 
@@ -139,4 +142,4 @@ canvas.request_draw(lambda: renderer.render(scene, camera))
 
 if __name__ == "__main__":
     print(__doc__)
-    run()
+    loop.run()

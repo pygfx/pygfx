@@ -3,7 +3,7 @@ Utils for the wgpu renderer.
 """
 
 import json
-import weakref
+from collections import OrderedDict
 
 import wgpu
 
@@ -245,7 +245,7 @@ jsonencoder = JsonEncoderWithWgpuSupport()
 
 
 def hash_from_value(value):
-    """Simple way to create a hash from a (possibly composite) object.
+    """Simple way to create a hash from a (possibly compound) object.
     Assumes JSON encodable objects and GPU objects.
     """
     # Encode the value to string using json. The JSON encoder is so fast that
@@ -284,21 +284,22 @@ gpu_caches = GpuCaches()
 
 
 class GpuCache:
-    """A cache for GPU objects."""
+    """A cache for GPU objects using LRU eviction strategy."""
 
-    def __init__(self, name):
+    def __init__(self, name, max_size=128):
         assert isinstance(name, str)
         assert not hasattr(gpu_caches, name)
         setattr(gpu_caches, name, self)
 
-        self._objects = weakref.WeakValueDictionary()
+        self._objects = OrderedDict()
+        self._max_size = max_size
         self._enabled = True
         self.hits = 0
         self.misses = 0
 
     def get_stats(self):
         """Get the number of (alive) objects in the cache."""
-        return len(list(self._objects.values())), self.hits, self.misses
+        return len(self._objects), self.hits, self.misses
 
     def enable(self):
         """Enable this cache."""
@@ -307,26 +308,52 @@ class GpuCache:
     def disable(self):
         """Disable this cache."""
         self._enabled = False
+        # Clear the cache when disabled to free memory
+        self._objects.clear()
 
     def get(self, key):
         """Get the cached object or None."""
         if self._enabled:
             try:
                 ob = self._objects[key]
+                # Move to end (most recently used)
+                self._objects.move_to_end(key)
+                self.hits += 1
             except KeyError:
                 ob = None
                 self.misses += 1
-            else:
-                self.hits += 1
         else:
             ob = None
         return ob
 
     def set(self, key, ob):
         """Store the given object under the given key.
-        Note that the cache does not have a (strong) ref to the object.
+        Uses LRU eviction when cache is full.
         """
-        self._objects[key] = ob
+        if not self._enabled:
+            return
+
+        if key in self._objects:
+            # Update existing entry and move to end
+            self._objects[key] = ob
+            self._objects.move_to_end(key)
+        else:
+            # Add new entry
+            if len(self._objects) >= self._max_size:
+                # Remove least recently used item
+                self._objects.popitem(last=False)
+            self._objects[key] = ob
+
+    def clear(self):
+        """Clear all cached objects."""
+        self._objects.clear()
+
+    def set_max_size(self, max_size):
+        """Set the maximum cache size."""
+        self._max_size = max_size
+        # Evict excess items if needed
+        while len(self._objects) > self._max_size:
+            self._objects.popitem(last=False)
 
 
 class GfxSampler:

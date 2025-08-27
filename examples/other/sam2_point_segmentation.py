@@ -26,7 +26,7 @@ from PySide6 import QtWidgets
 from PySide6.QtCore import QThread, Signal
 from sam2.build_sam import build_sam2
 from sam2.sam2_image_predictor import SAM2ImagePredictor
-from wgpu.gui.qt import WgpuCanvas
+from rendercanvas.qt import QRenderWidget
 
 import pygfx as gfx
 
@@ -39,7 +39,7 @@ class SAMPoint(QtWidgets.QWidget):
         self.setWindowTitle("SAM2 Real-time Point Segmentation")
         self.resize(800, 800)
 
-        self.canvas = WgpuCanvas(parent=self, max_fps=-1)
+        self.canvas = QRenderWidget(parent=self, update_mode="fastest")
         self.renderer = gfx.WgpuRenderer(self.canvas, show_fps=True)
         self.scene = gfx.Scene()
         self.camera = gfx.PerspectiveCamera(0)

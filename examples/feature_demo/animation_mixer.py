@@ -33,14 +33,16 @@ except NameError:
 
 import pygfx as gfx
 from pygfx.utils.text import FontProps
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 
 from wgpu.utils.imgui import ImguiRenderer
 from imgui_bundle import imgui, hello_imgui  # type: ignore
 
 gltf_path = model_dir / "Soldier.glb"
 
-canvas = WgpuCanvas(size=(1280, 720), max_fps=-1, title="Animation Mixer", vsync=False)
+canvas = RenderCanvas(
+    size=(1280, 720), update_mode="fastest", title="Animation Mixer", vsync=False
+)
 
 renderer = gfx.WgpuRenderer(canvas)
 camera = gfx.PerspectiveCamera(45, 1280 / 720, depth_range=(1, 100))
@@ -346,4 +348,4 @@ def animate():
 
 if __name__ == "__main__":
     renderer.request_draw(animate)
-    run()
+    loop.run()

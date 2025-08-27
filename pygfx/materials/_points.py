@@ -33,7 +33,7 @@ class PointsMaterial(Material):
     map : TextureMap | Texture
         The texture map specifying the color for each texture coordinate.
     aa : bool
-        Whether or not the points are anti-aliased in the shader. Default True.
+        Whether the points are anti-aliased in the shader. Default False.
     rotation : float
         The rotation of the point marker in radians. Default 0.
     rotation_mode : str | RotationMode
@@ -61,7 +61,7 @@ class PointsMaterial(Material):
         color_mode="auto",
         edge_mode="centered",
         map=None,
-        aa=True,
+        aa=False,
         rotation=0,
         rotation_mode="uniform",
         **kwargs,
@@ -87,13 +87,6 @@ class PointsMaterial(Material):
             "point_coord": (values["x"] - 256.0, values["y"] - 256.0),
         }
 
-    def _looks_transparent(self):
-        if self.opacity < 1:
-            return True
-        if self._store.get("color_mode") in ("auto", "uniform"):
-            if self.color.a < 1:
-                return True
-
     @property
     def color(self):
         """The color of the points (if map is not set)."""
@@ -104,27 +97,33 @@ class PointsMaterial(Material):
         color = Color(color)
         self.uniform_buffer.data["color"] = color
         self.uniform_buffer.update_full()
-        self._resolve_transparent()
 
     @property
     def aa(self):
         """Whether the point's visual edge is anti-aliased.
 
         Aliasing gives prettier results by producing semi-transparent fragments
-        at the edges. Points smaller than one physical pixel are also diminished
+        at the edges. Lines thinner than one physical pixel are also diminished
         by making them more transparent.
 
-        Note that by default, pygfx uses SSAA to anti-alias the total renderered
-        result. Point-based aa results in additional improvement.
+        However, because semi-transparent fragments are introduced, artifacts
+        may occur if certain cases. For the same reason, aa only works for the
+        "blended" and "weighted" alpha methods.
 
-        Because semi-transparent fragments are introduced, it may affect how the
-        points blends with other (semi-transparent) objects.
+        Note that by default, pygfx already uses SSAA and/or PPAA to anti-alias
+        the total renderered result. Point-based aa is an *additional* visual
+        improvement.
         """
         return self._store.aa
 
     @aa.setter
     def aa(self, aa):
         self._store.aa = bool(aa)
+
+    @property
+    def _gfx_effective_aa(self):
+        aa_able_methods = ("blended", "weighted")
+        return self._store.aa and self._store.alpha_config["method"] in aa_able_methods
 
     @property
     def color_mode(self):
@@ -144,7 +143,6 @@ class PointsMaterial(Material):
         if value in ["face", "face_map"]:
             raise ValueError(f"PointsMaterial.color_mode does not support {value!r}")
         self._store.color_mode = value
-        self._resolve_transparent()
 
     @property
     def edge_mode(self):

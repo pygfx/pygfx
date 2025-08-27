@@ -14,12 +14,12 @@ Example test to validate winding and culling.
 # sphinx_gallery_pygfx_docs = 'screenshot'
 # sphinx_gallery_pygfx_test = 'compare'
 
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 import pylinalg as la
 
 
-canvas = WgpuCanvas(size=(1500, 600))
+canvas = RenderCanvas(size=(1500, 600))
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
@@ -45,7 +45,12 @@ def create_scene(title):
     obj1.local.rotation = la.quat_mul(rot, obj1.local.rotation)
     obj2.local.rotation = la.quat_mul(rot, obj2.local.rotation)
 
-    t = gfx.Text(text=title, screen_space=True, font_size=20)
+    t = gfx.Text(
+        text=title,
+        screen_space=True,
+        font_size=20,
+        material=gfx.TextMaterial(aa=True),
+    )
     t.local.position = (0, 4, 0)
     camera = gfx.OrthographicCamera(4.2, 6)
 
@@ -106,4 +111,4 @@ canvas.request_draw(animate)
 
 if __name__ == "__main__":
     print(__doc__)
-    run()
+    loop.run()

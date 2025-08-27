@@ -3,8 +3,10 @@ The main renderer class. This class wraps a canvas or texture and it
 manages the rendering process.
 """
 
+import os
 import time
 import logging
+from typing import Literal
 
 import numpy as np
 import wgpu
@@ -32,10 +34,11 @@ from ....cameras import Camera
 from ....resources import Texture
 from ....resources._base import resource_update_registry
 from ....utils import Color
+from ....utils.enums import PixelFilter
 
 from ... import Renderer
 from .blender import Blender
-from .effectpasses import EffectPass, OutputPass
+from .effectpasses import EffectPass, OutputPass, PPAAPass, FXAAPass, DDAAPass
 from .pipeline import get_pipeline_container_group
 from .update import update_resource, ensure_wgpu_object
 from .shared import get_shared
@@ -63,7 +66,7 @@ class WobjectWrapper:
 
 
 class FlatScene:
-    def __init__(self, scene, view_matrix=None):
+    def __init__(self, scene, view_matrix=None, object_count=0):
         self._view_matrix = view_matrix
         self._wobject_wrappers = []  # WobjectWrapper's
         self.lights = {
@@ -73,17 +76,27 @@ class FlatScene:
             "ambient_color": [0, 0, 0],
         }
         self.shadow_objects = []
+        self.object_count = object_count
         self.add_scene(scene)
+
+    def _iter_scene(self, ob, render_order=0):
+        if not ob.visible:
+            return
+        render_order += ob.render_order
+        yield ob, render_order
+        for child in ob._children:
+            yield from self._iter_scene(child, render_order)
 
     def add_scene(self, scene):
         """Add a scene to the total flat scene. Is usually called just once."""
-        # Flags for sorting
-        category_opaque = 1
-        category_semi_opaque = 2
-        category_fully_transparent = 3
-        category_weighted = 4
 
-        for wobject in scene.iter(skip_invisible=True):
+        # Put some attributes as vars in this namespace for faster access
+        view_matrix = self._view_matrix
+        wobject_wrappers = self._wobject_wrappers
+
+        for wobject, render_order in self._iter_scene(scene):
+            # Assign renderer id's
+            self.object_count += wobject._assign_renderer_id(self.object_count + 1)
             # Update things like transform and uniform buffers
             wobject._update_object()
 
@@ -109,47 +122,34 @@ class FlatScene:
             # Renderable objects
             material = wobject._material
             if material is not None:
-                blending_mode = material.blending["mode"]
-                pass_type = "normal"  # one of 'normal' or 'weighted'
+                render_queue = material.render_queue
+                alpha_method = material.alpha_config["method"]
 
-                if blending_mode == "weighted":
-                    dist_sort_sign = 0
-                    category_flag = category_weighted
-                    pass_type = "weighted"
-                elif blending_mode == "dither":
-                    dist_sort_sign = +1
-                    category_flag = category_opaque
-                else:  # blending_mode == 'classic'
-                    transparent = material.transparent
-                    if transparent:
-                        # NOTE: threeJS renders double-sided objects twice, maybe we should too? (we can look at this later)
-                        dist_sort_sign = -1
-                        category_flag = category_fully_transparent
-                    elif transparent is None:
-                        dist_sort_sign = -1
-                        category_flag = category_semi_opaque
-                    else:
-                        dist_sort_sign = +1
-                        category_flag = category_opaque
-                        # NOTE: it may help performance to put objects that use discard into category_semi_opaque so that they
-                        # render after the real opaque objects. This can help with early-z. Need benchmarks to know for sure
+                # By default sort back-to-front, for correct blending.
+                dist_sort_sign = -1
+                # But for opaque queues, render front-to-back to avoid overdraw.
+                if 1500 < render_queue <= 2500:
+                    dist_sort_sign = 1
+
+                pass_type = alpha_method
 
                 # Get depth sorting flag. Note that use camera's view matrix, since the projection does not affect the depth order.
                 # It also means we can set projection=False optimalization.
                 # Also note that we look down -z.
-                dist_flag = 0
-                if self._view_matrix is not None and dist_sort_sign:
+                if alpha_method == "weighted":
+                    dist_flag = 0
+                elif view_matrix is None:
+                    dist_flag = -1
+                else:
                     relative_pos = la.vec_transform(
-                        wobject.world.position, self._view_matrix, projection=False
+                        wobject.world.position, view_matrix, projection=False
                     )
                     # Cam looks towards -z: negate to get distance
                     distance_to_camera = float(-relative_pos[2])
                     dist_flag = distance_to_camera * dist_sort_sign
 
-                sort_key = (wobject.render_order, category_flag, dist_flag)
-                self._wobject_wrappers.append(
-                    WobjectWrapper(wobject, sort_key, pass_type)
-                )
+                sort_key = (render_queue, render_order, dist_flag)
+                wobject_wrappers.append(WobjectWrapper(wobject, sort_key, pass_type))
 
     def sort(self):
         """Sort the world objects."""
@@ -180,7 +180,7 @@ class FlatScene:
             yield pipeline_container
 
     def iter_render_pipelines_per_pass_type(self):
-        """Generator that yields (pass_type, wobjects), with pass_type 'normal' or 'weighted'."""
+        """Generator that yields (pass_type, wobjects), with pass_type 'opaque', 'transparency' or 'weighted'."""
         current_pass_type = ""
         current_pipeline_containers = []
         for wrapper in self._wobject_wrappers:
@@ -202,10 +202,14 @@ class WgpuRenderer(RootEventHandler, Renderer):
     target : WgpuCanvas or Texture
         The target to render to. It is also used to determine the size of the
         render buffer.
+    pixel_scale : float, optional
+        The scale between the internal resolution and the physical resolution of the canvas.
+        Setting to None (default) selects 1 if the screens looks to be HiDPI and 2 otherwise.
     pixel_ratio : float, optional
         The ratio between the number of internal pixels versus the logical pixels on the canvas.
-    pixel_filter : float, optional
-        The relative strength of the filter when copying the result to the target/canvas.
+        If both ``pixel_ratio`` and ``pixel_scale`` are set, ``pixel_ratio`` is ignored.
+    pixel_filter : str, PixelFilter, optional
+        The type of interpolation / reconstruction filter to use. Default 'mitchell'.
     show_fps : bool
         Whether to display the frames per second. Beware that
         depending on the GUI toolkit, the canvas may impose a frame rate limit.
@@ -218,19 +222,23 @@ class WgpuRenderer(RootEventHandler, Renderer):
     gamma_correction : float
         The gamma correction to apply in the final render stage. Typically a
         number between 0.0 and 2.0. A value of 1.0 indicates no correction.
-
+    ppaa : str, optional
+        The post-processing anti-aliasing to apply: "default", "none", "fxaa", "ddaa".
+        By default it resolves to "ddaa".
     """
 
     def __init__(
         self,
         target,
         *args,
+        pixel_scale=None,
         pixel_ratio=None,
-        pixel_filter=None,
+        pixel_filter: PixelFilter = "mitchell",
         show_fps=False,
         sort_objects=True,
         enable_events=True,
         gamma_correction=1.0,
+        ppaa="default",
         **kwargs,
     ):
         blend_mode = kwargs.pop("blend_mode", None)
@@ -251,11 +259,15 @@ class WgpuRenderer(RootEventHandler, Renderer):
             )
         self._target = target
         self.pixel_ratio = pixel_ratio
-        self.pixel_filter = pixel_filter
+        if pixel_scale is not None:
+            self.pixel_scale = pixel_scale
 
         # Make sure we have a shared object (the first renderer creates the instance)
         self._shared = get_shared()
         self._device = self._shared.device
+
+        # Count number of objects encountered
+        self._object_count = 0
 
         # Init counter to auto-clear
         self._renders_since_last_flush = 0
@@ -287,11 +299,16 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
         self._blender = Blender()
         self._effect_passes = ()
+        self.ppaa = ppaa
+        self._name_of_texture_with_effects = (
+            None  # none, or the blender's name of the texture
+        )
 
         self.sort_objects = sort_objects
 
         # Prepare object that performs the final render step into a texture
         self._output_pass = OutputPass()
+        self.pixel_filter = pixel_filter
 
         # Initialize a small buffer to read pixel info into
         # Make it 256 bytes just in case (for bytes_per_row)
@@ -319,65 +336,158 @@ class WgpuRenderer(RootEventHandler, Renderer):
         return self._target
 
     @property
-    def pixel_ratio(self):
-        """The ratio between the number of internal pixels versus the logical pixels on the canvas.
+    def pixel_scale(self) -> float:
+        """The scale between the internal resolution and the physical resolution of the canvas.
 
-        This can be used to configure the size of the render texture
-        relative to the canvas' *logical* size. Can be set to None to
-        set the default. By default the pixel_ratio is 2 on "regular"
-        screens, and the same as the screen pixel ratio on HiDPI screens
-        (usually also 2).
+        * If the scale is 1, the internal texture has the same size as the target.
+        * If the scale is larger than 1, you're doing SSAA.
+        * If the scale is smaller than 1, you're rendering at a low resolution, and then upscaling the result.
 
-        If the used pixel ratio causes the render texture to be larger
-        than the physical size of the canvas, SSAA (super sampling
-        antialiasing) is applied, resulting in a smoother final image
-        with less jagged edges. Alternatively, this value can be set
-        to e.g. 0.5 to *lower* the resolution.
+        Note that a ``pixel_scale`` of 1 or 2 is more performant than fractional values.
+
+        Setting this value to ``None``, will select a hirez configuration: It
+        selects 1 if the target looks like a HiDPI screen (i.e.
+        ``canvas.pixel_ratio>=2``), and 2 otherwise. That way, the internal
+        texture size is the same, regardless of the user's system/monitor.
         """
-        if self._pixel_ratio is not None:
-            return self._pixel_ratio
-        elif isinstance(self._target, AnyBaseCanvas):
-            target_pixel_ratio = self._target.get_pixel_ratio()
-            if target_pixel_ratio > 1.0:
-                return target_pixel_ratio
-        # Default
-        return 2.0
+        return self._pixel_scale
 
-    @pixel_ratio.setter
-    def pixel_ratio(self, value):
-        if not value:
-            value = None
-        if value is None:
-            self._pixel_ratio = None
-        elif isinstance(value, (int, float)):
-            self._pixel_ratio = abs(float(value))
+    @pixel_scale.setter
+    def pixel_scale(self, pixel_scale: None | int | float):
+        if pixel_scale is None:
+            # Select hirez config
+            self._pixel_scale = 2.0  # default
+            if isinstance(self._target, AnyBaseCanvas):
+                target_pixel_ratio = self._target.get_pixel_ratio()
+                if target_pixel_ratio >= 2.0:
+                    self._pixel_scale = 1.0
         else:
-            raise TypeError(
-                f"Rendered.pixel_ratio expected None or number, not {value}"
-            )
+            pixel_scale = float(pixel_scale)
+            if pixel_scale < 0.1 or pixel_scale > 10:
+                raise ValueError("renderer.pixel_scale must be bwteen 0.1 and 10.")
+            self._pixel_scale = pixel_scale
 
     @property
-    def pixel_filter(self):
-        """The relative strength of the filter applied to the final pixels.
+    def pixel_ratio(self) -> float:
+        """The ratio between the number of internal pixels versus the logical pixels on the canvas.
+
+        ``pixel_ratio = pixel_scale * canvas.pixel_ratio``
+
+        Setting this prop also changes the ``pixel_scale``. This can be used to
+        configure the size of the internal texture relative to the canvas'
+        *logical* size.
+
+        Setting this value to ``None`` is the same as setting ``pixel_scale`` to None,
+        and results in a ``pixel_ratio`` of at least 2.
+
+        Note that setting ``pixel_ratio`` to 2.0 does not have the same effect, because the
+        canvas pixel_ratio can be e.g. 1.5, in which case the resulting ``pixel_scale`` becomes fractional.
+        """
+        target_pixel_ratio = 1
+        if isinstance(self._target, AnyBaseCanvas):
+            target_pixel_ratio = self._target.get_pixel_ratio()
+        return self._pixel_scale * target_pixel_ratio
+
+    @pixel_ratio.setter
+    def pixel_ratio(self, pixel_ratio: None | float):
+        if pixel_ratio is None:
+            self.pixel_scale = None
+        else:
+            target_pixel_ratio = 1
+            if isinstance(self._target, AnyBaseCanvas):
+                target_pixel_ratio = self._target.get_pixel_ratio()
+            pixel_scale = pixel_ratio / target_pixel_ratio
+            if 0.9 < pixel_scale < 1.1:
+                pixel_scale = 1  # snap
+            elif 1.9 < pixel_scale < 2.1:
+                pixel_scale = 2  # snap
+            self.pixel_scale = pixel_scale
+
+    @property
+    def pixel_filter(self) -> PixelFilter:
+        """The type of interpolation / reconstruction filter to use when flushing the result.
+
+        See :obj:`pygfx.utils.enums.PixelFilter`.
 
         The renderer renders everything to an internal texture, which,
-        depending on the ``pixel_ratio``, may have a different physical size than
+        depending on the ``pixel_scale``, may have a different physical size than
         the target (i.e. canvas). In the process of rendering the result
         to the target, a filter is applied, resulting in SSAA if the
-        target size is smaller. The filter is a Gaussian kernel with sigma equal to
-        half the pixel ratio.
+        target size is smaller, and upsampling when the target size is larger.
+        When the internal texture has the same size as the target, no filter is applied (equivalent to nearest).
 
-        The value of ``pixel_filter`` multiplies the filter sigma (i.e. filter strength).
-        So using 1.0 uses the default, higher values result in more blur, and 0
-        disables the filter.
+        The filter defines how the interpolation is done (when the source and target are not of the same size).
         """
-        return self._pixel_filter
+        return self._output_pass.filter
 
     @pixel_filter.setter
-    def pixel_filter(self, value):
-        if value is None:
-            value = 1.0
-        self._pixel_filter = max(0.0, float(value))
+    def pixel_filter(self, value: PixelFilter):
+        # For backwards compatibility, allow 0, 1, 0.0, 1.0, False, and True.
+        if value == 0:
+            value = "nearest"
+        elif value == 1:
+            value = "mitchell"
+        if not isinstance(value, str):
+            raise TypeError("Pixel filter must be a str.")
+        value = value.lower()
+        if value not in PixelFilter.__args__:
+            raise ValueError(
+                f"Pixel filter must be one of {PixelFilter}, not {value!r}"
+            )
+        self._output_pass.filter = value
+        self._pixel_filter = value
+
+    @property
+    def ppaa(
+        self,
+    ) -> Literal["default", "none", "fxaa", "ddaa"]:
+        """The post-processing anti-aliasing to apply.
+
+        * "default": use the value specified by ``PYGFX_DEFAULT_PPAA``, defaulting to "ddaa".
+        * "none": do not apply aliasing.
+        * "fxaa": applies Fast Approxomate AA, a common method.
+        * "ddaa": applies Directional Diffusion AA, a modern improved method.
+
+        The ``PYGFX_DEFAULT_PPAA`` environment variable can e.g. be set to "none" for image tests,
+        so that the image tests don't fail when we update the ddaa method.
+
+        Note that SSAA can be achieved by using a pixel_scale > 1. This can be well combined with PPAA,
+        since the PPAA is applied before downsampling to the target texture.
+        """
+        ppaa = "none"
+        for effect_pass in self._effect_passes:
+            if isinstance(effect_pass, PPAAPass):
+                ppaa = effect_pass.__class__.__name__.split("Pass")[0].lower()
+        return ppaa
+
+    @ppaa.setter
+    def ppaa(self, ppaa: Literal["default", "none", "fxaa", "ddaa"]):
+        if not isinstance(ppaa, str):
+            raise TypeError(f"renderer.ppaa must be a string, not {ppaa!r}")
+
+        # Collect list of effect passes that are not a ppaa
+        effect_passes = []
+        for effect_pass in self._effect_passes:
+            if not isinstance(effect_pass, PPAAPass):
+                effect_passes.append(effect_pass)
+
+        # Handle default
+        algorithm = ppaa.lower()
+        if algorithm == "default":
+            algorithm = os.getenv("PYGFX_DEFAULT_PPAA", "").lower()
+            if not algorithm or algorithm == "default":
+                algorithm = "ddaa"
+
+        if algorithm == "none":
+            pass  # don't add a pass
+        elif algorithm == "ddaa":
+            effect_passes.append(DDAAPass())
+        elif algorithm == "fxaa":
+            effect_passes.append(FXAAPass())
+        else:
+            raise ValueError(f"Invalid value for renderer.ppaa: {ppaa!r}")
+
+        self.effect_passes = effect_passes
 
     @property
     def rect(self):
@@ -398,20 +508,25 @@ class WgpuRenderer(RootEventHandler, Renderer):
     @property
     def physical_size(self):
         """The physical size of the internal render texture."""
-        pixel_ratio = self.pixel_ratio
-        target_lsize = self.logical_size
-        return tuple(max(1, int(pixel_ratio * x)) for x in target_lsize)
+        target = self._target
+        if isinstance(self._target, AnyBaseCanvas):
+            target_physical_size = self._target.get_physical_size()
+        else:
+            target_physical_size = target.size[:2]
+        w, h = target_physical_size
+        pixel_scale = self._pixel_scale
+        return max(1, int(w * pixel_scale)), max(1, int(h * pixel_scale))
 
     @property
     def blend_mode(self):
         raise DeprecationWarning(
-            "renderer.blend_mode is removed. Use material.blending instead."
+            "renderer.blend_mode is removed. Use material.alpha_mode instead."
         )
 
     @blend_mode.setter
     def blend_mode(self, value):
         raise DeprecationWarning(
-            "renderer.blend_mode is removed. Use material.blending instead."
+            "renderer.blend_mode is removed. Use material.alpha_mode instead."
         )
 
     @property
@@ -454,32 +569,42 @@ class WgpuRenderer(RootEventHandler, Renderer):
         return self._effect_passes
 
     @effect_passes.setter
-    def effect_passes(self, steps):
-        effect_passes = []
-        for step in steps:
+    def effect_passes(self, effect_passes):
+        effect_passes = tuple(effect_passes)
+        for step in effect_passes:
             if not isinstance(step, EffectPass):
                 raise TypeError(
                     f"A renderer effect-pass step must be an instance of EffectPass, not {step!r}"
                 )
-            effect_passes.append(step)
-        self._effect_passes = tuple(steps)
+        self._effect_passes = effect_passes
 
-    def clear(self, *, all=False, color=False, depth=False):
+    def clear(self, *, all=False, color=False, depth=False, weights=False):
         """Clear one or more of the render targets.
 
         Users typically don't need to use this method. But sometimes it can be convenient to e.g.
         render a scene, and then clear the depth before rendering another scene.
+
+        * all: clear all render targets; a fully clean sheeth.
+        * color: clear the color buffer to rgba all zeros.
+        * depth: clear the depth buffer.
+        * weights: clear the render targets for weighted blending (the accum and reveal textures).
+
         """
-        if not (all or color or depth):
+        if not (all or color or depth or weights):
             raise ValueError(
-                "renderer.clear() needs at least color or depth set to True."
+                "renderer.clear() needs at least all, color, depth, or weights set to True."
             )
+
         if all:
             self._blender.clear()
-        elif color:
-            self._blender.texture_info["color"]["clear"] = True
-        elif depth:
-            self._blender.texture_info["depth"]["clear"] = True
+        else:
+            if color:
+                self._blender.texture_info["color"]["clear"] = True
+            if depth:
+                self._blender.texture_info["depth"]["clear"] = True
+            if weights:
+                self._blender.texture_info["accum"]["clear"] = True
+                self._blender.texture_info["reveal"]["clear"] = True
 
     def render(
         self,
@@ -507,6 +632,9 @@ class WgpuRenderer(RootEventHandler, Renderer):
             flush (bool, optional): Whether to flush the rendered result into
                 the target (texture or canvas). Default True.
         """
+
+        # A good time to reset this flag.
+        self._name_of_texture_with_effects = None
 
         # Manage stored renderstate objects. Each renderstate object used will be stored at least a few draws.
         if self._renders_since_last_flush == 0:
@@ -572,7 +700,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
                 root=self,
                 width=logical_size[0],
                 height=logical_size[1],
-                pixel_ratio=self.pixel_ratio,
+                pixel_ratio=pixel_ratio,
             )
             self.dispatch_event(ev)
 
@@ -581,7 +709,8 @@ class WgpuRenderer(RootEventHandler, Renderer):
         view_matrix = None
         if self._sort_objects:
             view_matrix = camera.view_matrix  # == camera.world.inverse_matrix
-        flat = FlatScene(scene, view_matrix)
+        flat = FlatScene(scene, view_matrix, self._object_count)
+        self._object_count = flat.object_count
         flat.sort()
 
         # Prepare the shared object
@@ -673,27 +802,32 @@ class WgpuRenderer(RootEventHandler, Renderer):
         src_usage = wgpu.TextureUsage.TEXTURE_BINDING
         dst_usage = wgpu.TextureUsage.RENDER_ATTACHMENT
 
-        # Apply any effect passes
-        for step in self._effect_passes:
-            color_tex = self._blender.get_texture_view(
-                src_name, src_usage, create_if_not_exist=True
-            )
-            dst_tex = self._blender.get_texture_view(
-                dst_name, dst_usage, create_if_not_exist=True
-            )
-            depth_tex = None
-            if step.USES_DEPTH:
-                depth_tex = self._blender.get_texture_view(
-                    "depth", src_usage, create_if_not_exist=False
+        if self._name_of_texture_with_effects:
+            # probably flushing a second time
+            src_name = self._name_of_texture_with_effects
+        else:
+            # Apply any effect passes
+            for step in self._effect_passes:
+                color_tex = self._blender.get_texture_view(
+                    src_name, src_usage, create_if_not_exist=True
                 )
-            step.render(command_encoder, color_tex, depth_tex, dst_tex)
-            # Pingpong
-            src_name, dst_name = dst_name, src_name
+                dst_tex = self._blender.get_texture_view(
+                    dst_name, dst_usage, create_if_not_exist=True
+                )
+                depth_tex = None
+                if step.USES_DEPTH:
+                    depth_tex = self._blender.get_texture_view(
+                        "depth", src_usage, create_if_not_exist=False
+                    )
+                step.render(command_encoder, color_tex, depth_tex, dst_tex)
+                # Pingpong
+                src_name, dst_name = dst_name, src_name
+            self._name_of_texture_with_effects = src_name
 
         # Apply copy-pass
         color_tex = self._blender.get_texture_view(src_name, src_usage)
         self._output_pass.gamma = self._gamma_correction * self._gamma_correction_srgb
-        self._output_pass.filter_strength = self._pixel_filter
+        # self._output_pass.filter_strength = self._pixel_filter
         self._output_pass.render(command_encoder, color_tex, None, target_tex)
 
         self._device.queue.submit([command_encoder.finish()])
@@ -876,9 +1010,16 @@ class WgpuRenderer(RootEventHandler, Renderer):
         """Create a snapshot of the currently rendered image."""
 
         # Prepare
-        texture = self._blender.get_texture("color")
+        texture = self._blender.get_texture(
+            self._name_of_texture_with_effects or "color"
+        )
         size = texture.size
-        bytes_per_pixel = 4
+        if texture.format == "rgba16float":
+            bytes_per_pixel = 8
+            dtype = np.float16
+        else:
+            bytes_per_pixel = 4
+            dtype = np.uint8
 
         # Note, with queue.read_texture the bytes_per_row limitation does not apply.
         data = self._device.queue.read_texture(
@@ -895,7 +1036,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
             size,
         )
 
-        return np.frombuffer(data, np.uint8).reshape(size[1], size[0], 4)
+        return np.frombuffer(data, dtype).reshape(size[1], size[0], 4)
 
     def request_draw(self, draw_function=None):
         """Forwards a request_draw call to the target canvas. If the renderer's

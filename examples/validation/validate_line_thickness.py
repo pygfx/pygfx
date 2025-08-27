@@ -13,11 +13,11 @@ Lines with different thicknesses
 # sphinx_gallery_pygfx_test = 'compare'
 
 import numpy as np
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 
 
-canvas = WgpuCanvas(size=(800, 600))
+canvas = RenderCanvas(size=(800, 600))
 renderer = gfx.WgpuRenderer(canvas, pixel_ratio=0.5, pixel_filter=False)
 
 x = np.linspace(0, 4 * np.pi, 100)
@@ -40,7 +40,7 @@ for x_offset, mode in enumerate(["noaa", "aa", "dashed"]):
     for thickness in [0.125, 0.25, 0.5, 1.0, 2.0, 4.0, 8.0]:
         line = gfx.Line(
             geometry,
-            gfx.LineMaterial(thickness=thickness, color=(1.0, 1.0, 1.0)),
+            gfx.LineMaterial(thickness=thickness, color=(1.0, 1.0, 1.0), aa=True),
         )
         y += 2
         line.local.y = -y
@@ -58,4 +58,4 @@ canvas.request_draw(lambda: renderer.render(scene, camera))
 
 if __name__ == "__main__":
     print(__doc__)
-    run()
+    loop.run()

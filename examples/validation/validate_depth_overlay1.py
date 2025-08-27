@@ -11,14 +11,14 @@ top.
 # sphinx_gallery_pygfx_test = 'compare'
 
 import numpy as np
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 import pylinalg as la
 
 
 # Create a canvas and renderer
 
-canvas = WgpuCanvas(size=(500, 300))
+canvas = RenderCanvas(size=(500, 300))
 renderer = gfx.renderers.WgpuRenderer(canvas)
 
 # Compose a scene with a 3D cube at the origin
@@ -50,7 +50,9 @@ positions = np.array(
 )
 line2 = gfx.Line(
     gfx.Geometry(positions=positions * 0.5),
-    gfx.LineMaterial(thickness=5.0, color="#f0f", depth_test=False, depth_write=False),
+    gfx.LineMaterial(
+        thickness=5.0, color="#f0f", depth_test=False, depth_write=False, aa=True
+    ),
 )
 scene2.add(line2)
 
@@ -70,4 +72,4 @@ canvas.request_draw(draw)
 
 if __name__ == "__main__":
     print(__doc__)
-    run()
+    loop.run()

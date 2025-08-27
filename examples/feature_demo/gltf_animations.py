@@ -34,14 +34,16 @@ except NameError:
 # sphinx_gallery_pygfx_test = 'run'
 
 import pygfx as gfx
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 
 from wgpu.utils.imgui import ImguiRenderer
 from imgui_bundle import imgui, icons_fontawesome_6, hello_imgui  # type: ignore
 
 gltf_path = model_dir / "Soldier.glb"
 
-canvas = WgpuCanvas(size=(800, 600), max_fps=-1, title="Animations", vsync=False)
+canvas = RenderCanvas(
+    size=(800, 600), update_mode="fastest", title="Animations", vsync=False
+)
 
 renderer = gfx.WgpuRenderer(canvas)
 camera = gfx.PerspectiveCamera(45, 800 / 600, depth_range=(1, 100))
@@ -187,4 +189,4 @@ def animate():
 
 if __name__ == "__main__":
     renderer.request_draw(animate)
-    run()
+    loop.run()

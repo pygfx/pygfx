@@ -13,11 +13,11 @@ Lines in 2D
 # sphinx_gallery_pygfx_test = 'compare'
 
 import numpy as np
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 
 
-canvas = WgpuCanvas(size=(1000, 1000))
+canvas = RenderCanvas(size=(1000, 1000))
 renderer = gfx.WgpuRenderer(canvas)
 
 positions = [
@@ -88,6 +88,7 @@ line1 = gfx.Line(
         thickness_space="screen",
         color=(0.0, 1.0, 1.0),
         opacity=1.0,
+        aa=True,
     ),
 )
 
@@ -98,6 +99,7 @@ line2 = gfx.Line(
         thickness_space="screen",
         color_mode="vertex",
         opacity=0.5,
+        aa=True,
     ),
 )
 
@@ -110,6 +112,7 @@ line3 = gfx.Line(
         dash_pattern=[1, 1.2],
         color=(1.0, 0.0, 0.0),
         opacity=0.5,
+        aa=True,
     ),
 )
 
@@ -139,4 +142,4 @@ canvas.request_draw(animate)
 
 if __name__ == "__main__":
     print(__doc__)
-    run()
+    loop.run()

@@ -12,12 +12,12 @@ This demonstrates how the controllers are stateless (except during interaction).
 # sphinx_gallery_pygfx_docs = 'screenshot'
 # sphinx_gallery_pygfx_test = 'run'
 
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 import numpy as np
 
 
-renderer = gfx.renderers.WgpuRenderer(WgpuCanvas(size=(900, 600)))
+renderer = gfx.renderers.WgpuRenderer(RenderCanvas(size=(900, 600)))
 
 
 # Create a scene to display multiple times. It contains a point cloud
@@ -79,4 +79,4 @@ def animate():
 
 if __name__ == "__main__":
     renderer.request_draw(animate)
-    run()
+    loop.run()

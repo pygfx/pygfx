@@ -9,7 +9,7 @@ multiple different fonts.
 # sphinx_gallery_pygfx_docs = 'screenshot'
 # sphinx_gallery_pygfx_test = 'run'
 
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 
 from datetime import datetime
@@ -44,7 +44,7 @@ text_instructions.local.position = (0, 40, 0)
 scene = gfx.Scene()
 scene.add(text_noto, text_humor, text_instructions)
 camera = gfx.OrthographicCamera(400, 300)
-renderer = gfx.renderers.WgpuRenderer(WgpuCanvas(size=(800, 600)))
+renderer = gfx.renderers.WgpuRenderer(RenderCanvas(size=(800, 600)))
 
 
 @renderer.add_event_handler("pointer_down")
@@ -58,4 +58,4 @@ def change_text(event):
 
 renderer.request_draw(lambda: renderer.render(scene, camera))
 if __name__ == "__main__":
-    run()
+    loop.run()

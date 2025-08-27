@@ -14,8 +14,6 @@
 
 """
 
-# ruff: noqa: F401
-
 from ._base import Camera, NDCCamera, ScreenCoordsCamera
 from ._perspective import PerspectiveCamera
 from ._orthographic import OrthographicCamera

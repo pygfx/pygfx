@@ -13,11 +13,11 @@ Render a volume and volume slices. You should see:
 # sphinx_gallery_pygfx_test = 'compare'
 
 import numpy as np
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 
 
-canvas = WgpuCanvas()
+canvas = RenderCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 
 # Prepare a very small data volume. The data is integer and not uint8,
@@ -76,4 +76,4 @@ def animate():
 canvas.request_draw(animate)
 
 if __name__ == "__main__":
-    run()
+    loop.run()

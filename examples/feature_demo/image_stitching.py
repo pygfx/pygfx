@@ -2,7 +2,7 @@
 Image stitching
 ===============
 
-Show stitching of images using weighted blending. The alpha value of the
+Show stitching of images using weighted alpha mode. The alpha value of the
 images are used as weights.
 """
 
@@ -10,16 +10,14 @@ images are used as weights.
 # sphinx_gallery_pygfx_test = 'run'
 
 import imageio.v3 as iio
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 import numpy as np
 
-canvas = WgpuCanvas()
+canvas = RenderCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
-scene1 = gfx.Scene()
-scene1.add(gfx.Background.from_color("#000"))
-
-# add image
+scene = gfx.Scene()
+scene.add(gfx.Background.from_color("#000"))
 
 
 def create_texcoords_array(ny, nx):
@@ -34,20 +32,6 @@ def create_pyramid_weights(ny, nx):
     return center_coords.min(axis=2)
 
 
-# Define the blending using a dict. We use weighted blending, using the alpha
-# channel as weights, and setting the final alpha to 1.
-#
-# The commented line shows how we could use the shader texcoord to create the
-# same effect. This avoids having to create the pyramid alpha channel for the
-# image, but it's a less portable solution because it assumes that the shader
-# has a 'texcoord' on its varying.
-blending = {
-    "mode": "weighted",
-    "weight": "alpha",
-    # "weight": "1.0 - 2.0*max(abs(varyings.texcoord.x - 0.5), abs(varyings.texcoord.y - 0.5))",
-    "alpha": "1.0",
-}
-
 x = 0
 for image_name in ["wood.jpg", "bricks.jpg"]:
     rgb = iio.imread(f"imageio:{image_name}")[:, :, :3]  # Drop alpha if it has it
@@ -57,29 +41,38 @@ for image_name in ["wood.jpg", "bricks.jpg"]:
     rgba = np.dstack([rgb, weights])
     image = gfx.Image(
         gfx.Geometry(grid=gfx.Texture(rgba, dim=2)),
-        gfx.ImageBasicMaterial(clim=(0, 255), blending=blending, depth_write=False),
+        gfx.ImageBasicMaterial(
+            clim=(0, 255),
+            alpha_mode="weighted_solid",
+            depth_write=False,
+        ),
     )
-    scene1.add(image)
+    scene.add(image)
     image.local.x = x
     x += rgba.shape[1] - 200
 
-scene2 = gfx.Scene()
-text = gfx.Text("Image stitching", font_size=64, anchor="top-left")
-text.render_order = 1  # render the text on top
+# Text is rendered as an overlay (using render_queue)
+text = gfx.Text(
+    "Image stitching",
+    font_size=64,
+    anchor="top-left",
+    material=gfx.TextMaterial(color="#fff", aa=True),
+)
+text.material.render_queue = 4000  # render the text as an overlay
 text.local.scale_y = -1
-scene1.add(text)
+scene.add(text)
 
 camera = gfx.OrthographicCamera()
 camera.local.scale_y = -1
-camera.show_object(scene1, match_aspect=True, scale=1.05)
+camera.show_object(scene, match_aspect=True, scale=1.05)
 
 controller = gfx.PanZoomController(camera, register_events=renderer)
 
 
 def animate():
-    renderer.render(scene1, camera)
+    renderer.render(scene, camera)
 
 
 if __name__ == "__main__":
     canvas.request_draw(animate)
-    run()
+    loop.run()

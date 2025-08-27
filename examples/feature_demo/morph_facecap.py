@@ -36,7 +36,7 @@ except NameError:
 
 import pygfx as gfx
 
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 from wgpu.utils.imgui import ImguiRenderer
 from imgui_bundle import imgui
 
@@ -44,7 +44,9 @@ gltf_path = model_dir / "facecap.glb"
 
 scene = gfx.Scene()
 
-canvas = WgpuCanvas(size=(1280, 720), max_fps=-1, title="Facecap", vsync=False)
+canvas = RenderCanvas(
+    size=(1280, 720), update_mode="fastest", title="Facecap", vsync=False
+)
 
 renderer = gfx.WgpuRenderer(canvas)
 camera = gfx.PerspectiveCamera(45, 1280 / 720, depth_range=(0.1, 1000))
@@ -118,4 +120,4 @@ def animate():
 
 if __name__ == "__main__":
     renderer.request_draw(animate)
-    run()
+    loop.run()

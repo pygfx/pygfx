@@ -11,7 +11,7 @@ Both the image and points are uploaded with send_data.
 
 import imageio.v3 as iio
 import wgpu
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 import numpy as np
 
@@ -57,13 +57,13 @@ del position_data
 
 points = gfx.Points(
     gfx.Geometry(positions=buf),
-    gfx.PointsMaterial(color="cyan", size=15),
+    gfx.PointsMaterial(color="cyan", size=15, aa=True),
 )
 
 
 # Setup for rendering
 
-canvas = WgpuCanvas()
+canvas = RenderCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 scene.add(image, points)
@@ -78,4 +78,4 @@ canvas.request_draw(lambda: renderer.render(scene, camera))
 
 if __name__ == "__main__":
     print(__doc__)
-    run()
+    loop.run()
