@@ -80,14 +80,16 @@ most appropriate). If you would prefer not to do that, please feel free to
 report to the Code of Conduct committee directly, or ask the committee for
 advice, in confidence.
 
-You can report issues to the Pygfx core team:
+You can report issues to the Pygfx Code of Conduct committee, at [conduct@pygfx.org](conduct@pygfx.org).
+Currently, the committee consists of the core team:
 
 [Korijn van Golen](https://github.com/Korijn)
 [Almar Klein](https://github.com/almarklein)
 
 If your report involves any members of the Pygfx core team, or if they feel they have
 a conflict of interest in handling it, then they will recuse themselves from
-considering your report.
+considering your report. Alternatively, if for any reason you feel uncomfortable making a
+report to the committee, then you can also contact: [conduct@numfocus.org](conduct@numfocus.org).
 
 ## Incident reporting resolution & Code of Conduct enforcement
 
