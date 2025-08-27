@@ -90,6 +90,8 @@ class TextMaterial(Material):
     @aa.setter
     def aa(self, aa):
         self._store.aa = bool(aa)
+        if self.aa:
+            self.alpha_mode = "blend"
 
     @property
     def _gfx_effective_aa(self):
