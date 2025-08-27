@@ -570,7 +570,11 @@ class Material(Trackable):
             self._render_queue = self._given_render_queue
         elif self.alpha_mode == "auto":
             if self.opacity == 1:
-                render_queue = 2000
+                if getattr(self, "aa", False):
+                    # Anti-aliased objects render later than non-AA objects
+                    render_queue = 2400
+                else:
+                    render_queue = 2000
             else:
                 render_queue = 3000
             self._render_queue = render_queue
