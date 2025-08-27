@@ -87,9 +87,8 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     // Same for alpha test
     // do_alpha_test(opacity);
 
-    // Force opaque. We may undo this when the ordered2 mechanics are removed.
     var out: FragmentOutput;
-    out.color = vec4<f32>(out_color.rgb, 1.0);
+    out.color = vec4<f32>(out_color);
     $$ if write_pick
         // We omit any extra information in the pick info
         // While we figure out exactly how best to return it.
