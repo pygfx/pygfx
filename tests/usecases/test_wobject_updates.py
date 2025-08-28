@@ -31,6 +31,7 @@ class PipelineSnapshotter:
         self.world_object = world_object
         self.renderer = renderer
         flat = FlatScene(scene, None)
+        self.scene = scene
         self.env = get_renderstate(flat.lights, renderer._blender)
         self._snapshot()
 
@@ -42,7 +43,7 @@ class PipelineSnapshotter:
         # the equivalent what happens during a call. This means we don't need to
         # perform an actual draw.
         pipeline_container_group = get_pipeline_container_group(
-            self.world_object, self.env
+            self.world_object, self.scene, self.env
         )
         pipeline_container = pipeline_container_group.render_containers[0]
 

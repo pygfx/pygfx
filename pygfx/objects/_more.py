@@ -2,8 +2,9 @@ import numpy as np
 
 from ._base import WorldObject
 from ..resources import Buffer
-from ..utils import unpack_bitfield, array_from_shadertype
+from ..utils import unpack_bitfield, array_from_shadertype, assert_type
 from ..materials import BackgroundMaterial
+from ..resources import Texture, TextureMap
 
 
 class Group(WorldObject):
@@ -33,10 +34,43 @@ class Scene(Group):
     map) as well as all objects that take part in the rendering process as
     either direct or indirect children/nested objects.
 
+    Parameters
+    ----------
+    environment : Texture | TextureMap
+        The environment map for all physical materials in the scene.
+        However, it's not possible to overwrite an existing map assigned to individual materials.
+        Default is None.
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, environment=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.environment = environment
+
+    @property
+    def environment(self):
+        """The environment map for all physical materials in the scene.
+        However, it's not possible to overwrite an existing map assigned to individual materials.
+        """
+        return self._store.environment
+
+    @environment.setter
+    def environment(self, environment):
+        assert_type("environment", environment, None, Texture, TextureMap)
+        if isinstance(environment, Texture):
+            environment = TextureMap(environment)
+
+        if environment is not None:
+            # todo: for now, we only support cube maps
+            assert environment.texture.dim == 2 and environment.texture.size[2] == 6, (
+                "Environment map must be a Cube texture."
+            )
+
+            # todo: for now, we use normal mipmaps, but we should use a PMREM texture
+            assert environment.texture.generate_mipmaps, (
+                "Environment map texture must generate mipmaps."
+            )
+
+        self._store.environment = environment
 
 
 class Background(WorldObject):

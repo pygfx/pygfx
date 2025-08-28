@@ -362,7 +362,7 @@ class AudioShader(BaseShader):
         if fragment_shader_code:
             self["fragment_shader_code"] = fragment_shader_code
 
-    def get_bindings(self, wobject, shared):
+    def get_bindings(self, wobject, shared, scene):
         material = wobject.material
 
         sampler = GfxSampler(material.interpolation, "clamp")
