@@ -66,6 +66,9 @@ class MeshShader(BaseShader):
 
         color_mode = str(material.color_mode).split(".")[-1]
 
+        # access alpha config will cause the bindings to be rebuilt?
+        material.alpha_config
+
         self["color_mode"] = color_mode
         self["use_uniform_color"] = color_mode in ("auto", "uniform")
 
