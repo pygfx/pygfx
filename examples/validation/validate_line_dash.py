@@ -33,6 +33,7 @@ line1 = gfx.Line(
         dash_pattern=[0, 2, 2, 2],
         color=(0.0, 1.0, 1.0, 0.4),
         dash_offset=0,
+        aa=True,
     ),
 )
 
@@ -43,6 +44,7 @@ line2 = gfx.Line(
         dash_pattern=[0, 2, 2, 2],
         color=(0.0, 1.0, 1.0, 0.4),
         dash_offset=2,
+        aa=True,
     ),
 )
 line3 = gfx.Line(
@@ -52,6 +54,7 @@ line3 = gfx.Line(
         dash_pattern=[0, 2, 2, 2],
         color=(0.0, 1.0, 1.0, 0.4),
         dash_offset=3,
+        aa=True,
     ),
 )
 
@@ -62,6 +65,7 @@ line4 = gfx.Line(
         dash_pattern=[0, 2, 2, 2],
         color=(0.0, 1.0, 1.0, 0.4),
         dash_offset=6,
+        aa=True,
     ),
 )
 

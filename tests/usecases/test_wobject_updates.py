@@ -132,7 +132,7 @@ def test_updating_mesh_blending():
 
     # Same for custom classic blending
     mesh.material.alpha_config = {
-        "method": "composite",
+        "method": "blended",
         "color_src": "one",
         "color_dst": "zero",
         "alpha_src": "src",

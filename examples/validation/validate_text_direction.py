@@ -33,7 +33,7 @@ other text on another line
 """.strip()
 
 
-material = gfx.TextMaterial(color="#000")
+material = gfx.TextMaterial(color="#000", aa=True)
 
 
 text1 = gfx.Text(

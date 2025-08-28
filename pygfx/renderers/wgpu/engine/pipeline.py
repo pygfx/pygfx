@@ -376,7 +376,7 @@ class PipelineContainer:
                 self.wobject_info["depth_test"] = wobject.material.depth_test
                 self.wobject_info["depth_compare"] = wobject.material.depth_compare
                 self.wobject_info["depth_write"] = wobject.material.depth_write
-                # For composite, the details need a new pipeline, but not a new shader
+                # For 'blended', the details need a new pipeline, but not a new shader
                 self.wobject_info["alpha_config"] = wobject.material.alpha_config
             self._check_pipeline_info()
             changed.add("render_info")

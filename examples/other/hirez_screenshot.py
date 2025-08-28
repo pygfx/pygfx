@@ -76,7 +76,7 @@ text = gfx.Text(
     text="centered",
     anchor="middle-center",
     font_size=1,
-    material=gfx.TextMaterial("#000"),
+    material=gfx.TextMaterial("#000", aa=True),
 )
 text.local.y = y
 text.local.x = npoints
@@ -86,7 +86,7 @@ text = gfx.Text(
     text="inner",
     anchor="middle-center",
     font_size=1,
-    material=gfx.TextMaterial("#000"),
+    material=gfx.TextMaterial("#000", aa=True),
 )
 text.local.y = y
 text.local.x = 2 * npoints + npoints
@@ -96,7 +96,7 @@ text = gfx.Text(
     text="outer",
     anchor="middle-center",
     font_size=1,
-    material=gfx.TextMaterial("#000"),
+    material=gfx.TextMaterial("#000", aa=True),
 )
 text.local.y = y
 text.local.x = 4 * npoints + npoints
@@ -166,7 +166,7 @@ for marker in gfx.MarkerShape:
         anchor="middle-right",
         font_size=20,
         screen_space=True,
-        material=gfx.TextMaterial("#000"),
+        material=gfx.TextMaterial("#000", aa=True),
     )
     text.local.y = -y
     text.local.x = 0

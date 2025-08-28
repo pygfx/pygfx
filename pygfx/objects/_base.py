@@ -276,7 +276,7 @@ class WorldObject(EventTarget, Trackable):
         The final sort order is typically determined by:
             1. the ``material.render_queue``
             2. effective ``render_order``
-            3. distance to camera (for transparent/composite passes)
+            3. distance to camera
 
         """
         # Note: the render order is on the object, not the material, because it affects
@@ -521,7 +521,7 @@ class WorldObject(EventTarget, Trackable):
             return bounds.aabb
 
     def get_bounding_box(self) -> np.ndarray | None:
-        """Axis-aligned bounding box in parent space.
+        """Axis-aligned bounding box in local model space.
 
         Returns
         -------
@@ -553,7 +553,7 @@ class WorldObject(EventTarget, Trackable):
         return final_aabb
 
     def get_bounding_sphere(self) -> np.ndarray | None:
-        """Bounding Sphere in parent space.
+        """Bounding Sphere in local model space.
 
         Returns
         -------

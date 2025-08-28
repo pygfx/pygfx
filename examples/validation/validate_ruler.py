@@ -26,7 +26,7 @@ positions = np.column_stack([x, y, np.ones_like(x)])
 
 line = gfx.Line(
     gfx.Geometry(positions=positions),
-    gfx.LineMaterial(thickness=4.0, color="#aaf"),
+    gfx.LineMaterial(thickness=4.0, color="#aaf", aa=True),
 )
 scene.add(background, line)
 

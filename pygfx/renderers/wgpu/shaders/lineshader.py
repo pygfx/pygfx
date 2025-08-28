@@ -44,7 +44,7 @@ class LineShader(BaseShader):
         self["line_type"] = "line"
         self["dashing"] = False
         self["thickness_space"] = material.thickness_space
-        self["aa"] = material.aa
+        self["aa"] = material._gfx_effective_aa
         self["loop"] = False
         self["debug"] = False
 

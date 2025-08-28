@@ -40,7 +40,7 @@ scene.add(image)
 
 points = gfx.Points(
     gfx.Geometry(positions=[[0, 0, 1], [3, 3, 1]]),
-    gfx.PointsMaterial(color=(0, 1, 0, 1), size=20),
+    gfx.PointsMaterial(color=(0, 1, 0, 1), size=20, aa=True),
 )
 scene.add(points)
 
