@@ -66,13 +66,9 @@ class MeshShader(BaseShader):
 
         if (
             material.render_queue <= 2500
-            and material.alpha_config["method"] != "stochastic"
+            and material.alpha_config["method"] == "opaque"
         ):
             self["OPAQUE"] = True
-
-        # todo: access material.alpha_config makes bindings change?
-        # if material.alpha_config["method"] == "opaque":
-        #     self["OPAQUE"] = True
 
         color_mode = str(material.color_mode).split(".")[-1]
 
