@@ -19,8 +19,7 @@ class TextMaterial(Material):
         the range 100-900, so this value should be in the same order of
         magnitude. Can be negative to make text thinner. Default zero.
     aa : bool
-        If True, use anti-aliasing while rendering glyphs. Aliasing gives
-        prettier results, but may affect performance for very large texts.
+        Whether the glyphs is anti-aliased in the shader. Default False.
     kwargs : Any
         Additional kwargs will be passed to the :class:`material base class
         <pygfx.Material>`.
@@ -48,7 +47,7 @@ class TextMaterial(Material):
         outline_color="#000",
         outline_thickness=0,
         weight_offset=0,
-        aa=True,
+        aa=False,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -72,9 +71,19 @@ class TextMaterial(Material):
 
     @property
     def aa(self):
-        """Whether or not the glyphs should be anti-aliased. Aliasing
-        gives prettier results, but may affect performance for very large
-        texts. Default True.
+        """Whether the glyphs edges are anti-aliased.
+
+        Aliasing gives prettier results by producing semi-transparent fragments
+        at the edges. Lines thinner than one physical pixel are also diminished
+        by making them more transparent.
+
+        However, because semi-transparent fragments are introduced, artifacts
+        may occur if certain cases. For the same reason, aa only works for the
+        "blended" and "weighted" alpha methods.
+
+        Note that by default, pygfx already uses SSAA and/or PPAA to anti-alias
+        the total renderered result. Text-based aa is an *additional* visual
+        improvement.
         """
         return self._store.aa
 
@@ -82,6 +91,11 @@ class TextMaterial(Material):
     def aa(self, aa):
         self._store.aa = bool(aa)
         self._derive_render_queue()
+
+    @property
+    def _gfx_effective_aa(self):
+        aa_able_methods = ("blended", "weighted")
+        return self._store.aa and self._store.alpha_config["method"] in aa_able_methods
 
     @property
     def color(self):

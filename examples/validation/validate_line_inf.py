@@ -57,7 +57,11 @@ colors2[2::2, :] = 0, 0, 1
 line1 = gfx.Line(
     gfx.Geometry(positions=positions1, colors=colors1),
     gfx.LineInfiniteSegmentMaterial(
-        thickness=5.0, color_mode="face", start_is_infinite=False, dash_pattern=[0, 2]
+        thickness=5.0,
+        color_mode="face",
+        start_is_infinite=False,
+        dash_pattern=[0, 2],
+        aa=True,
     ),
 )
 scene.add(line1)
@@ -65,7 +69,7 @@ scene.add(line1)
 line2 = gfx.Line(
     gfx.Geometry(positions=positions2, colors=colors2),
     gfx.LineInfiniteSegmentMaterial(
-        thickness=10, end_is_infinite=1, color_mode="vertex"
+        thickness=10, end_is_infinite=1, color_mode="vertex", aa=True
     ),
 )
 scene.add(line2)

@@ -286,6 +286,10 @@ class Mesh(WorldObject):
                 # face_coord slot of index 1, (see meshshader.py), so
                 # we put that at the end and put a zero in its place.
                 face_coord = face_coord[0], 0.0, face_coord[2], face_coord[1]
+        # Make sure the coords add up to one again (see #1147)
+        face_coord_sum = sum(face_coord)
+        if face_coord_sum:
+            face_coord = tuple(x / face_coord_sum for x in face_coord)
         info["face_index"] = face_index
         info["face_coord"] = tuple(face_coord)
         return info

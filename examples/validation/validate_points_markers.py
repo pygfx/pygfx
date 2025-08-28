@@ -127,7 +127,7 @@ text = gfx.Text(
     text="centered",
     anchor="middle-center",
     font_size=1,
-    material=gfx.TextMaterial("#000"),
+    material=gfx.TextMaterial("#000", aa=True),
 )
 text.local.y = y
 text.local.x = npoints
@@ -137,7 +137,7 @@ text = gfx.Text(
     text="inner",
     anchor="middle-center",
     font_size=1,
-    material=gfx.TextMaterial("#000"),
+    material=gfx.TextMaterial("#000", aa=True),
 )
 text.local.y = y
 text.local.x = 2 * npoints + npoints
@@ -147,7 +147,7 @@ text = gfx.Text(
     text="outer",
     anchor="middle-center",
     font_size=1,
-    material=gfx.TextMaterial("#000"),
+    material=gfx.TextMaterial("#000", aa=True),
 )
 text.local.y = y
 text.local.x = 4 * npoints + npoints
@@ -167,6 +167,7 @@ for i, marker in enumerate(gfx.MarkerShape):
             edge_color="#000",
             edge_width=0.1 if not marker == "custom" else 0.033333,
             custom_sdf=pygfx_sdf if marker == "custom" else None,
+            aa=True,
         ),
     )
     line.local.y = -y
@@ -185,6 +186,7 @@ for i, marker in enumerate(gfx.MarkerShape):
             edge_width=0.1 if not marker == "custom" else 0.033333,
             edge_mode="inner",
             custom_sdf=pygfx_sdf if marker == "custom" else None,
+            aa=True,
         ),
     )
 
@@ -212,6 +214,7 @@ for i, marker in enumerate(gfx.MarkerShape):
             # If your heart is broken, it won't be upright!!!!
             rotation_mode="uniform" if marker != "heart" else "vertex",
             custom_sdf=pygfx_sdf if marker == "custom" else None,
+            aa=True,
         ),
     )
 
@@ -225,7 +228,7 @@ for i, marker in enumerate(gfx.MarkerShape):
         text=marker,
         anchor="middle-right",
         font_size=1,
-        material=gfx.TextMaterial("#000"),
+        material=gfx.TextMaterial("#000", aa=True),
     )
     text.local.y = -y
     text.local.x = 0

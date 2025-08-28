@@ -521,7 +521,7 @@ class WorldObject(EventTarget, Trackable):
             return bounds.aabb
 
     def get_bounding_box(self) -> np.ndarray | None:
-        """Axis-aligned bounding box in parent space.
+        """Axis-aligned bounding box in local model space.
 
         Returns
         -------
@@ -553,7 +553,7 @@ class WorldObject(EventTarget, Trackable):
         return final_aabb
 
     def get_bounding_sphere(self) -> np.ndarray | None:
-        """Bounding Sphere in parent space.
+        """Bounding Sphere in local model space.
 
         Returns
         -------
