@@ -436,11 +436,12 @@ class Blender:
 
             fragment_output_code = """
             struct FragmentOutput {
+                // virtualfield stub: bool = false;
                 @location(0) color: vec4<f32>,
                 MAYBE_PICK@location(1) pick: vec4<u32>,
             };
 
-            fn apply_virtual_fields_of_fragment_output(outp: ptr<function,FragmentOutput>) {
+            fn apply_virtual_fields_of_fragment_output(outp: ptr<function,FragmentOutput>, stub: bool) {
                 let color = (*outp).color;
                 let rgb = MAKE_RGB;
                 (*outp).color = vec4f(rgb, 1.0);  // force alpha 1
@@ -453,10 +454,6 @@ class Blender:
                 @location(0) color: vec4<f32>,
                 MAYBE_PICK@location(1) pick: vec4<u32>,
             };
-
-            fn apply_virtual_fields_of_fragment_output(outp: ptr<function,FragmentOutput>) {
-                // no-op
-            }
             """
 
         elif alpha_method == "stochastic":

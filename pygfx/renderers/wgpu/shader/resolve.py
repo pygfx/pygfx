@@ -388,7 +388,7 @@ class OutputResolver:
             # Apply the virtual fields. The call to the apply-function is
             # inserted right before 'return out', or right after the last struct
             # field is set (if we did not detect a return).
-            if True:
+            if args:
                 args.insert(0, "&out")
                 line = f"{last_indent}apply_virtual_fields_of_fragment_output({', '.join(args)});"
                 extra_last_lines.append(line)
