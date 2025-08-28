@@ -701,7 +701,7 @@ class _GLTF:
             gfx_material.alpha_mode = "blend"
             gfx_material.depth_write = False
         else:
-            gfx_material.alph_mode = "solid"
+            gfx_material.alpha_mode = "solid"
             if material.alphaMode == "MASK":
                 if material.alphaCutoff is None:
                     gfx_material.alpha_test = 0.5
