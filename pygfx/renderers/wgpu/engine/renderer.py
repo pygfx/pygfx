@@ -95,6 +95,8 @@ class FlatScene:
         wobject_wrappers = self._wobject_wrappers
 
         for wobject, render_order in self._iter_scene(scene):
+            # Dereference the object in case its a weak proxy
+            wobject = wobject._self()
             # Assign renderer id's
             self.object_count += wobject._assign_renderer_id(self.object_count + 1)
             # Update things like transform and uniform buffers
