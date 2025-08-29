@@ -168,10 +168,9 @@ class Material(Trackable):
         self._store.uniform_buffer = Buffer(
             array_from_shadertype(self.uniform_type), force_contiguous=True
         )
-        self._given_render_queue = (
-            2000  # init with a value to avoid resolving many times
-        )
+        self._given_render_queue = 2000  # init to avoid resolving many times
         self._store["opacity_is_one"] = None
+        self._store["use_alpha_test"] = None
         self.opacity = opacity
         self.clipping_planes = clipping_planes
         self.clipping_mode = clipping_mode
