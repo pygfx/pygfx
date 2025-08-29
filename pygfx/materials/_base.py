@@ -586,17 +586,16 @@ class Material(Trackable):
 
     def _derive_render_queue(self):
         if self._given_render_queue:
-            self._render_queue = self._given_render_queue
-        elif self.alpha_mode == "auto":
+            render_queue = self._given_render_queue
+        elif self._store.alpha_mode == "auto":
             if self.opacity == 1:
                 # An "opaque" auto-object, but it may have semi-transparent fragments,
                 # because of aa, or maps with transparent regions. So back-to-front.
                 render_queue = 2600
             else:
                 render_queue = 3000
-            self._render_queue = render_queue
         else:
-            alpha_method = self.alpha_config["method"]
+            alpha_method = self._store.alpha_method
             if alpha_method == "opaque":
                 if not self._store.use_alpha_test:
                     render_queue = 2000
@@ -606,7 +605,7 @@ class Material(Trackable):
                 render_queue = 2400
             else:  # alpha_method in ["blended", "weighted"]
                 render_queue = 3000
-            self._render_queue = render_queue
+        self._render_queue = render_queue
 
     def _get_alpha_config_options(
         self, method: str, keys: list, default_dict: dict, given_dict: dict

@@ -125,7 +125,7 @@ class FlatScene:
             material = wobject._material
             if material is not None:
                 render_queue = material.render_queue
-                alpha_method = material.alpha_config["method"]
+                alpha_method = material.alpha_method
 
                 # By default sort back-to-front, for correct blending.
                 dist_sort_sign = -1
