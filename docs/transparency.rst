@@ -52,7 +52,7 @@ These provide configurations for common cases. Examples are "solid",
 3. Set the ``alpha_config`` dictionary to have full control:
 
 In this advanced approach you can choose between four methods ("opaque",
-"blended", "stochastic", "weighted"), which each have a set of options.
+"blended", "weighted", "stochastic"), which each have a set of options.
 You probably also want to set ``material.depth_write``, and maybe
 ``material.render_queue`` and/or ``ob.render_order``.
 
@@ -110,15 +110,15 @@ Method "blended" (per-fragment blending of the object's color and the color in t
 * "subtract": subtractive blending that removes the fragment color.
 * "multiply": multiplicative blending that multiplies the fragment color.
 
-Method "stochastic" (alpha represents the chance of a fragment being visible):
-
-* "dither": stochastic transparency with blue noise.
-* "bayer": stochastic transparency with a Bayer pattern.
-
 Method "weighted" (order independent blending):
 
 * "weighted_blend": weighted blended order independent transparency.
 * "weighted_solid": fragments are combined based on alpha, but the final alpha is always 1. Great for e.g. image stitching.
+
+Method "stochastic" (alpha represents the chance of a fragment being visible):
+
+* "dither": stochastic transparency with blue noise.
+* "bayer": stochastic transparency with a Bayer pattern.
 
 
 Alpha methods
@@ -148,19 +148,19 @@ the most-used being the "over operator" (also known as normal blending). When
 blending is used, the result will depend on the order in which the objects are
 rendered.
 
-**Alpha method 'stochastic'** represents stochastic transparency. The alpha
-represents the chance of a fragment being visible (i.e. not discarded). Visible
-fragments are opaque. This blend method is less common, but has interesting properties.
-Although the result has a somewhat noisy appearance, it handles transparency perfectly,
-capable of rendering multiple layers of transparent objects, and correctly handling
-objects that have a mix of opaque and transparent fragments.
-
 **Alpha method 'weighted'** represents (variants of) weighted blended order
 independent transparency. The order of objects does not matter for the
 end-result. One use-case being order independent transparency (OIT).
 The order-independent property is advantageous in some use-cases, but produces
 unfavourable results in others. It's use extends beyond transparency though, and
 can also be used for e.g. image stiching.
+
+**Alpha method 'stochastic'** represents stochastic transparency. The alpha
+represents the chance of a fragment being visible (i.e. not discarded). Visible
+fragments are opaque. This blend method is less common, but has interesting properties.
+Although the result has a somewhat noisy appearance, it handles transparency perfectly,
+capable of rendering multiple layers of transparent objects, and correctly handling
+objects that have a mix of opaque and transparent fragments.
 
 
 Alpha config
@@ -171,7 +171,7 @@ This dictionary has at least two keys: the 'method' and 'mode'. It has additiona
 available for the used method. The different presets represent common combinations of these options.
 
 Most users just set ``material.alpha_mode`` which implicitly sets
-``material.alpha_config``. In advanced/special cases, users can set the
+``material.alpha_method`` and ``material.alpha_config``. In advanced/special cases, users can set the
 ``material.alpha_config`` directly to take full control over all available
 options. In this case the 'mode' field and ``material.alpha_mode`` become "custom".
 
