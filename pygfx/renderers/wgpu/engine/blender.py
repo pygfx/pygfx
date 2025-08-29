@@ -230,17 +230,13 @@ class Blender:
 
         # Get the color_blend mini-dict
         if alpha_method == "opaque":
-            if alpha_config["premultiply_alpha"]:
-                color_blend = {
-                    "alpha": blend_dict(bf.one, bf.zero, bo.add),
-                    "color": blend_dict(bf.src_alpha, bf.zero, bo.add),
-                }
-            else:
-                color_blend = {
-                    "alpha": blend_dict(bf.one, bf.zero, bo.add),
-                    "color": blend_dict(bf.one, bf.zero, bo.add),
-                }
+            color_blend = {
+                "alpha": blend_dict(bf.one, bf.zero, bo.add),
+                "color": blend_dict(bf.one, bf.zero, bo.add),
+            }
         elif alpha_method == "blended":
+            # Note that color_constant and alpha_constant are not yet supported.
+            # We'd need to call GPURenderPassEncoder.set_blend_constant(rgba), close to where we call GPURenderPassEncoder.set_viewport() in renderer.py
             color_blend = {
                 "color": blend_dict(
                     alpha_config["color_src"],
@@ -433,7 +429,26 @@ class Blender:
 
         alpha_method = alpha_config["method"]
 
-        if alpha_method in ("opaque", "blended"):
+        if alpha_method == "opaque":
+            make_rgb = "color.rgb"
+            if alpha_config["premultiply_alpha"]:
+                make_rgb = "color.rgb * color.a"
+
+            fragment_output_code = """
+            struct FragmentOutput {
+                // virtualfield stub: bool = false;
+                @location(0) color: vec4<f32>,
+                MAYBE_PICK@location(1) pick: vec4<u32>,
+            };
+
+            fn apply_virtual_fields_of_fragment_output(outp: ptr<function,FragmentOutput>, stub: bool) {
+                let color = (*outp).color;
+                let rgb = MAKE_RGB;
+                (*outp).color = vec4f(rgb, 1.0);  // force alpha 1
+            }
+            """.replace("MAKE_RGB", make_rgb)
+
+        elif alpha_method == "blended":
             fragment_output_code = """
             struct FragmentOutput {
                 @location(0) color: vec4<f32>,
