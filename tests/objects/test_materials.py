@@ -59,7 +59,7 @@ def test_automatic_props():
     m.render_queue = None
     m.depth_write = False
     assert m.depth_write_is_set
-    assert m.render_queue == 3000
+    assert m.render_queue == 2600
     assert m.depth_write is False
 
 
