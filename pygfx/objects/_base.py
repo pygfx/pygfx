@@ -228,7 +228,7 @@ class WorldObject(EventTarget, Trackable):
         )  # break the circular reference so GC has it a little easier
 
     def _self(self):
-        """ Get self. This looks silly, but in case the WorldObject is
+        """Get self. This looks silly, but in case the WorldObject is
         wrapped in a weakproxy, like FastPlotLib does, this gets the
         real wobject, so we can hash it. You cannot dereference a weak.proxy.
         """
