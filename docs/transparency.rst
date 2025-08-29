@@ -22,7 +22,7 @@ the case; they can e.g. be used as the reference value in alpha testing.
 
 In any case, the alpha value represents a weight for how the object is combined with
 other objects, and its application is fully defined by ``material.alpha_config``.
-Although this config can be customized, the majority of cases can be
+This config allows a high degree of control, but the majority of cases can be
 captured with a handful of presets that we call *alpha modes*.
 
 
@@ -42,12 +42,12 @@ are opaque (alpha=1) are rendered correctly, as are objects that are
 (partially) transparent, as long as the objects
 don't intersect (in other words, they can be sorted based on their distance from the
 camera). Objects with ``material.opacity<1`` behave the same as with
-``alpha_mode`` "blend".
+``alpha_mode=="blend"``.
 
 2. Set ``material.alpha_mode`` to a preset string:
 
 These provide configurations for common cases. Examples are "solid",
-"blend", "dither", and several more. See below for a full list of options and descriptions.
+"blend", "weighted_blend", "dither", and several more. See below for a full list of options and descriptions.
 
 3. Set the ``alpha_config`` dictionary to have full control:
 
@@ -102,7 +102,7 @@ Method "opaque" (overwrites the value in the output texture):
 * "solid": alpha is ignored.
 * "solid_premul": the alpha is multiplied with the color (making it darker).
 
-Method "blended" (per-fragment blending of the object's color and the color in the output texture):
+Method "blended" (per-fragment blending, a.k.a. compositing):
 
 * "auto": classic alpha blending, with ``depth_write`` defaulting to True if ``.opacity==1``.
 * "blend": classic alpha blending using the over-operator.
@@ -186,9 +186,9 @@ and it comes with the following 'builtin' values:
 
 * 1000: background.
 * 2000: opaque non-blending objects.
-* 2400: opaque objects with a discard based on alpha (i.e. using ``alpha_test`` or "stochasric" alpha-mode).
-* 2600: transparent objects that write depth.
-* 3000: transparent objects that don't write depth.
+* 2400: opaque objects with a discard based on alpha (i.e. using ``alpha_test`` or "stochastic" alpha-mode).
+* 2600: objects with alpha-mode 'auto' and opacity 1.
+* 3000: transparent objects (including 'auto' mode with opacity < 1).
 * 4000: overlay.
 
 These values are not accessible as enums because that would inhibit assignment of custom values. The set value
@@ -231,6 +231,7 @@ One can also control whether an object writes to the depth buffer. If
 Objects that don't write depth are usually drawn after objects that do write depth.
 In Pygfx, the default value of ``material.depth_write``
 is True when ``material.alpha_method`` is "opaque" or "stochastic", and False otherwise.
+With ``alpha_mode='auto'``, it is True when ``material.opacity==1`` and False otherwise.
 
 
 List of transparency use-cases
