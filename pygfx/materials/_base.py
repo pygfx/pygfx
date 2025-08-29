@@ -561,9 +561,9 @@ class Material(Trackable):
 
         * 1000: background.
         * 2000: opaque non-blending objects.
-        * 2400: opaque objects with a discard based on alpha (i.e. using ``alpha_test`` or "stochasric" alpha-mode).
-        * 2600: transparent objects that write depth.
-        * 3000: transparent objects that don't write depth.
+        * 2400: opaque objects with a discard based on alpha (i.e. using ``alpha_test`` or "stochastic" alpha-method).
+        * 2600: objects with alpha-mode 'auto' and opacity 1.
+        * 3000: transparent objects (including 'auto' mode with opacity < 1).
         * 4000: overlay.
 
         Objects with ``render_queue`` between 1501 and 2500 are sorted front-to-back. Otherwise
@@ -589,17 +589,14 @@ class Material(Trackable):
             self._render_queue = self._given_render_queue
         elif self.alpha_mode == "auto":
             if self.opacity == 1:
-                if getattr(self, "aa", False):
-                    # Anti-aliased objects render later than non-AA objects
-                    render_queue = 2400
-                else:
-                    render_queue = 2000
+                # An "opaque" auto-object, but it may have semi-transparent fragments,
+                # because of aa, or maps with transparent regions. So back-to-front.
+                render_queue = 2600
             else:
                 render_queue = 3000
             self._render_queue = render_queue
         else:
             alpha_method = self.alpha_config["method"]
-            depth_write = self.depth_write
             if alpha_method == "opaque":
                 if not self._store.use_alpha_test:
                     render_queue = 2000
@@ -608,10 +605,7 @@ class Material(Trackable):
             elif alpha_method == "stochastic":
                 render_queue = 2400
             else:  # alpha_method in ["blended", "weighted"]
-                if depth_write:
-                    render_queue = 2600
-                else:
-                    render_queue = 3000
+                render_queue = 3000
             self._render_queue = render_queue
 
     def _get_alpha_config_options(
@@ -693,7 +687,6 @@ class Material(Trackable):
             self._store.depth_write = bool(value)
         else:
             raise TypeError("material.depth_write must be bool or None.")
-        self._derive_render_queue()
 
     @property
     def depth_write_is_set(self):
@@ -716,8 +709,10 @@ class Material(Trackable):
         self.uniform_buffer.data["alpha_test"] = value
         self.uniform_buffer.update_full()
         # Store whether the alpha test is active, so we can invalidate shaders
-        self._store.use_alpha_test = value != 0
-        self._derive_render_queue()
+        use_alpha_test = value != 0
+        if use_alpha_test != self._store.use_alpha_test:
+            self._store.use_alpha_test = use_alpha_test
+            self._derive_render_queue()
 
     @property
     def alpha_compare(self) -> str:
