@@ -37,7 +37,7 @@ jobs:
           ruff format --check .
     - name: slotscheck
       run: |
-          slotscheck pygfx
+          python -m slotscheck pygfx
 
   docs-build:
     name: Docs
