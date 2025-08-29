@@ -646,13 +646,14 @@ class _GLTF:
             pbr_metallic_roughness = material.pbrMetallicRoughness
             if pbr_metallic_roughness is not None:
                 if pbr_metallic_roughness.baseColorFactor is not None:
-                    gfx_material.color = gfx.Color.from_physical(
+                    gfx_material.color = gfx.Color(
                         *pbr_metallic_roughness.baseColorFactor
                     )
 
                 if pbr_metallic_roughness.baseColorTexture is not None:
                     gfx_material.map = self._load_gltf_texture_map(
-                        pbr_metallic_roughness.baseColorTexture
+                        pbr_metallic_roughness.baseColorTexture,
+                        colorspace=gfx.ColorSpace.srgb,
                     )
 
                 if pbr_metallic_roughness.metallicRoughnessTexture is not None:
@@ -688,13 +689,11 @@ class _GLTF:
                 )
 
             if material.emissiveFactor is not None:
-                gfx_material.emissive = gfx.Color.from_physical(
-                    *material.emissiveFactor
-                )
+                gfx_material.emissive = gfx.Color(*material.emissiveFactor)
 
             if material.emissiveTexture is not None:
                 gfx_material.emissive_map = self._load_gltf_texture_map(
-                    material.emissiveTexture
+                    material.emissiveTexture, colorspace=gfx.ColorSpace.srgb
                 )
 
         if material.alphaMode == "BLEND":
@@ -716,7 +715,9 @@ class _GLTF:
 
         return gfx_material
 
-    def _load_gltf_texture_map(self, texture_info):
+    def _load_gltf_texture_map(
+        self, texture_info, colorspace=gfx.ColorSpace.no_colorspace
+    ):
         if isinstance(texture_info, dict):
             texture_index = texture_info["index"]
             uv_channel = texture_info.get("texCoord", 0)
@@ -726,7 +727,7 @@ class _GLTF:
             uv_channel = texture_info.texCoord or 0
             extensions = texture_info.extensions or {}
 
-        texture = self._load_gltf_texture(texture_index)
+        texture = self._load_gltf_texture(texture_index, colorspace=colorspace)
         if texture is None:
             return None
 
@@ -779,7 +780,9 @@ class _GLTF:
         return texture_map
 
     @lru_cache(maxsize=None)
-    def _load_gltf_texture(self, texture_index):
+    def _load_gltf_texture(
+        self, texture_index, colorspace=gfx.ColorSpace.no_colorspace
+    ):
         texture_desc = self._gltf.model.textures[texture_index]
 
         extensions = texture_desc.extensions or {}
@@ -793,7 +796,7 @@ class _GLTF:
         if source is None:
             return None
         image = self._load_image(source)
-        texture = gfx.Texture(image, dim=2)
+        texture = gfx.Texture(image, dim=2, colorspace=colorspace)
         return texture
 
     @lru_cache(maxsize=None)
@@ -1202,13 +1205,13 @@ class GLTFMaterialsSpecularExtension(GLTFBaseMaterialsExtension):
             )
 
         specular_color = extension.get("specularColorFactor", [1.0, 1.0, 1.0])
-        material.specular = gfx.Color.from_physical(*specular_color)
+        material.specular = gfx.Color(*specular_color)
 
         specular_color_texture = extension.get("specularColorTexture", None)
 
         if specular_color_texture is not None:
             material.specular_map = self.parser._load_gltf_texture_map(
-                specular_color_texture
+                specular_color_texture, colorspace=gfx.ColorSpace.srgb
             )
 
 
@@ -1341,12 +1344,12 @@ class GLTFMaterialsSheenExtension(GLTFBaseMaterialsExtension):
         sheen_color = extension.get("sheenColorFactor", None)
         if sheen_color is not None:
             material.sheen = 1.0
-            material.sheen_color = gfx.Color.from_physical(*sheen_color)
+            material.sheen_color = gfx.Color(*sheen_color)
 
         sheen_color_texture = extension.get("sheenColorTexture", None)
         if sheen_color_texture is not None:
             material.sheen_color_map = self.parser._load_gltf_texture_map(
-                sheen_color_texture
+                sheen_color_texture, colorspace=gfx.ColorSpace.srgb
             )
 
         sheen_roughness_factor = extension.get("sheenRoughnessFactor", None)
@@ -1394,13 +1397,12 @@ class GLTFMaterialsUnlitExtension(GLTFBaseMaterialsExtension):
         pbr_metallic_roughness = material_def.pbrMetallicRoughness
         if pbr_metallic_roughness is not None:
             if pbr_metallic_roughness.baseColorFactor is not None:
-                material.color = gfx.Color.from_physical(
-                    *pbr_metallic_roughness.baseColorFactor
-                )
+                material.color = gfx.Color(*pbr_metallic_roughness.baseColorFactor)
 
             if pbr_metallic_roughness.baseColorTexture is not None:
                 material.map = self.parser._load_gltf_texture_map(
-                    pbr_metallic_roughness.baseColorTexture
+                    pbr_metallic_roughness.baseColorTexture,
+                    colorspace=gfx.ColorSpace.srgb,
                 )
 
 
@@ -1438,7 +1440,7 @@ class GLTFLightsExtension(GLTFExtension):
             light_info = light_defs[light_index]
 
             color = light_info.get("color", [1, 1, 1])
-            light_color = gfx.Color.from_physical(*color)
+            light_color = gfx.Color(*color)
             light_range = light_info.get("range", 0)
             intensity = light_info.get("intensity", 1.0)
 

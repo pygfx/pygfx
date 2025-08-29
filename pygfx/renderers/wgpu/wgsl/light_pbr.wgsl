@@ -202,8 +202,8 @@ fn getMipLevel(maxMIPLevelScalar: f32, level: f32) -> f32 {
 
 fn getIBLIrradiance( normal: vec3<f32> ) -> vec3<f32> {
     let mip_level = getMipLevel(u_material.env_map_max_mip_level, 1.0);
-    let envMapColor_srgb = textureSampleLevel( t_env_map, s_env_map, vec3<f32>( -normal.x, normal.yz), mip_level );
-    return srgb2physical(envMapColor_srgb.rgb) * u_material.env_map_intensity * PI;
+    let envMapColor = textureSampleLevel( t_env_map, s_env_map, vec3<f32>( -normal.x, normal.yz), mip_level );
+    return envMapColor.rgb * u_material.env_map_intensity * PI;
 }
 
 fn getIBLRadiance(view_dir: vec3<f32>, normal: vec3<f32>, roughness: f32) -> vec3<f32> {
@@ -215,8 +215,8 @@ fn getIBLRadiance(view_dir: vec3<f32>, normal: vec3<f32>, roughness: f32) -> vec
         let mip_level = 1.0;
     $$ endif
     reflectVec = normalize(mix(reflectVec, normal, roughness*roughness));
-    let envMapColor_srgb = textureSampleLevel( t_env_map, s_env_map, vec3<f32>( -reflectVec.x, reflectVec.yz), mip_level );
-    return srgb2physical(envMapColor_srgb.rgb) * u_material.env_map_intensity;
+    let envMapColor = textureSampleLevel( t_env_map, s_env_map, vec3<f32>( -reflectVec.x, reflectVec.yz), mip_level );
+    return envMapColor.rgb * u_material.env_map_intensity;
 }
 
 
