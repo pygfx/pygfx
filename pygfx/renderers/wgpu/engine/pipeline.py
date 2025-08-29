@@ -353,7 +353,7 @@ class PipelineContainer:
             self.wobject_info = {}
             with tracker.track_usage("reset"):
                 self.wobject_info["pick_write"] = wobject.material.pick_write
-                alpha_method = wobject.material._store.alpha_method
+                alpha_method = wobject.material.alpha_method
                 self.wobject_info["alpha_method"] = alpha_method
                 if alpha_method in ["opaque", "stochastic", "weighted"]:
                     self.wobject_info["alpha_config"] = wobject.material.alpha_config

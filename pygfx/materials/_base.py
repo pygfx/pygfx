@@ -26,16 +26,6 @@ ALPHA_MODES = {
         "method": "opaque",
         "premultiply_alpha": True,
     },
-    "dither": {
-        "method": "stochastic",
-        "pattern": "blue_noise",
-        "seed": "element",
-    },
-    "bayer": {
-        "method": "stochastic",
-        "pattern": "bayer",
-        "seed": "object",  # bc not enough variation to do 'element'
-    },
     "blend": {
         "method": "blended",
         "color_op": "add",
@@ -89,6 +79,16 @@ ALPHA_MODES = {
         "method": "weighted",
         "weight": "alpha",
         "alpha": "1.0",
+    },
+    "dither": {
+        "method": "stochastic",
+        "pattern": "blue_noise",
+        "seed": "element",
+    },
+    "bayer": {
+        "method": "stochastic",
+        "pattern": "bayer",
+        "seed": "object",  # bc not enough variation to do 'element'
     },
 }
 
@@ -323,33 +323,34 @@ class Material(Trackable):
         The ``material.alpha_mode`` is the recommended way to specify how an
         object's color is combined with the colors of earlier rendered objects.
         It provides preset configurations covering the majority of use-cases.
-        There are a handful of modes to choose from, divided over four different
-        methods. If more control is needed, see ``alpha_config``.
+
+        The ``alpha_mode`` is a convenient way to set ``alpha_method`` and ``alpha_config`.
+        If more control is needed, set ``alpha_config`` directly.
 
         Modes for method "opaque" (overwrites the value in the output texture):
 
-        * "solid": alpha is ignored.
-        * "solid_premul": the alpha is multipled with the color (making it darker).
+         * "solid": alpha is ignored.
+         * "solid_premul": the alpha is multipled with the color (making it darker).
 
-        Modes for method "blended" (per-fragment blending of the object's color and the color in the output texture):
+        Modes for method "blended" (per-fragment blending, a.k.a. compositing):
 
-        * "auto": classic alpha blending, with ``depth_write`` defaulting to True if ``.opacity==1``. See note below.
-        * "blend": classic alpha blending using the over-operator. ``depth_write`` defaults to False.
-        * "add": additive blending that adds the fragment color, multiplied by alpha.
-        * "subtract": subtractuve blending that removes the fragment color.
-        * "multiply": multiplicative blending that multiplies the fragment color.
-
-        Modes for method "stochastic" (alpha represents the chance of a fragment being visible):
-
-        * "dither": stochastic transparency with blue noise. This mode handles
-          order-independent transparency exceptionally well, but it produces
-          results that can look somewhat noisy.
-        * "bayer": stochastic transparency with an 8x8 Bayer pattern.
+         * "auto": classic alpha blending, with ``depth_write`` defaulting to True if ``.opacity==1``. See note below.
+         * "blend": classic alpha blending using the over-operator. ``depth_write`` defaults to False.
+         * "add": additive blending that adds the fragment color, multiplied by alpha.
+         * "subtract": subtractuve blending that removes the fragment color.
+         * "multiply": multiplicative blending that multiplies the fragment color.
 
         Modes for method "weighted" (order independent blending):
 
-        * "weighted_blend": weighted blended order independent transparency.
-        * "weighted_solid": fragments are combined based on alpha, but the final alpha is always 1. Great for e.g. image stitching.
+         * "weighted_blend": weighted blended order independent transparency.
+         * "weighted_solid": fragments are combined based on alpha, but the final alpha is always 1. Great for e.g. image stitching.
+
+        Modes for method "stochastic" (alpha represents the chance of a fragment being visible):
+
+         * "dither": stochastic transparency with blue noise. This mode handles
+           order-independent transparency exceptionally well, but it produces
+           results that can look somewhat noisy.
+         * "bayer": stochastic transparency with an 8x8 Bayer pattern.
 
         Note that the special mode "auto" produces reasonable results for common
         use-cases and can handle objects that produce a mix of opaque (alpha=1)
@@ -364,10 +365,9 @@ class Material(Trackable):
         ``depth_write`` defaults to False. Mode "auto" is an exception to this rule.
 
         Note that the value of ``material.alpha_mode`` can be "custom" in case
-        ``alpa_config`` is set to a configuration not covered by a builtin mode.
+        ``alpa_config`` is set to a configuration not covered by a preset mode.
         """
-
-        return self._store.alpha_config["mode"]
+        return self._store.alpha_mode
 
     @alpha_mode.setter
     def alpha_mode(self, alpha_mode: AlphaMode):
@@ -381,9 +381,9 @@ class Material(Trackable):
         if alpha_mode in AlphaMethod:
             m = {
                 "opaque": "solid",
-                "stochastic": "dither",
                 "blended": "blend",
                 "weighted": "weighted_blend",
+                "stochastic": "dither",
             }
             suggestion = m.get(alpha_mode, "solid")
             raise ValueError(
@@ -400,6 +400,23 @@ class Material(Trackable):
         self.alpha_config = d
 
     @property
+    def alpha_method(self) -> str:
+        """The alpha method being used (readonly).
+
+        The alpha method determines the main way how alpha values are used. There are four options:
+
+        * "opaque" means the fragments overwrite value in the color buffer.
+        * "blended" means the fragments are blended (composited) with the color buffer.
+        * "weighted" means the fragments are blended in a weighted order-independent way.
+        * "stochastic" means the fragments are opaque, and alpha represents the chance of a fragment being visible.
+
+        The ``alpha_config`` dictionary specifies extra parameters that affect the behavour of each alpha method.
+        The ``alpha_mode`` is a convenient way to set ``alpha_config`` (and ``alpha_method``) using presets
+
+        """
+        return self._store.alpha_method
+
+    @property
     def alpha_config(self) -> dict:
         """Dict that defines how the the resulting colors are combined with the target color texture.
 
@@ -410,9 +427,9 @@ class Material(Trackable):
         All possible alpha configurations are grouped in four methods:
 
         * "opaque": colors simply overwrite the texture, no transparency.
-        * "stochastic": stochastic transparency, alpha represents the chance of a fragment being visible.
         * "blended": colors are blended with the buffer per-fragment.
         * "weighted": weighted blended order independent transparency, and variants thereof.
+        * "stochastic": stochastic transparency, alpha represents the chance of a fragment being visible.
 
         The ``alpha_config`` dict has at least the following fields:
 
@@ -425,14 +442,6 @@ class Material(Trackable):
         Options for method 'opaque':
 
         * "premultiply": whether to pre-multiply the color with the alpha values.
-
-        Options for method 'stochastic':
-
-        * "pattern": can be 'blue-noise' for blue noise (default), 'white-noise' for white
-          noise, and 'bayer' for a Bayer pattern.
-        * "seed": can be 'screen' to have a uniform pattern for the whole screen, 'object' to
-          use a per-object seed, and 'element' to have a per-element seed.
-          The default is 'element' for  the noise patterns and 'object' for the bayer pattern.
 
         Options for method 'blended':
 
@@ -450,6 +459,15 @@ class Material(Trackable):
         * "weight"``": the weight factor as wgsl code. Default "alpha", which means use the color's alpha value.
         * "alpha": the used alpha value. Default "alpha", which means use as-is. Can e.g. be set to 1.0
           so that the alpha channel can be used as the weight factor, while the object is otherwise opaque.
+
+        Options for method 'stochastic':
+
+        * "pattern": can be 'blue-noise' for blue noise (default), 'white-noise' for white
+          noise, and 'bayer' for a Bayer pattern.
+        * "seed": can be 'screen' to have a uniform pattern for the whole screen, 'object' to
+          use a per-object seed, and 'element' to have a per-element seed.
+          The default is 'element' for  the noise patterns and 'object' for the bayer pattern.
+
 
         """
         return self._store.alpha_config.copy()
@@ -521,6 +539,7 @@ class Material(Trackable):
             the_mode = "auto"
 
         # Save
+        self._store.alpha_mode = the_mode
         self._store.alpha_method = method
         self._store.alpha_config = ReadOnlyDict(
             {
@@ -649,10 +668,10 @@ class Material(Trackable):
         """
         depth_write = self._store.depth_write
         if depth_write is None:
-            if self._store.alpha_config["mode"] == "auto":
+            if self._store.alpha_mode == "auto":
                 depth_write = self._store.opacity_is_one
             else:
-                alpha_method = self._store.alpha_config["method"]
+                alpha_method = self._store.alpha_method
                 depth_write = alpha_method in ("opaque", "stochastic")
         return depth_write
 
