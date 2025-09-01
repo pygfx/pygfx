@@ -1,5 +1,6 @@
+----------------------
 Anti-aliasing in PyGfx
-======================
+----------------------
 
 Aliasing in a render engine is the visual distortion that happens when
 high-frequency detail (like thin lines, edges, or patterns) is sampled at too
@@ -36,18 +37,18 @@ straightforward technique. However, it is relatively costly in terms of memory
 and performance (more pixels to render means more invocations for the fragment
 shaders).
 
-In PyGfxpixel_scale determines the scale in resolution of the internal texture:
+In PyGfx, the ``renderer.pixel_scale`` determines the scale in resolution of the internal texture:
 a value > 1 means that SSAA is used. A value < 1 means that a lower-resolution internal texture
 is used, which is then upscaled to the screen resolution (a performance trick).
 
-By default, ``renderer.pixel_scale`` is 2 for normal displays, and 1 for HiDPI
+By default, ``pixel_scale`` is 2 for normal displays, and 1 for HiDPI
 displays. In effect, the resolution of the internal texture is more or less
 independent of the screen being used. If you don't want SSAA, set
 ``renderer.pixel_scale=1``.
 
 The ``renderer.pixel_filter`` determines the filter being used. The default is the
 Mitchell filter, a quadratic filter suitable for image reconstruction.
-When ``pixel_scale==1``, no filtering is applied.
+When ``pixel_scale==1``, the texture image is simply copied without a filter.
 
 
 Post-processing anti-aliasing (PPAA)
@@ -63,7 +64,8 @@ technique, and produces results that typically look smoother than with (only) SS
 There exist a variety of PPAA algorithms, which vary in their speed,
 effectiveness to reduce jaggies, and introduction of unintended blurring. A well
 known algorithm is FXAA (fast approxomate anti-aliasing). Pygfx by default uses DDAA
-(directional-diffusion aa). See ``renderer.ppaa`` to select the algorithm or turn it off.
+(directional-diffusion anti-aliasing), which has improved performance and image quality compared to FXAA.
+See ``renderer.ppaa`` to select the algorithm or turn it off.
 
 
 Shader-based anti-aliasing
@@ -86,7 +88,7 @@ applied, because these alpha-methods don't support per-fragment blending.
 Not supported
 -------------
 
-Multisample anti-aliasing (MSAA), a common method intended mostly for mesh
+Multi-sample anti-aliasing (MSAA), a common method intended mostly for mesh
 objects, is currently not supported.
 
 

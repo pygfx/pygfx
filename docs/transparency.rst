@@ -1,5 +1,6 @@
+---------------------
 Transparency in PyGfx
-=====================
+---------------------
 
 When rendering objects with PyGfx, the shader calculates the color and alpha
 value for each fragment (i.e. output pixel) and then writes these to the output
@@ -60,18 +61,40 @@ You probably also want to set ``material.depth_write``, and maybe
 A quick guide to select alpha mode
 ----------------------------------
 
-If your scene is 2D, you can probably use ``alpha_mode`` "blend". It is advisable
-to use the z-dimension to "layer" your objects, which will help the renderer
-to draw the objects in the correct order (from back to front). The "auto" mode will
-also work (but writes to the depth buffer if ``opacity==1``). And you can always use mode "solid"
-for objects that are known to be opaque (and don't have ``material.aa`` set), to help performance.
+The trick to prevent/solve most problems related to transparency is to either make sure that
+the order in which objects are rendered is correct, or to select a mode in which the order does not matter.
+
+Pygfx sorts objects by their distance to the camera. See ``renderer.sort_objects``. But this may not suffice.
+To control the order in which objects are rendered, you can set ``material.render_queue``, ``ob.render_order``, and ``material.depth_write``.
+These are all explained in this document.
+
+Your scene is 2D
+================
+
+If your scene is 2D, you can probably use ``alpha_mode`` "blend". It is
+advisable to use the z-dimension to "layer" your objects, which will help the
+renderer to sort the objects. The "auto" mode will also work (but writes to the
+depth buffer if ``opacity==1``).
+
+Assuming that objects don't intersect, you can turn on ``material.aa`` for text, lines, and points,
+for prettier results.
+
+If you need performance, you can use mode "solid" for objects that are known to
+be opaque. (Though note that mode "solid" disables the use ``material.aa``).
+
+Your scene is 3D
+================
 
 If your scene is 3D, and you only have a few transparent objects, it's probably best/easiest
 to render solid objects with mode "solid", and the few transparent objects with mode "blend".
 
-If you have multiple transparent objects that intersect each-other, the above will not produce
-satisfactory results. Maybe you can split the objects into multiple smaller objects, so that they
-no longer intersect and can be unambiguously sorted by the renderer, based on their distance to the camera.
+If you have a transparent object that intersects other transparent objects or
+itself, the above will not produce satisfactory results, because there is no
+"correct" order.
+
+Maybe you can split the objects into multiple smaller objects, so that they no
+longer intersect and can be unambiguously sorted by the renderer, based on their
+distance to the camera.
 
 Another option to deal with complex transparent geometry is to use mode
 "dither". This produces excellent results from a technical perspective (correct
@@ -79,16 +102,17 @@ Another option to deal with complex transparent geometry is to use mode
 to *some* of the transparent objects, e.g. the ones with the more complex geometry, and use
 "blend" for the rest.
 
-And finally, you can use mode "weighted_blend" to produce a result where the
+Similarly, the mode "weighted_blend" produces the same result indepent of object order. The
 pixel values of all transparent objects are combined in a way that's independent
 of their order or depth. This produces "clear" images, although not really correct, and
 intersections of transparent objects are not visible.
 
-A special note for objects that have both opaque and semi-transparent regions:
+You can also consider making some objects "solid" (or "dither") instead of transparent to
+avoid transparency problems.
+
+If you deal with objects that have both opaque and semi-transparent regions:
 the "auto" mode may render these correctly, assuming objects can be sorted without intersections.
-Otherwise mode "dither" can handle this case perfectly. Though note that using
-'dither' to handle the semi-transparent anti-aliased pixels at the edge of an
-object is a bad idea.
+Otherwise mode "dither" can handle these cases perfectly.
 
 
 Alpha modes
@@ -232,6 +256,19 @@ Objects that don't write depth are usually drawn after objects that do write dep
 In Pygfx, the default value of ``material.depth_write``
 is True when ``material.alpha_method`` is "opaque" or "stochastic", and False otherwise.
 With ``alpha_mode='auto'``, it is True when ``material.opacity==1`` and False otherwise.
+
+
+Not supported
+-------------
+
+Most render engines support the "opaque" and "blended" alpha methods. The
+"weighted" and "stochastic" metghods are generally conidered more special. But they can solve numerous use-cases,
+and these methods have (more or less) the same performance as "opaque" or "blended".
+
+There exist more advanced methods for dealing with transparency, such as dual
+depth peeling, adaptive transparency, and a K-buffer. These methods can produce
+very good results, but they suffer a significant penalty in terms of performance
+and memory usage. This is why methods like these are currently not supported.
 
 
 List of transparency use-cases
