@@ -262,7 +262,7 @@ Not supported
 -------------
 
 Most render engines support the "opaque" and "blended" alpha methods. The
-"weighted" and "stochastic" metghods are generally conidered more special. But they can solve numerous use-cases,
+"weighted" and "stochastic" methods are generally conidered more special. But they can solve numerous use-cases,
 and these methods have (more or less) the same performance as "opaque" or "blended".
 
 There exist more advanced methods for dealing with transparency, such as dual
