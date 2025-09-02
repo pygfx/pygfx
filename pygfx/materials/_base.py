@@ -153,7 +153,7 @@ class Material(Trackable):
         opacity: float = 1,
         clipping_planes: Sequence[ABCDTuple] = (),
         clipping_mode: Literal["ANY", "ALL"] = "ANY",
-        alpha_mode: str = "auto",
+        alpha_mode: Optional[str] = "auto",
         alpha_config: Optional[dict] = None,
         depth_test: bool = True,
         depth_compare: str = "<",
@@ -175,7 +175,7 @@ class Material(Trackable):
         self.clipping_planes = clipping_planes
         self.clipping_mode = clipping_mode
         if alpha_config is None:
-            self.alpha_mode = alpha_mode
+            self.alpha_mode = alpha_mode or "auto"
         else:
             self.alpha_config = alpha_config
         self.depth_test = depth_test
