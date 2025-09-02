@@ -33,6 +33,7 @@ class Ruler(WorldObject):
         tick_side="left",
         min_tick_distance=50,
         ticks_at_end_points=False,
+        alpha_mode="auto",
         aa=True,
     ):
         super().__init__()
@@ -51,18 +52,32 @@ class Ruler(WorldObject):
 
         # Create a line and points object, with a shared geometry
         self._text = MultiText(
-            material=TextMaterial(color="#fff", aa=aa),
+            material=TextMaterial(
+                color="#fff",
+                alpha_mode=alpha_mode,
+                aa=aa,
+            ),
             screen_space=True,
         )
         geometry = self._text.geometry  # has .positions buffer
         geometry.sizes = Buffer(np.zeros(geometry.positions.nitems, "f4"))
         self._line = Line(
             geometry,
-            LineMaterial(color="w", thickness=2, aa=aa),
+            LineMaterial(
+                color="w",
+                thickness=2,
+                alpha_mode=alpha_mode,
+                aa=aa,
+            ),
         )
         self._points = Points(
             geometry,
-            PointsMaterial(color="w", size_mode="vertex", aa=aa),
+            PointsMaterial(
+                color="w",
+                size_mode="vertex",
+                alpha_mode=alpha_mode,
+                aa=aa,
+            ),
         )
 
         self.add(self._line, self._points, self._text)
