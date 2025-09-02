@@ -18,7 +18,7 @@ sys.path.insert(0, str(ROOT_DIR))
 # -- Project information -----------------------------------------------------
 
 project = "pygfx"
-copyright = "2021-2024, Almar Klein, Korijn van Golen"
+copyright = "2021-2025, Almar Klein, Korijn van Golen"
 author = "Almar Klein, Korijn van Golen"
 
 # The full version, including alpha/beta/rc tags

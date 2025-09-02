@@ -9,4 +9,4 @@ The Pygfx guide
     basics.rst
     aa.rst
     transparency.rst
-
+    performance.rst
