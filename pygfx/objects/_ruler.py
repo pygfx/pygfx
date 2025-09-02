@@ -33,8 +33,9 @@ class Ruler(WorldObject):
         tick_side="left",
         min_tick_distance=50,
         ticks_at_end_points=False,
-        alpha_mode="auto",
+        alpha_mode=None,
         aa=True,
+        render_queue=None,
     ):
         super().__init__()
 
@@ -48,36 +49,27 @@ class Ruler(WorldObject):
         self.min_tick_distance = min_tick_distance
         self.ticks_at_end_points = ticks_at_end_points
 
-        aa = bool(aa)
+        # Common kwargs for the materials of the child objects
+        material_kwargs = dict(
+            alpha_mode=alpha_mode,
+            aa=bool(aa),
+            render_queue=render_queue,
+        )
 
         # Create a line and points object, with a shared geometry
         self._text = MultiText(
-            material=TextMaterial(
-                color="#fff",
-                alpha_mode=alpha_mode,
-                aa=aa,
-            ),
+            material=TextMaterial(color="#fff", **material_kwargs),
             screen_space=True,
         )
         geometry = self._text.geometry  # has .positions buffer
         geometry.sizes = Buffer(np.zeros(geometry.positions.nitems, "f4"))
         self._line = Line(
             geometry,
-            LineMaterial(
-                color="w",
-                thickness=2,
-                alpha_mode=alpha_mode,
-                aa=aa,
-            ),
+            LineMaterial(color="w", thickness=2, **material_kwargs),
         )
         self._points = Points(
             geometry,
-            PointsMaterial(
-                color="w",
-                size_mode="vertex",
-                alpha_mode=alpha_mode,
-                aa=aa,
-            ),
+            PointsMaterial(color="w", size_mode="vertex", **material_kwargs),
         )
 
         self.add(self._line, self._points, self._text)
