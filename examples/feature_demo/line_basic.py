@@ -46,7 +46,9 @@ for i in range(len(positions)):
 
 line = gfx.Line(
     gfx.Geometry(positions=positions),
-    gfx.LineMaterial(thickness=22.0, color=(0.8, 0.7, 0.0), aa=False),
+    gfx.LineMaterial(
+        thickness=22.0, color=(0.8, 0.7, 0.0), alpha_mode="blend", aa=False
+    ),
 )
 scene.add(line)
 

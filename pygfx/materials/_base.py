@@ -169,7 +169,6 @@ class Material(Trackable):
             array_from_shadertype(self.uniform_type), force_contiguous=True
         )
         self._given_render_queue = 2000  # init to avoid resolving many times
-        self._store["opacity_is_one"] = None
         self._store["use_alpha_test"] = None
         self.opacity = opacity
         self.clipping_planes = clipping_planes
@@ -248,10 +247,6 @@ class Material(Trackable):
         value = min(max(float(value), 0), 1)
         self.uniform_buffer.data["opacity"] = value
         self.uniform_buffer.update_full()
-        opacity_is_one = value == 1
-        if opacity_is_one != self._store["opacity_is_one"]:
-            self._store.opacity_is_one = opacity_is_one
-            self._derive_render_queue()
 
     @property
     def clipping_planes(self) -> Sequence[ABCDTuple]:
@@ -333,7 +328,7 @@ class Material(Trackable):
 
         Modes for method "blended" (per-fragment blending, a.k.a. compositing):
 
-         * "auto": classic alpha blending, with ``depth_write`` defaulting to True if ``.opacity==1``. See note below.
+         * "auto": classic alpha blending, with ``depth_write`` defaulting to True. See note below.
          * "blend": classic alpha blending using the over-operator. ``depth_write`` defaults to False.
          * "add": additive blending that adds the fragment color, multiplied by alpha.
          * "subtract": subtractuve blending that removes the fragment color.
@@ -354,14 +349,13 @@ class Material(Trackable):
         Note that the special mode "auto" produces reasonable results for common
         use-cases and can handle objects that produce a mix of opaque (alpha=1)
         and transparent (alpha<1) fragments, i.e. it can handle lines, points,
-        and text with ``material.aa=True``. If ``.opacity<1``, the "auto" mode
-        is equal to "blend". Artifacts can occur when objects are rendered out
+        and text with ``material.aa=True``. Artifacts can occur when objects are rendered out
         of order and/or when objects intersect. A different method such as
         "blend", "dither", or "weighted_blend" is then recommended.
 
         Note that for methods 'opaque' and 'stochastic', the ``depth_write``
         defaults to True, and for methods 'blended' and 'weighted' the
-        ``depth_write`` defaults to False. Mode "auto" is an exception to this rule.
+        ``depth_write`` defaults to False (except when mode is 'auto').
 
         Note that the value of ``material.alpha_mode`` can be "custom" in case
         ``alpa_config`` is set to a configuration not covered by a preset mode.
@@ -554,15 +548,15 @@ class Material(Trackable):
         """An integer that represents the group that the renderer uses to sort objects.
 
         The property is intended for advanced usage; it is determined automatically
-        based on ``alpha_method``, ``depth_write`` and ``alpha_test``.
+        based on ``alpha_mode``, ``alpha_method``, and ``alpha_test``.
 
         The ``render_queue`` is a number between 1 and 4999. The builtin values are:
 
         * 1000: background.
         * 2000: opaque non-blending objects.
         * 2400: opaque objects with a discard based on alpha (i.e. using ``alpha_test`` or "stochastic" alpha-method).
-        * 2600: objects with alpha-mode 'auto' and opacity 1.
-        * 3000: transparent objects (including 'auto' mode with opacity < 1).
+        * 2600: objects with alpha-mode 'auto'.
+        * 3000: transparent objects.
         * 4000: overlay.
 
         Objects with ``render_queue`` between 1501 and 2500 are sorted front-to-back. Otherwise
@@ -583,16 +577,18 @@ class Material(Trackable):
         self._given_render_queue = render_queue
         self._derive_render_queue()
 
+    @property
+    def render_queue_is_set(self):
+        """Whether the ``render_queue`` property is set. Otherwise it's auto-determined."""
+        return bool(self._given_render_queue)
+
     def _derive_render_queue(self):
         if self._given_render_queue:
             render_queue = self._given_render_queue
         elif self._store.alpha_mode == "auto":
-            if self.opacity == 1:
-                # An "opaque" auto-object, but it may have semi-transparent fragments,
-                # because of aa, or maps with transparent regions. So back-to-front.
-                render_queue = 2600
-            else:
-                render_queue = 3000
+            # An "opaque" auto-object, but it may have semi-transparent fragments,
+            # because of aa, or maps with transparent regions. So back-to-front.
+            render_queue = 2600
         else:
             alpha_method = self._store.alpha_method
             if alpha_method == "opaque":
@@ -662,7 +658,7 @@ class Material(Trackable):
 
         * True: yes, write depth.
         * False: no, don't write depth.
-        * None: auto-determine based on ``alpha_config`` (default).
+        * None: auto-determine based on ``alpha_coalpha_mode`` and ``alpha_method`` (default).
 
         The auto-option provides good default behaviour for common use-case, but
         if you know what you're doing you should probably just set this value to
@@ -670,11 +666,10 @@ class Material(Trackable):
         """
         depth_write = self._store.depth_write
         if depth_write is None:
-            if self._store.alpha_mode == "auto":
-                depth_write = self._store.opacity_is_one
-            else:
-                alpha_method = self._store.alpha_method
-                depth_write = alpha_method in ("opaque", "stochastic")
+            depth_write = (
+                self._store.alpha_mode == "auto"
+                or self._store.alpha_method in ("opaque", "stochastic")
+            )
         return depth_write
 
     @depth_write.setter
