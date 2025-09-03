@@ -93,7 +93,7 @@ class PointsShader(BaseShader):
         if isinstance(material, PointsMarkerMaterial):
             self["draw_line_on_edge"] = True
 
-    def get_bindings(self, wobject, shared):
+    def get_bindings(self, wobject, shared, scene):
         geometry = wobject.geometry
         material = wobject.material
 
