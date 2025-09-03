@@ -577,6 +577,11 @@ class Material(Trackable):
         self._given_render_queue = render_queue
         self._derive_render_queue()
 
+    @property
+    def render_queue_is_set(self):
+        """Whether the ``render_queue`` property is set. Otherwise it's auto-determined."""
+        return bool(self._given_render_queue)
+
     def _derive_render_queue(self):
         if self._given_render_queue:
             render_queue = self._given_render_queue
