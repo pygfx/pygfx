@@ -62,16 +62,20 @@ Alpha what?
 
 The material has multiple properties related to transparency. Let's list them for clarity:
 
-* ``material.opacity``: an alpha multiplier applied to all fragments of the object.
-* ``material.alpha_mode``: a convenient way to select the alpha config using a preset string.
+These three belong together (setting one also sets the others):
+
 * ``material.alpha_config``: a dict that defines the alpha behaviour in detail.
-* ``material.alpha_method`` (readonly): the alpha config makes use of one of four methods: "opaque", "blended", "weighted", or "stochastic".
+* ``material.alpha_mode``: a convenient way to set ``alpha_config`` using a preset string.
+* ``material.alpha_method`` (readonly): a shorthand for ``alpha_config['method']``. Can be either "opaque", "blended", "weighted", or "stochastic".
+
+Further alpha props:
+
+* ``material.opacity``: an alpha multiplier applied to all fragments of the object.
 * ``material.alpha_test``: the value to compare a fragment's alpha value with to determine if it should be discarded. For things like cut-outs.
 * ``material.alpha_compare``: The comparison function for the alpha test, e.g. ``<``, ``<=``, or ``>``.
 
 Some of these properties affect other properties:
 
-* Setting ``alpha_mode`` sets ``alpha_config`` and ``alpha_method``, and setting ``alpha_config`` also changes the other two.
 * If the ``material.render_queue`` is not set, it is derived from ``alpha_mode``, ``alpha_method`` and ``alpha_test``.
 * If the ``material.depth_write`` is not set, it is derived from ``alpha_mode`` and ``alpha_method`` (``depth_write = alpha_mode=='auto' or alpha_method in ('opaque', 'stochastic')``).
 
