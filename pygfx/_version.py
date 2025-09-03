@@ -21,7 +21,7 @@ from pathlib import Path
 
 # This is the base version number, to be bumped before each release.
 # The build system detects this definition when building a distribution.
-__version__ = "0.12.0"
+__version__ = "0.13.0"
 
 # Set this to your library name
 project_name = "pygfx"
