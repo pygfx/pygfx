@@ -974,7 +974,7 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
     $$ else
         let color = u_material.color;
     $$ endif
-    var physical_color = srgb2physical(color.rgb);
+    var physical_color = color.rgb;
 
     $$ if false
         // Alternative debug options during dev.

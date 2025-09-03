@@ -383,7 +383,6 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
     $$ else
         // to support color modes
         var diffuse_color = u_material.color;
-        diffuse_color = vec4f(srgb2physical(diffuse_color.rgb), diffuse_color.a);
 
         $$ if color_mode != 'uniform'
             $$ if use_map
@@ -392,10 +391,6 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
                     var diffuse_map = sample_colormap(varyings.texcoord);
                 $$ else
                     var diffuse_map = textureSample(t_map, s_map, map_uv);
-                $$ endif
-
-                $$ if colorspace == 'srgb'
-                    diffuse_map = vec4f(srgb2physical(diffuse_map.rgb), diffuse_map.a);
                 $$ endif
 
                 $$ if color_mode == 'vertex_map' or color_mode == 'face_map'
@@ -516,7 +511,7 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
         var irradiance = getAmbientLightIrradiance( ambient_color );
         // Light map (pre-baked lighting)
         $$ if use_light_map is defined
-            let light_map_color = srgb2physical( textureSample( t_light_map, s_light_map, light_map_uv ).rgb );
+            let light_map_color = textureSample( t_light_map, s_light_map, light_map_uv ).rgb;
             irradiance += light_map_color * u_material.light_map_intensity;
         $$ endif
 
@@ -524,7 +519,6 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
         RE_IndirectDiffuse( irradiance, geometry, material, &reflected_light );
 
         // Indirect Specular Light
-        // IBL (srgb2physical and intensity is handled in the getter functions)
         $$ if USE_IBL is defined
 
             $$ if USE_ANISOTROPY is defined
@@ -546,7 +540,7 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
         // for basic material
         // Light map (pre-baked lighting)
         $$ if use_light_map is defined
-            let light_map_color = srgb2physical( textureSample( t_light_map, s_light_map, light_map_uv ).rgb );
+            let light_map_color = textureSample( t_light_map, s_light_map, light_map_uv ).rgb;
             reflected_light.indirect_diffuse += light_map_color * u_material.light_map_intensity * RECIPROCAL_PI;
         $$ else
             reflected_light.indirect_diffuse += vec3<f32>(1.0);
@@ -582,9 +576,9 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
     // Add emissive color
     // Now for phong、pbr and toon lighting
     $$ if lighting
-        var emissive_color = srgb2physical(u_material.emissive_color.rgb) * u_material.emissive_intensity;
+        var emissive_color = u_material.emissive_color.rgb * u_material.emissive_intensity;
         $$ if use_emissive_map is defined
-            emissive_color *= srgb2physical(textureSample(t_emissive_map, s_emissive_map, emissive_map_uv).rgb);
+            emissive_color *= textureSample(t_emissive_map, s_emissive_map, emissive_map_uv).rgb;
         $$ endif
         physical_color += emissive_color;
     $$ endif
@@ -610,8 +604,7 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
         $$ elif env_mapping_mode == "CUBE-REFRACTION"
             var reflectVec = refract( -view, normal, u_material.refraction_ratio );
         $$ endif
-        var env_color_srgb = textureSample( t_env_map, s_env_map, vec3<f32>( -reflectVec.x, reflectVec.yz) );
-        let env_color = srgb2physical(env_color_srgb.rgb); // TODO: maybe already in linear-space
+        let env_color = textureSample( t_env_map, s_env_map, vec3<f32>( -reflectVec.x, reflectVec.yz) );
         $$ if env_combine_mode == 'MULTIPLY'
             physical_color = mix(physical_color, physical_color * env_color.xyz, specular_strength * reflectivity);
         $$ elif env_combine_mode == 'MIX'

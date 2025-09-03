@@ -38,7 +38,7 @@ struct GeometricContext {
 $$ if num_dir_lights > 0
 fn getDirectionalLightInfo( directional_light: DirectionalLight, geometry: GeometricContext ) -> IncidentLight {
     var light: IncidentLight;
-    light.color = srgb2physical(directional_light.color.rgb) * directional_light.intensity;
+    light.color = directional_light.color.rgb * directional_light.intensity;
     light.direction = -directional_light.direction.xyz;
     light.visible = true;
     return light;
@@ -51,7 +51,7 @@ fn getPointLightInfo( point_light: PointLight, geometry: GeometricContext ) -> I
     let i_vector = point_light.world_transform[3].xyz - geometry.position;
     light.direction = normalize(i_vector);
     let light_distance = length(i_vector);
-    light.color = srgb2physical(point_light.color.rgb) * point_light.intensity;
+    light.color = point_light.color.r * point_light.intensity;
     light.color *= getDistanceAttenuation( light_distance, point_light.distance, point_light.decay );
     light.visible = any(light.color != vec3<f32>(0.0));
     return light;
@@ -67,7 +67,7 @@ fn getSpotLightInfo( spot_light: SpotLight, geometry: GeometricContext ) -> Inci
     let spot_attenuation = getSpotAttenuation(spot_light.cone_cos, spot_light.penumbra_cos, angle_cos);
     if ( spot_attenuation > 0.0 ) {
         let light_distance = length( i_vector );
-        light.color = srgb2physical(spot_light.color.rgb) * spot_light.intensity;
+        light.color = spot_light.color.rgb * spot_light.intensity;
         light.color *= spot_attenuation;
         light.color *= getDistanceAttenuation( light_distance, spot_light.distance, spot_light.decay );
         light.visible = any(light.color != vec3<f32>(0.0));
