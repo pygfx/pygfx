@@ -38,12 +38,11 @@ There are 3 levels of control:
 
 1. Use the default ``material.alpha_mode = "auto"``:
 
-In this mode, solid objects write depth and blend. Objects that
+In this mode, solid objects blend and write depth. Objects that
 are opaque (alpha=1) are rendered correctly, as are objects that are
 (partially) transparent, as long as the objects
 don't intersect (in other words, they can be sorted based on their distance from the
-camera). Objects with ``material.opacity<1`` behave the same as with
-``alpha_mode=="blend"``.
+camera).
 
 2. Set ``material.alpha_mode`` to a preset string:
 
@@ -56,6 +55,29 @@ In this advanced approach you can choose between four methods ("opaque",
 "blended", "weighted", "stochastic"), which each have a set of options.
 You probably also want to set ``material.depth_write``, and maybe
 ``material.render_queue`` and/or ``ob.render_order``.
+
+
+Alpha what?
+-----------
+
+The material has multiple properties related to transparency. Let's list them for clarity:
+
+These three belong together (setting one also sets the others):
+
+* ``material.alpha_config``: a dict that defines the alpha behaviour in detail.
+* ``material.alpha_mode``: a convenient way to set ``alpha_config`` using a preset string.
+* ``material.alpha_method`` (readonly): a shorthand for ``alpha_config['method']``. Can be either "opaque", "blended", "weighted", or "stochastic".
+
+Further alpha props:
+
+* ``material.opacity``: an alpha multiplier applied to all fragments of the object.
+* ``material.alpha_test``: the value to compare a fragment's alpha value with to determine if it should be discarded. For things like cut-outs.
+* ``material.alpha_compare``: The comparison function for the alpha test, e.g. ``<``, ``<=``, or ``>``.
+
+Some of these properties affect other properties:
+
+* If the ``material.render_queue`` is not set, it is derived from ``alpha_mode``, ``alpha_method`` and ``alpha_test``.
+* If the ``material.depth_write`` is not set, it is derived from ``alpha_mode`` and ``alpha_method`` (``depth_write = alpha_mode=='auto' or alpha_method in ('opaque', 'stochastic')``).
 
 
 A quick guide to select alpha mode
@@ -73,8 +95,7 @@ Your scene is 2D
 
 If your scene is 2D, you can probably use ``alpha_mode`` "blend". It is
 advisable to use the z-dimension to "layer" your objects, which will help the
-renderer to sort the objects. The "auto" mode will also work (but writes to the
-depth buffer if ``opacity==1``).
+renderer to sort the objects. The "auto" mode will also work (but writes to the depth buffer).
 
 Assuming that objects don't intersect, you can turn on ``material.aa`` for text, lines, and points,
 for prettier results.
@@ -97,9 +118,9 @@ longer intersect and can be unambiguously sorted by the renderer, based on their
 distance to the camera.
 
 Another option to deal with complex transparent geometry is to use mode
-"dither". This produces excellent results from a technical perspective (correct
-"blending") but produces somewhat noisy images. You can also apply mode "dither"
-to *some* of the transparent objects, e.g. the ones with the more complex geometry, and use
+"dither". This produces excellent results from a technical perspective, but produces somewhat noisy images.
+Alternatively, the mode "bayer" is also stochastic, but produces patterns that don't look so noisy.
+You can also apply one of these modes to *some* of the transparent objects, e.g. the ones with the more complex geometry, and use
 "blend" for the rest.
 
 Similarly, the mode "weighted_blend" produces the same result indepent of object order. The
@@ -107,12 +128,12 @@ pixel values of all transparent objects are combined in a way that's independent
 of their order or depth. This produces "clear" images, although not really correct, and
 intersections of transparent objects are not visible.
 
-You can also consider making some objects "solid" (or "dither") instead of transparent to
+You can also consider making some objects "solid" instead of transparent to
 avoid transparency problems.
 
 If you deal with objects that have both opaque and semi-transparent regions:
 the "auto" mode may render these correctly, assuming objects can be sorted without intersections.
-Otherwise mode "dither" can handle these cases perfectly.
+Otherwise mode "dither" can handle these cases well.
 
 
 Alpha modes
@@ -128,7 +149,7 @@ Method "opaque" (overwrites the value in the output texture):
 
 Method "blended" (per-fragment blending, a.k.a. compositing):
 
-* "auto": classic alpha blending, with ``depth_write`` defaulting to True if ``.opacity==1``.
+* "auto": classic alpha blending, with ``depth_write`` defaulting to True.
 * "blend": classic alpha blending using the over-operator.
 * "add": additive blending that adds the fragment color, multiplied by alpha.
 * "subtract": subtractive blending that removes the fragment color.
@@ -154,12 +175,7 @@ The renderer sorts these objects front-to-back to avoid overdraw (for performanc
 
 In contrast, the "blended" and "weighted" methods result in semi-transparent fragments,
 and by default have ``depth_write=False``. The renderer sorts these object back-to-front to
-improve the chance of correct blending. Note that with the 'auto' mode, the default ``depth_write`` depends
-on the ``opacity``.
-
-
-Alpha methods in detail
------------------------
+improve the chance of correct blending.
 
 **Alpha method 'opaque'** represents no transparency. The fragment color
 overwrites the value in the output texture. A very common method in render engines.
@@ -211,8 +227,8 @@ and it comes with the following 'builtin' values:
 * 1000: background.
 * 2000: opaque non-blending objects.
 * 2400: opaque objects with a discard based on alpha (i.e. using ``alpha_test`` or "stochastic" alpha-mode).
-* 2600: objects with alpha-mode 'auto' and opacity 1.
-* 3000: transparent objects (including 'auto' mode with opacity < 1).
+* 2600: objects with alpha-mode 'auto'.
+* 3000: transparent objects.
 * 4000: overlay.
 
 These values are not accessible as enums because that would inhibit assignment of custom values. The set value
@@ -234,7 +250,7 @@ How the renderer sorts objects
 The order in wich objects are rendered is:
 
 1. the ``material.render_queue``.
-2. the effective ``render_order``.
+2. the effective ``object.render_order``.
 3. the distance to camera (if ``render.sort_objects==True``).
 4. the position of the object in the scene graph.
 
@@ -257,8 +273,7 @@ One can also control whether an object writes to the depth buffer. If
 
 Objects that don't write depth are usually drawn after objects that do write depth.
 In Pygfx, the default value of ``material.depth_write``
-is True when ``material.alpha_method`` is "opaque" or "stochastic", and False otherwise.
-With ``alpha_mode='auto'``, it is True when ``material.opacity==1`` and False otherwise.
+is True when ``alpha_method in ("opaque", "stochastic")`` or when ``alpha_mode="auto"``.
 
 
 Not supported
