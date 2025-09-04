@@ -280,11 +280,13 @@ class WorldObject(EventTarget, Trackable):
 
         The effective render order is the sum of its render order and thet of all its parents.
 
-        The final sort order is typically determined by:
-            1. the ``material.render_queue``
-            2. effective ``render_order``
-            3. distance to camera
+        The order in wich objects are rendered is:
+            1. the ``material.render_queue``.
+            2. the effective ``render_order``.
+            3. the distance to camera (if ``render.sort_objects==True``).
+            4. the position of the object in the scene graph.
 
+        Also see ``material.render_queue``.
         """
         # Note: the render order is on the object, not the material, because it affects
         # a specific object, and materials are often shared between multiple objects.

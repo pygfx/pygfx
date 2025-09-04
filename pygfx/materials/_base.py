@@ -547,8 +547,8 @@ class Material(Trackable):
     def render_queue(self) -> int:
         """An integer that represents the group that the renderer uses to sort objects.
 
-        The property is intended for advanced usage; it is determined automatically
-        based on ``alpha_mode``, ``alpha_method``, and ``alpha_test``.
+        The property is intended for advanced usage; by default it is determined automatically
+        based on ``alpha_mode``, ``alpha_method`` and ``alpha_test``.
 
         The ``render_queue`` is a number between 1 and 4999. The builtin values are:
 
@@ -561,6 +561,9 @@ class Material(Trackable):
 
         Objects with ``render_queue`` between 1501 and 2500 are sorted front-to-back. Otherwise
         objects are sorted back-to-front.
+
+        It can be tempting to use ``material.render_queue`` to control the render order of individual objects,
+        but for that purpose ``ob.render_order`` is more appropriate.
         """
         return self._render_queue
 
