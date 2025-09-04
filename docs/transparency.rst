@@ -231,11 +231,14 @@ good that you can. The value applies to the object and its children.
 How the renderer sorts objects
 ------------------------------
 
-The renderer sorts objects based on the following factors:
+The order in wich objects are rendered is:
 
-* The ``material.render_queue``.
-* The ``object.render_order``.
-* The object's distance to the camera, either front-to-back or back-to-front, depending on the ``render_queue``. Objects with alpha-method 'weighted' are not sorted.
+1. the ``material.render_queue``.
+2. the effective ``render_order``.
+3. the distance to camera (if ``render.sort_objects==True``).
+4. the position of the object in the scene graph.
+
+In step 3, objects are either sorted front-to-back if render_queue is between 1501 and 2500, and back-to-front otherwise. Objects with alpha-method 'weighted' are not sorted by depth.
 
 Even with this sorting, objects can still intersect other objects (and themselves).
 To prevent drawing the (parts of) objects that are occluded by other objects, a depth buffer is used.
