@@ -208,6 +208,7 @@ jobs:
       name: pypi
       url: https://pypi.org/p/pygfx
     permissions:
+      contents: write
       id-token: write
     steps:
     - uses: actions/checkout@v4
