@@ -204,13 +204,15 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
         let range_min = varyings.range_min;
         let range_max = varyings.range_max;
 
+        // Note: the "bitwise" or ("|") below on vec2<bool> is actually an element-wise logical or on the elements of the vector.
+
         // How far to the next line beyond the edge, expressed as a fraction of the step.
         // Similar to a modulo, but different round-direction for min and max.
         let major_fract_min = ceil(range_min / major_step) - (range_min / major_step);
         let major_fract_max = (range_max / major_step) - floor(range_max / major_step);
         // On the edge (or close enough)?
-        let major_is_on_edge_min = major_fract_min > vec2<f32>(0.999) || major_fract_min < vec2<f32>(0.001);
-        let major_is_on_edge_max = major_fract_max > vec2<f32>(0.999) || major_fract_max < vec2<f32>(0.001);
+        let major_is_on_edge_min = (major_fract_min > vec2<f32>(0.999)) | (major_fract_min < vec2<f32>(0.001));
+        let major_is_on_edge_max = (major_fract_max > vec2<f32>(0.999)) | (major_fract_max < vec2<f32>(0.001));
         // Calcaulate margin.
         let major_margin_min = select((0.5 - major_fract_min) * major_step, 0.5 * major_step, major_is_on_edge_min);
         let major_margin_max = select((0.5 - major_fract_max) * major_step, 0.5 * major_step, major_is_on_edge_max);
@@ -218,8 +220,8 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
         // Repeat for minor.
         let minor_fract_min = ceil(range_min / minor_step) - (range_min / minor_step);
         let minor_fract_max = (range_max / minor_step) - floor(range_max / minor_step);
-        let minor_is_on_edge_min = minor_fract_min > vec2<f32>(0.999) || minor_fract_min < vec2<f32>(0.001);
-        let minor_is_on_edge_max = minor_fract_max > vec2<f32>(0.999) || minor_fract_max < vec2<f32>(0.001);
+        let minor_is_on_edge_min = (minor_fract_min > vec2<f32>(0.999)) | (minor_fract_min < vec2<f32>(0.001));
+        let minor_is_on_edge_max = (minor_fract_max > vec2<f32>(0.999)) | (minor_fract_max < vec2<f32>(0.001));
         let minor_margin_min = select((0.5 - minor_fract_min) * minor_step, 0.5 * minor_step, minor_is_on_edge_min);
         let minor_margin_max = select((0.5 - minor_fract_max) * minor_step, 0.5 * minor_step, major_is_on_edge_max);
 
