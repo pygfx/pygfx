@@ -157,7 +157,6 @@ def load_model(model_path):
 
 def draw_imgui():
     global model_obj, skeleton_helper, actions, open_file_dialog
-    imgui.new_frame()
     imgui.set_next_window_size((250, 0), imgui.Cond_.always)
     imgui.set_next_window_pos(
         (gui_renderer.backend.io.display_size.x - 250, 0), imgui.Cond_.always
@@ -252,9 +251,6 @@ def draw_imgui():
                         actions[state["selected_action"]].play()
 
     imgui.end()
-    imgui.end_frame()
-    imgui.render()
-    return imgui.get_draw_data()
 
 
 gui_renderer.set_gui(draw_imgui)
