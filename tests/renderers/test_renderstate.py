@@ -94,7 +94,7 @@ def prepare_for_cleanup():
 
 
 def test_renderstate_cleanup_noop():
-    renderer1, renderer2, scene1, scene2, env1, env2 = prepare_for_cleanup()
+    _renderer1, renderer2, _scene1, scene2, env1, env2 = prepare_for_cleanup()
 
     env2 = get_renderstate(s2l(scene2), renderer2._blender)
     assert env1.hash in renderstate_cache
@@ -102,7 +102,7 @@ def test_renderstate_cleanup_noop():
 
 
 def test_renderstate_cleanup_by_renderer_del():
-    renderer1, renderer2, scene1, scene2, env1, env2 = prepare_for_cleanup()
+    _renderer1, renderer2, _scene1, scene2, _env1, env2 = prepare_for_cleanup()
 
     env2 = get_renderstate(s2l(scene2), renderer2._blender)
     hash2 = env2.hash

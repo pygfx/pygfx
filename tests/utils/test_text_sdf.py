@@ -8,7 +8,7 @@ def test_generate_glyph():
     text = "helloFooBar"
 
     font = font_manager._fallback_font
-    indices, positions, meta = shape_text(text, font.filename)
+    indices, _positions, _meta = shape_text(text, font.filename)
 
     atlas_indices = generate_glyph(indices, font.filename)
 
@@ -44,7 +44,7 @@ def check_speed():
     text = "HelloWorld"
 
     font = font_manager._fallback_font
-    indices, positions, meta = shape_text(text, font.filename)
+    indices, _positions, _meta = shape_text(text, font.filename)
 
     # Make sure that the atlas has the glyphs
     generate_glyph(indices, font.filename)

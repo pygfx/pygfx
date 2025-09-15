@@ -195,7 +195,7 @@ class PropTracker:
         # Reset the cached values
         for name in self._trackable_changed:
             try:
-                ref_value, cur_value = self._trackable_values[name]
+                _ref_value, cur_value = self._trackable_values[name]
             except KeyError:
                 pass
             else:
