@@ -275,7 +275,7 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     // ---------------------
 
     // Make physical color with combined alpha
-    let physical_color = srgb2physical(color.rgb);
+    let physical_color = color.rgb;
     let opacity = alpha * color.a * u_material.opacity;
     let out_color = vec4<f32>(physical_color, opacity);
 

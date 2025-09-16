@@ -3,6 +3,8 @@
 import ctypes
 import colorsys
 import hsluv
+from .enums import ColorSpace
+from .color_management import ColorManagement
 
 F4 = ctypes.c_float * 4
 
@@ -76,19 +78,19 @@ class Color:
     # Internally, the color is a ctypes float array
     __slots__ = ["_val"]
 
-    def __init__(self, *args):
+    def __init__(self, *args, colorspace=None):
         if len(args) == 1:
             color = args[0]
             if isinstance(color, (int, float)):
-                self._set_from_tuple(args)
+                self._set_from_tuple(args, colorspace=colorspace)
             elif isinstance(color, str):
-                self._set_from_str(color)
+                self._set_from_str(color, colorspace=colorspace)
             else:
                 # Assume it's an iterable,
                 # may raise TypeError 'object is not iterable'
-                self._set_from_tuple(color)
+                self._set_from_tuple(color, colorspace=colorspace)
         else:
-            self._set_from_tuple(args)
+            self._set_from_tuple(args, colorspace=colorspace)
 
     def __repr__(self):
         # A precision of 4 decimals, i.e. 10001 possible values for each color.
@@ -145,7 +147,7 @@ class Color:
         a = max(0.0, min(1.0, float(a)))
         self._val = F4(float(r), float(g), float(b), a)
 
-    def _set_from_tuple(self, color):
+    def _set_from_tuple(self, color, colorspace=None):
         color = tuple(float(c) for c in color)
         if len(color) == 4:
             self._set_from_rgba(*color)
@@ -158,7 +160,10 @@ class Color:
         else:
             raise ValueError(f"Cannot parse color tuple with {len(color)} values")
 
-    def _set_from_str(self, color):
+        if colorspace is not None:
+            ColorManagement.convert_to_working_space(self, colorspace)
+
+    def _set_from_str(self, color, colorspace=None):
         color = color.lower()
         if color.startswith("#"):
             # A hex number
@@ -233,6 +238,12 @@ class Color:
                 raise ValueError(f"Unknown color: '{color}'") from None
             else:
                 self._set_from_str(color_int)
+
+        if colorspace is None:
+            # for css colors, we assume in srgb colorspace default
+            colorspace = ColorSpace.srgb
+
+        ColorManagement.convert_to_working_space(self, colorspace)
 
     @property
     def rgba(self):

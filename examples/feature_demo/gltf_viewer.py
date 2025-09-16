@@ -81,14 +81,22 @@ env_img.shape = 6, cube_size, cube_size, env_img.shape[-1]
 
 # Create environment map
 env_tex = gfx.Texture(
-    env_img, dim=2, size=(cube_size, cube_size, 6), generate_mipmaps=True
+    env_img,
+    dim=2,
+    size=(cube_size, cube_size, 6),
+    generate_mipmaps=True,
+    colorspace=gfx.ColorSpace.srgb,
 )
 
 background = gfx.Background(None, gfx.BackgroundSkyboxMaterial(map=env_tex))
 background.visible = False
 scene.add(background)
 
-scene.add(gfx.Background.from_color((0.1, 0.1, 0.1, 1)))
+scene.add(
+    gfx.Background.from_color(
+        gfx.Color(0.1, 0.1, 0.1, 1, colorspace=gfx.ColorSpace.srgb)
+    )
+)
 
 
 def add_env_map(obj, env_map):

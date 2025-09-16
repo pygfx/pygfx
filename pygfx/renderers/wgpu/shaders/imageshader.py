@@ -61,7 +61,6 @@ class ImageShader(BaseShader):
 
         # Determine colorspace
         self["colorspace"] = geometry.grid.colorspace
-        self["colorrange"] = geometry.grid.colorrange
         self["three_grid_yuv"] = (
             self["colorspace"] in ["yuv420p", "yuv444p"] and geometry.grid.size[2] == 1
         )

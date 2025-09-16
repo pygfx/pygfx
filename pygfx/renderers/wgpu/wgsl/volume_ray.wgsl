@@ -198,14 +198,9 @@ $$ if mode == 'mip'
 
         // Colormapping
         let color = sampled_value_to_color(the_value);
-        // Move to physical colorspace (linear photon count) so we can do math
-        $$ if colorspace == 'srgb'
-            let physical_color = srgb2physical(color.rgb);
-        $$ else
-            let physical_color = color.rgb;
-        $$ endif
+
         let opacity = color.a * u_material.opacity;
-        let out_color = vec4<f32>(physical_color, opacity);
+        let out_color = vec4<f32>(color.rgb, opacity);
 
         // Produce result
         var out: RenderOutput;
@@ -267,14 +262,9 @@ $$ elif mode == 'minip'
 
         // Colormapping
         let color = sampled_value_to_color(the_value);
-        // Move to physical colorspace (linear photon count) so we can do math
-        $$ if colorspace == 'srgb'
-            let physical_color = srgb2physical(color.rgb);
-        $$ else
-            let physical_color = color.rgb;
-        $$ endif
+
         let opacity = color.a * u_material.opacity;
-        let out_color = vec4<f32>(physical_color, opacity);
+        let out_color = vec4<f32>(color.rgb, opacity);
 
         // Produce result
         var out: RenderOutput;
@@ -342,12 +332,6 @@ $$ elif mode == 'iso'
 
         // Colormapping
         let color = sampled_value_to_color(the_value);
-        // Move to physical colorspace (linear photon count) so we can do math
-        $$ if colorspace == 'srgb'
-            let physical_color = srgb2physical(color.rgb);
-        $$ else
-            let physical_color = color.rgb;
-        $$ endif
 
         // Compute the normal
         var normal : vec3<f32>;
@@ -371,7 +355,7 @@ $$ elif mode == 'iso'
         // Do the lighting
         let view_direction = normalize(step_coord);
         let is_front = dot(normal, view_direction) > 0.0;
-        let lighted_color = lighting_phong(is_front, normal, view_direction, physical_color);
+        let lighted_color = lighting_phong(is_front, normal, view_direction, color.rgb);
 
         let opacity = color.a * u_material.opacity;
         let out_color = vec4<f32>(lighted_color, opacity);

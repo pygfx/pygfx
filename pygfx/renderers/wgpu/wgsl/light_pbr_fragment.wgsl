@@ -29,10 +29,10 @@ $$ if USE_IOR is defined
 
     $$ if USE_SPECULAR
         var specular_intensity = u_material.specular_intensity;
-        var specular_color = srgb2physical(u_material.specular_color.rgb);
-        
+        var specular_color = u_material.specular_color.rgb;
+
         $$ if use_specular_map is defined
-            specular_color *= srgb2physical(textureSample( t_specular_map, s_specular_map, specular_map_uv ).rgb);
+            specular_color *= textureSample( t_specular_map, s_specular_map, specular_map_uv ).rgb;
         $$ endif
 
         $$ if use_specular_intensity_map is defined
@@ -113,7 +113,7 @@ $$ endif
 
 $$ if USE_SHEEN is defined
 
-    material.sheen_color = srgb2physical(u_material.sheen_color.rgb) * u_material.sheen;
+    material.sheen_color = u_material.sheen_color.rgb * u_material.sheen;
 
     $$ if use_sheen_color_map is defined
         material.sheen_color *= textureSample( t_sheen_color_map, s_sheen_color_map, varyings.texcoord{{sheen_color_map_uv or ''}} ).rgb;

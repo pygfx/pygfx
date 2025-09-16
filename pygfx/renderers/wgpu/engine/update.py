@@ -10,6 +10,8 @@ from ....utils import logger
 from .utils import to_texture_format, GfxSampler, GfxTextureView
 from .mipmapsutil import get_mip_level_count, generate_texture_mipmaps
 from .shared import get_shared
+from ....utils.enums import ColorSpace
+from ....utils.color_management import ColorManagement
 
 
 # Alternative texture formats that we support by padding channels as needed.
@@ -141,15 +143,45 @@ def ensure_wgpu_object(resource):
         resource._gfx_mark_for_sync()
 
     elif isinstance(resource, Texture):
-        fmt = to_texture_format(resource.format)
-        if fmt in ALTTEXFORMAT:
-            fmt = ALTTEXFORMAT[fmt][0]
-        if resource.colorspace == "tex-srgb" and not fmt.endswith("-srgb"):
-            fmt += "-srgb"
-        elif resource.colorspace == "srgb" and fmt.endswith("-srgb"):
-            logger.warning(
-                "Using texture.format 'xx-srgb' AND texture.colorspace 'srgb'."
-            )
+        if resource.format in wgpu.TextureFormat:
+            # if user specified a valid wgpu format, use it as-is
+            # and we don't take care of colorspace, just use the data as-is
+            # User should know what they are doing, and ensure their data is correct.
+            # todo: remove this option (use wgpu.TextureFormat) in the future?
+            fmt = resource.format
+        else:
+            fmt = to_texture_format(resource.format)
+            if fmt in ALTTEXFORMAT:
+                fmt = ALTTEXFORMAT[fmt][0]
+
+            color_space = resource.colorspace
+            if color_space == ColorSpace.no_colorspace:
+                pass
+            elif color_space == ColorManagement.working_color_space:
+                # No conversion needed, we can use the texture as-is
+                pass
+            elif color_space == ColorSpace.srgb:
+                fmt_srgb = fmt + "-srgb"
+                if fmt_srgb not in wgpu.TextureFormat:
+                    # In practice, floating-point textures are typically in the linear-sRGB space or marked as having no color space.
+                    # If a floating-point texture is marked with a color space of sRGB, we issue a warning.
+                    logger.warning(
+                        f"Texture {resource} has format {resource.format} with colorspace {color_space}, not supported."
+                    )
+                else:
+                    # auto srgb -> linear conversion
+                    fmt = fmt_srgb
+
+            elif color_space == ColorSpace.linear_srgb:
+                # ColorManagement.working_color_space is srgb
+                # should use linear -> srgb conversion, but in practice, such cases are extremely rare—most occurrences are due to the user mistakenly configuring the ColorSpace.
+                # Therefore, we simply issue a warning here.
+                # If, for some very special reason, a user truly needs to use a linear-sRGB texture while working in the sRGB color space,
+                # it is the users responsibility to convert the texture to sRGB themselves.
+                logger.warning(
+                    f"Texture {resource} is linear-sRGB while working in sRGB color space. Make sure this is intended, and convert the texture to sRGB yourself if needed."
+                )
+
         if resource.data is not None:
             resource._wgpu_usage |= wgpu.TextureUsage.COPY_DST
         usage = resource._wgpu_usage
@@ -172,10 +204,7 @@ def ensure_wgpu_object(resource):
         if resource.is_default_view:
             resource._wgpu_object = wgpu_texture.create_view()
         else:
-            fmt = to_texture_format(resource.format)
-            fmt = ALTTEXFORMAT.get(fmt, [fmt])[0]
             resource._wgpu_object = wgpu_texture.create_view(
-                format=fmt,
                 dimension=resource.view_dim,
                 aspect=resource.aspect,
                 base_mip_level=resource.mip_range[0],
