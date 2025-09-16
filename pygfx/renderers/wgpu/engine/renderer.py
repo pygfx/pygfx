@@ -988,7 +988,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
     def _copy_pixel(self, encoder, render_texture, float_pos, buf_offset):
         # Map position to the texture index
-        w, h, d = render_texture.size
+        w, h, _d = render_texture.size
         x = max(0, min(w - 1, int(float_pos[0] * w)))
         y = max(0, min(h - 1, int(float_pos[1] * h)))
 
