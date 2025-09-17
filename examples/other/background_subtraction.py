@@ -117,8 +117,6 @@ def draw_imgui():
     global current_image_index
     global im, image_texture
 
-    imgui.new_frame()
-
     imgui.set_next_window_size((400, 0), imgui.Cond_.always)
     imgui.set_next_window_pos((0, 0), imgui.Cond_.always)
 
@@ -140,9 +138,6 @@ def draw_imgui():
             )
 
     imgui.end()
-    imgui.end_frame()
-    imgui.render()
-    return imgui.get_draw_data()
 
 
 # Create GUI renderer

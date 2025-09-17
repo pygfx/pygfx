@@ -83,7 +83,6 @@ action.play()
 
 
 def draw_imgui():
-    imgui.new_frame()
     imgui.set_next_window_size((400, 0), imgui.Cond_.always)
     imgui.set_next_window_pos(
         (gui_renderer.backend.io.display_size.x - 400, 0), imgui.Cond_.always
@@ -99,9 +98,6 @@ def draw_imgui():
             imgui.slider_float(name, face_mesh.morph_target_influences[i], 0, 1)
 
     imgui.end()
-    imgui.end_frame()
-    imgui.render()
-    return imgui.get_draw_data()
 
 
 gui_renderer.set_gui(draw_imgui)

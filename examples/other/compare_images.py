@@ -199,8 +199,6 @@ gui_renderer = ImguiRenderer(renderer.device, canvas)
 
 
 def draw_imgui():
-    imgui.new_frame()
-
     imgui.set_next_window_size((300, 0), imgui.Cond_.always)
     imgui.set_next_window_pos((0, 0), imgui.Cond_.always)
 
@@ -261,9 +259,6 @@ def draw_imgui():
                 gfx_image.geometry = geometry_image
 
     imgui.end()
-    imgui.end_frame()
-    imgui.render()
-    return imgui.get_draw_data()
 
 
 def animate():
