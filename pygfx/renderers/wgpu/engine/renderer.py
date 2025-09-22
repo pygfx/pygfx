@@ -12,7 +12,6 @@ import numpy as np
 import wgpu
 import pylinalg as la
 from rendercanvas import BaseRenderCanvas
-from wgpu.gui import WgpuCanvasBase
 
 from ....objects._base import id_provider
 from ....objects import (
@@ -49,8 +48,6 @@ from .utils import GfxTextureView
 
 
 logger = logging.getLogger("pygfx")
-
-AnyBaseCanvas = BaseRenderCanvas, WgpuCanvasBase
 
 
 class WobjectWrapper:
@@ -251,11 +248,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
             self.blend_mode = blend_mode
 
         # Check and normalize inputs
-        # if isinstance(target, WgpuCanvasBase):
-        #     raise RuntimeError("wgpu.gui.x.WgpuCanvas has been replaced with rendercanvas.x.RenderCanvas")
-        if not isinstance(
-            target, (Texture, GfxTextureView, WgpuCanvasBase, BaseRenderCanvas)
-        ):
+        if not isinstance(target, (Texture, GfxTextureView, BaseRenderCanvas)):
             raise TypeError(
                 f"Render target must be a Canvas or Texture, not a {target.__class__.__name__}"
             )
@@ -280,7 +273,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # Get target format
         self.gamma_correction = gamma_correction
         self._gamma_correction_srgb = 1.0
-        if isinstance(target, AnyBaseCanvas):
+        if isinstance(target, BaseRenderCanvas):
             self._canvas_context = self._target.get_context("wgpu")
             # Select output format. We currently don't have a way of knowing
             # what formats are available, so if not srgb, we gamma-correct in shader.
@@ -359,7 +352,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         if pixel_scale is None:
             # Select hirez config
             self._pixel_scale = 2.0  # default
-            if isinstance(self._target, AnyBaseCanvas):
+            if isinstance(self._target, BaseRenderCanvas):
                 target_pixel_ratio = self._target.get_pixel_ratio()
                 if target_pixel_ratio >= 2.0:
                     self._pixel_scale = 1.0
@@ -386,7 +379,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         canvas pixel_ratio can be e.g. 1.5, in which case the resulting ``pixel_scale`` becomes fractional.
         """
         target_pixel_ratio = 1
-        if isinstance(self._target, AnyBaseCanvas):
+        if isinstance(self._target, BaseRenderCanvas):
             target_pixel_ratio = self._target.get_pixel_ratio()
         return self._pixel_scale * target_pixel_ratio
 
@@ -396,7 +389,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
             self.pixel_scale = None
         else:
             target_pixel_ratio = 1
-            if isinstance(self._target, AnyBaseCanvas):
+            if isinstance(self._target, BaseRenderCanvas):
                 target_pixel_ratio = self._target.get_pixel_ratio()
             pixel_scale = pixel_ratio / target_pixel_ratio
             if 0.9 < pixel_scale < 1.1:
@@ -500,7 +493,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
     def logical_size(self):
         """The size of the render target in logical pixels."""
         target = self._target
-        if isinstance(target, AnyBaseCanvas):
+        if isinstance(target, BaseRenderCanvas):
             return target.get_logical_size()
         elif isinstance(target, Texture):
             return target.size[:2]  # assuming pixel-ratio 1
@@ -511,7 +504,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
     def physical_size(self):
         """The physical size of the internal render texture."""
         target = self._target
-        if isinstance(self._target, AnyBaseCanvas):
+        if isinstance(self._target, BaseRenderCanvas):
             target_physical_size = self._target.get_physical_size()
         else:
             target_physical_size = target.size[:2]
@@ -558,7 +551,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
     @gamma_correction.setter
     def gamma_correction(self, value):
         self._gamma_correction = 1.0 if value is None else float(value)
-        if isinstance(self._target, AnyBaseCanvas):
+        if isinstance(self._target, BaseRenderCanvas):
             self._target.request_draw()
 
     @property
@@ -779,7 +772,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
             target = self._target
 
         # Get the target texture view.
-        if isinstance(target, AnyBaseCanvas):
+        if isinstance(target, BaseRenderCanvas):
             target_tex = self._canvas_context.get_current_texture().create_view()
         elif isinstance(target, Texture):
             need_mipmaps = target.generate_mipmaps
