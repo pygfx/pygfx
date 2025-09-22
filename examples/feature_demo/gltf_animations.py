@@ -90,13 +90,7 @@ state = {
 # fa_loading_params = hello_imgui.FontLoadingParams()
 # # fa_loading_params.use_full_glyph_range = True
 # fa = hello_imgui.load_font("fonts/fontawesome-webfont.ttf", 14, fa_loading_params)
-# # fa = gui_renderer.backend.io.fonts.add_font_from_file_ttf("fonts/fontawesome-webfont.ttf", 16)
-
-# Load a proper font.
-# I'm pretty sure that '▶'  and '⏸' are in the Noto font, but these chars dont work ...
-fonts = gfx.font_manager.select_font("Controls", gfx.utils.text.FontProps())
-font = gui_renderer.backend.io.fonts.add_font_from_file_ttf(fonts[0][1]._filename, 16)
-gui_renderer.backend.io.font_default = font
+# fa = gui_renderer.backend.io.fonts.add_font_from_file_ttf("fonts/fontawesome-webfont.ttf", 16)
 
 
 def draw_imgui():
@@ -156,12 +150,12 @@ def draw_imgui():
 
     # imgui.push_font(fa, 0)
     if actions[state["selected_action"]].paused:
-        # > or ▶ or icons_fontawesome_6.ICON_FA_PLAY
-        if imgui.button(">", size=(24, 20)):
+        # if imgui.button("▶", size=(24, 20)):
+        if imgui.button(">", size=(24, 24)):
             actions[state["selected_action"]].paused = False
     else:
-        # || or ⏸ or icons_fontawesome_6.ICON_FA_PAUSE
-        if imgui.button("||", size=(24, 20)):
+        # if imgui.button("⏸", size=(24, 20)):
+        if imgui.button("||", size=(24, 24)):
             actions[state["selected_action"]].paused = True
 
     # imgui.pop_font()
