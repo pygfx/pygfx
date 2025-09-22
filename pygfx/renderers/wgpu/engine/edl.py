@@ -12,7 +12,7 @@ References:
 from .effectpasses import EffectPass
 
 
-class EDLEffectPass(EffectPass):
+class EDLPass(EffectPass):
     """Eye-Dome Lighting post-effect (Potree-like).
 
     Parameters

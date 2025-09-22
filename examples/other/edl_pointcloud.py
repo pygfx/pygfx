@@ -13,7 +13,7 @@ from importlib.util import find_spec
 
 from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
-from pygfx.renderers.wgpu.engine.edl import EDLEffectPass
+from pygfx.renderers.wgpu.engine.edl import EDLPass
 
 if not find_spec("open3d"):
     raise ImportError(
@@ -71,7 +71,7 @@ scene.add(gfx.AmbientLight(0.4), camera.add(gfx.DirectionalLight(0.8)))
 
 # Apply EDL as post-processing
 renderer.effect_passes = [
-    EDLEffectPass(strength=10.0, radius=1.5, depth_edge_threshold=0.0)
+    EDLPass(strength=10.0, radius=1.5, depth_edge_threshold=0.0)
 ]
 
 
