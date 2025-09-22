@@ -239,6 +239,8 @@ class JsonEncoderWithWgpuSupport(json.JSONEncoder):
     def default(self, ob):
         if isinstance(ob, wgpu.GPUObjectBase):
             return ob.__class__.__name__ + "@" + hex(id(ob))
+        elif isinstance(ob, wgpu.structs.Struct):
+            return self.encode(ob.__dict__)
 
 
 jsonencoder = JsonEncoderWithWgpuSupport()
