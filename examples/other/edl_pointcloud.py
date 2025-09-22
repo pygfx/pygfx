@@ -47,7 +47,7 @@ def load_open3d_bunny_pointcloud(max_points: int = 40000) -> o3d.geometry.PointC
     return pcd
 
 
-canvas = RenderCanvas(size=(1024, 1024), update_mode="continuous")
+canvas = RenderCanvas(update_mode="continuous")
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
