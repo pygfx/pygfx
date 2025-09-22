@@ -53,6 +53,7 @@ class EDLPass(EffectPass):
             }
 
             // Neighbor sampling pattern (8 directions). We sample two rings: r and 2r (total 16 taps)
+            // Currently shader is fixed at 8 taps; future: template var for 4 taps
             let dir = array<vec2<f32>, 8>(
                 vec2<f32>(1.0, 0.0),
                 vec2<f32>(0.70710678, 0.70710678),
@@ -111,20 +112,12 @@ class EDLPass(EffectPass):
     """
 
     def __init__(
-        self, *, strength=1.0, radius=1.5, num_samples=8, depth_edge_threshold=0.0
+        self, *, strength=1.0, radius=1.5, depth_edge_threshold=0.0
     ):
         super().__init__()
-        # Clamp/validate
-        num_samples = int(num_samples)
-        if num_samples not in (4, 8):
-            num_samples = 8
-        # Currently shader is fixed at 8 taps; future: template var for 4 taps
         self.strength = strength
         self.radius = radius
         self.depth_edge_threshold = depth_edge_threshold
-
-    def render(self, command_encoder, color_tex, depth_tex, target_tex):
-        return super().render(command_encoder, color_tex, depth_tex, target_tex)
 
     # Properties
     @property
