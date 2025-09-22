@@ -37,7 +37,7 @@ import pygfx as gfx
 from rendercanvas.auto import RenderCanvas, loop
 
 from wgpu.utils.imgui import ImguiRenderer
-from imgui_bundle import imgui  # type: ignore
+from imgui_bundle import imgui, hello_imgui, icons_fontawesome_6  # type: ignore
 
 gltf_path = model_dir / "Soldier.glb"
 
@@ -85,12 +85,8 @@ state = {
     "selected_action": 2,
 }
 
-# It looks like the loading the FA fonts will use them anywhere? So I disabled it.
-# Feel free to try to re-enabled it.
-# fa_loading_params = hello_imgui.FontLoadingParams()
-# # fa_loading_params.use_full_glyph_range = True
-# fa = hello_imgui.load_font("fonts/fontawesome-webfont.ttf", 14, fa_loading_params)
-# fa = gui_renderer.backend.io.fonts.add_font_from_file_ttf("fonts/fontawesome-webfont.ttf", 16)
+# Load pretty font and allow using font-awesome for icons
+hello_imgui.load_font_ttf_with_font_awesome_icons("fonts/DroidSans.ttf", 14)
 
 
 def draw_imgui():
@@ -148,17 +144,13 @@ def draw_imgui():
 
     duration = clips[state["selected_action"]].duration
 
-    # imgui.push_font(fa, 0)
     if actions[state["selected_action"]].paused:
-        # if imgui.button("▶", size=(24, 20)):
-        if imgui.button(">", size=(24, 24)):
+        if imgui.button(icons_fontawesome_6.ICON_FA_PLAY, size=(24, 24)):
             actions[state["selected_action"]].paused = False
     else:
-        # if imgui.button("⏸", size=(24, 20)):
-        if imgui.button("||", size=(24, 24)):
+        if imgui.button(icons_fontawesome_6.ICON_FA_PAUSE, size=(24, 24)):
             actions[state["selected_action"]].paused = True
 
-    # imgui.pop_font()
     imgui.same_line()
     avail_size = imgui.get_content_region_avail()
     imgui.set_next_item_width(avail_size.x)
