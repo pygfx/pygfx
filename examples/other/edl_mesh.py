@@ -6,8 +6,8 @@ This example loads the Stanford Bunny mesh via Open3D, converts it to pygfx,
 renders with a basic material, and applies EDL as a post-process.
 """
 
-# sphinx_gallery_pygfx_docs = 'screenshot'
-# sphinx_gallery_pygfx_test = 'run'
+# sphinx_gallery_pygfx_docs = 'code'
+# sphinx_gallery_pygfx_test = 'off'
 
 from importlib.util import find_spec
 
