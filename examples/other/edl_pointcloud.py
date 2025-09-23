@@ -1,6 +1,6 @@
 """
 Point cloud with Eye-Dome Lighting (EDL)
-=======================================
+========================================
 
 This example renders the Stanford Bunny point cloud (via Open3D) and applies
 EDL as a post-process to enhance depth perception.

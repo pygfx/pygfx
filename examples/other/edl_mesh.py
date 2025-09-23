@@ -1,6 +1,6 @@
 """
 Stanford Bunny mesh with Eye-Dome Lighting (EDL)
-===========================================================
+================================================
 
 This example loads the Stanford Bunny mesh via Open3D, converts it to pygfx,
 renders with a basic material, and applies EDL as a post-process.
