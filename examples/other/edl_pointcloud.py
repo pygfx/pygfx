@@ -70,9 +70,7 @@ controller = gfx.OrbitController(camera, register_events=renderer)
 scene.add(gfx.AmbientLight(0.4), camera.add(gfx.DirectionalLight(0.8)))
 
 # Apply EDL as post-processing
-renderer.effect_passes = [
-    EDLPass(strength=10.0, radius=1.5, depth_edge_threshold=0.0)
-]
+renderer.effect_passes = [EDLPass(strength=10.0, radius=1.5, depth_edge_threshold=0.0)]
 
 
 if __name__ == "__main__":

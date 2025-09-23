@@ -111,9 +111,7 @@ class EDLPass(EffectPass):
         }
     """
 
-    def __init__(
-        self, *, strength=1.0, radius=1.5, depth_edge_threshold=0.0
-    ):
+    def __init__(self, *, strength=1.0, radius=1.5, depth_edge_threshold=0.0):
         super().__init__()
         self.strength = strength
         self.radius = radius
