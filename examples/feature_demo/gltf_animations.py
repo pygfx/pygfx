@@ -37,7 +37,7 @@ import pygfx as gfx
 from rendercanvas.auto import RenderCanvas, loop
 
 from wgpu.utils.imgui import ImguiRenderer
-from imgui_bundle import imgui, hello_imgui, icons_fontawesome_6  # type: ignore
+from imgui_bundle import imgui, hello_imgui, icons_fontawesome_4  # type: ignore
 
 gltf_path = model_dir / "Soldier.glb"
 
@@ -145,10 +145,10 @@ def draw_imgui():
     duration = clips[state["selected_action"]].duration
 
     if actions[state["selected_action"]].paused:
-        if imgui.button(icons_fontawesome_6.ICON_FA_PLAY, size=(24, 24)):
+        if imgui.button(icons_fontawesome_4.ICON_FA_PLAY, size=(24, 24)):
             actions[state["selected_action"]].paused = False
     else:
-        if imgui.button(icons_fontawesome_6.ICON_FA_PAUSE, size=(24, 24)):
+        if imgui.button(icons_fontawesome_4.ICON_FA_PAUSE, size=(24, 24)):
             actions[state["selected_action"]].paused = True
 
     imgui.same_line()
