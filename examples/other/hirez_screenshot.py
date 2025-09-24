@@ -31,6 +31,11 @@ canvas_size = 1200, 1000
 # Maintain logical size or make it upscale_factor times larger
 maintain_logical_size = True
 
+# Whether to store as 16bit instead of 8bit
+# TODO: writing with 16bit is not straightforward
+use_16bit = False
+
+
 if maintain_logical_size:
     # The logical size is maintained, so the result is an image with a
     # pixel_ratio of `upscale_factor`. Things sized in screen coordinates
@@ -44,7 +49,9 @@ else:
     tile_size = canvas_size
     full_size = tile_size[0] * upscale_factor, tile_size[1] * upscale_factor
 
-canvas = RenderCanvas(size=canvas_size, pixel_ratio=1)
+canvas = RenderCanvas(
+    size=canvas_size, pixel_ratio=1, format="rgba-f16" if use_16bit else "rgba-u8"
+)
 renderer = gfx.WgpuRenderer(canvas)
 
 
