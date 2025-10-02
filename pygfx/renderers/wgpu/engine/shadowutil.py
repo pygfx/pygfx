@@ -114,17 +114,17 @@ def render_shadow_map(
 
     shadow_pass = command_encoder.begin_render_pass(
         color_attachments=[],
-        depth_stencil_attachment={
-            "view": shadow_map,
-            "depth_read_only": False,
-            "depth_clear_value": 1.0,
-            "depth_load_op": wgpu.LoadOp.clear,
-            "depth_store_op": wgpu.StoreOp.store,
+        depth_stencil_attachment=wgpu.RenderPassDepthStencilAttachment(
+            view=shadow_map,
+            depth_read_only=False,
+            depth_clear_value=1.0,
+            depth_load_op="clear",
+            depth_store_op="store",
             # The used texture does not have a stencil component
-            # "stencil_read_only": True,
-            # "stencil_load_op": wgpu.LoadOp.clear,
-            # "stencil_store_op": wgpu.StoreOp.discard,
-        },
+            # stencil_read_only=True,
+            # stencil_load_op="clear",
+            # stencil_store_op="discard",
+        ),
     )
 
     light_bind_group = get_shadow_bind_group(device, shadow_buffer)
@@ -193,14 +193,14 @@ def get_shadow_bind_group(device, shadow_buffer):
         bind_group = device.create_bind_group(
             layout=global_bind_group_layout,
             entries=[
-                {
-                    "binding": 0,
-                    "resource": {
-                        "buffer": wgpu_buffer,
-                        "offset": 0,
-                        "size": 64,
-                    },
-                }
+                wgpu.BindGroupEntry(
+                    binding=0,
+                    resource=wgpu.BufferBinding(
+                        buffer=wgpu_buffer,
+                        offset=0,
+                        size=64,
+                    ),
+                ),
             ],
         )
 
@@ -274,47 +274,45 @@ def create_shadow_pipeline(
     """Actually create a shadow pipeline object."""
 
     vertex_buffer_descriptor = [
-        {
-            "array_stride": stride,
-            "step_mode": wgpu.VertexStepMode.vertex,  # vertex
-            "attributes": [
-                {
-                    "format": to_vertex_format(format),
-                    "offset": 0,
-                    "shader_location": 0,
-                }
+        wgpu.VertexBufferLayout(
+            array_stride=stride,
+            step_mode="vertex",
+            attributes=[
+                wgpu.VertexAttribute(
+                    format=to_vertex_format(format), offset=0, shader_location=0
+                )
             ],
-        }
+        )
     ]
 
     if instanced:
         vertex_buffer_descriptor.append(
-            {
-                "array_stride": 80,  # matrix4x4(64) + id(4) + padding(12) = 80
-                "step_mode": wgpu.VertexStepMode.instance,  # instance
-                "attributes": [
-                    {
-                        "format": "float32x4",
-                        "offset": 0,
-                        "shader_location": 1,
-                    },
-                    {
-                        "format": "float32x4",
-                        "offset": 16,
-                        "shader_location": 2,
-                    },
-                    {
-                        "format": "float32x4",
-                        "offset": 32,
-                        "shader_location": 3,
-                    },
-                    {
-                        "format": "float32x4",
-                        "offset": 48,
-                        "shader_location": 4,
-                    },
+            wgpu.VertexBufferLayout(
+                array_stride=80,  # matrix4x4(64) + id(4) + padding(12) = 80
+                step_mode="instance",
+                attributes=[
+                    wgpu.VertexAttribute(
+                        format="float32x4",
+                        offset=0,
+                        shader_location=1,
+                    ),
+                    wgpu.VertexAttribute(
+                        format="float32x4",
+                        offset=16,
+                        shader_location=2,
+                    ),
+                    wgpu.VertexAttribute(
+                        format="float32x4",
+                        offset=32,
+                        shader_location=3,
+                    ),
+                    wgpu.VertexAttribute(
+                        format="float32x4",
+                        offset=48,
+                        shader_location=4,
+                    ),
                 ],
-            }
+            )
         )
         shader_module = device.create_shader_module(code=instanced_shadow_vertex_shader)
     else:
@@ -324,22 +322,22 @@ def create_shadow_pipeline(
         layout=device.create_pipeline_layout(
             bind_group_layouts=[global_bind_group_layout, global_bind_group_layout]
         ),
-        vertex={
-            "module": shader_module,
-            "entry_point": "vs_main",
-            "buffers": vertex_buffer_descriptor,
-        },
-        primitive={
-            "topology": topology,
-            "cull_mode": cull_mode.lower(),
-        },
-        depth_stencil={
-            "format": wgpu.TextureFormat.depth32float,
-            "depth_write_enabled": True,
-            "depth_compare": wgpu.CompareFunction.less,
-            "stencil_read_mask": 0,
-            "stencil_write_mask": 0,
-        },
+        vertex=wgpu.VertexState(
+            module=shader_module,
+            entry_point="vs_main",
+            buffers=vertex_buffer_descriptor,
+        ),
+        primitive=wgpu.PrimitiveState(
+            topology=topology,
+            cull_mode=cull_mode.lower(),
+        ),
+        depth_stencil=wgpu.DepthStencilState(
+            format="depth32float",
+            depth_write_enabled=True,
+            depth_compare="less",
+            stencil_read_mask=0,
+            stencil_write_mask=0,
+        ),
     )
 
     return pipeline
