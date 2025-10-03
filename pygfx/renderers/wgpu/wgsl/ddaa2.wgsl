@@ -1,4 +1,4 @@
-// ddaa2.wgsl version 2.3
+// ddaa2.wgsl version 2.4
 //
 // Directional Diffusion Anti Aliasing (DDAA) version 2
 //
@@ -21,6 +21,7 @@
 // v2.1 (2025): Added edge search (2025): https://github.com/almarklein/ppaa-experiments/blob/main/wgsl/ddaa2.wgsl
 // v2.2 (2025): Made SAMPLES_PER_STEP configurable, and fixed a little sampling bug causing an asymetry.
 // v2.3 (2025): Configure edge search with EDGE_STEP_LIST, optimized sample batching, and get one sample for free.
+// v2.4 (2025): Fix template logic for empty EDGE_STEP_LIST.
 
 
 // ========== CONFIG ==========
@@ -38,21 +39,25 @@
 // for the first edge-search step is EDGE_STEP_LIST[0] * 2 - 2.
 //
 $$ if EDGE_STEP_LIST is not defined
-$$ set EDGE_STEP_LIST = [3, 3, 3, 3, 3]
+$$     set EDGE_STEP_LIST = [3, 3, 3, 3, 3]
+$$ endif
+$$ set MAX_EDGE_ITERS = EDGE_STEP_LIST | length
+$$ if MAX_EDGE_ITERS == 0
+$$    set EDGE_STEP_LIST = [0]
 $$ endif
 $$ set MAX_EDGE_STEP = EDGE_STEP_LIST | max
-$$ set MAX_EDGE_ITERS = EDGE_STEP_LIST | length
 // Note that the the int pixel offset in textureSampleLevel should be [-8..7],
 // so the items in EDGE_STEP_LIST should be <= 14, and the first item <= 7.
 $$ if EDGE_STEP_LIST[0] > 7
-{{'woops_first_element_in_EDGE_STEP_LIST_must_be_no_larger_than_7'}}
+{{  'woops_first_element_in_EDGE_STEP_LIST_must_be_no_larger_than_7'}}
 $$endif
-$$ if MAX_EDGE_STEP > 14
-{{'woops_elements_in_EDGE_STEP_LIST_must_be_no_larger_than_14'}}
+$$if MAX_EDGE_STEP > 14
+{{  'woops_elements_in_EDGE_STEP_LIST_must_be_no_larger_than_14'}}
 $$endif
 //
 // The templated EDGE_STEP_LIST = {{EDGE_STEP_LIST}}
 const MAX_EDGE_ITERS = {{ MAX_EDGE_ITERS }};  // length(EDGE_STEP_LIST)
+const MAX_EDGE_SAMPLES = {{  EDGE_STEP_LIST | sum }}; // sum(EDGE_STEP_LIST), how far the algirithm can look along an edge
 
 // The strength of the diffusion. A value of 3 seems to work well.
 $$ if DDAA_STRENGTH is not defined
@@ -207,8 +212,7 @@ fn fs_main(varyings: Varyings) -> @location(0) vec4<f32> {
         var lumaEnd1: f32;
         var lumaEnd2: f32;
 
-        $$ set N_LUMA_VARS = EDGE_STEP_LIST | max
-        $$ set N_LUMA_VARS = [N_LUMA_VARS, EDGE_STEP_LIST[0] * 2] | max
+        $$ set N_LUMA_VARS = [MAX_EDGE_STEP, EDGE_STEP_LIST[0] * 2, 1] | max
         $$ for si in range(0, N_LUMA_VARS)
         var lumaEnd_{{si}}: f32;
         $$ endfor
