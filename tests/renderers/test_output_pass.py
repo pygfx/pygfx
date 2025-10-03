@@ -106,14 +106,14 @@ def _test_outpass_filter_medium(filter):
 
     _wgsl, lines = p.resolve_wgsl()
     assert len(lines) == 4
-    assert "texCoordLeft" in lines[0]
+    assert "texCoordEven" in lines[0]
 
     # Does not really matter how small
     p.set_scale_factor(0.01)
 
     _wgsl, lines = p.resolve_wgsl()
     assert len(lines) == 4
-    assert "texCoordLeft" in lines[0]
+    assert "texCoordEven" in lines[0]
 
     # When the source is larger, the kernel needs a larger support.
     p.set_scale_factor(1.1)
@@ -134,14 +134,14 @@ def _test_outpass_filter_medium(filter):
 
     _wgsl, lines = p.resolve_wgsl()
     assert len(lines) == 16
-    assert "texCoordLeft" in lines[0]
+    assert "texCoordEven" in lines[0]
 
     # Until its a whole number again
     p.set_scale_factor(2.0)
 
     _wgsl, lines = p.resolve_wgsl()
     assert len(lines) == 16
-    assert "texCoordLeft" in lines[0]
+    assert "texCoordEven" in lines[0]
 
     # And then it bumps again
     p.set_scale_factor(2.1)
@@ -162,7 +162,7 @@ def _test_outpass_filter_medium(filter):
 
     _wgsl, lines = p.resolve_wgsl()
     assert len(lines) == 36
-    assert "texCoordLeft" in lines[0]
+    assert "texCoordEven" in lines[0]
 
     # But here is a fun one!
     # The scale is a round number, and because it's uneven, every
@@ -196,14 +196,14 @@ def _test_outpass_filter_cubic(filter):
 
     _wgsl, lines = p.resolve_wgsl()
     assert len(lines) == 16
-    assert "texCoordLeft" in lines[0]
+    assert "texCoordEven" in lines[0]
 
     # Does not really matter how small
     p.set_scale_factor(0.01)
 
     _wgsl, lines = p.resolve_wgsl()
     assert len(lines) == 16
-    assert "texCoordLeft" in lines[0]
+    assert "texCoordEven" in lines[0]
 
     # When the source is larger, the kernel needs a larger support.
     p.set_scale_factor(1.1)
@@ -224,14 +224,14 @@ def _test_outpass_filter_cubic(filter):
 
     _wgsl, lines = p.resolve_wgsl()
     assert len(lines) == 36
-    assert "texCoordLeft" in lines[0]
+    assert "texCoordEven" in lines[0]
 
     # Until its a whole number again
     p.set_scale_factor(1.5)
 
     _wgsl, lines = p.resolve_wgsl()
     assert len(lines) == 36
-    assert "texCoordLeft" in lines[0]
+    assert "texCoordEven" in lines[0]
 
     # And then it bumps again
     p.set_scale_factor(1.6)
@@ -252,7 +252,7 @@ def _test_outpass_filter_cubic(filter):
 
     _wgsl, lines = p.resolve_wgsl()
     assert len(lines) == 64 - 4
-    assert "texCoordLeft" in lines[0]
+    assert "texCoordEven" in lines[0]
 
     # We've reached factor 2
     p.set_scale_factor(2.0)
@@ -264,14 +264,14 @@ def _test_outpass_filter_cubic(filter):
         assert "texCoordOrig" in lines[0]
     else:
         assert len(lines) == 64 - 4
-        assert "texCoordLeft" in lines[0]
+        assert "texCoordEven" in lines[0]
 
     # Skip some beats
     p.set_scale_factor(2.9)
 
     _wgsl, lines = p.resolve_wgsl()
     assert len(lines) == 12 * 12 - 4
-    assert "texCoordLeft" in lines[0]
+    assert "texCoordEven" in lines[0]
 
     # And then the interesting one
     p.set_scale_factor(3.0)
