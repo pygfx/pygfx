@@ -189,8 +189,8 @@ for marker in gfx.MarkerShape:
     scene.add(text)
 
 
-all_lines = []
-line = gfx.Points(
+all_points = []
+points = gfx.Points(
     geometry,
     gfx.PointsMarkerMaterial(
         size=1,
@@ -204,11 +204,11 @@ line = gfx.Points(
         aa=True,
     ),
 )
-line.local.x = 1
-scene.add(line)
-all_lines.append(line)
+points.local.x = 1
+scene.add(points)
+all_points.append(points)
 
-line_inner = gfx.Points(
+points_inner = gfx.Points(
     geometry,
     gfx.PointsMarkerMaterial(
         size=1,
@@ -222,19 +222,17 @@ line_inner = gfx.Points(
         aa=True,
     ),
 )
-line_inner.local.x = 1 + 2 * ncolors
-scene.add(line_inner)
-all_lines.append(line_inner)
+points_inner.local.x = 1 + 2 * ncolors
+scene.add(points_inner)
+all_points.append(points_inner)
 
-line_outer = gfx.Points(
+points_outer = gfx.Points(
     geometry,
     gfx.PointsMarkerMaterial(
         size=1,
         size_space="world",
         color_mode="vertex",
         marker_mode="vertex",
-        # Have one of the lines of points
-        # use edge_color_mode='vertex' to show the difference.
         edge_color_mode="vertex",
         edge_width=0.1,
         edge_mode="outer",
@@ -243,9 +241,9 @@ line_outer = gfx.Points(
         aa=True,
     ),
 )
-line_outer.local.x = 1 + 4 * ncolors
-scene.add(line_outer)
-all_lines.append(line_outer)
+points_outer.local.x = 1 + 4 * ncolors
+scene.add(points_outer)
+all_points.append(points_outer)
 
 
 camera = gfx.OrthographicCamera()
@@ -259,34 +257,34 @@ canvas.request_draw(lambda: renderer.render(scene, camera))
 def handle_event(event):
     if event.key == "d":
         color_mode = "debug"
-        for line in all_lines:
-            line.material.color_mode = color_mode
-        print(f"color_mode {line.material.color_mode}")
+        for points in all_points:
+            points.material.color_mode = color_mode
+        print(f"color_mode {points.material.color_mode}")
     elif event.key == "v":
         color_mode = "vertex"
-        for line in all_lines:
-            line.material.color_mode = color_mode
-        print(f"color_mode {line.material.color_mode}")
+        for points in all_points:
+            points.material.color_mode = color_mode
+        print(f"color_mode {points.material.color_mode}")
     elif event.key == "j":
-        for line in all_lines:
-            line.material.edge_width /= 1.1
-        print(f"edge_width {line.material.edge_width}")
+        for points in all_points:
+            points.material.edge_width /= 1.1
+        print(f"edge_width {points.material.edge_width}")
     elif event.key == "k":
-        for line in all_lines:
-            line.material.edge_width *= 1.1
-        print(f"edge_width {line.material.edge_width}")
+        for points in all_points:
+            points.material.edge_width *= 1.1
+        print(f"edge_width {points.material.edge_width}")
     elif event.key == "r":
-        for line in all_lines:
-            line.material.rotation += np.pi / 12
+        for points in all_points:
+            points.material.rotation += np.pi / 12
         geometry.rotations.data[...] += np.pi / 12
         geometry.rotations.update_full()
-        print(f"rotation {line.material.rotation}")
+        print(f"rotation {points.material.rotation}")
     elif event.key == "R":
-        for line in all_lines:
-            line.material.rotation -= np.pi / 12
+        for points in all_points:
+            points.material.rotation -= np.pi / 12
         geometry.rotations.data[...] -= np.pi / 12
         geometry.rotations.update_full()
-        print(f"rotation {line.material.rotation}")
+        print(f"rotation {points.material.rotation}")
 
     canvas.request_draw()
 
