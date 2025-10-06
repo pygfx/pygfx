@@ -23,6 +23,9 @@ import pygfx as gfx
 canvas = RenderCanvas(size=(1200, 1000))
 renderer = gfx.WgpuRenderer(canvas)
 
+
+# Create small arrays
+
 colors = np.array(
     [
         [1.0, 0.5, 0.5, 1.0],
@@ -44,16 +47,39 @@ edge_colors = np.array(
     np.float32,
 )
 
-npoints = len(colors)
+# Rotate a quarter-circle to the right
+rotations = np.linspace(0, -np.pi / 2, len(colors), dtype=np.float32)
 
-positions = np.zeros((npoints, 3), np.float32)
-positions[:, 0] = np.arange(npoints) * 2
-rotations = np.arange(npoints, dtype=np.float32) / npoints * np.pi * 2
+markers = np.zeros(len(list(gfx.MarkerShape)), np.int32)
+for i, marker_name in enumerate(gfx.MarkerShape):
+    markers[i] = gfx.MarkerInt[marker_name]
+
+
+# Repeat / tile the arrays
+
+ncolors = len(colors)
+nmarkers = len(markers)
+npoints = ncolors * nmarkers
+
+colors = colors.repeat(nmarkers, 0)
+edge_colors = edge_colors.repeat(nmarkers, 0)
+rotations = rotations.repeat(nmarkers)
+markers = np.tile(markers, ncolors)
+
+
+# Create positions
+
+positions = np.zeros((ncolors, nmarkers, 3), np.float32)
+positions[:, :, 0].flat = np.arange(ncolors).repeat(nmarkers) * 2
+positions[:, :, 1] = -np.arange(1, nmarkers + 1) * 2
+positions.shape = -1, 3
+
 geometry = gfx.Geometry(
     positions=positions,
     colors=colors,
     edge_colors=edge_colors,
     rotations=rotations,
+    markers=markers,
 )
 
 
@@ -122,15 +148,13 @@ pygfx_sdf = """
 """
 
 
-y = 0
 text = gfx.Text(
     text="centered",
     anchor="middle-center",
     font_size=1,
     material=gfx.TextMaterial("#000", aa=True),
 )
-text.local.y = y
-text.local.x = npoints
+text.local.x = ncolors
 scene.add(text)
 
 text = gfx.Text(
@@ -139,8 +163,7 @@ text = gfx.Text(
     font_size=1,
     material=gfx.TextMaterial("#000", aa=True),
 )
-text.local.y = y
-text.local.x = 2 * npoints + npoints
+text.local.x = 2 * ncolors + ncolors
 scene.add(text)
 
 text = gfx.Text(
@@ -149,81 +172,12 @@ text = gfx.Text(
     font_size=1,
     material=gfx.TextMaterial("#000", aa=True),
 )
-text.local.y = y
-text.local.x = 4 * npoints + npoints
+text.local.x = 4 * ncolors + ncolors
 scene.add(text)
 
-all_lines = []
-for i, marker in enumerate(gfx.MarkerShape):
+y = 0
+for marker in gfx.MarkerShape:
     y += 2
-    line = gfx.Points(
-        geometry,
-        gfx.PointsMarkerMaterial(
-            size=1,
-            size_space="world",
-            color_mode="vertex",
-            # color_mode='debug',
-            marker=marker,
-            edge_color="#000",
-            edge_width=0.1 if not marker == "custom" else 0.033333,
-            custom_sdf=pygfx_sdf if marker == "custom" else None,
-            aa=True,
-        ),
-    )
-    line.local.y = -y
-    line.local.x = 1
-    scene.add(line)
-    all_lines.append(line)
-
-    line_inner = gfx.Points(
-        geometry,
-        gfx.PointsMarkerMaterial(
-            size=1,
-            size_space="world",
-            color_mode="vertex",
-            marker=marker,
-            edge_color="#000",
-            edge_width=0.1 if not marker == "custom" else 0.033333,
-            edge_mode="inner",
-            custom_sdf=pygfx_sdf if marker == "custom" else None,
-            aa=True,
-        ),
-    )
-
-    line_inner.local.y = -y
-    line_inner.local.x = 1 + 2 * npoints
-
-    scene.add(line_inner)
-    all_lines.append(line_inner)
-
-    line_outer = gfx.Points(
-        geometry,
-        gfx.PointsMarkerMaterial(
-            size=1,
-            size_space="world",
-            color_mode="vertex",
-            # Have one of the lines of points
-            # use edge_color_mode='vertex' to show the difference.
-            edge_color_mode="vertex",
-            marker=marker,
-            edge_width=0.1 if not marker == "custom" else 0.033333,
-            edge_mode="outer",
-            # We use the pin to validate the rotation since it looks like an
-            # arrow
-            rotation=i * np.pi / 12 if marker != "pin" else np.pi / 4,
-            # If your heart is broken, it won't be upright!!!!
-            rotation_mode="uniform" if marker != "heart" else "vertex",
-            custom_sdf=pygfx_sdf if marker == "custom" else None,
-            aa=True,
-        ),
-    )
-
-    line_outer.local.y = -y
-    line_outer.local.x = 1 + 4 * npoints
-
-    scene.add(line_outer)
-    all_lines.append(line_outer)
-
     text = gfx.Text(
         text=marker,
         anchor="middle-right",
@@ -233,6 +187,66 @@ for i, marker in enumerate(gfx.MarkerShape):
     text.local.y = -y
     text.local.x = 0
     scene.add(text)
+
+
+all_lines = []
+line = gfx.Points(
+    geometry,
+    gfx.PointsMarkerMaterial(
+        size=1,
+        size_space="world",
+        color_mode="vertex",
+        marker_mode="vertex",
+        # color_mode='debug',
+        edge_color="#000",
+        edge_width=0.1,
+        custom_sdf=pygfx_sdf,
+        aa=True,
+    ),
+)
+line.local.x = 1
+scene.add(line)
+all_lines.append(line)
+
+line_inner = gfx.Points(
+    geometry,
+    gfx.PointsMarkerMaterial(
+        size=1,
+        size_space="world",
+        color_mode="vertex",
+        marker_mode="vertex",
+        edge_color="#000",
+        edge_width=0.1,
+        edge_mode="inner",
+        custom_sdf=pygfx_sdf,
+        aa=True,
+    ),
+)
+line_inner.local.x = 1 + 2 * ncolors
+scene.add(line_inner)
+all_lines.append(line_inner)
+
+line_outer = gfx.Points(
+    geometry,
+    gfx.PointsMarkerMaterial(
+        size=1,
+        size_space="world",
+        color_mode="vertex",
+        marker_mode="vertex",
+        # Have one of the lines of points
+        # use edge_color_mode='vertex' to show the difference.
+        edge_color_mode="vertex",
+        edge_width=0.1,
+        edge_mode="outer",
+        rotation_mode="vertex",
+        custom_sdf=pygfx_sdf,
+        aa=True,
+    ),
+)
+line_outer.local.x = 1 + 4 * ncolors
+scene.add(line_outer)
+all_lines.append(line_outer)
+
 
 camera = gfx.OrthographicCamera()
 camera.show_object(scene, scale=0.7)
@@ -274,7 +288,7 @@ def handle_event(event):
         geometry.rotations.update_full()
         print(f"rotation {line.material.rotation}")
 
-    canvas.update()
+    canvas.request_draw()
 
 
 if __name__ == "__main__":
