@@ -49,7 +49,7 @@ class Ruler(WorldObject):
         The length of the tickmarks (in logical screen pixels). Default 6.
     alpha_mode : str | None
         Override the default alpha mode for the line, points and text.
-     render_queue : int | None
+    render_queue : int | None
         Override the default render queue for the line, points and text.
     """
 
