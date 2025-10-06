@@ -6,7 +6,9 @@ from ..utils.enums import (
     ColorMode,
     SizeMode,
     CoordSpace,
+    MarkerInt,
     MarkerShape,
+    MarkerMode,
     RotationMode,
 )
 
@@ -275,6 +277,8 @@ class PointsMarkerMaterial(PointsMaterial):
     ----------
     marker : str | MarkerShape
         The shape of the marker. Default 'circle'.
+    marker_mode : str | MarkerMode
+        The mode by which the markers are defined. Default 'uniform'.
     edge_color : str | tuple | Color
         The color of line marking the edge of the markers. Default 'black'.
     edge_width : float
@@ -294,6 +298,7 @@ class PointsMarkerMaterial(PointsMaterial):
         self,
         *,
         marker="circle",
+        marker_mode="uniform",
         edge_width=1,
         edge_color="black",
         custom_sdf=None,
@@ -302,6 +307,7 @@ class PointsMarkerMaterial(PointsMaterial):
     ):
         super().__init__(**kwargs)
         self.marker = marker
+        self.marker_mode = marker_mode
         self.edge_width = edge_width
         self.edge_color = edge_color
         self.edge_color_mode = edge_color_mode
@@ -387,12 +393,40 @@ class PointsMarkerMaterial(PointsMaterial):
         }
 
         name = name or "circle"
-        resolved_name = alt_names.get(name, name).lower()
-        if resolved_name not in MarkerShape:
-            raise ValueError(
-                f"PointsMarkerMaterial.marker must be a string in {SizeMode}, or a supported characted, not {name!r}"
-            )
+        if isinstance(name, int):
+            try:
+                resolved_name = MarkerInt[name]
+            except KeyError:
+                raise ValueError(
+                    f"PointsMarkerMaterial.marker was set using an int ({name}), but that int does not correspond to a marker."
+                ) from None
+        else:
+            resolved_name = alt_names.get(name, name).lower()
+            if resolved_name not in MarkerShape:
+                raise ValueError(
+                    f"PointsMarkerMaterial.marker must be a string in {SizeMode}, or a supported characted, not {name!r}"
+                )
         self._store.marker = resolved_name
+
+    @property
+    def marker_mode(self):
+        """The mode by which markers are defined.
+
+        See :obj:`pygfx.utils.enums.MarkerMode`:
+
+        When using per-vertex markers, the geometry should have a buffer called "markers", containing ints.
+        To make marker names to ints, use :obj:`pygfx.utils.enums.MarkerInt`:.
+        """
+        return self._store.marker_mode
+
+    @marker_mode.setter
+    def marker_mode(self, value):
+        value = value or "uniform"
+        if value not in MarkerMode:
+            raise ValueError(
+                f"PointsMaterial.marker_mode must be a string in {MarkerMode}, not {value!r}"
+            )
+        self._store.marker_mode = value
 
     @property
     def edge_color_mode(self):
