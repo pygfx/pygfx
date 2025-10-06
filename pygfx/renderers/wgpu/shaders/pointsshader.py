@@ -96,6 +96,7 @@ class PointsShader(BaseShader):
         if isinstance(material, PointsGaussianBlobMaterial):
             self["is_gaussian"] = True
         elif isinstance(material, PointsMarkerMaterial):
+            self["marker_mode"] = material.marker_mode
             self["uniform_marker"] = MarkerInt[material.marker]
             custom_sdf = material.custom_sdf
             if custom_sdf is None:
