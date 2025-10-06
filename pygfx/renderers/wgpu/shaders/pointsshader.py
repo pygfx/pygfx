@@ -8,6 +8,8 @@ from ....materials import (
     PointsMarkerMaterial,
     PointsSpriteMaterial,
 )
+from ....utils.enums import MarkerInt, MarkerShape
+
 
 from .. import (
     register_wgpu_render_function,
@@ -76,7 +78,6 @@ class PointsShader(BaseShader):
             self["edge_color_buffer_channels"] = 0
 
         self["edge_mode"] = material.edge_mode
-
         self["rotation_mode"] = material.rotation_mode
 
         self["is_sprite"] = 0  # 0, 1, 2
@@ -90,8 +91,10 @@ class PointsShader(BaseShader):
         self["aa"] = material._gfx_effective_aa
 
         self["draw_line_on_edge"] = False
+        self["marker_mode"] = "none"
         if isinstance(material, PointsMarkerMaterial):
             self["draw_line_on_edge"] = True
+            self["marker_mode"] = material.marker_mode
 
     def get_bindings(self, wobject, shared):
         geometry = wobject.geometry
@@ -129,6 +132,14 @@ class PointsShader(BaseShader):
                 Binding("s_rotations", rbuffer, geometry.rotations, "VERTEX")
             )
 
+        if self["rotation_mode"] == "vertex":
+            bindings.append(
+                Binding("s_rotations", rbuffer, geometry.rotations, "VERTEX")
+            )
+
+        if self["marker_mode"] == "vertex":
+            bindings.append(Binding("s_markers", rbuffer, geometry.markers, "VERTEX"))
+
         # Process sprite texture. Note that we can *also* have a colormap for the base color.
         if self["is_sprite"] == 2:
             sprite_sampler = GfxSampler("linear", "clamp")
@@ -146,17 +157,21 @@ class PointsShader(BaseShader):
                 Binding("t_sprite", "texture/auto", sprite_view, "FRAGMENT"),
             ]
 
-        self["shape"] = "circle"
+        self["uniform_marker"] = "circle"
+        self["is_gaussian"] = False
         if isinstance(material, PointsGaussianBlobMaterial):
-            self["shape"] = "gaussian"
+            self["is_gaussian"] = True
+            self["uniform_marker"] = MarkerInt["circle"]
         elif isinstance(material, PointsMarkerMaterial):
-            self["shape"] = material.marker
+            self["uniform_marker"] = MarkerInt[material.marker]
             custom_sdf = material.custom_sdf
             if custom_sdf is None:
                 # Make a nice full square to help the user better design their
                 # custom SDF
                 custom_sdf = "return max(abs(coord.x), abs(coord.y)) - size * 0.5;"
             self["custom_sdf"] = custom_sdf
+            for marker_name in MarkerShape:
+                self[f"markerenum_{marker_name}"] = MarkerInt[marker_name]
 
         bindings = {i: b for i, b in enumerate(bindings)}
         self.define_bindings(0, bindings)

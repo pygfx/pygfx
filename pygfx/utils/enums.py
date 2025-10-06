@@ -12,6 +12,8 @@ The enums used in pygfx. The enums are all available from the root ``pygfx`` nam
     CoordSpace
     EdgeMode
     ElementFormat
+    MarkerInt
+    MarkerMode
     MarkerShape
     SizeMode
     TextAlign
@@ -31,6 +33,8 @@ __all__ = [
     "CoordSpace",
     "EdgeMode",
     "ElementFormat",
+    "MarkerInt",
+    "MarkerMode",
     "MarkerShape",
     "PixelFilter",
     "SizeMode",
@@ -92,6 +96,13 @@ class ColorMode(Enum):
     )
 
 
+class MarkerMode(Enum):
+    """The MarkerMode enum specifies how an object's marker is established."""
+
+    uniform = None  #: Use a uniform marker, specified on the material.
+    vertex = None  #: Use a per-vertex marker specified with ``geometry.markers``.
+
+
 class SizeMode(Enum):
     """The SizeMode enum specifies how an object's size/width/thickness is established."""
 
@@ -135,7 +146,28 @@ class MarkerShape(Enum):
     spade = None  #: ♠
     club = None  #: ♣
     pin = None  #: 📍
-    custom = None  # Custom shape allowing users to provide their own SDF function
+    custom = None  #: Custom shape allowing users to provide their own SDF function
+
+
+class MarkerInt(Enum):
+    """The MarkerInt enums maps marker shape names to an integer."""
+
+    circle = 101
+    ring = 102
+    square = 201
+    diamond = 202
+    plus = 203
+    cross = 204
+    asterix = 205
+    triangle_up = 301
+    triangle_down = 302
+    triangle_left = 303
+    triangle_right = 304
+    heart = 401
+    spade = 402
+    club = 403
+    pin = 404
+    custom = 901
 
 
 class ElementFormat(Enum):

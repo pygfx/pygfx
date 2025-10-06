@@ -181,6 +181,10 @@ fn vs_main(in: VertexInput) -> Varyings {
         varyings.edge_width_p = f32(edge_width * l2p);
     $$ endif
 
+    $$ if marker_mode == 'vertex'
+        varyings.marker = i32(load_s_markers(node_index));
+    $$ endif
+
     // Picking
     varyings.pick_idx = u32(node_index);
 
@@ -247,7 +251,7 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     let pointcoord = pointcoord_p / l2p;
 
     let dist_to_face_center_p = length(pointcoord_p);
-    let dist_to_face_edge_p = get_signed_distance_to_shape_edge(pointcoord_p, varyings.size_p);
+    let dist_to_face_edge_p = get_signed_distance_to_shape_edge(pointcoord_p, varyings);
 
     // Determine face_alpha based on shape and aa
     var face_alpha: f32 = 1.0;
@@ -255,7 +259,7 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
         // sprites have their alpha defined by the map and opacity only
     $$ elif color_mode == 'debug'
         face_alpha = 1.0;
-    $$ elif shape == 'gaussian'
+    $$ elif is_gaussian
         let d = length(pointcoord_p);
         let sigma_p = half_size_p / 3.0;
         let t = d / sigma_p;
@@ -390,7 +394,7 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
 }
 
 
-fn get_signed_distance_to_shape_edge(coord: vec2<f32>, size: f32) -> f32 {
+fn get_signed_distance_to_shape_edge(coord: vec2<f32>, varyings:Varyings) -> f32 {
     // Thank you Nicolas!
     //
     // The paper "Antialiased 2D Grid, Marker, and Arrow Shaders", by Nicolas
@@ -402,30 +406,40 @@ fn get_signed_distance_to_shape_edge(coord: vec2<f32>, size: f32) -> f32 {
     // know how hard it is to do it with this technique. Other possible
     // variations: a thinner variant of plusses and crosses.
 
-    $$ if shape == 'circle' or shape == 'gaussian'
+    let size:f32 = varyings.size_p;
+
+    // We resolve the value of 'marker' in this function, to make sure that when a uniform marker is used,
+    // it resolves to a const, so that the whole triage of if-statments below is resolved at compile time.
+    $$ if marker_mode == 'vertex'
+    let marker:i32 = varyings.marker;
+    $$ else
+    const marker:i32 = {{ uniform_marker }};
+    $$ endif
+
+    if (marker == {{ markerenum_circle }}) {
         // A simple disk
         return length(coord) - size * 0.5;
 
-    $$ elif shape == 'ring'
+    } else if (marker == {{ markerenum_ring }}) {
         // A ring is the difference of two discs
         let r1 = length(coord) - size / 2.0;
         let r2 = length(coord) - size / 4.0;
         return max(r1, -r2);
 
-    $$ elif shape == 'square'
+    } else if (marker == {{ markerenum_square }}) {
         // A square is the intersection of four half-planes, but we can use the symmetry of the object (abs) to shorten the code.
         // Chosing the full square means that it is/appears larger than the circle and the diamond.
         let square_sdf = max( abs(coord.x), abs(coord.y) );
         return square_sdf - size * 0.5;  // Square occupies full quad (consistent with MPL)
         // return square_sdf - size / (2.0*SQRT_2);  // Square fits inside circle (Rougier's implementation)
 
-    $$ elif shape == 'diamond'
+    } else if (marker == {{ markerenum_diamond }}) {
         // A diamond is the rotation of a square
         let x = 0.5 * SQRT_2 * (coord.x + coord.y);
         let y = 0.5 * SQRT_2 * (coord.x - coord.y);
         return max( abs(x), abs(y) ) - size / (2.0 * SQRT_2);
 
-    $$ elif shape == 'plus'
+    } else if (marker == {{ markerenum_plus }}) {
         // A plus is the intersection of eight half-planes that can be reduced to four using symmetries.
         let x = coord.x;
         let y = coord.y;
@@ -434,7 +448,7 @@ fn get_signed_distance_to_shape_edge(coord: vec2<f32>, size: f32) -> f32 {
         let r3 = max(abs(x), abs(y));
         return max(min(r1,r2),r3) - size/2.0;
 
-    $$ elif shape == 'cross'
+    } else if (marker == {{ markerenum_cross }}) {
         // A cross is a rotated plus
         let x = 0.5 * SQRT_2 * (coord.x + coord.y);
         let y = 0.5 * SQRT_2 * (coord.x - coord.y);
@@ -443,9 +457,9 @@ fn get_signed_distance_to_shape_edge(coord: vec2<f32>, size: f32) -> f32 {
         let r3 = max(abs(x), abs(y));
         return max(min(r1,r2),r3) - size/2.0;
 
-    $$ elif shape == 'asterix'
+    } else if (marker == {{ markerenum_asterix }}) {
         // An asterisk is the union of a cross and a plus.
-        let x1 = coord.x;
+       let x1 = coord.x;
         let y1 = coord.y;
         let x2 = 0.5 * SQRT_2 * (coord.x + coord.y);
         let y2 = 0.5 * SQRT_2 * (coord.x - coord.y);
@@ -455,25 +469,29 @@ fn get_signed_distance_to_shape_edge(coord: vec2<f32>, size: f32) -> f32 {
         let r4 = max(abs(y1)- size/2.0, abs(x1)- size/10.0);
         return min( min(r1,r2), min(r3,r4));
 
-    $$ elif shape.startswith('triangle')
+    } else if ( marker == {{ markerenum_triangle_down }} ||
+                marker == {{ markerenum_triangle_left }} ||
+                marker == {{ markerenum_triangle_right }} ||
+                marker == {{ markerenum_triangle_up }}  ) {
         // A triangle is the intersection of three half-planes
         // y-offset to center the shape by 0.25*size
-        $$ if shape.endswith('down')
-            let coord_triangle = vec2<f32>(coord.x, coord.y - 0.25*size);
-        $$ elif shape.endswith('left')
-            let coord_triangle = vec2<f32>(-coord.y, coord.x - 0.25*size);
-        $$ elif shape.endswith('right')
-            let coord_triangle = vec2<f32>(-coord.y, -coord.x - 0.25*size);
-        $$ elif shape.endswith('up')
-            let coord_triangle = vec2<f32>(coord.x, -coord.y - 0.25*size);
-        $$ endif
+        var coord_triangle: vec2<f32>;
+        if (marker == {{ markerenum_triangle_down }}) {
+            coord_triangle = vec2<f32>(coord.x, coord.y - 0.25*size);
+        } else if (marker == {{ markerenum_triangle_left }}) {
+            coord_triangle = vec2<f32>(-coord.y, coord.x - 0.25*size);
+        } else if (marker == {{ markerenum_triangle_right }}) {
+            coord_triangle = vec2<f32>(-coord.y, -coord.x - 0.25*size);
+        } else { // up
+            coord_triangle = vec2<f32>(coord.x, -coord.y - 0.25*size);
+        }
         let x = 0.5 * SQRT_2 * (coord_triangle.x - coord_triangle.y);
         let y = 0.5 * SQRT_2 * (coord_triangle.x + coord_triangle.y);
         let r1 = max(abs(x), abs(y)) - size/(2*SQRT_2);
         let r2 = coord_triangle.y;
         return max(r1, r2);
 
-    $$ elif shape == 'heart'
+    } else if (marker == {{ markerenum_heart }}) {
         // A heart is the union of a diamond and two discs.
         let x = 0.5 * SQRT_2 * (coord.x + coord.y);
         let y = 0.5 * SQRT_2 * (coord.x - coord.y);
@@ -482,7 +500,7 @@ fn get_signed_distance_to_shape_edge(coord: vec2<f32>, size: f32) -> f32 {
         let r3 = length(coord - SQRT_2/2.0*vec2<f32>(-1.0,1.0)*size/3.5) - size/3.5;
         return min(min(r1,r2),r3);
 
-    $$ elif shape == 'spade'
+    } else if (marker == {{ markerenum_spade }}) {
         // A spade is an inverted heart and a tail is made of two discs and two half-planes.
         // Reversed heart (diamond + 2 circles)
         let s = size * 0.85 / 3.5;
@@ -502,7 +520,7 @@ fn get_signed_distance_to_shape_edge(coord: vec2<f32>, size: f32) -> f32 {
         let r9 = max(-min(r5,r6), max(r7,r8));
         return min(r4,r9);
 
-    $$ elif shape == 'club'
+    } else if (marker == {{ markerenum_club }}) {
         // A club is a clover and a tail.
         // clover (3 discs)
         let t1 = -PI/2.0;
@@ -525,7 +543,7 @@ fn get_signed_distance_to_shape_edge(coord: vec2<f32>, size: f32) -> f32 {
         let r9 = max(-min(r5,r6), max(r7,r8));
         return min(r4,r9);
 
-    $$ elif shape == 'pin'
+    } else if (marker == {{ markerenum_pin }}) {
         // Simplified formula for the usecase of a pin taken from
         // https://www.shadertoy.com/view/4lcBWn
         var p = - coord / size;
@@ -554,11 +572,11 @@ fn get_signed_distance_to_shape_edge(coord: vec2<f32>, size: f32) -> f32 {
         if(k < 0.0    ) {return size * max(q, sqrt(n)    - ra);}
         // Intesection of the triangle cone and the big circle
                          return size * max(q, m          - ra);
-    $$ elif shape == 'custom'
+
+    } else if (marker == {{ markerenum_custom }}) {
         {{ custom_sdf }}
 
-    $$ else
-        unknown marker shape! // deliberate wgsl syntax error
-
-    $$ endif
+    } else {
+        return -1.0;  // always inside
+    }
 }
