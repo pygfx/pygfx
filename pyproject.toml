@@ -18,12 +18,16 @@ keywords = [
 ]
 requires-python = ">= 3.10"
 dependencies = [
+    # Packages under the PyGfx umbrella.
+    # For some of these we set an upper bound because (for now) they regularly break their API.
+    # Packages that depend on PyGfx should not set an upper bound on e.g. wgpu, unless really needed!
     "rendercanvas >= 2.2",
     "wgpu >=0.24.0, <0.26",
     "pylinalg >=0.6.7,<0.7.0",
+    # External dependencies
     "numpy",
     "freetype-py",
-    "uharfbuzz !=0.51.0",      # https://github.com/harfbuzz/uharfbuzz/issues/248
+    "uharfbuzz !=0.51.0", # https://github.com/harfbuzz/uharfbuzz/issues/248
     "jinja2",
     "hsluv >=5",
 ]
