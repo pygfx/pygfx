@@ -408,6 +408,11 @@ fn get_signed_distance_to_shape_edge(coord: vec2<f32>, varyings:Varyings) -> f32
 
     let size:f32 = varyings.size_p;
 
+    // if this material does not do markers, we skip the entire function
+    $$ if not marker_mode
+    return length(coord) - size * 0.5;
+    $$ else
+
     // We resolve the value of 'marker' in this function, to make sure that when a uniform marker is used,
     // it resolves to a const, so that the whole triage of if-statments below is resolved at compile time.
     $$ if marker_mode == 'vertex'
@@ -579,4 +584,6 @@ fn get_signed_distance_to_shape_edge(coord: vec2<f32>, varyings:Varyings) -> f32
     } else {
         return -1.0;  // always inside
     }
+
+    $$ endif
 }

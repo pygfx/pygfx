@@ -90,11 +90,22 @@ class PointsShader(BaseShader):
         self["size_space"] = material.size_space
         self["aa"] = material._gfx_effective_aa
 
+        self["marker_mode"] = ""
         self["draw_line_on_edge"] = False
-        self["marker_mode"] = "none"
-        if isinstance(material, PointsMarkerMaterial):
+        self["is_gaussian"] = False
+        if isinstance(material, PointsGaussianBlobMaterial):
+            self["is_gaussian"] = True
+        elif isinstance(material, PointsMarkerMaterial):
+            self["uniform_marker"] = MarkerInt[material.marker]
+            custom_sdf = material.custom_sdf
+            if custom_sdf is None:
+                # Make a nice full square to help the user better design their
+                # custom SDF
+                custom_sdf = "return max(abs(coord.x), abs(coord.y)) - size * 0.5;"
+            self["custom_sdf"] = custom_sdf
             self["draw_line_on_edge"] = True
-            self["marker_mode"] = material.marker_mode
+            for marker_name in MarkerShape:
+                self[f"markerenum_{marker_name}"] = MarkerInt[marker_name]
 
     def get_bindings(self, wobject, shared):
         geometry = wobject.geometry
@@ -156,22 +167,6 @@ class PointsShader(BaseShader):
                 Binding("s_sprite", "sampler/filtering", sprite_sampler, "FRAGMENT"),
                 Binding("t_sprite", "texture/auto", sprite_view, "FRAGMENT"),
             ]
-
-        self["uniform_marker"] = "circle"
-        self["is_gaussian"] = False
-        if isinstance(material, PointsGaussianBlobMaterial):
-            self["is_gaussian"] = True
-            self["uniform_marker"] = MarkerInt["circle"]
-        elif isinstance(material, PointsMarkerMaterial):
-            self["uniform_marker"] = MarkerInt[material.marker]
-            custom_sdf = material.custom_sdf
-            if custom_sdf is None:
-                # Make a nice full square to help the user better design their
-                # custom SDF
-                custom_sdf = "return max(abs(coord.x), abs(coord.y)) - size * 0.5;"
-            self["custom_sdf"] = custom_sdf
-            for marker_name in MarkerShape:
-                self[f"markerenum_{marker_name}"] = MarkerInt[marker_name]
 
         bindings = {i: b for i, b in enumerate(bindings)}
         self.define_bindings(0, bindings)
