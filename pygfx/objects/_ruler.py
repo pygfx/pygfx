@@ -1,4 +1,5 @@
 from math import floor, ceil, log10
+from typing import Literal
 
 import numpy as np
 
@@ -6,7 +7,7 @@ from ._base import WorldObject
 from ._more import Line, Points
 from ._text import MultiText
 from ..resources import Buffer
-from ..materials import LineMaterial, PointsMaterial, TextMaterial
+from ..materials import LineMaterial, PointsMarkerMaterial, TextMaterial
 from ..utils.compgeo import get_visible_part_of_line_ndc
 
 
@@ -20,22 +21,54 @@ class Ruler(WorldObject):
 
     * Use the properties (most notably ``start_pos`` and ``end_pos``).
     * Call ``update()`` on each draw.
+
+    Parameters
+    ----------
+    start_pos : tuple[float, float, float]
+        The initial position of the start of the ruler.
+    end_pos : tuple[float, float, float]
+        The initial position of the end of the ruler.
+    start_value : float
+        The value (offset) at the start of the ruler.
+    ticks : array-like or None
+        A list of values, in world-space from the ruler's start_pos, where ticks should be drawn.
+        If not given or None, this will be determined automatically.
+    tick_format : str
+        The format to represent ticks with. Default "0.4g".
+    tick_side : str
+        Whether the ticks are on the 'left' or 'right' of the line (from the p.o.v. of the ruler). Default left.
+    min_tick_distance: float
+        The minimal distance between ticks in screen pixels, when using auto-ticks. Default 50.
+    ticks_at_end_points : bool
+        Whether to draw ticks at the ruler's strat and end. Default False
+    color : str | tuple[float, float, float, float]
+        The color for the internal line, points and text objects. Default white.
+    thickness : float
+        The thickness of the line and tickmarks. Default 2.0.
+    tick_length : float
+        The length of the tickmarks (in logical screen pixels). Default 6.
+    alpha_mode : str | None
+        Override the default alpha mode for the line, points and text.
+     render_queue : int | None
+        Override the default render queue for the line, points and text.
     """
 
     def __init__(
         self,
         *,
-        start_pos=(0, 0, 0),
-        end_pos=(0, 0, 0),
-        start_value=0.0,
-        ticks=None,
-        tick_format="0.4g",
-        tick_side="left",
-        min_tick_distance=50,
+        start_pos: tuple[float, float, float] = (0, 0, 0),
+        end_pos: tuple[float, float, float] = (0, 0, 0),
+        start_value: float = 0.0,
+        ticks: list | None = None,
+        tick_format: str = "0.4g",
+        tick_side: Literal["left", "right"] = "left",
+        min_tick_distance: float = 50.0,
         ticks_at_end_points=False,
-        alpha_mode=None,
-        aa=True,
-        render_queue=None,
+        color: str | tuple[float, float, float, float] = "#fff",
+        thickness: float = 2.0,
+        tick_length: float = 6.0,
+        alpha_mode: str | None = None,
+        render_queue: int | None = None,
     ):
         super().__init__()
 
@@ -43,6 +76,7 @@ class Ruler(WorldObject):
         self.end_pos = end_pos
         self.start_value = start_value
         self.ticks = ticks
+        self._tick_length = float(tick_length)
 
         self.tick_format = tick_format
         self.tick_side = tick_side
@@ -52,24 +86,34 @@ class Ruler(WorldObject):
         # Common kwargs for the materials of the child objects
         material_kwargs = dict(
             alpha_mode=alpha_mode,
-            aa=bool(aa),
             render_queue=render_queue,
         )
 
-        # Create a line and points object, with a shared geometry
+        # Create a line and points object, with a shared geometry.
+        # The 'tick' marker is a hair-line (i.e. no body), so you only
+        # see the edge of the marker; we can simply match the edge_width with the
+        # thickness of the line!
         self._text = MultiText(
-            material=TextMaterial(color="#fff", **material_kwargs),
+            material=TextMaterial(color=color, aa=True, **material_kwargs),
             screen_space=True,
         )
         geometry = self._text.geometry  # has .positions buffer
         geometry.sizes = Buffer(np.zeros(geometry.positions.nitems, "f4"))
         self._line = Line(
             geometry,
-            LineMaterial(color="w", thickness=2, **material_kwargs),
+            LineMaterial(color=color, thickness=thickness, aa=False, **material_kwargs),
         )
         self._points = Points(
             geometry,
-            PointsMaterial(color="w", size_mode="vertex", **material_kwargs),
+            PointsMarkerMaterial(
+                marker="tick",
+                edge_color=color,
+                edge_width=thickness,
+                size_mode="vertex",
+                rotation_mode="curve",
+                aa=False,
+                **material_kwargs,
+            ),
         )
 
         self.add(self._line, self._points, self._text)
@@ -449,7 +493,7 @@ class Ruler(WorldObject):
         """Update the sub-objects to show the given ticks."""
         assert isinstance(ticks, dict)
 
-        tick_size = 5
+        tick_size = self._tick_length
 
         # Load config
         start_pos = self._start_pos
