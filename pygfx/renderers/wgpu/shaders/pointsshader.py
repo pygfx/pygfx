@@ -1,6 +1,7 @@
 import wgpu  # only for flags/enums
 
-from ....resources import Texture
+from ....utils import array_from_shadertype
+from ....resources import Buffer, Texture
 from ....objects import Points
 from ....materials import (
     PointsMaterial,
@@ -21,6 +22,8 @@ from .. import (
     GfxSampler,
     GfxTextureView,
 )
+
+renderer_uniform_type = dict(last_i="i4")
 
 
 @register_wgpu_render_function(Points, PointsMaterial)
@@ -79,8 +82,9 @@ class PointsShader(BaseShader):
 
         self["edge_mode"] = material.edge_mode
         self["rotation_mode"] = material.rotation_mode
-
         self["is_sprite"] = 0  # 0, 1, 2
+        self["need_neighbours"] = material.rotation_mode == "curve"
+
         if isinstance(material, PointsSpriteMaterial):
             self["is_sprite"] = 1
             if material.sprite is not None:
@@ -119,6 +123,15 @@ class PointsShader(BaseShader):
             Binding("u_material", "buffer/uniform", material.uniform_buffer),
             Binding("s_positions", rbuffer, geometry.positions, "VERTEX"),
         ]
+
+        if self["need_neighbours"]:
+            uniform_buffer = Buffer(
+                array_from_shadertype(renderer_uniform_type), force_contiguous=True
+            )
+            uniform_buffer.data["last_i"] = geometry.positions.nitems - 1
+            bindings.append(
+                Binding("u_renderer", "buffer/uniform", uniform_buffer),
+            )
 
         if self["size_mode"] == "vertex":
             bindings.append(Binding("s_sizes", rbuffer, geometry.sizes, "VERTEX"))

@@ -118,6 +118,7 @@ class RotationMode(Enum):
 
     uniform = None  #: Use a uniform rotation.
     vertex = None  #: Use a per-vertex rotation specified with ``geometry.rotations``.
+    curve = None  #: The rotation follows the curve of the line defined by the points (in screen space).
 
 
 class CoordSpace(Enum):

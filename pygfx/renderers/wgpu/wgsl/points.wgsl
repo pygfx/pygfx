@@ -65,6 +65,23 @@ fn vs_main(in: VertexInput) -> Varyings {
     // Convert to logical screen coordinates
     let pos_s = (pos_n.xy / pos_n.w + 1.0) * screen_factor;
 
+    $$ if need_neighbours
+        let node_index_prev = max(node_index - 1, 0);
+        var node_index_next = min(u_renderer.last_i, node_index + 1);
+
+        let pos_m_prev = load_s_positions(node_index_prev);
+        let pos_w_prev = u_wobject.world_transform * vec4<f32>(pos_m_prev.xyz, 1.0);
+        let pos_c_prev = u_stdinfo.cam_transform * pos_w_prev;
+        let pos_n_prev = u_stdinfo.projection_transform * pos_c_prev;
+        let pos_s_prev = (pos_n_prev.xy / pos_n_prev.w + 1.0) * screen_factor;
+
+        let pos_m_next = load_s_positions(node_index_next);
+        let pos_w_next = u_wobject.world_transform * vec4<f32>(pos_m_next.xyz, 1.0);
+        let pos_c_next = u_stdinfo.cam_transform * pos_w_next;
+        let pos_n_next = u_stdinfo.projection_transform * pos_c_next;
+        let pos_s_next = (pos_n_next.xy / pos_n_next.w + 1.0) * screen_factor;
+    $$ endif
+
     // Get reference size
     $$ if size_mode == 'vertex'
         let size_ref = load_s_sizes(node_index);
@@ -149,6 +166,9 @@ fn vs_main(in: VertexInput) -> Varyings {
 
     $$ if rotation_mode == 'vertex'
     let rotation = load_s_rotations(node_index);
+    $$ elif rotation_mode == 'curve'
+    let dpos = pos_s_next - pos_s_prev;
+    let rotation = atan2(dpos.y, dpos.x);
     $$ else
     let rotation = u_material.rotation;
     $$ endif
