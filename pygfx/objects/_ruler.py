@@ -123,6 +123,9 @@ class Ruler(WorldObject):
             ),
         )
 
+        # NOTE: a potential improvement, for the marker material's support for ticks, would
+        # be be able to make every nth tick  (longer/ticker).
+
         self.add(self._line, self._points, self._text)
 
         # todo: a material to draw proper tick marks
