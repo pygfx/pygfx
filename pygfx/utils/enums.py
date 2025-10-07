@@ -140,6 +140,8 @@ class MarkerShape(Enum):
     cross = None  #: x A rotated plus symbol.
     asterix = None  #: ✳️ A plus and a cross combined.
     tick = None  #: A tickmark: an infinitely thin line so only the marker edge is drawn. The width and length can be controller with 'edge_width' and 'size' respectively.
+    lefttick = None  #: A tickmark that is on the left side of the line (viewed from the line's start).
+    righttick = None  #: A tickmark that is on the right side of the line (viewed from the line's start).
     triangle_up = None  #: ▲
     triangle_down = None  #: ▼
     triangle_left = None  #: ◀
@@ -162,6 +164,8 @@ class MarkerInt(Enum):
     cross = 204
     asterix = 205
     tick = 206
+    lefttick = 207
+    righttick = 208
     triangle_up = 301
     triangle_down = 302
     triangle_left = 303

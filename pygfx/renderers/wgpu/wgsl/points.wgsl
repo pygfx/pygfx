@@ -498,8 +498,27 @@ fn get_signed_distance_to_shape_edge(coord: vec2<f32>, varyings:Varyings) -> f32
         }
         case {{ markerenum_tick }}: {
             // A tick is an infinitely thin line (only the edge is visible)
-            let d = abs(coord.xy) - vec2f(0.0, 0.5 * size);
-            return length(max(d, vec2<f32>(0.0))) + min(max(d.x, d.y), 0.0);
+            let x = coord.x;
+            let y = coord.y;
+            let r1 = max(abs(x - size/2.0), abs(x + size/2.0));
+            let r3 = max(abs(x), abs(y));  // bbox
+            return max(r1,r3) - size/2.0;
+        }
+        case {{ markerenum_lefttick }}: {
+            // A tick only on the 'left' side of the line
+            let x = coord.x;
+            let y = coord.y;
+            let r1 = max(abs(x - size/2.0), abs(x + size/2.0));
+            let r3 = max(max(abs(x), -y), -y + size/2.0);  // bbox
+            return max(r1, r3) - size/2.0;
+        }
+        case {{ markerenum_righttick }}: {
+            // A tick only on the 'right' side of the line
+            let x = coord.x;
+            let y = coord.y;
+            let r1 = max(abs(x - size/2.0), abs(x + size/2.0));
+            let r3 = max(max(abs(x), y), y + size/2.0);  // bbox
+            return max(r1, r3) - size/2.0;
         }
         case {{ markerenum_triangle_down }}, {{ markerenum_triangle_left }}, {{ markerenum_triangle_right }}, {{ markerenum_triangle_up }}: {
             // A triangle is the intersection of three half-planes
