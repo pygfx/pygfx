@@ -48,8 +48,8 @@ class Ruler(WorldObject):
         The minimal distance between ticks in screen pixels, when using auto-ticks. Default 50.
     color : str | tuple[float, float, float, float]
         The color for the internal line, points and text objects. Default white.
-    thickness : float
-        The thickness of the line and tickmarks. Default 2.0.
+    line_width : float
+        The width of the line and tickmarks. Default 2.0.
     alpha_mode : str | None
         Override the default alpha mode for the line, points and text.
     render_queue : int | None
@@ -70,7 +70,7 @@ class Ruler(WorldObject):
         ticks_at_end_points=False,
         min_tick_distance: float = 50.0,
         color: str | tuple[float, float, float, float] = "#fff",
-        thickness: float = 2.0,
+        line_width: float = 2.0,
         alpha_mode: str | None = None,
         render_queue: int | None = None,
     ):
@@ -105,7 +105,9 @@ class Ruler(WorldObject):
         geometry.sizes = Buffer(np.zeros(geometry.positions.nitems, "f4"))
         self._line = Line(
             geometry,
-            LineMaterial(color=color, thickness=thickness, aa=False, **material_kwargs),
+            LineMaterial(
+                color=color, thickness=line_width, aa=False, **material_kwargs
+            ),
         )
         self._points = Points(
             geometry,
@@ -113,7 +115,7 @@ class Ruler(WorldObject):
                 marker=tick_marker,
                 color="red",
                 edge_color=color,
-                edge_width=thickness,
+                edge_width=line_width,
                 size_mode="vertex",
                 rotation_mode="curve",
                 aa=False,
@@ -331,18 +333,18 @@ class Ruler(WorldObject):
         self._points.material.edge_color = color
 
     @property
-    def thickness(self) -> float:
-        """The thickness of the line and tickmarks.
+    def line_width(self) -> float:
+        """The width of the line and tickmarks.
 
         The getter is an alias for ``ruler.line.material.thickness``. Setting this
         value sets  ``ruler.line.material.thickness`` and ``ruler.points.material.edge_width``.
         """
         return self._line.material.thickness
 
-    @thickness.setter
-    def thickness(self, thickness: float):
-        self._line.material.thickness = thickness
-        self._points.material.edge_width = thickness
+    @line_width.setter
+    def line_width(self, line_width: float):
+        self._line.material.thickness = line_width
+        self._points.material.edge_width = line_width
 
     # -- Methods
 
