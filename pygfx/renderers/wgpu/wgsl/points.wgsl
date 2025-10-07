@@ -504,7 +504,7 @@ fn get_signed_distance_to_shape_edge(coord: vec2<f32>, varyings:Varyings) -> f32
             let r3 = max(abs(x), abs(y));  // bbox
             return max(r1,r3) - size/2.0;
         }
-        case {{ markerenum_lefttick }}: {
+        case {{ markerenum_tick_left }}: {
             // A tick only on the 'left' side of the line
             let x = coord.x;
             let y = coord.y;
@@ -512,7 +512,7 @@ fn get_signed_distance_to_shape_edge(coord: vec2<f32>, varyings:Varyings) -> f32
             let r3 = max(max(abs(x), -y), -y + size/2.0);  // bbox
             return max(r1, r3) - size/2.0;
         }
-        case {{ markerenum_righttick }}: {
+        case {{ markerenum_tick_right }}: {
             // A tick only on the 'right' side of the line
             let x = coord.x;
             let y = coord.y;

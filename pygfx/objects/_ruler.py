@@ -38,10 +38,10 @@ class Ruler(WorldObject):
     tick_side : str
         Whether the tick texts are on the 'left' or 'right' of the line (from the p.o.v. of the ruler). Default left.
     tick_marker : str
-        Any marker from the PointsMarkerMaterial. Sensible values are 'tick', 'lefttick', and 'righttick'.
+        Any marker from the PointsMarkerMaterial. Sensible values are 'tick', 'tick_left', and 'tick_right'.
     tick_size : float
         The size of the tickmarks (in logical screen pixels). When using half ticks
-        (tick_marker is 'lefttick' or 'righttick', the effective size is halved). Default 8.
+        (tick_marker is 'tick_left' or 'tick_right', the effective size is halved). Default 8.
     ticks_at_end_points : bool
         Whether to draw ticks at the ruler's strat and end. Default False
     min_tick_distance: float
@@ -65,7 +65,7 @@ class Ruler(WorldObject):
         ticks: list | None = None,
         tick_format: str | Callable = "0.4g",
         tick_side: Literal["left", "right"] = "left",
-        tick_marker: Literal["tick", "lefttick", "righttick"] = "tick",
+        tick_marker: Literal["tick", "tick_left", "tick_right"] = "tick",
         tick_size: float = 8.0,
         ticks_at_end_points=False,
         min_tick_distance: float = 50.0,
@@ -281,7 +281,7 @@ class Ruler(WorldObject):
         Alias for ``ruler.points.material.marker``.
 
         This can be any value in :obj:`pygfx.utils.enums.MarkerShape`.
-        Sensible values include 'tick', 'lefttick', and 'righttick'.
+        Sensible values include 'tick', 'tick_left', and 'tick_right'.
         """
         return self._points.material.marker
 
