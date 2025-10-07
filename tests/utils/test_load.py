@@ -20,7 +20,7 @@ def test_load_meshes(url):
     # The .binvox format is expected to fail because trimesh
     # loads it as VoxelGrid, not as a mesh
     if url.endswith(".binvox"):
-        with pytest.raises(ValueError):
+        with pytest.raises(NotImplementedError):
             mesh = gfx.load_mesh(url, remote_ok=True)
         return
 
