@@ -27,7 +27,7 @@ dependencies = [
     # External dependencies
     "numpy",
     "freetype-py",
-    "uharfbuzz !=0.51.0", # https://github.com/harfbuzz/uharfbuzz/issues/248
+    "uharfbuzz",
     "jinja2",
     "hsluv >=5",
 ]
