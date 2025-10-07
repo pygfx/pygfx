@@ -299,7 +299,7 @@ class PointsMarkerMaterial(PointsMaterial):
         *,
         marker="circle",
         marker_mode="uniform",
-        edge_width=1,
+        edge_width=1.0,
         edge_color="black",
         custom_sdf=None,
         edge_color_mode="auto",

@@ -36,17 +36,20 @@ class Ruler(WorldObject):
     tick_format : str
         The format to represent ticks with. Default "0.4g".
     tick_side : str
-        Whether the ticks are on the 'left' or 'right' of the line (from the p.o.v. of the ruler). Default left.
-    min_tick_distance: float
-        The minimal distance between ticks in screen pixels, when using auto-ticks. Default 50.
+        Whether the tick texts are on the 'left' or 'right' of the line (from the p.o.v. of the ruler). Default left.
+    tick_marker : str
+        Any marker from the PointsMarkerMaterial. Sensible values are 'tick', 'lefttick', and 'righttick'.
+    tick_size : float
+        The size of the tickmarks (in logical screen pixels). When using half ticks
+        (tick_marker is 'lefttick' or 'righttick', the effective size is halved). Default 8.
     ticks_at_end_points : bool
         Whether to draw ticks at the ruler's strat and end. Default False
+    min_tick_distance: float
+        The minimal distance between ticks in screen pixels, when using auto-ticks. Default 50.
     color : str | tuple[float, float, float, float]
         The color for the internal line, points and text objects. Default white.
     thickness : float
         The thickness of the line and tickmarks. Default 2.0.
-    tick_length : float
-        The length of the tickmarks (in logical screen pixels). Default 6.
     alpha_mode : str | None
         Override the default alpha mode for the line, points and text.
     render_queue : int | None
@@ -62,11 +65,12 @@ class Ruler(WorldObject):
         ticks: list | None = None,
         tick_format: str = "0.4g",
         tick_side: Literal["left", "right"] = "left",
-        min_tick_distance: float = 50.0,
+        tick_marker: Literal["tick", "lefttick", "righttick"] = "tick",
+        tick_size: float = 8.0,
         ticks_at_end_points=False,
+        min_tick_distance: float = 50.0,
         color: str | tuple[float, float, float, float] = "#fff",
         thickness: float = 2.0,
-        tick_length: float = 6.0,
         alpha_mode: str | None = None,
         render_queue: int | None = None,
     ):
@@ -76,7 +80,7 @@ class Ruler(WorldObject):
         self.end_pos = end_pos
         self.start_value = start_value
         self.ticks = ticks
-        self._tick_length = float(tick_length)
+        self._tick_size = float(tick_size)
 
         self.tick_format = tick_format
         self.tick_side = tick_side
@@ -106,7 +110,8 @@ class Ruler(WorldObject):
         self._points = Points(
             geometry,
             PointsMarkerMaterial(
-                marker="tick",
+                marker=tick_marker,
+                color="red",
                 edge_color=color,
                 edge_width=thickness,
                 size_mode="vertex",
@@ -176,17 +181,17 @@ class Ruler(WorldObject):
         self._end_value = None
 
     @property
-    def start_value(self):
+    def start_value(self) -> float:
         """The value of the ruler at the start position (i.e. the offset)."""
         return self._start_value
 
     @start_value.setter
-    def start_value(self, value):
+    def start_value(self, value: float):
         self._start_value = float(value)
         self._end_value = None
 
     @property
-    def end_value(self):
+    def end_value(self) -> float:
         """The value at the end of the ruler (read-only)."""
         # Little caching mechanic. Props that affect the end_value set ._end_value to None
         if self._end_value is None:
@@ -221,7 +226,7 @@ class Ruler(WorldObject):
     # -- Properties for tweaking
 
     @property
-    def tick_format(self):
+    def tick_format(self) -> str:
         """The format to display the tick values.
 
         * A string to use as the second arg in ``format()``, default "0.4g".
@@ -231,7 +236,7 @@ class Ruler(WorldObject):
         return self._tick_format
 
     @tick_format.setter
-    def tick_format(self, tick_format):
+    def tick_format(self, tick_format: str):
         if isinstance(tick_format, str):
             self._tick_format = str(tick_format)
         elif callable(tick_format):
@@ -249,7 +254,7 @@ class Ruler(WorldObject):
             self._tick_format = tick_format
 
     @property
-    def tick_side(self):
+    def tick_side(self) -> str:
         """Whether the ticks are on the 'left' or 'right' of the line.
 
         Imagine standing on the start position, with the line in front of you.
@@ -257,7 +262,7 @@ class Ruler(WorldObject):
         return self._tick_side
 
     @tick_side.setter
-    def tick_side(self, side):
+    def tick_side(self, side: str):
         side = str(side).lower()
         if side in ("left", "right"):
             self._tick_side = side
@@ -265,25 +270,79 @@ class Ruler(WorldObject):
             raise ValueError("Tick side must be 'left' or 'right'.")
 
     @property
-    def min_tick_distance(self):
+    def tick_marker(self) -> str:
+        """The marker used for the ticks.
+
+        Alias for ``ruler.points.material.marker``.
+
+        This can be any value in :obj:`pygfx.utils.enums.MarkerShape`.
+        Sensible values include 'tick', 'lefttick', and 'righttick'.
+        """
+        return self._points.material.marker
+
+    @tick_marker.setter
+    def tick_marker(self, marker: str):
+        self._points.material.marker = marker
+
+    @property
+    def tick_size(self) -> float:
+        """The size of the tick marker, i.e. the length of the little line segment."""
+        return self._tick_size
+
+    @tick_size.setter
+    def tick_size(self, size: float):
+        self._tick_size = float(size)
+
+    @property
+    def ticks_at_end_points(self) -> bool:
+        """Whether to show tickmarks at the end-points."""
+        return self._ticks_at_end_points
+
+    @ticks_at_end_points.setter
+    def ticks_at_end_points(self, value: bool):
+        self._ticks_at_end_points = bool(value)
+
+    @property
+    def min_tick_distance(self) -> float:
         """The minimal distance between ticks in screen pixels, when using auto-ticks."""
         return self._min_tick_dist
 
     @min_tick_distance.setter
-    def min_tick_distance(self, value):
+    def min_tick_distance(self, value: float):
         value = float(value)
         if value < 0.0:
             raise ValueError("tick distance must be larger than zero.")
         self._min_tick_dist = value
 
     @property
-    def ticks_at_end_points(self):
-        """Whether to show tickmarks at the end-points."""
-        return self._ticks_at_end_points
+    def color(self):
+        """The color of the ruler components.
 
-    @ticks_at_end_points.setter
-    def ticks_at_end_points(self, value):
-        self._ticks_at_end_points = bool(value)
+        The getter is an alias for ``ruler.text.material.color``. Setting this
+        value sets  ``ruler.text.material.color``, ``ruler.line.material.color``,
+        and ``ruler.points.material.edge_color``.
+        """
+        return self._text.material.color
+
+    @color.setter
+    def color(self, color):
+        self._text.material.color = color
+        self._line.material.color = color
+        self._points.material.edge_color = color
+
+    @property
+    def thickness(self) -> float:
+        """The thickness of the line and tickmarks.
+
+        The getter is an alias for ``ruler.line.material.thickness``. Setting this
+        value sets  ``ruler.line.material.thickness`` and ``ruler.points.material.edge_width``.
+        """
+        return self._line.material.thickness
+
+    @thickness.setter
+    def thickness(self, thickness: float):
+        self._line.material.thickness = thickness
+        self._points.material.edge_width = thickness
 
     # -- Methods
 
@@ -493,7 +552,7 @@ class Ruler(WorldObject):
         """Update the sub-objects to show the given ticks."""
         assert isinstance(ticks, dict)
 
-        tick_size = self._tick_length
+        tick_size = self._tick_size
 
         # Load config
         start_pos = self._start_pos
