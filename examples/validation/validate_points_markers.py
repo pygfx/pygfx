@@ -20,7 +20,7 @@ from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 
 
-canvas = RenderCanvas(size=(1200, 1000))
+canvas = RenderCanvas(size=(1200, 1200))
 renderer = gfx.WgpuRenderer(canvas)
 
 
@@ -247,7 +247,7 @@ all_points.append(points_outer)
 
 
 camera = gfx.OrthographicCamera()
-camera.show_object(scene, scale=0.7)
+camera.show_object(scene, scale=1.05, match_aspect=True)
 controller = gfx.PanZoomController(camera, register_events=renderer)
 
 canvas.request_draw(lambda: renderer.render(scene, camera))

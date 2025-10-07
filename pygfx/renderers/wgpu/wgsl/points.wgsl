@@ -65,6 +65,23 @@ fn vs_main(in: VertexInput) -> Varyings {
     // Convert to logical screen coordinates
     let pos_s = (pos_n.xy / pos_n.w + 1.0) * screen_factor;
 
+    $$ if need_neighbours
+        let node_index_prev = max(node_index - 1, 0);
+        var node_index_next = min(u_renderer.last_i, node_index + 1);
+
+        let pos_m_prev = load_s_positions(node_index_prev);
+        let pos_w_prev = u_wobject.world_transform * vec4<f32>(pos_m_prev.xyz, 1.0);
+        let pos_c_prev = u_stdinfo.cam_transform * pos_w_prev;
+        let pos_n_prev = u_stdinfo.projection_transform * pos_c_prev;
+        let pos_s_prev = (pos_n_prev.xy / pos_n_prev.w + 1.0) * screen_factor;
+
+        let pos_m_next = load_s_positions(node_index_next);
+        let pos_w_next = u_wobject.world_transform * vec4<f32>(pos_m_next.xyz, 1.0);
+        let pos_c_next = u_stdinfo.cam_transform * pos_w_next;
+        let pos_n_next = u_stdinfo.projection_transform * pos_c_next;
+        let pos_s_next = (pos_n_next.xy / pos_n_next.w + 1.0) * screen_factor;
+    $$ endif
+
     // Get reference size
     $$ if size_mode == 'vertex'
         let size_ref = load_s_sizes(node_index);
@@ -149,6 +166,9 @@ fn vs_main(in: VertexInput) -> Varyings {
 
     $$ if rotation_mode == 'vertex'
     let rotation = load_s_rotations(node_index);
+    $$ elif rotation_mode == 'curve'
+    let dpos = pos_s_next - pos_s_prev;
+    let rotation = atan2(dpos.y, dpos.x);
     $$ else
     let rotation = u_material.rotation;
     $$ endif
@@ -475,6 +495,30 @@ fn get_signed_distance_to_shape_edge(coord: vec2<f32>, varyings:Varyings) -> f32
             let r3 = max(abs(x1)- size/2.0, abs(y1)- size/10.0);
             let r4 = max(abs(y1)- size/2.0, abs(x1)- size/10.0);
             return min( min(r1,r2), min(r3,r4));
+        }
+        case {{ markerenum_tick }}: {
+            // A tick is an infinitely thin line (only the edge is visible)
+            let x = coord.x;
+            let y = coord.y;
+            let r1 = max(abs(x - size/2.0), abs(x + size/2.0));
+            let r3 = max(abs(x), abs(y));  // bbox
+            return max(r1,r3) - size/2.0;
+        }
+        case {{ markerenum_tick_left }}: {
+            // A tick only on the 'left' side of the line
+            let x = coord.x;
+            let y = coord.y;
+            let r1 = max(abs(x - size/2.0), abs(x + size/2.0));
+            let r3 = max(max(abs(x), -y), -y + size/2.0);  // bbox
+            return max(r1, r3) - size/2.0;
+        }
+        case {{ markerenum_tick_right }}: {
+            // A tick only on the 'right' side of the line
+            let x = coord.x;
+            let y = coord.y;
+            let r1 = max(abs(x - size/2.0), abs(x + size/2.0));
+            let r3 = max(max(abs(x), y), y + size/2.0);  // bbox
+            return max(r1, r3) - size/2.0;
         }
         case {{ markerenum_triangle_down }}, {{ markerenum_triangle_left }}, {{ markerenum_triangle_right }}, {{ markerenum_triangle_up }}: {
             // A triangle is the intersection of three half-planes
