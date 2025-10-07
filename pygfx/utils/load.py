@@ -228,7 +228,9 @@ def meshes_from_trimesh(scene, materials=True, apply_transforms=True):
             meshes.append(mesh)
         return meshes
     else:
-        raise NotImplementedError(f"Unexpected trimesh data: {scene.__class__.__name__}")
+        raise NotImplementedError(
+            f"Unexpected trimesh data: {scene.__class__.__name__}"
+        )
 
 
 def objects_from_trimesh(scene, materials=True, de_duplicate=True):
