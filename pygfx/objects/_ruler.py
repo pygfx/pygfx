@@ -1,5 +1,5 @@
 from math import floor, ceil, log10
-from typing import Literal
+from typing import Literal, Callable
 
 import numpy as np
 
@@ -33,8 +33,8 @@ class Ruler(WorldObject):
     ticks : array-like or None
         A list of values, in world-space from the ruler's start_pos, where ticks should be drawn.
         If not given or None, this will be determined automatically.
-    tick_format : str
-        The format to represent ticks with. Default "0.4g".
+    tick_format : str | Callable
+        The format to represent ticks with, or a function to convert floats to str. Default "0.4g".
     tick_side : str
         Whether the tick texts are on the 'left' or 'right' of the line (from the p.o.v. of the ruler). Default left.
     tick_marker : str
@@ -63,7 +63,7 @@ class Ruler(WorldObject):
         end_pos: tuple[float, float, float] = (0, 0, 0),
         start_value: float = 0.0,
         ticks: list | None = None,
-        tick_format: str = "0.4g",
+        tick_format: str | Callable = "0.4g",
         tick_side: Literal["left", "right"] = "left",
         tick_marker: Literal["tick", "lefttick", "righttick"] = "tick",
         tick_size: float = 8.0,
