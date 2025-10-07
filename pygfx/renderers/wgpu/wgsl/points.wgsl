@@ -496,6 +496,11 @@ fn get_signed_distance_to_shape_edge(coord: vec2<f32>, varyings:Varyings) -> f32
             let r4 = max(abs(y1)- size/2.0, abs(x1)- size/10.0);
             return min( min(r1,r2), min(r3,r4));
         }
+        case {{ markerenum_tick }}: {
+            // A tick is an infinitely thin line (only the edge is visible)
+            let d = abs(coord.xy) - vec2f(0.0, 0.5 * size);
+            return length(max(d, vec2<f32>(0.0))) + min(max(d.x, d.y), 0.0);
+        }
         case {{ markerenum_triangle_down }}, {{ markerenum_triangle_left }}, {{ markerenum_triangle_right }}, {{ markerenum_triangle_up }}: {
             // A triangle is the intersection of three half-planes
             // y-offset to center the shape by 0.25*size
