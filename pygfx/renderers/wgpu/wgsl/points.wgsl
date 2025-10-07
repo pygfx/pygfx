@@ -494,12 +494,6 @@ fn get_signed_distance_to_shape_edge(coord: vec2<f32>, varyings:Varyings) -> f32
         let r4 = max(abs(y1)- size/2.0, abs(x1)- size/10.0);
         return min( min(r1,r2), min(r3,r4));
 
-
-    } else if (marker == {{ markerenum_tick }}) {
-        // A tick is an infinitely thin line (only the edge is visible)
-        let d = abs(coord.xy) - vec2f(0.0, 0.5 * size);
-        return length(max(d, vec2<f32>(0.0))) + min(max(d.x, d.y), 0.0);
-
     } else if ( marker == {{ markerenum_triangle_down }} ||
                 marker == {{ markerenum_triangle_left }} ||
                 marker == {{ markerenum_triangle_right }} ||
