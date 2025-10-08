@@ -25,7 +25,7 @@ def geometry_from_trimesh(mesh):
     from trimesh import Trimesh
 
     if not isinstance(mesh, Trimesh):
-        raise NotImplementedError()
+        raise NotImplementedError(f"No support for trimesh.{mesh.__class__.__name__}")
 
     kwargs = dict(
         positions=np.ascontiguousarray(mesh.vertices, dtype="f4"),
