@@ -404,7 +404,7 @@ class PointsMarkerMaterial(PointsMaterial):
             resolved_name = alt_names.get(name, name).lower()
             if resolved_name not in MarkerShape:
                 raise ValueError(
-                    f"PointsMarkerMaterial.marker must be a string in {SizeMode}, or a supported characted, not {name!r}"
+                    f"PointsMarkerMaterial.marker must be a string in {MarkerShape}, or a supported character, not {name!r}"
                 )
         self._store.marker = resolved_name
 
