@@ -501,6 +501,8 @@ class PointsSpriteMaterial(PointsMaterial):
     @sprite.setter
     def sprite(self, sprite):
         if not (sprite is None or isinstance(sprite, Texture)):
-            raise TypeError(f"sprite must be `None` or a Texture, you have passed a: {type(sprite)}")
+            raise TypeError(
+                f"sprite must be `None` or a Texture, you have passed a: {type(sprite)}"
+            )
 
         self._store.sprite = sprite
