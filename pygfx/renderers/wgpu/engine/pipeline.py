@@ -163,7 +163,7 @@ def get_cached_render_pipeline(device, *args):
     return result
 
 
-def get_pipeline_container_group(wobject, renderstate):
+def get_pipeline_container_group(wobject, scene, renderstate):
     """Return the PipelineContainerGroup object for wobject.
 
     This is the entrypoint for the renderer.
@@ -189,7 +189,7 @@ def get_pipeline_container_group(wobject, renderstate):
         PIPELINE_CONTAINER_GROUPS[pcg_key] = pipeline_container_group
 
     # Update. Quickly returns if no work to do.
-    pipeline_container_group.update(wobject, renderstate)
+    pipeline_container_group.update(wobject, scene, renderstate)
 
     # Return the pipeline container group
     return pipeline_container_group
@@ -210,7 +210,7 @@ class PipelineContainerGroup:
         self.render_containers = None
         self.bake_functions = None
 
-    def update(self, wobject, renderstate):
+    def update(self, wobject, scene, renderstate):
         """Update the pipeline containers. Creates (and re-creates) the containers if necessary."""
 
         # Get what has changed
@@ -267,9 +267,9 @@ class PipelineContainerGroup:
         # If something has changed, update containers
         if changed:
             for container in self.compute_containers:
-                container.update(wobject, renderstate, changed, tracker)
+                container.update(wobject, scene, renderstate, changed, tracker)
             for container in self.render_containers:
-                container.update(wobject, renderstate, changed, tracker)
+                container.update(wobject, scene, renderstate, changed, tracker)
 
 
 class PipelineContainer:
@@ -320,13 +320,13 @@ class PipelineContainer:
                 assert isinstance(key2, int), f"bind group slot must be int, not {key2}"
                 assert isinstance(b, Binding), f"binding must be Binding, not {b}"
 
-    def update(self, wobject, renderstate, changed, tracker):
+    def update(self, wobject, scene, renderstate, changed, tracker):
         """Make sure that the pipeline is up-to-date for the given renderstate."""
 
         # Ensure that the information provided by the shader is up-to-date
         if changed:
             try:
-                self.update_shader_data(wobject, changed, tracker)
+                self.update_shader_data(wobject, scene, changed, tracker)
             except Exception as err:
                 self.broken = 1
                 raise err
@@ -346,7 +346,7 @@ class PipelineContainer:
         if changed:
             logger.info(f"{wobject} shader update: {', '.join(sorted(changed))}.")
 
-    def update_shader_data(self, wobject, changed, tracker):
+    def update_shader_data(self, wobject, scene, changed, tracker):
         """Update the info that applies to all passes and renderstates."""
 
         if "create" in changed or "reset" in changed:
@@ -364,7 +364,7 @@ class PipelineContainer:
         if "bindings" in changed:
             with tracker.track_usage("!bindings"):
                 self.bindings_dicts = self.shader.get_bindings_info(
-                    wobject, self.shared
+                    wobject, self.shared, scene
                 )
             self._check_bindings()
             self.update_shader_hash()

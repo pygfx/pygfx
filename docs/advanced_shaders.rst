@@ -42,7 +42,7 @@ The shader must implement a few methods. A typical shader is shown below:
             if material.has_some_value:
                 self["some_template_variable"] = True
 
-        def get_bindings(self, wobject, shared):
+        def get_bindings(self, wobject, shared, scene):
 
             # You can also set template-variables here. Again, when things that are used here change later, this
             # is detected, and this method will be called again. When a binding has changed (e.g. a colormap is replaced
@@ -118,7 +118,7 @@ to allow flexible code generation. Here's an example:
 
 .. code-block:: python
 
-        def get_bindings(self, wobject, shared):
+        def get_bindings(self, wobject, shared, scene):
             # Template variables can be set like this
             self["scale"] = 1.2
             ...
@@ -290,7 +290,7 @@ For images / volumes:
 
 .. code-block:: python
 
-        def get_bindings(self, wobjwect, shared):
+        def get_bindings(self, wobject, shared, scene):
             ...
             extra_bindings = self.define_img_colormap(material.map)
             bindings.extend(extra_bindings)
@@ -315,7 +315,7 @@ For points / lines, meshes, etc.:
 
 .. code-block:: python
 
-        def get_bindings(self, wobjwect, shared):
+        def get_bindings(self, wobjwect, shared, scene):
             ...
             extra_bindings = self.define_vertex_colormap(material.map, geometry.texcoords)
             bindings.extend(extra_bindings)

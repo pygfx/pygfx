@@ -90,10 +90,7 @@ scene.add(background)
 
 scene.add(gfx.Background.from_color((0.1, 0.1, 0.1, 1)))
 
-
-def add_env_map(obj, env_map):
-    if isinstance(obj, gfx.Mesh) and isinstance(obj.material, gfx.MeshStandardMaterial):
-        obj.material.env_map = env_map
+scene.environment = env_tex
 
 
 def load_remote_model(model_index):
@@ -130,8 +127,6 @@ def load_model(model_path):
             scene.remove(skeleton_helper)
 
         model_obj = gltf.scene if gltf.scene else gltf.scenes[0]
-        if state["ibl"]:
-            model_obj.traverse(lambda obj: add_env_map(obj, env_tex))
 
         skeleton_helper = gfx.SkeletonHelper(model_obj)
         skeleton_helper.visible = False
@@ -144,7 +139,7 @@ def load_model(model_path):
         if actions:
             for action in actions:
                 action.stop()
-            actions = []
+            actions = None
 
         clips = gltf.animations
         if clips:
@@ -212,9 +207,9 @@ def draw_imgui():
             changed, state["ibl"] = imgui.checkbox("IBL", state["ibl"])
             if changed:
                 if state["ibl"]:
-                    model_obj.traverse(lambda obj: add_env_map(obj, env_tex))
+                    scene.environment = env_tex
                 else:
-                    model_obj.traverse(lambda obj: add_env_map(obj, None))
+                    scene.environment = None
 
         if imgui.collapsing_header("Visibility", imgui.TreeNodeFlags_.default_open):
             _, background.visible = imgui.checkbox(
