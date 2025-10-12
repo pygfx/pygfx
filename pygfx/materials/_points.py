@@ -341,7 +341,7 @@ class PointsMarkerMaterial(PointsMaterial):
         Supported values:
 
         * A string from :obj:`pygfx.utils.enums.MarkerShape`.
-        * Matplotlib compatible characters: "osD+x^v<>".
+        * Matplotlib compatible characters: "osD+x^v<>*".
         * Unicode symbols: "●○■♦♥♠♣✳▲▼◀▶".
         * Emojis: "❤️♠️♣️♦️💎💍✳️📍".
         * A string containing the value "custom". In this case, the WGSL
@@ -368,6 +368,7 @@ class PointsMarkerMaterial(PointsMaterial):
             "<": "triangle_left",
             ">": "triangle_right",
             "v": "triangle_down",
+            "*": "asterix",
             # Unicode
             "●": "circle",
             "○": "ring",
