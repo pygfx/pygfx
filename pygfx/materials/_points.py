@@ -408,7 +408,7 @@ class PointsMarkerMaterial(PointsMaterial):
             resolved_name = alt_names.get(name, name).lower()
             if resolved_name not in MarkerShape:
                 raise ValueError(
-                    f"PointsMarkerMaterial.marker must be a string in {SizeMode}, or a supported characted, not {name!r}"
+                    f"PointsMarkerMaterial.marker must be a string in {MarkerShape}, or a supported character, not {name!r}"
                 )
         self._store.marker = resolved_name
 
@@ -504,8 +504,9 @@ class PointsSpriteMaterial(PointsMaterial):
 
     @sprite.setter
     def sprite(self, sprite):
-        assert sprite is None or isinstance(sprite, Texture)
+        if not (sprite is None or isinstance(sprite, Texture)):
+            raise TypeError(
+                f"sprite must be `None` or a Texture, you have passed a: {type(sprite)}"
+            )
+
         self._store.sprite = sprite
-
-
-# Idea: PointsSdfMaterial(PointsMaterial) -> a material where the point shape can be defined via an sdf.
