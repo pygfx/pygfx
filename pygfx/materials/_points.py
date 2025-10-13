@@ -341,7 +341,7 @@ class PointsMarkerMaterial(PointsMaterial):
         Supported values:
 
         * A string from :obj:`pygfx.utils.enums.MarkerShape`.
-        * Matplotlib compatible characters: "osD+x^v<>".
+        * Matplotlib compatible characters: "osD+x^v<>*".
         * Unicode symbols: "●○■♦♥♠♣✳▲▼◀▶".
         * Emojis: "❤️♠️♣️♦️💎💍✳️📍".
         * A string containing the value "custom". In this case, the WGSL
@@ -368,6 +368,7 @@ class PointsMarkerMaterial(PointsMaterial):
             "<": "triangle_left",
             ">": "triangle_right",
             "v": "triangle_down",
+            "*": "asterisk6",
             # Unicode
             "●": "circle",
             "○": "ring",
@@ -376,7 +377,7 @@ class PointsMarkerMaterial(PointsMaterial):
             "♥": "heart",
             "♠": "spade",
             "♣": "club",
-            "✳": "asterix",
+            "✳": "asterisk8",
             "▲": "triangle_up",
             "▼": "triangle_down",
             "◀": "triangle_left",
@@ -388,8 +389,11 @@ class PointsMarkerMaterial(PointsMaterial):
             "♦️": "diamond",
             "💎": "diamond",
             "💍": "ring",
-            "✳️": "asterix",
+            "✳️": "asterisk8",
             "📍": "pin",
+            # Compat
+            "asterisk": "asterisk6",
+            "asterix": "asterisk6",
         }
 
         name = name or "circle"

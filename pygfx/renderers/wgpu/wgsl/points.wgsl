@@ -17,6 +17,8 @@ $$ if colormap_dim
     {$ include 'pygfx.colormap.wgsl' $}
 $$ endif
 
+const SQRT_3 = 1.7320508075688772;
+
 // -------------------- functions --------------------
 
 
@@ -484,17 +486,34 @@ fn get_signed_distance_to_shape_edge(coord: vec2<f32>, varyings:Varyings) -> f32
             let r3 = max(abs(x), abs(y));
             return max(min(r1,r2),r3) - size/2.0;
         }
-        case {{ markerenum_asterix }}: {
-            // An asterisk is the union of a cross and a plus.
+        case {{ markerenum_asterisk6 }}: {
+            // A six-legged asterisk
             let x1 = coord.x;
             let y1 = coord.y;
-            let x2 = 0.5 * SQRT_2 * (coord.x + coord.y);
-            let y2 = 0.5 * SQRT_2 * (coord.x - coord.y);
-            let r1 = max(abs(x2)- size/2.0, abs(y2)- size/10.0);
-            let r2 = max(abs(y2)- size/2.0, abs(x2)- size/10.0);
-            let r3 = max(abs(x1)- size/2.0, abs(y1)- size/10.0);
-            let r4 = max(abs(y1)- size/2.0, abs(x1)- size/10.0);
-            return min( min(r1,r2), min(r3,r4));
+            let x2 = -0.5 * x1 - 0.5 * SQRT_3 * y1;
+            let y2 = -0.5 * SQRT_3 * x1 + 0.5 * y1;
+            let x3 = -0.5 * x1 + 0.5 * SQRT_3 * y1;
+            let y3 = -0.5 * SQRT_3 * x1 - 0.5 * y1;
+            let r1 = max(abs(x1)- size/2.0, abs(y1)- size/10.0);
+            let r2 = max(abs(x2)- size/2.0, abs(y2)- size/10.0);
+            let r3 = max(abs(x3)- size/2.0, abs(y3)- size/10.0);
+            return min(min(r1, r2), r3);
+        }
+        case {{ markerenum_asterisk8 }}: {
+            // An eight-legged asterisk
+            let x1 = coord.x;
+            let y1 = coord.y;
+            let x2 = 0.5 * SQRT_2 * (x1 + y1);
+            let y2 = 0.5 * SQRT_2 * (x1 - y1);
+            let x3 = y1;
+            let y3 = x1;
+            let x4 = y2;
+            let y4 = x2;
+            let r1 = max(abs(x1)- size/2.0, abs(y1)- size/10.0);
+            let r2 = max(abs(x2)- size/2.0, abs(y2)- size/10.0);
+            let r3 = max(abs(x3)- size/2.0, abs(y3)- size/10.0);
+            let r4 = max(abs(x4)- size/2.0, abs(y4)- size/10.0);
+            return min(min(min(r1, r2), r3), r4);
         }
         case {{ markerenum_tick }}: {
             // A tick is an infinitely thin line (only the edge is visible)
