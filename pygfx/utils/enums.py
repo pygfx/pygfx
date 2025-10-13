@@ -138,7 +138,8 @@ class MarkerShape(Enum):
     diamond = None  #: ♦ A rotated square (sized to fit inside the circle).
     plus = None  #: + A plus symbol.
     cross = None  #: x A rotated plus symbol.
-    asterix = None  #: ✳️ A plus and a cross combined.
+    asterisk6 = None  #: * A star-like symbol with 6 legs.
+    asterisk8 = None  #: ✳️ A star-like symbol with 8 legs.
     tick = None  #: A tickmark: an infinitely thin line so only the marker edge is drawn. The width and length can be controller with 'edge_width' and 'size' respectively.
     tick_left = None  #: A tickmark that is on the left side of the line (viewed from the line's start).
     tick_right = None  #: A tickmark that is on the right side of the line (viewed from the line's start).
@@ -162,7 +163,8 @@ class MarkerInt(Enum):
     diamond = 202
     plus = 203
     cross = 204
-    asterix = 205
+    asterisk6 = 226
+    asterisk8 = 228
     tick = 206
     tick_left = 207
     tick_right = 208

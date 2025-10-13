@@ -368,7 +368,7 @@ class PointsMarkerMaterial(PointsMaterial):
             "<": "triangle_left",
             ">": "triangle_right",
             "v": "triangle_down",
-            "*": "asterix",
+            "*": "asterisk6",
             # Unicode
             "●": "circle",
             "○": "ring",
@@ -377,7 +377,7 @@ class PointsMarkerMaterial(PointsMaterial):
             "♥": "heart",
             "♠": "spade",
             "♣": "club",
-            "✳": "asterix",
+            "✳": "asterisk8",
             "▲": "triangle_up",
             "▼": "triangle_down",
             "◀": "triangle_left",
@@ -389,8 +389,11 @@ class PointsMarkerMaterial(PointsMaterial):
             "♦️": "diamond",
             "💎": "diamond",
             "💍": "ring",
-            "✳️": "asterix",
+            "✳️": "asterisk8",
             "📍": "pin",
+            # Compat
+            "asterisk": "asterisk6",
+            "asterix": "asterisk6",
         }
 
         name = name or "circle"
