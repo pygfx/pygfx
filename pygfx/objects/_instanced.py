@@ -73,6 +73,19 @@ class InstancedObject(WorldObject):
         """get the matrix for the instance at the given index."""
         return self._store["instance_buffer"].data["matrix"][index].T
 
+    def get_bounding_box(self):
+        bbox = super().get_bounding_box()
+
+        # bbox of instanced objects
+        bbox_instance_min = self.instance_buffer.data["matrix"][:, 3, 0:3].min(axis=0),
+        bbox_instance_max = self.instance_buffer.data["matrix"][:, 3, 0:3].max(axis=0),
+
+        # adjust for bbox of instanced objects
+        bbox[0] = np.clip(bbox[0], -np.inf, bbox_instance_min)
+        bbox[1] = np.clip(bbox[1], bbox_instance_max, np.inf)
+
+        return bbox
+
     def _wgpu_get_pick_info(self, pick_value) -> dict:
         info = super()._wgpu_get_pick_info(pick_value)
         # The id maps to one of our instances
