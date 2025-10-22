@@ -81,7 +81,9 @@ class InstancedObject(WorldObject):
         _aabbs = list()
 
         for i in range(self.instance_buffer.nitems):
-            _aabbs.append(la.aabb_transform(aabb, self.instance_buffer.data["matrix"][i].T))
+            _aabbs.append(
+                la.aabb_transform(aabb, self.instance_buffer.data["matrix"][i].T)
+            )
 
         aabbs = np.stack(_aabbs)
         final_aabb = np.zeros((2, 3), dtype=float)
