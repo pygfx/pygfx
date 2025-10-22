@@ -1,5 +1,7 @@
 import numpy as np
 
+import pylinalg as la
+
 from ._base import id_provider
 from . import WorldObject, Mesh, Line
 from ..resources import Buffer
@@ -74,17 +76,19 @@ class InstancedObject(WorldObject):
         return self._store["instance_buffer"].data["matrix"][index].T
 
     def get_bounding_box(self):
-        bbox = super().get_bounding_box()
+        aabb = self.get_bounding_box()
 
-        # bbox of instanced objects
-        bbox_instance_min = self.instance_buffer.data["matrix"][:, 3, 0:3].min(axis=0),
-        bbox_instance_max = self.instance_buffer.data["matrix"][:, 3, 0:3].max(axis=0),
+        _aabbs = list()
 
-        # adjust for bbox of instanced objects
-        bbox[0] = np.clip(bbox[0], -np.inf, bbox_instance_min)
-        bbox[1] = np.clip(bbox[1], bbox_instance_max, np.inf)
+        for i in range(self.instance_buffer.nitems):
+            _aabbs.append(la.aabb_transform(aabb, self.instance_buffer.data["matrix"][i].T))
 
-        return bbox
+        aabbs = np.stack(_aabbs)
+        final_aabb = np.zeros((2, 3), dtype=float)
+        final_aabb[0] = np.min(aabbs[:, 0, :], axis=0)
+        final_aabb[1] = np.max(aabbs[:, 1, :], axis=0)
+
+        return final_aabb
 
     def _wgpu_get_pick_info(self, pick_value) -> dict:
         info = super()._wgpu_get_pick_info(pick_value)
