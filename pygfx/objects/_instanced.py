@@ -76,7 +76,7 @@ class InstancedObject(WorldObject):
         return self._store["instance_buffer"].data["matrix"][index].T
 
     def get_bounding_box(self):
-        aabb = self.get_bounding_box()
+        aabb = super().get_bounding_box()
 
         _aabbs = list()
 
