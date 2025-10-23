@@ -153,6 +153,7 @@ class FlatScene:
                     if (
                         getattr(material, "side", None) == "both"
                         and not material.force_single_pass
+                        and render_queue > 2600  # exclude "auto(aa)" objects
                     ):
                         # we need rendering twice in a double pass for these objects
                         self.transparent_double_pass_objects.append(renderable_item)
