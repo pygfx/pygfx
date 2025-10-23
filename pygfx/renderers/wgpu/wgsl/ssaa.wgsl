@@ -1,7 +1,12 @@
-// ssaa.wgsl  version 1.1
+// ssaa.wgsl  version 1.2
 //
+// Super-sample anti-aliasing
+//
+// Home: https://github.com/almarklein/ppaa-experiments/blob/main/ssaa.md
 // Source: https://github.com/almarklein/ppaa-experiments/blob/main/wgsl/ssaa.wgsl
-// Used in https://github.com/pygfx/pygfx/, this code is somewhat opinionated towards Pygfx.
+//
+//
+// Summary:
 //
 // An interpolation / reconstruction filter that has two purposes:
 // * downsampling: render at a higher resolution, then downsample to reduce aliasing. This is SSAA.
@@ -12,6 +17,14 @@
 //
 // Inspired by https://therealmjp.github.io/posts/msaa-resolve-filters/
 // and         https://bartwronski.com/2022/03/07/fast-gpu-friendly-antialiasing-downsampling-filter/
+//
+// This code uses jinja2 templating, because that we use in PyGfx.
+//
+//
+// Changelog:
+//
+// v1.1 (2025): Initial version.
+// v1.2 (2025): Avoid using out-of-range values for the integer sample offset. Cubic kernels with scale factor > 4 are truncated.
 
 
 fn filterweightBox(t: vec2f) -> f32 {
@@ -95,14 +108,15 @@ fn fs_main(varyings: Varyings) -> @location(0) vec4<f32> {
     let fPosOrig: vec2f = texCoordOrig * resolution;
     // Get the nearest integer pixel index into the source texture (floor, not round!), for an odd kernel.
     let iPosNear: vec2i = vec2i(fPosOrig);
-    // Select the reference pixel index representing the left pixel of an even kernel.
-    let iPosLeft: vec2i = vec2i(round(fPosOrig)) - 1;
+    // Select the reference pixel index for even kernels; the right (not left) pixel.
+    // Why the right? Because then we can make maximum use of the integer offset when sampling from the texture.
+    let iPosEven: vec2i = vec2i(round(fPosOrig));
     // Project the rounded pixel location back to float, representing the center of that pixel
     let fPosNear = vec2f(iPosNear) + 0.5;
-    let fPosLeft = vec2f(iPosLeft) + 0.5;
+    let fPosEven = vec2f(iPosEven) + 0.5;
     // Translate to texture coords
     let texCoordNear = fPosNear * invPixelSize;
-    let texCoordLeft = fPosLeft * invPixelSize;
+    let texCoordEven = fPosEven * invPixelSize;
 
     //  0.   1.   2.   3.   4.   position
     //   ____ ____ ____ ____
@@ -114,8 +128,8 @@ fn fs_main(varyings: Varyings) -> @location(0) vec4<f32> {
     //
     //  fPosOrig = 2.4
     //  iPosNear = 2
-    //  iPosLeft = 1
-    //  fPosLeft = 1.5
+    //  iPosEven = 2
+    //  fPosEven = 2.5
 
     $$ set originalFilter = filter
 
@@ -168,11 +182,16 @@ fn fs_main(varyings: Varyings) -> @location(0) vec4<f32> {
     $$          set delta1 = - kernelSupportInt
     $$          set delta2 =   kernelSupportInt + 1
     $$      else
-    {#          Otherwitse use an even kernel, centered around the two nearest pixels. #}
-    $$          set refPos = "Left"
-    $$          set delta1 = - kernelSupportInt
-    $$          set delta2 =   kernelSupportInt + 2
+    {#          Otherwise use an even kernel, centered around the two nearest pixels. #}
+    $$          set refPos = "Even"
+    $$          set delta1 = - kernelSupportInt - 1
+    $$          set delta2 =   kernelSupportInt + 1
     $$      endif
+    {#     Integer offsets in texture sample must be in the range [-8, 7] (inclusive) #}
+    {#     This means that the maximum kernel size is 16x16 (i.e. 256 samples), and that the kernel is truncated for scales > 4. #}
+    {#     Note that delta2 is exclusive, as in range(delta1, delta2), so we use 8 for both. #}
+    $$     set delta1 = [delta1, -8] | max
+    $$     set delta2 = [delta2,  8] | min
     $$  endif
 
     {# Optimalization for scale factor being a whole uneven number #}
@@ -308,7 +327,7 @@ fn fs_main(varyings: Varyings) -> @location(0) vec4<f32> {
     // are how they end up in the target texture.
     // We assume pre-multiply alpha for now.
     // We should at some point look into this, if we want to support transparent windows,
-    // and change the code here based on the ``alpha_method`` of the ``GPUCanvasContext``.
+    // and change the code here based on the ``alpha_mode`` of the ``GPUCanvasContext``.
     // Note tha alpha is multiplied with itself, which is probbaly wrong.
 
     return vec4f(rgb * a, a * a);

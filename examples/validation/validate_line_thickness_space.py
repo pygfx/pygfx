@@ -107,7 +107,9 @@ add_three_cubes(
         thickness_space="screen",
         dash_pattern=[0, 2],
         color=(1.0, 0.0, 0.0),
+        alpha_mode="blend",
         opacity=0.5,
+        aa=True,
     ),
 )
 
@@ -118,7 +120,9 @@ add_three_cubes(
         thickness_space="world",
         dash_pattern=[0, 2],
         color=(0.0, 1.0, 0.0),
+        alpha_mode="blend",
         opacity=0.5,
+        aa=True,
     ),
 )
 
@@ -129,7 +133,9 @@ add_three_cubes(
         thickness_space="model",
         dash_pattern=[0, 2],
         color=(0.0, 0.0, 1.0),
+        alpha_mode="blend",
         opacity=0.5,
+        aa=True,
     ),
 )
 

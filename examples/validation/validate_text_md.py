@@ -30,7 +30,7 @@ normal *italic*, loose * stays
 also partial**bold**wordpart
 """
 
-material = gfx.TextMaterial(color="#000")
+material = gfx.TextMaterial(color="#000", aa=True)
 
 text1 = gfx.Text(anchor="top-left", material=material)
 text2 = gfx.Text(anchor="top-left", material=material)

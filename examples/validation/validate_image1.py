@@ -47,7 +47,7 @@ scene.add(plane)
 
 points = gfx.Points(
     gfx.Geometry(positions=[[0, 0, 1], [4, 4, 1]]),
-    gfx.PointsMaterial(color=(0, 1, 0, 1), size=20),
+    gfx.PointsMaterial(color=(0, 1, 0, 1), size=20, aa=True),
 )
 scene.add(points)
 

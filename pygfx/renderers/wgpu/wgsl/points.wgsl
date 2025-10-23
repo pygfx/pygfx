@@ -17,6 +17,8 @@ $$ if colormap_dim
     {$ include 'pygfx.colormap.wgsl' $}
 $$ endif
 
+const SQRT_3 = 1.7320508075688772;
+
 // -------------------- functions --------------------
 
 
@@ -64,6 +66,23 @@ fn vs_main(in: VertexInput) -> Varyings {
     let pos_n = u_stdinfo.projection_transform * pos_c;
     // Convert to logical screen coordinates
     let pos_s = (pos_n.xy / pos_n.w + 1.0) * screen_factor;
+
+    $$ if need_neighbours
+        let node_index_prev = max(node_index - 1, 0);
+        var node_index_next = min(u_renderer.last_i, node_index + 1);
+
+        let pos_m_prev = load_s_positions(node_index_prev);
+        let pos_w_prev = u_wobject.world_transform * vec4<f32>(pos_m_prev.xyz, 1.0);
+        let pos_c_prev = u_stdinfo.cam_transform * pos_w_prev;
+        let pos_n_prev = u_stdinfo.projection_transform * pos_c_prev;
+        let pos_s_prev = (pos_n_prev.xy / pos_n_prev.w + 1.0) * screen_factor;
+
+        let pos_m_next = load_s_positions(node_index_next);
+        let pos_w_next = u_wobject.world_transform * vec4<f32>(pos_m_next.xyz, 1.0);
+        let pos_c_next = u_stdinfo.cam_transform * pos_w_next;
+        let pos_n_next = u_stdinfo.projection_transform * pos_c_next;
+        let pos_s_next = (pos_n_next.xy / pos_n_next.w + 1.0) * screen_factor;
+    $$ endif
 
     // Get reference size
     $$ if size_mode == 'vertex'
@@ -149,6 +168,9 @@ fn vs_main(in: VertexInput) -> Varyings {
 
     $$ if rotation_mode == 'vertex'
     let rotation = load_s_rotations(node_index);
+    $$ elif rotation_mode == 'curve'
+    let dpos = pos_s_next - pos_s_prev;
+    let rotation = atan2(dpos.y, dpos.x);
     $$ else
     let rotation = u_material.rotation;
     $$ endif
@@ -179,6 +201,10 @@ fn vs_main(in: VertexInput) -> Varyings {
     varyings.size_p = f32(size * l2p);
     $$ if draw_line_on_edge
         varyings.edge_width_p = f32(edge_width * l2p);
+    $$ endif
+
+    $$ if marker_mode == 'vertex'
+        varyings.marker = i32(load_s_markers(node_index));
     $$ endif
 
     // Picking
@@ -247,7 +273,7 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     let pointcoord = pointcoord_p / l2p;
 
     let dist_to_face_center_p = length(pointcoord_p);
-    let dist_to_face_edge_p = get_signed_distance_to_shape_edge(pointcoord_p, varyings.size_p);
+    let dist_to_face_edge_p = get_signed_distance_to_shape_edge(pointcoord_p, varyings);
 
     // Determine face_alpha based on shape and aa
     var face_alpha: f32 = 1.0;
@@ -255,7 +281,7 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
         // sprites have their alpha defined by the map and opacity only
     $$ elif color_mode == 'debug'
         face_alpha = 1.0;
-    $$ elif shape == 'gaussian'
+    $$ elif is_gaussian
         let d = length(pointcoord_p);
         let sigma_p = half_size_p / 3.0;
         let t = d / sigma_p;
@@ -390,7 +416,7 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
 }
 
 
-fn get_signed_distance_to_shape_edge(coord: vec2<f32>, size: f32) -> f32 {
+fn get_signed_distance_to_shape_edge(coord: vec2<f32>, varyings:Varyings) -> f32 {
     // Thank you Nicolas!
     //
     // The paper "Antialiased 2D Grid, Marker, and Arrow Shaders", by Nicolas
@@ -402,163 +428,230 @@ fn get_signed_distance_to_shape_edge(coord: vec2<f32>, size: f32) -> f32 {
     // know how hard it is to do it with this technique. Other possible
     // variations: a thinner variant of plusses and crosses.
 
-    $$ if shape == 'circle' or shape == 'gaussian'
-        // A simple disk
-        return length(coord) - size * 0.5;
+    let size:f32 = varyings.size_p;
 
-    $$ elif shape == 'ring'
-        // A ring is the difference of two discs
-        let r1 = length(coord) - size / 2.0;
-        let r2 = length(coord) - size / 4.0;
-        return max(r1, -r2);
-
-    $$ elif shape == 'square'
-        // A square is the intersection of four half-planes, but we can use the symmetry of the object (abs) to shorten the code.
-        // Chosing the full square means that it is/appears larger than the circle and the diamond.
-        let square_sdf = max( abs(coord.x), abs(coord.y) );
-        return square_sdf - size * 0.5;  // Square occupies full quad (consistent with MPL)
-        // return square_sdf - size / (2.0*SQRT_2);  // Square fits inside circle (Rougier's implementation)
-
-    $$ elif shape == 'diamond'
-        // A diamond is the rotation of a square
-        let x = 0.5 * SQRT_2 * (coord.x + coord.y);
-        let y = 0.5 * SQRT_2 * (coord.x - coord.y);
-        return max( abs(x), abs(y) ) - size / (2.0 * SQRT_2);
-
-    $$ elif shape == 'plus'
-        // A plus is the intersection of eight half-planes that can be reduced to four using symmetries.
-        let x = coord.x;
-        let y = coord.y;
-        let r1 = max(abs(x - size/3.0), abs(x + size/3.0));
-        let r2 = max(abs(y - size/3.0), abs(y + size/3.0));
-        let r3 = max(abs(x), abs(y));
-        return max(min(r1,r2),r3) - size/2.0;
-
-    $$ elif shape == 'cross'
-        // A cross is a rotated plus
-        let x = 0.5 * SQRT_2 * (coord.x + coord.y);
-        let y = 0.5 * SQRT_2 * (coord.x - coord.y);
-        let r1 = max(abs(x - size/3.0), abs(x + size/3.0));
-        let r2 = max(abs(y - size/3.0), abs(y + size/3.0));
-        let r3 = max(abs(x), abs(y));
-        return max(min(r1,r2),r3) - size/2.0;
-
-    $$ elif shape == 'asterix'
-        // An asterisk is the union of a cross and a plus.
-        let x1 = coord.x;
-        let y1 = coord.y;
-        let x2 = 0.5 * SQRT_2 * (coord.x + coord.y);
-        let y2 = 0.5 * SQRT_2 * (coord.x - coord.y);
-        let r1 = max(abs(x2)- size/2.0, abs(y2)- size/10.0);
-        let r2 = max(abs(y2)- size/2.0, abs(x2)- size/10.0);
-        let r3 = max(abs(x1)- size/2.0, abs(y1)- size/10.0);
-        let r4 = max(abs(y1)- size/2.0, abs(x1)- size/10.0);
-        return min( min(r1,r2), min(r3,r4));
-
-    $$ elif shape.startswith('triangle')
-        // A triangle is the intersection of three half-planes
-        // y-offset to center the shape by 0.25*size
-        $$ if shape.endswith('down')
-            let coord_triangle = vec2<f32>(coord.x, coord.y - 0.25*size);
-        $$ elif shape.endswith('left')
-            let coord_triangle = vec2<f32>(-coord.y, coord.x - 0.25*size);
-        $$ elif shape.endswith('right')
-            let coord_triangle = vec2<f32>(-coord.y, -coord.x - 0.25*size);
-        $$ elif shape.endswith('up')
-            let coord_triangle = vec2<f32>(coord.x, -coord.y - 0.25*size);
-        $$ endif
-        let x = 0.5 * SQRT_2 * (coord_triangle.x - coord_triangle.y);
-        let y = 0.5 * SQRT_2 * (coord_triangle.x + coord_triangle.y);
-        let r1 = max(abs(x), abs(y)) - size/(2*SQRT_2);
-        let r2 = coord_triangle.y;
-        return max(r1, r2);
-
-    $$ elif shape == 'heart'
-        // A heart is the union of a diamond and two discs.
-        let x = 0.5 * SQRT_2 * (coord.x + coord.y);
-        let y = 0.5 * SQRT_2 * (coord.x - coord.y);
-        let r1 = max(abs(x),abs(y))-size/3.5;
-        let r2 = length(coord - SQRT_2/2.0*vec2<f32>( 1.0,1.0)*size/3.5) - size/3.5;
-        let r3 = length(coord - SQRT_2/2.0*vec2<f32>(-1.0,1.0)*size/3.5) - size/3.5;
-        return min(min(r1,r2),r3);
-
-    $$ elif shape == 'spade'
-        // A spade is an inverted heart and a tail is made of two discs and two half-planes.
-        // Reversed heart (diamond + 2 circles)
-        let s = size * 0.85 / 3.5;
-        let x = SQRT_2/2.0 * (coord.x - coord.y) + 0.4*s;
-        let y = SQRT_2/2.0 * (coord.x + coord.y) - 0.4*s;
-        let r1 = max(abs(x),abs(y)) - s;
-        let r2 = length(coord + SQRT_2/2.0*vec2<f32>(-1.0,0.2)*s) - s;
-        let r3 = length(coord + SQRT_2/2.0*vec2<f32>( 1.0,0.2)*s) - s;
-        let r4 = min(min(r1,r2),r3);
-        // Root (2 circles and 2 half-planes)
-        let c1 = vec2<f32>(-0.65, 0.125);
-        let c2 = vec2<f32>( 0.65, 0.125);
-        let r5 = length(coord+c1*size) - size/1.6;
-        let r6 = length(coord+c2*size) - size/1.6;
-        let r7 = -coord.y - 0.5*size;
-        let r8 = 0.1*size + coord.y;
-        let r9 = max(-min(r5,r6), max(r7,r8));
-        return min(r4,r9);
-
-    $$ elif shape == 'club'
-        // A club is a clover and a tail.
-        // clover (3 discs)
-        let t1 = -PI/2.0;
-        let c1 = 0.225*vec2<f32>(cos(t1),-sin(t1));
-        let t2 = t1+2*PI/3.0;
-        let c2 = 0.225*vec2<f32>(cos(t2),-sin(t2));
-        let t3 = t2+2*PI/3.0;
-        let c3 = 0.225*vec2<f32>(cos(t3),-sin(t3));
-        let r1 = length( coord - c1*size) - size/4.25;
-        let r2 = length( coord - c2*size) - size/4.25;
-        let r3 = length( coord - c3*size) - size/4.25;
-        let r4 = min(min(r1,r2),r3);
-        // Root (2 circles and 2 half-planes)
-        let c4 = vec2<f32>( 0.65, 0.125);
-        let c5 = vec2<f32>(-0.65, 0.125);
-        let r5 = length(coord+c4*size) - size/1.6;
-        let r6 = length(coord+c5*size) - size/1.6;
-        let r7 = -coord.y - 0.5*size;
-        let r8 = 0.2*size + coord.y;
-        let r9 = max(-min(r5,r6), max(r7,r8));
-        return min(r4,r9);
-
-    $$ elif shape == 'pin'
-        // Simplified formula for the usecase of a pin taken from
-        // https://www.shadertoy.com/view/4lcBWn
-        var p = - coord / size;
-        p.x = abs(p.x);
-
-        let ra = 0.33;
-        let h = 2 * 0.33;
-        let b = 0.5;
-
-        let rin = 0.33 / 2;
-
-        p.y = p.y + ra / 2;
-
-        let c = vec2(sqrt(1.0-b*b), b);
-        let k = dot(c, vec2(p.y, -p.x));
-
-        // Below the pin all toegether
-        if(k > c.x * h) {return size * length(p - vec2(0., h));}
-
-        // the opening circle of the pin
-        let q = - (length(p) - rin);
-        let m = dot(c, p);
-        let n = dot(p, p);
-
-        // the top of the circle
-        if(k < 0.0    ) {return size * max(q, sqrt(n)    - ra);}
-        // Intesection of the triangle cone and the big circle
-                         return size * max(q, m          - ra);
-    $$ elif shape == 'custom'
-        {{ custom_sdf }}
-
+    // if this material does not do markers, we skip the entire function
+    $$ if not marker_mode
+    return length(coord) - size * 0.5;
     $$ else
-        unknown marker shape! // deliberate wgsl syntax error
+
+    // We resolve the value of 'marker' in this function, to make sure that when a uniform marker is used,
+    // it resolves to a const, so that the whole triage of if-statments below is resolved at compile time.
+    $$ if marker_mode == 'vertex'
+    let marker:i32 = varyings.marker;
+    $$ else
+    const marker:i32 = {{ uniform_marker }};
+    $$ endif
+
+    switch marker {
+
+        case {{ markerenum_circle }}: {
+            // A simple disk
+            return length(coord) - size * 0.5;
+        }
+        case {{ markerenum_ring }}: {
+            // A ring is the difference of two discs
+            let r1 = length(coord) - size / 2.0;
+            let r2 = length(coord) - size / 4.0;
+            return max(r1, -r2);
+        }
+        case {{ markerenum_square }}: {
+            // A square is the intersection of four half-planes, but we can use the symmetry of the object (abs) to shorten the code.
+            // Chosing the full square means that it is/appears larger than the circle and the diamond.
+            let square_sdf = max( abs(coord.x), abs(coord.y) );
+            return square_sdf - size * 0.5;  // Square occupies full quad (consistent with MPL)
+            // return square_sdf - size / (2.0*SQRT_2);  // Square fits inside circle (Rougier's implementation)
+        }
+        case {{ markerenum_diamond }}: {
+            // A diamond is the rotation of a square
+            let x = 0.5 * SQRT_2 * (coord.x + coord.y);
+            let y = 0.5 * SQRT_2 * (coord.x - coord.y);
+            return max( abs(x), abs(y) ) - size / (2.0 * SQRT_2);
+        }
+        case {{ markerenum_plus }}: {
+            // A plus is the intersection of eight half-planes that can be reduced to four using symmetries.
+            let x = coord.x;
+            let y = coord.y;
+            let r1 = max(abs(x - size/3.0), abs(x + size/3.0));
+            let r2 = max(abs(y - size/3.0), abs(y + size/3.0));
+            let r3 = max(abs(x), abs(y));
+            return max(min(r1,r2),r3) - size/2.0;
+        }
+        case {{ markerenum_cross }}: {
+            // A cross is a rotated plus
+            let x = 0.5 * SQRT_2 * (coord.x + coord.y);
+            let y = 0.5 * SQRT_2 * (coord.x - coord.y);
+            let r1 = max(abs(x - size/3.0), abs(x + size/3.0));
+            let r2 = max(abs(y - size/3.0), abs(y + size/3.0));
+            let r3 = max(abs(x), abs(y));
+            return max(min(r1,r2),r3) - size/2.0;
+        }
+        case {{ markerenum_asterisk6 }}: {
+            // A six-legged asterisk
+            let x1 = coord.x;
+            let y1 = coord.y;
+            let x2 = -0.5 * x1 - 0.5 * SQRT_3 * y1;
+            let y2 = -0.5 * SQRT_3 * x1 + 0.5 * y1;
+            let x3 = -0.5 * x1 + 0.5 * SQRT_3 * y1;
+            let y3 = -0.5 * SQRT_3 * x1 - 0.5 * y1;
+            let r1 = max(abs(x1)- size/2.0, abs(y1)- size/10.0);
+            let r2 = max(abs(x2)- size/2.0, abs(y2)- size/10.0);
+            let r3 = max(abs(x3)- size/2.0, abs(y3)- size/10.0);
+            return min(min(r1, r2), r3);
+        }
+        case {{ markerenum_asterisk8 }}: {
+            // An eight-legged asterisk
+            let x1 = coord.x;
+            let y1 = coord.y;
+            let x2 = 0.5 * SQRT_2 * (x1 + y1);
+            let y2 = 0.5 * SQRT_2 * (x1 - y1);
+            let x3 = y1;
+            let y3 = x1;
+            let x4 = y2;
+            let y4 = x2;
+            let r1 = max(abs(x1)- size/2.0, abs(y1)- size/10.0);
+            let r2 = max(abs(x2)- size/2.0, abs(y2)- size/10.0);
+            let r3 = max(abs(x3)- size/2.0, abs(y3)- size/10.0);
+            let r4 = max(abs(x4)- size/2.0, abs(y4)- size/10.0);
+            return min(min(min(r1, r2), r3), r4);
+        }
+        case {{ markerenum_tick }}: {
+            // A tick is an infinitely thin line (only the edge is visible)
+            let x = coord.x;
+            let y = coord.y;
+            let r1 = max(abs(x - size/2.0), abs(x + size/2.0));
+            let r3 = max(abs(x), abs(y));  // bbox
+            return max(r1,r3) - size/2.0;
+        }
+        case {{ markerenum_tick_left }}: {
+            // A tick only on the 'left' side of the line
+            let x = coord.x;
+            let y = coord.y;
+            let r1 = max(abs(x - size/2.0), abs(x + size/2.0));
+            let r3 = max(max(abs(x), -y), -y + size/2.0);  // bbox
+            return max(r1, r3) - size/2.0;
+        }
+        case {{ markerenum_tick_right }}: {
+            // A tick only on the 'right' side of the line
+            let x = coord.x;
+            let y = coord.y;
+            let r1 = max(abs(x - size/2.0), abs(x + size/2.0));
+            let r3 = max(max(abs(x), y), y + size/2.0);  // bbox
+            return max(r1, r3) - size/2.0;
+        }
+        case {{ markerenum_triangle_down }}, {{ markerenum_triangle_left }}, {{ markerenum_triangle_right }}, {{ markerenum_triangle_up }}: {
+            // A triangle is the intersection of three half-planes
+            // y-offset to center the shape by 0.25*size
+            var coord_triangle: vec2<f32>;
+            switch marker {
+                case {{ markerenum_triangle_down }}: {
+                    coord_triangle = vec2<f32>(coord.x, coord.y - 0.25*size);
+                }
+                case {{ markerenum_triangle_left }}: {
+                    coord_triangle = vec2<f32>(-coord.y, coord.x - 0.25*size);
+                }
+                case {{ markerenum_triangle_right }}: {
+                    coord_triangle = vec2<f32>(-coord.y, -coord.x - 0.25*size);
+                } default: { // up
+                    coord_triangle = vec2<f32>(coord.x, -coord.y - 0.25*size);
+                }
+            }
+            let x = 0.5 * SQRT_2 * (coord_triangle.x - coord_triangle.y);
+            let y = 0.5 * SQRT_2 * (coord_triangle.x + coord_triangle.y);
+            let r1 = max(abs(x), abs(y)) - size/(2*SQRT_2);
+            let r2 = coord_triangle.y;
+            return max(r1, r2);
+        }
+        case {{ markerenum_heart }}: {
+            // A heart is the union of a diamond and two discs.
+            let x = 0.5 * SQRT_2 * (coord.x + coord.y);
+            let y = 0.5 * SQRT_2 * (coord.x - coord.y);
+            let r1 = max(abs(x),abs(y))-size/3.5;
+            let r2 = length(coord - SQRT_2/2.0*vec2<f32>( 1.0,1.0)*size/3.5) - size/3.5;
+            let r3 = length(coord - SQRT_2/2.0*vec2<f32>(-1.0,1.0)*size/3.5) - size/3.5;
+            return min(min(r1,r2),r3);
+        }
+        case {{ markerenum_spade }}: {
+            // A spade is an inverted heart and a tail is made of two discs and two half-planes.
+            // Reversed heart (diamond + 2 circles)
+            let s = size * 0.85 / 3.5;
+            let x = SQRT_2/2.0 * (coord.x - coord.y) + 0.4*s;
+            let y = SQRT_2/2.0 * (coord.x + coord.y) - 0.4*s;
+            let r1 = max(abs(x),abs(y)) - s;
+            let r2 = length(coord + SQRT_2/2.0*vec2<f32>(-1.0,0.2)*s) - s;
+            let r3 = length(coord + SQRT_2/2.0*vec2<f32>( 1.0,0.2)*s) - s;
+            let r4 = min(min(r1,r2),r3);
+            // Root (2 circles and 2 half-planes)
+            let c1 = vec2<f32>(-0.65, 0.125);
+            let c2 = vec2<f32>( 0.65, 0.125);
+            let r5 = length(coord+c1*size) - size/1.6;
+            let r6 = length(coord+c2*size) - size/1.6;
+            let r7 = -coord.y - 0.5*size;
+            let r8 = 0.1*size + coord.y;
+            let r9 = max(-min(r5,r6), max(r7,r8));
+            return min(r4,r9);
+        }
+        case {{ markerenum_club }}: {
+            // A club is a clover and a tail.
+            // clover (3 discs)
+            let t1 = -PI/2.0;
+            let c1 = 0.225*vec2<f32>(cos(t1),-sin(t1));
+            let t2 = t1+2*PI/3.0;
+            let c2 = 0.225*vec2<f32>(cos(t2),-sin(t2));
+            let t3 = t2+2*PI/3.0;
+            let c3 = 0.225*vec2<f32>(cos(t3),-sin(t3));
+            let r1 = length( coord - c1*size) - size/4.25;
+            let r2 = length( coord - c2*size) - size/4.25;
+            let r3 = length( coord - c3*size) - size/4.25;
+            let r4 = min(min(r1,r2),r3);
+            // Root (2 circles and 2 half-planes)
+            let c4 = vec2<f32>( 0.65, 0.125);
+            let c5 = vec2<f32>(-0.65, 0.125);
+            let r5 = length(coord+c4*size) - size/1.6;
+            let r6 = length(coord+c5*size) - size/1.6;
+            let r7 = -coord.y - 0.5*size;
+            let r8 = 0.2*size + coord.y;
+            let r9 = max(-min(r5,r6), max(r7,r8));
+            return min(r4,r9);
+        }
+        case {{ markerenum_pin }}: {
+            // Simplified formula for the usecase of a pin taken from https://www.shadertoy.com/view/4lcBWn
+            var p = - coord / size;
+            p.x = abs(p.x);
+
+            let ra = 0.33;
+            let h = 2 * 0.33;
+            let b = 0.5;
+
+            let rin = 0.33 / 2;
+
+            p.y = p.y + ra / 2;
+
+            let c = vec2(sqrt(1.0-b*b), b);
+            let k = dot(c, vec2(p.y, -p.x));
+
+            // Below the pin all toegether
+            if(k > c.x * h) {return size * length(p - vec2(0., h));}
+
+            // the opening circle of the pin
+            let q = - (length(p) - rin);
+            let m = dot(c, p);
+            let n = dot(p, p);
+
+            // the top of the circle
+            if(k < 0.0    ) {return size * max(q, sqrt(n)    - ra);}
+            // Intesection of the triangle cone and the big circle
+                            return size * max(q, m          - ra);
+
+        }
+        case {{ markerenum_custom }}: {
+            {{ custom_sdf }}
+        }
+        default: {
+            return -1.0;  // always inside
+        }
+
+    } // switch
 
     $$ endif
 }

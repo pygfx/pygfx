@@ -1,23 +1,63 @@
-// ddaa2.wgsl version 2.1
+// ddaa2.wgsl version 2.4
 //
-// Directional Diffusion Anti Aliasing (DDAA) version 2: smooth along the edges based on Scharr kernel, and perform edge-search to better support horizontal/vertical edges.
+// Directional Diffusion Anti Aliasing (DDAA) version 2
 //
-// v0: original (2013): https://github.com/vispy/experimental/blob/master/fsaa/ddaa.glsl
-// v1: ported to wgsl and tweaked (2025): https://github.com/almarklein/ppaa-experiments/blob/main/wgsl/ddaa1.wgsl
-// v2: added edge search (2025): https://github.com/almarklein/ppaa-experiments/blob/main/wgsl/ddaa2.wgsl
+// Home: https://github.com/almarklein/ppaa-experiments/blob/main/ddaa.md
+// Source: https://github.com/almarklein/ppaa-experiments/blob/main/wgsl/ddaa2.wgsl
+//
+//
+// Summary:
+//
+// Smooth along the edges based on Scharr kernel, and perform edge-search to
+// better support horizontal/vertical edges. It this combines a strategy that is
+// good at near-diagonal edges (diffusion) with a strategie that is good at
+// near-horizontal / near-vertical edges (edge-search).
+//
+//
+// Changelog:
+//
+// v0.0 (2013): Original: https://github.com/vispy/experimental/blob/master/fsaa/ddaa.glsl
+// v1.0 (2025): Ported to wgsl and tweaked: https://github.com/almarklein/ppaa-experiments/blob/main/wgsl/ddaa1.wgsl
+// v2.1 (2025): Added edge search (2025): https://github.com/almarklein/ppaa-experiments/blob/main/wgsl/ddaa2.wgsl
+// v2.2 (2025): Made SAMPLES_PER_STEP configurable, and fixed a little sampling bug causing an asymetry.
+// v2.3 (2025): Configure edge search with EDGE_STEP_LIST, optimized sample batching, and get one sample for free.
+// v2.4 (2025): Fix template logic for empty EDGE_STEP_LIST.
+
 
 // ========== CONFIG ==========
 
-// The number of iterations to walk along the edge.
-// Setting this to zero disables the edge search, effectively ddaa1.
-// The first iter takes 8 samples, 4 in each direction.
-// Each next iters takes 8 samples in the direction for which the end has not yet been found.
-// A value of 2 is probably good enough, and is quite performant.
-// A value of 3 is nice, but beyond that it does not do much.
-$$ if MAX_EDGE_ITERS is not defined
-$$ set MAX_EDGE_ITERS = 2
+// The edge search happens in steps, where in each step multiple samples are
+// taken. Batching samples this way  helps performance because the texture
+// queries can be performed in parallel, to a certain degree.
+//
+// We define the list that specifies the number of samples per step. The maximum
+// distance that the algorithm can track along the egde is the sum of this list.
+// If this list is zero, no edge-search is performed, effectively ddaa1.
+//
+// Note that for the first step, the steps for both directions are combined, and
+// get one sample for each direction for free, so the actual number of samples
+// for the first edge-search step is EDGE_STEP_LIST[0] * 2 - 2.
+//
+$$ if EDGE_STEP_LIST is not defined
+$$     set EDGE_STEP_LIST = [3, 3, 3, 3, 3]
 $$ endif
-const MAX_EDGE_ITERS : i32 = {{ MAX_EDGE_ITERS }};
+$$ set MAX_EDGE_ITERS = EDGE_STEP_LIST | length
+$$ if MAX_EDGE_ITERS == 0
+$$    set EDGE_STEP_LIST = [0]
+$$ endif
+$$ set MAX_EDGE_STEP = EDGE_STEP_LIST | max
+// Note that the the int pixel offset in textureSampleLevel should be [-8..7],
+// so the items in EDGE_STEP_LIST should be <= 14, and the first item <= 7.
+$$ if EDGE_STEP_LIST[0] > 7
+{{  'woops_first_element_in_EDGE_STEP_LIST_must_be_no_larger_than_7'}}
+$$endif
+$$if MAX_EDGE_STEP > 14
+{{  'woops_elements_in_EDGE_STEP_LIST_must_be_no_larger_than_14'}}
+$$endif
+//
+// The templated EDGE_STEP_LIST = {{EDGE_STEP_LIST}}
+const MAX_EDGE_ITERS = {{ MAX_EDGE_ITERS }};  // length(EDGE_STEP_LIST)
+const MAX_EDGE_SAMPLES = {{  EDGE_STEP_LIST | sum }}; // sum(EDGE_STEP_LIST), how far the algirithm can look along an edge
 
 // The strength of the diffusion. A value of 3 seems to work well.
 $$ if DDAA_STRENGTH is not defined
@@ -148,11 +188,12 @@ fn fs_main(varyings: Varyings) -> @location(0) vec4<f32> {
 
         // Average luma in the current direction.
         var lumaLocalAverage = 0.0;
-        if abs(gradient1) >= abs(gradient2) {
+        let gradient2IsHigher = abs(gradient2) > abs(gradient1);
+        if  gradient2IsHigher {
+            lumaLocalAverage = 0.5 * (luma2 + lumaCenter);
+        } else {
             stepLength = -stepLength;  // switch the direction
             lumaLocalAverage = 0.5 * (luma1 + lumaCenter);
-        } else {
-            lumaLocalAverage = 0.5 * (luma2 + lumaCenter);
         }
 
         // Shift UV in the correct direction by half a pixel (orthogonal to the edge)
@@ -163,138 +204,110 @@ fn fs_main(varyings: Varyings) -> @location(0) vec4<f32> {
             currentUv.x += stepLength * 0.5;
         }
 
-        // We'll sample values from the texture in groups of 4
+        // Initialize edge search params
 
-        var distance1 = 99.0;
-        var distance2 = 99.0;
+        var distance1 = 999.0;
+        var distance2 = 999.0;
 
         var lumaEnd1: f32;
         var lumaEnd2: f32;
 
-        var lumaEnd_1: f32;
-        var lumaEnd_2: f32;
-        var lumaEnd_3: f32;
-        var lumaEnd_4: f32;
-        var lumaEnd_5: f32;
-        var lumaEnd_6: f32;
-        var lumaEnd_7: f32;
-        var lumaEnd_8: f32;
+        $$ set N_LUMA_VARS = [MAX_EDGE_STEP, EDGE_STEP_LIST[0] * 2, 1] | max
+        $$ for si in range(0, N_LUMA_VARS)
+        var lumaEnd_{{si}}: f32;
+        $$ endfor
+        //
+
+        $$ set ns = namespace(stepOffset=0, edgeSteps=0)
+        $$ set ns.edgeSteps = EDGE_STEP_LIST[0]
+
+        // Step 0 ({{ ns.edgeSteps }} steps)
 
         // Read the lumas at both current extremities of the exploration segment, and compute the delta wrt to the local average luma.
+        // We take {{ ns.edgeSteps }} steps in both directions, but we get one sample for free (for each direction), so we take {{ ns.edgeSteps * 2 - 2 }} samples.
         if isHorizontal {
-            lumaEnd_4 = rgb2luma(textureSampleLevel(tex, smp, currentUv, 0.0, vec2i(-4, 0)).rgb) - lumaLocalAverage;
-            lumaEnd_3 = rgb2luma(textureSampleLevel(tex, smp, currentUv, 0.0, vec2i(-3, 0)).rgb) - lumaLocalAverage;
-            lumaEnd_2 = rgb2luma(textureSampleLevel(tex, smp, currentUv, 0.0, vec2i(-2, 0)).rgb) - lumaLocalAverage;
-            lumaEnd_1 = rgb2luma(textureSampleLevel(tex, smp, currentUv, 0.0, vec2i(-1, 0)).rgb) - lumaLocalAverage;
-            lumaEnd_5 = rgb2luma(textureSampleLevel(tex, smp, currentUv, 0.0, vec2i( 1, 0)).rgb) - lumaLocalAverage;
-            lumaEnd_6 = rgb2luma(textureSampleLevel(tex, smp, currentUv, 0.0, vec2i( 2, 0)).rgb) - lumaLocalAverage;
-            lumaEnd_7 = rgb2luma(textureSampleLevel(tex, smp, currentUv, 0.0, vec2i( 3, 0)).rgb) - lumaLocalAverage;
-            lumaEnd_8 = rgb2luma(textureSampleLevel(tex, smp, currentUv, 0.0, vec2i( 4, 0)).rgb) - lumaLocalAverage;
+            lumaEnd_0 = 0.5 * (lumaW + select(lumaSW, lumaNW, gradient2IsHigher)) - lumaLocalAverage;
+            lumaEnd_{{ns.edgeSteps}} = 0.5 * (lumaE + select(lumaSE, lumaNE, gradient2IsHigher)) - lumaLocalAverage;
+            $$ for si in range(1, ns.edgeSteps)
+            lumaEnd_{{ si }} = rgb2luma(textureSampleLevel(tex, smp, currentUv, 0.0, -vec2i({{ si + 1 }}, 0)).rgb) - lumaLocalAverage;
+            $$ endfor
+            $$ for si in range(1+ns.edgeSteps, ns.edgeSteps*2)
+            lumaEnd_{{ si }} = rgb2luma(textureSampleLevel(tex, smp, currentUv, 0.0, vec2i({{ si - ns.edgeSteps + 1 }}, 0)).rgb) - lumaLocalAverage;
+            $$ endfor
         } else {
-            lumaEnd_4 = rgb2luma(textureSampleLevel(tex, smp, currentUv, 0.0, vec2i(0, -4)).rgb) - lumaLocalAverage;
-            lumaEnd_3 = rgb2luma(textureSampleLevel(tex, smp, currentUv, 0.0, vec2i(0, -3)).rgb) - lumaLocalAverage;
-            lumaEnd_2 = rgb2luma(textureSampleLevel(tex, smp, currentUv, 0.0, vec2i(0, -2)).rgb) - lumaLocalAverage;
-            lumaEnd_1 = rgb2luma(textureSampleLevel(tex, smp, currentUv, 0.0, vec2i(0, -1)).rgb) - lumaLocalAverage;
-            lumaEnd_5 = rgb2luma(textureSampleLevel(tex, smp, currentUv, 0.0, vec2i(0,  1)).rgb) - lumaLocalAverage;
-            lumaEnd_6 = rgb2luma(textureSampleLevel(tex, smp, currentUv, 0.0, vec2i(0,  2)).rgb) - lumaLocalAverage;
-            lumaEnd_7 = rgb2luma(textureSampleLevel(tex, smp, currentUv, 0.0, vec2i(0,  3)).rgb) - lumaLocalAverage;
-            lumaEnd_8 = rgb2luma(textureSampleLevel(tex, smp, currentUv, 0.0, vec2i(0,  4)).rgb) - lumaLocalAverage;
+            lumaEnd_0 = 0.5 * (lumaS + select(lumaSW, lumaSE, gradient2IsHigher)) - lumaLocalAverage;
+            lumaEnd_{{ns.edgeSteps}} = 0.5 * (lumaN + select(lumaNW, lumaNE, gradient2IsHigher)) - lumaLocalAverage;
+            $$ for si in range(1, ns.edgeSteps)
+            lumaEnd_{{ si }} = rgb2luma(textureSampleLevel(tex, smp, currentUv, 0.0, -vec2i(0, {{ si + 1 }})).rgb) - lumaLocalAverage;
+            $$ endfor
+            $$ for si in range(1+ns.edgeSteps, ns.edgeSteps*2)
+            lumaEnd_{{ si }} = rgb2luma(textureSampleLevel(tex, smp, currentUv, 0.0, vec2i(0, {{ si - ns.edgeSteps + 1 }})).rgb) - lumaLocalAverage;
+            $$ endfor
         }
 
-        // The lumaEnd is at least that of the furthest pixel
-        lumaEnd1 = lumaEnd_4;
-        lumaEnd2 = lumaEnd_8;
+        // Search for left endpoint in the current {{ ns.edgeSteps }} samples
+        $$ for si in range(0, ns.edgeSteps) | reverse
+        if (abs(lumaEnd_{{si}}) >= gradientScaled) { distance1 = {{si+1}}.0; lumaEnd1 = lumaEnd_{{si}}; }
+        $$ endfor
 
-        // Search for left endpoint in the current 4 samples
-        if (abs(lumaEnd_4) >= gradientScaled) { distance1 = 4.0; lumaEnd1 = lumaEnd_4; }
-        if (abs(lumaEnd_3) >= gradientScaled) { distance1 = 3.0; lumaEnd1 = lumaEnd_3; }
-        if (abs(lumaEnd_2) >= gradientScaled) { distance1 = 2.0; lumaEnd1 = lumaEnd_2; }
-        if (abs(lumaEnd_1) >= gradientScaled) { distance1 = 1.0; lumaEnd1 = lumaEnd_1; }
         // Same for the right endpoint
-        if (abs(lumaEnd_8) >= gradientScaled) { distance2 = 4.0; lumaEnd2 = lumaEnd_8; }
-        if (abs(lumaEnd_7) >= gradientScaled) { distance2 = 3.0; lumaEnd2 = lumaEnd_7; }
-        if (abs(lumaEnd_6) >= gradientScaled) { distance2 = 2.0; lumaEnd2 = lumaEnd_6; }
-        if (abs(lumaEnd_5) >= gradientScaled) { distance2 = 1.0; lumaEnd2 = lumaEnd_5; }
+        $$ for si in range(ns.edgeSteps, ns.edgeSteps*2) | reverse
+        if (abs(lumaEnd_{{si}}) >= gradientScaled) { distance2 = {{si-ns.edgeSteps+1}}.0; lumaEnd2 = lumaEnd_{{si}}; }
+        $$ endfor
+        //
 
         // Now search for endpoints in a series of rounds, using a templated (i.e. unrolled) loop.
         // This is much faster (in WGSL) than a normal loop, probably due to optimization related to the texture lookups.
-        // I found it also helps performance to use the same uv coordinate and use the offset parameter.
+        // We use textureSampleLevel with the offset parameter to help the gpu compiler batch the samples.
 
-        $$ set ns = namespace(stepOffset=0)
-        var max_distance = 4.0;
+        var max_distance = {{ns.edgeSteps}}.0;
+
         $$ for iter in range(1, MAX_EDGE_ITERS)
-            $$ set ns.stepOffset = 4 + (iter - 1) * 8
-            // Iteration {{ iter }}
-            max_distance = {{ 8.0 + ns.stepOffset }};
-            if (distance1 > 90.0) {
-                if isHorizontal {
-                    let currentUv1 = currentUv + vec2f(-{{ ns.stepOffset + 1}}, 0.0) * pixelStep;
-                    lumaEnd_1 = rgb2luma(textureSampleLevel(tex, smp, currentUv1, 0.0, vec2i( 0, 0)).rgb) - lumaLocalAverage;
-                    lumaEnd_2 = rgb2luma(textureSampleLevel(tex, smp, currentUv1, 0.0, vec2i(-1, 0)).rgb) - lumaLocalAverage;
-                    lumaEnd_3 = rgb2luma(textureSampleLevel(tex, smp, currentUv1, 0.0, vec2i(-2, 0)).rgb) - lumaLocalAverage;
-                    lumaEnd_4 = rgb2luma(textureSampleLevel(tex, smp, currentUv1, 0.0, vec2i(-3, 0)).rgb) - lumaLocalAverage;
-                    lumaEnd_5 = rgb2luma(textureSampleLevel(tex, smp, currentUv1, 0.0, vec2i(-4, 0)).rgb) - lumaLocalAverage;
-                    lumaEnd_6 = rgb2luma(textureSampleLevel(tex, smp, currentUv1, 0.0, vec2i(-5, 0)).rgb) - lumaLocalAverage;
-                    lumaEnd_7 = rgb2luma(textureSampleLevel(tex, smp, currentUv1, 0.0, vec2i(-6, 0)).rgb) - lumaLocalAverage;
-                    lumaEnd_8 = rgb2luma(textureSampleLevel(tex, smp, currentUv1, 0.0, vec2i(-7, 0)).rgb) - lumaLocalAverage;
-                } else {
-                    let currentUv1 = currentUv + vec2f(0.0, -{{ ns.stepOffset + 1 }}) * pixelStep;
-                    lumaEnd_1 = rgb2luma(textureSampleLevel(tex, smp, currentUv1, 0.0, vec2i(0, 0)).rgb) - lumaLocalAverage;
-                    lumaEnd_2 = rgb2luma(textureSampleLevel(tex, smp, currentUv1, 0.0, vec2i(0, -1)).rgb) - lumaLocalAverage;
-                    lumaEnd_3 = rgb2luma(textureSampleLevel(tex, smp, currentUv1, 0.0, vec2i(0, -2)).rgb) - lumaLocalAverage;
-                    lumaEnd_4 = rgb2luma(textureSampleLevel(tex, smp, currentUv1, 0.0, vec2i(0, -3)).rgb) - lumaLocalAverage;
-                    lumaEnd_5 = rgb2luma(textureSampleLevel(tex, smp, currentUv1, 0.0, vec2i(0, -4)).rgb) - lumaLocalAverage;
-                    lumaEnd_6 = rgb2luma(textureSampleLevel(tex, smp, currentUv1, 0.0, vec2i(0, -5)).rgb) - lumaLocalAverage;
-                    lumaEnd_7 = rgb2luma(textureSampleLevel(tex, smp, currentUv1, 0.0, vec2i(0, -6)).rgb) - lumaLocalAverage;
-                    lumaEnd_8 = rgb2luma(textureSampleLevel(tex, smp, currentUv1, 0.0, vec2i(0, -7)).rgb) - lumaLocalAverage;
-                }
-                lumaEnd1 = lumaEnd_8;
-                if (abs(lumaEnd_8) >= gradientScaled) { distance1 = {{ 8.0 + ns.stepOffset }}; lumaEnd1 = lumaEnd_8; }
-                if (abs(lumaEnd_7) >= gradientScaled) { distance1 = {{ 7.0 + ns.stepOffset }}; lumaEnd1 = lumaEnd_7; }
-                if (abs(lumaEnd_6) >= gradientScaled) { distance1 = {{ 6.0 + ns.stepOffset }}; lumaEnd1 = lumaEnd_6; }
-                if (abs(lumaEnd_5) >= gradientScaled) { distance1 = {{ 5.0 + ns.stepOffset }}; lumaEnd1 = lumaEnd_5; }
-                if (abs(lumaEnd_4) >= gradientScaled) { distance1 = {{ 4.0 + ns.stepOffset }}; lumaEnd1 = lumaEnd_4; }
-                if (abs(lumaEnd_3) >= gradientScaled) { distance1 = {{ 3.0 + ns.stepOffset }}; lumaEnd1 = lumaEnd_3; }
-                if (abs(lumaEnd_2) >= gradientScaled) { distance1 = {{ 2.0 + ns.stepOffset }}; lumaEnd1 = lumaEnd_2; }
-                if (abs(lumaEnd_1) >= gradientScaled) { distance1 = {{ 1.0 + ns.stepOffset }}; lumaEnd1 = lumaEnd_1; }
+        $$ set ns.edgeSteps = EDGE_STEP_LIST[iter]
+        $$ set ns.stepOffset = ns.stepOffset + EDGE_STEP_LIST[iter-1]
+
+        // Step {{ iter }} ({{ ns.edgeSteps }} steps, offset {{ ns.stepOffset }})
+        max_distance = {{ ns.stepOffset + ns.edgeSteps }}.0;
+        if (distance1 > 900.0) {
+            if isHorizontal {
+                let currentUv1 = currentUv - vec2f({{ ns.stepOffset + ns.edgeSteps//2 + 1 }}.0, 0.0) * pixelStep;
+                $$ for si in range(ns.edgeSteps)
+                lumaEnd_{{si}} = rgb2luma(textureSampleLevel(tex, smp, currentUv1, 0.0, -vec2i( {{si-ns.edgeSteps//2}}, 0)).rgb) - lumaLocalAverage;
+                $$ endfor
+            } else {
+                let currentUv1 = currentUv - vec2f(0.0, {{ ns.stepOffset + ns.edgeSteps//2 +1 }}.0) * pixelStep;
+                $$ for si in range(ns.edgeSteps)
+                lumaEnd_{{si}} = rgb2luma(textureSampleLevel(tex, smp, currentUv1, 0.0, -vec2i(0, {{si-ns.edgeSteps//2}} )).rgb) - lumaLocalAverage;
+                $$ endfor
             }
-            if (distance2 > 90.0) {
-                if isHorizontal {
-                    let currentUv2 = currentUv + vec2f({{ ns.stepOffset + 1}}, 0.0) * pixelStep;
-                    lumaEnd_1 = rgb2luma(textureSampleLevel(tex, smp, currentUv2, 0.0, vec2i(1, 0)).rgb) - lumaLocalAverage;
-                    lumaEnd_2 = rgb2luma(textureSampleLevel(tex, smp, currentUv2, 0.0, vec2i(2, 0)).rgb) - lumaLocalAverage;
-                    lumaEnd_3 = rgb2luma(textureSampleLevel(tex, smp, currentUv2, 0.0, vec2i(3, 0)).rgb) - lumaLocalAverage;
-                    lumaEnd_4 = rgb2luma(textureSampleLevel(tex, smp, currentUv2, 0.0, vec2i(4, 0)).rgb) - lumaLocalAverage;
-                    lumaEnd_5 = rgb2luma(textureSampleLevel(tex, smp, currentUv2, 0.0, vec2i(5, 0)).rgb) - lumaLocalAverage;
-                    lumaEnd_6 = rgb2luma(textureSampleLevel(tex, smp, currentUv2, 0.0, vec2i(6, 0)).rgb) - lumaLocalAverage;
-                    lumaEnd_7 = rgb2luma(textureSampleLevel(tex, smp, currentUv2, 0.0, vec2i(7, 0)).rgb) - lumaLocalAverage;
-                    lumaEnd_8 = rgb2luma(textureSampleLevel(tex, smp, currentUv2, 0.0, vec2i(8, 0)).rgb) - lumaLocalAverage;
-                } else {
-                    let currentUv2 = currentUv + vec2f(0.0, {{ ns.stepOffset + 1 }}) * pixelStep;
-                    lumaEnd_1 = rgb2luma(textureSampleLevel(tex, smp, currentUv2, 0.0, vec2i(0, 1)).rgb) - lumaLocalAverage;
-                    lumaEnd_2 = rgb2luma(textureSampleLevel(tex, smp, currentUv2, 0.0, vec2i(0, 2)).rgb) - lumaLocalAverage;
-                    lumaEnd_3 = rgb2luma(textureSampleLevel(tex, smp, currentUv2, 0.0, vec2i(0, 3)).rgb) - lumaLocalAverage;
-                    lumaEnd_4 = rgb2luma(textureSampleLevel(tex, smp, currentUv2, 0.0, vec2i(0, 4)).rgb) - lumaLocalAverage;
-                    lumaEnd_5 = rgb2luma(textureSampleLevel(tex, smp, currentUv2, 0.0, vec2i(0, 5)).rgb) - lumaLocalAverage;
-                    lumaEnd_6 = rgb2luma(textureSampleLevel(tex, smp, currentUv2, 0.0, vec2i(0, 6)).rgb) - lumaLocalAverage;
-                    lumaEnd_7 = rgb2luma(textureSampleLevel(tex, smp, currentUv2, 0.0, vec2i(0, 7)).rgb) - lumaLocalAverage;
-                    lumaEnd_8 = rgb2luma(textureSampleLevel(tex, smp, currentUv2, 0.0, vec2i(0, 8)).rgb) - lumaLocalAverage;
-                }
-                lumaEnd2 = lumaEnd_8;
-                if (abs(lumaEnd_8) >= gradientScaled) { distance2 = {{ 8.0 + ns.stepOffset }}; lumaEnd2 = lumaEnd_8; }
-                if (abs(lumaEnd_7) >= gradientScaled) { distance2 = {{ 7.0 + ns.stepOffset }}; lumaEnd2 = lumaEnd_7; }
-                if (abs(lumaEnd_6) >= gradientScaled) { distance2 = {{ 6.0 + ns.stepOffset }}; lumaEnd2 = lumaEnd_6; }
-                if (abs(lumaEnd_5) >= gradientScaled) { distance2 = {{ 5.0 + ns.stepOffset }}; lumaEnd2 = lumaEnd_5; }
-                if (abs(lumaEnd_4) >= gradientScaled) { distance2 = {{ 4.0 + ns.stepOffset }}; lumaEnd2 = lumaEnd_4; }
-                if (abs(lumaEnd_3) >= gradientScaled) { distance2 = {{ 3.0 + ns.stepOffset }}; lumaEnd2 = lumaEnd_3; }
-                if (abs(lumaEnd_2) >= gradientScaled) { distance2 = {{ 2.0 + ns.stepOffset }}; lumaEnd2 = lumaEnd_2; }
-                if (abs(lumaEnd_1) >= gradientScaled) { distance2 = {{ 1.0 + ns.stepOffset }}; lumaEnd2 = lumaEnd_1; }
+            lumaEnd1 = lumaEnd_{{ns.edgeSteps-1}};
+            $$ for si in range(ns.edgeSteps) | reverse
+            if (abs(lumaEnd_{{si}}) >= gradientScaled) { distance1 = {{si + 1 + ns.stepOffset}}.0; lumaEnd1 = lumaEnd_{{si}}; }
+            $$ endfor
+        }
+        if (distance2 > 900.0) {
+            if isHorizontal {
+                let currentUv2 = currentUv + vec2f({{ ns.stepOffset + ns.edgeSteps//2 + 1}}.0, 0.0) * pixelStep;
+                $$ for si in range(ns.edgeSteps)
+                lumaEnd_{{si}} = rgb2luma(textureSampleLevel(tex, smp, currentUv2, 0.0, vec2i( {{si-ns.edgeSteps//2}}, 0)).rgb) - lumaLocalAverage;
+                $$ endfor
+            } else {
+                let currentUv2 = currentUv + vec2f(0.0, {{ ns.stepOffset + ns.edgeSteps//2 + 1 }}.0) * pixelStep;
+                $$ for si in range(ns.edgeSteps)
+                lumaEnd_{{si}} = rgb2luma(textureSampleLevel(tex, smp, currentUv2, 0.0, vec2i(0, {{si-ns.edgeSteps//2}} )).rgb) - lumaLocalAverage;
+                $$ endfor
             }
+            lumaEnd2 = lumaEnd_{{ns.edgeSteps-1}};
+            $$ for si in range(ns.edgeSteps) | reverse
+            if (abs(lumaEnd_{{si}}) >= gradientScaled) { distance2 = {{si + 1 + ns.stepOffset}}.0; lumaEnd2 = lumaEnd_{{si}}; }
+            $$ endfor
+        }
+
         $$endfor
 
-        // Clip the distance
-        distance1 = min(distance1, max_distance);
-        distance2 = min(distance2, max_distance);
+        // Clip the distance (if we did not find the end, we assume it's one pixel further)
+        distance1 = min(distance1, max_distance + 1.0);
+        distance2 = min(distance2, max_distance + 1.0);
 
         // UV offset: read in the direction of the closest side of the edge.
         let pixelOffset = - min(distance1, distance2) / (distance1 + distance2) + 0.5;
@@ -316,9 +329,6 @@ fn fs_main(varyings: Varyings) -> @location(0) vec4<f32> {
         } else {
             subpixelEdgeOffset = vec2f(pixelOffset * stepLength, 0.0);
         }
-
-        // For debugging
-        // subpixelEdgeOffset = vec2f(distance1, distance2);
     }
 
     // We mix the effects of the edge-search with the directional diffusion.
@@ -345,15 +355,6 @@ fn fs_main(varyings: Varyings) -> @location(0) vec4<f32> {
     var finalColor = vec3f(0.0);
     finalColor += 0.5 * textureSampleLevel(tex, smp, texCoord1, 0.0).rgb;
     finalColor += 0.5 * textureSampleLevel(tex, smp, texCoord2, 0.0).rgb;
-
-    // For debugging
-    // if (subpixelEdgeOffset.x == 0.0 && subpixelEdgeOffset.y == 0.0) {
-    //     finalColor = vec3f(0.0, 0.0, 0.0);
-    // } else if (subpixelEdgeOffset.x <= 12.0 && subpixelEdgeOffset.y <= 12.0) {
-    //     finalColor = vec3f(0.0, 0.0, 1.0);
-    // } else {
-    //     finalColor = vec3f(1.0, 0.0, 0.0);
-    // }
 
     return vec4f(finalColor, centerSample.a);
 

@@ -26,7 +26,7 @@ positions = np.column_stack([x, y, np.ones_like(x)])
 
 line = gfx.Line(
     gfx.Geometry(positions=positions),
-    gfx.LineMaterial(thickness=4.0, color="#aaf"),
+    gfx.LineMaterial(thickness=4.0, color="#aaf", aa=True),
 )
 scene.add(background, line)
 
@@ -34,6 +34,8 @@ scene.add(background, line)
 # Normal horizontal ruler
 rulerx1 = gfx.Ruler(
     tick_side="right",
+    tick_marker="tick_left",
+    tick_size=12,
     start_value=0,
     start_pos=(0, 0, 0),
     end_pos=(1000, 0, 0),
@@ -42,6 +44,8 @@ rulerx1 = gfx.Ruler(
 # Normal vertical ruler
 rulery1 = gfx.Ruler(
     tick_side="left",
+    tick_marker="tick_right",
+    tick_size=12,
     start_value=-5,
     start_pos=(0, -5, 0),
     end_pos=(0, 5, 0),

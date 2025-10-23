@@ -26,16 +26,6 @@ ALPHA_MODES = {
         "method": "opaque",
         "premultiply_alpha": True,
     },
-    "dither": {
-        "method": "stochastic",
-        "pattern": "blue_noise",
-        "seed": "element",
-    },
-    "bayer": {
-        "method": "stochastic",
-        "pattern": "bayer",
-        "seed": "object",  # bc not enough variation to do 'element'
-    },
     "blend": {
         "method": "blended",
         "color_op": "add",
@@ -89,6 +79,16 @@ ALPHA_MODES = {
         "method": "weighted",
         "weight": "alpha",
         "alpha": "1.0",
+    },
+    "dither": {
+        "method": "stochastic",
+        "pattern": "blue_noise",
+        "seed": "element",
+    },
+    "bayer": {
+        "method": "stochastic",
+        "pattern": "bayer",
+        "seed": "object",  # bc not enough variation to do 'element'
     },
 }
 
@@ -153,7 +153,7 @@ class Material(Trackable):
         opacity: float = 1,
         clipping_planes: Sequence[ABCDTuple] = (),
         clipping_mode: Literal["ANY", "ALL"] = "ANY",
-        alpha_mode: str = "auto",
+        alpha_mode: Optional[str] = "auto",
         alpha_config: Optional[dict] = None,
         depth_test: bool = True,
         depth_compare: str = "<",
@@ -168,15 +168,13 @@ class Material(Trackable):
         self._store.uniform_buffer = Buffer(
             array_from_shadertype(self.uniform_type), force_contiguous=True
         )
-        self._given_render_queue = (
-            2000  # init with a value to avoid resolving many times
-        )
-        self._store["opacity_is_one"] = None
+        self._given_render_queue = 2000  # init to avoid resolving many times
+        self._store["use_alpha_test"] = None
         self.opacity = opacity
         self.clipping_planes = clipping_planes
         self.clipping_mode = clipping_mode
         if alpha_config is None:
-            self.alpha_mode = alpha_mode
+            self.alpha_mode = alpha_mode or "auto"
         else:
             self.alpha_config = alpha_config
         self.depth_test = depth_test
@@ -249,10 +247,6 @@ class Material(Trackable):
         value = min(max(float(value), 0), 1)
         self.uniform_buffer.data["opacity"] = value
         self.uniform_buffer.update_full()
-        opacity_is_one = value == 1
-        if opacity_is_one != self._store["opacity_is_one"]:
-            self._store.opacity_is_one = opacity_is_one
-            self._derive_render_queue()
 
     @property
     def clipping_planes(self) -> Sequence[ABCDTuple]:
@@ -323,51 +317,50 @@ class Material(Trackable):
         The ``material.alpha_mode`` is the recommended way to specify how an
         object's color is combined with the colors of earlier rendered objects.
         It provides preset configurations covering the majority of use-cases.
-        There are a handful of modes to choose from, divided over four different
-        methods. If more control is needed, see ``alpha_config``.
+
+        The ``alpha_mode`` is a convenient way to set ``alpha_method`` and ``alpha_config`.
+        If more control is needed, set ``alpha_config`` directly.
 
         Modes for method "opaque" (overwrites the value in the output texture):
 
-        * "solid": alpha is ignored.
-        * "solid_premul": the alpha is multipled with the color (making it darker).
+         * "solid": alpha is ignored.
+         * "solid_premul": the alpha is multipled with the color (making it darker).
 
-        Modes for method "blended" (per-fragment blending of the object's color and the color in the output texture):
+        Modes for method "blended" (per-fragment blending, a.k.a. compositing):
 
-        * "auto": classic alpha blending, with ``depth_write`` defaulting to True if ``.opacity==1``. See note below.
-        * "blend": classic alpha blending using the over-operator. ``depth_write`` defaults to False.
-        * "add": additive blending that adds the fragment color, multiplied by alpha.
-        * "subtract": subtractuve blending that removes the fragment color.
-        * "multiply": multiplicative blending that multiplies the fragment color.
-
-        Modes for method "stochastic" (alpha represents the chance of a fragment being visible):
-
-        * "dither": stochastic transparency with blue noise. This mode handles
-          order-independent transparency exceptionally well, but it produces
-          results that can look somewhat noisy.
-        * "bayer": stochastic transparency with an 8x8 Bayer pattern.
+         * "auto": classic alpha blending, with ``depth_write`` defaulting to True. See note below.
+         * "blend": classic alpha blending using the over-operator. ``depth_write`` defaults to False.
+         * "add": additive blending that adds the fragment color, multiplied by alpha.
+         * "subtract": subtractuve blending that removes the fragment color.
+         * "multiply": multiplicative blending that multiplies the fragment color.
 
         Modes for method "weighted" (order independent blending):
 
-        * "weighted_blend": weighted blended order independent transparency.
-        * "weighted_solid": fragments are combined based on alpha, but the final alpha is always 1. Great for e.g. image stitching.
+         * "weighted_blend": weighted blended order independent transparency.
+         * "weighted_solid": fragments are combined based on alpha, but the final alpha is always 1. Great for e.g. image stitching.
+
+        Modes for method "stochastic" (alpha represents the chance of a fragment being visible):
+
+         * "dither": stochastic transparency with blue noise. This mode handles
+           order-independent transparency exceptionally well, but it produces
+           results that can look somewhat noisy.
+         * "bayer": stochastic transparency with an 8x8 Bayer pattern.
 
         Note that the special mode "auto" produces reasonable results for common
         use-cases and can handle objects that produce a mix of opaque (alpha=1)
         and transparent (alpha<1) fragments, i.e. it can handle lines, points,
-        and text with ``material.aa=True``. If ``.opacity<1``, the "auto" mode
-        is equal to "blend". Artifacts can occur when objects are rendered out
+        and text with ``material.aa=True``. Artifacts can occur when objects are rendered out
         of order and/or when objects intersect. A different method such as
         "blend", "dither", or "weighted_blend" is then recommended.
 
         Note that for methods 'opaque' and 'stochastic', the ``depth_write``
         defaults to True, and for methods 'blended' and 'weighted' the
-        ``depth_write`` defaults to False. Mode "auto" is an exception to this rule.
+        ``depth_write`` defaults to False (except when mode is 'auto').
 
         Note that the value of ``material.alpha_mode`` can be "custom" in case
-        ``alpa_config`` is set to a configuration not covered by a builtin mode.
+        ``alpa_config`` is set to a configuration not covered by a preset mode.
         """
-
-        return self._store.alpha_config["mode"]
+        return self._store.alpha_mode
 
     @alpha_mode.setter
     def alpha_mode(self, alpha_mode: AlphaMode):
@@ -381,9 +374,9 @@ class Material(Trackable):
         if alpha_mode in AlphaMethod:
             m = {
                 "opaque": "solid",
-                "stochastic": "dither",
                 "blended": "blend",
                 "weighted": "weighted_blend",
+                "stochastic": "dither",
             }
             suggestion = m.get(alpha_mode, "solid")
             raise ValueError(
@@ -400,6 +393,23 @@ class Material(Trackable):
         self.alpha_config = d
 
     @property
+    def alpha_method(self) -> str:
+        """The alpha method being used (readonly).
+
+        The alpha method determines the main way how alpha values are used. There are four options:
+
+        * "opaque" means the fragments overwrite value in the color buffer.
+        * "blended" means the fragments are blended (composited) with the color buffer.
+        * "weighted" means the fragments are blended in a weighted order-independent way.
+        * "stochastic" means the fragments are opaque, and alpha represents the chance of a fragment being visible.
+
+        The ``alpha_config`` dictionary specifies extra parameters that affect the behavour of each alpha method.
+        The ``alpha_mode`` is a convenient way to set ``alpha_config`` (and ``alpha_method``) using presets
+
+        """
+        return self._store.alpha_method
+
+    @property
     def alpha_config(self) -> dict:
         """Dict that defines how the the resulting colors are combined with the target color texture.
 
@@ -410,9 +420,9 @@ class Material(Trackable):
         All possible alpha configurations are grouped in four methods:
 
         * "opaque": colors simply overwrite the texture, no transparency.
-        * "stochastic": stochastic transparency, alpha represents the chance of a fragment being visible.
         * "blended": colors are blended with the buffer per-fragment.
         * "weighted": weighted blended order independent transparency, and variants thereof.
+        * "stochastic": stochastic transparency, alpha represents the chance of a fragment being visible.
 
         The ``alpha_config`` dict has at least the following fields:
 
@@ -425,14 +435,6 @@ class Material(Trackable):
         Options for method 'opaque':
 
         * "premultiply": whether to pre-multiply the color with the alpha values.
-
-        Options for method 'stochastic':
-
-        * "pattern": can be 'blue-noise' for blue noise (default), 'white-noise' for white
-          noise, and 'bayer' for a Bayer pattern.
-        * "seed": can be 'screen' to have a uniform pattern for the whole screen, 'object' to
-          use a per-object seed, and 'element' to have a per-element seed.
-          The default is 'element' for  the noise patterns and 'object' for the bayer pattern.
 
         Options for method 'blended':
 
@@ -450,6 +452,15 @@ class Material(Trackable):
         * "weight"``": the weight factor as wgsl code. Default "alpha", which means use the color's alpha value.
         * "alpha": the used alpha value. Default "alpha", which means use as-is. Can e.g. be set to 1.0
           so that the alpha channel can be used as the weight factor, while the object is otherwise opaque.
+
+        Options for method 'stochastic':
+
+        * "pattern": can be 'blue-noise' for blue noise (default), 'white-noise' for white
+          noise, and 'bayer' for a Bayer pattern.
+        * "seed": can be 'screen' to have a uniform pattern for the whole screen, 'object' to
+          use a per-object seed, and 'element' to have a per-element seed.
+          The default is 'element' for  the noise patterns and 'object' for the bayer pattern.
+
 
         """
         return self._store.alpha_config.copy()
@@ -521,6 +532,7 @@ class Material(Trackable):
             the_mode = "auto"
 
         # Save
+        self._store.alpha_mode = the_mode
         self._store.alpha_method = method
         self._store.alpha_config = ReadOnlyDict(
             {
@@ -535,20 +547,23 @@ class Material(Trackable):
     def render_queue(self) -> int:
         """An integer that represents the group that the renderer uses to sort objects.
 
-        The property is intended for advanced usage; it is determined automatically
-        based on ``alpha_method``, ``depth_write`` and ``alpha_test``.
+        The property is intended for advanced usage; by default it is determined automatically
+        based on ``alpha_mode``, ``alpha_method`` and ``alpha_test``.
 
         The ``render_queue`` is a number between 1 and 4999. The builtin values are:
 
         * 1000: background.
         * 2000: opaque non-blending objects.
-        * 2400: opaque objects with a discard based on alpha (i.e. using ``alpha_test`` or "stochasric" alpha-mode).
-        * 2600: transparent objects that write depth.
-        * 3000: transparent objects that don't write depth.
+        * 2400: opaque objects with a discard based on alpha (i.e. using ``alpha_test`` or "stochastic" alpha-method).
+        * 2600: objects with alpha-mode 'auto'.
+        * 3000: transparent objects.
         * 4000: overlay.
 
         Objects with ``render_queue`` between 1501 and 2500 are sorted front-to-back. Otherwise
         objects are sorted back-to-front.
+
+        It can be tempting to use ``material.render_queue`` to control the render order of individual objects,
+        but for that purpose ``ob.render_order`` is more appropriate.
         """
         return self._render_queue
 
@@ -565,21 +580,20 @@ class Material(Trackable):
         self._given_render_queue = render_queue
         self._derive_render_queue()
 
+    @property
+    def render_queue_is_set(self):
+        """Whether the ``render_queue`` property is set. Otherwise it's auto-determined."""
+        return bool(self._given_render_queue)
+
     def _derive_render_queue(self):
         if self._given_render_queue:
-            self._render_queue = self._given_render_queue
-        elif self.alpha_mode == "auto":
-            if self.opacity == 1:
-                if getattr(self, "aa", False):
-                    # Anti-aliased objects render later than non-AA objects
-                    render_queue = 2400
-                else:
-                    render_queue = 2000
-            else:
-                render_queue = 3000
-            self._render_queue = render_queue
+            render_queue = self._given_render_queue
+        elif self._store.alpha_mode == "auto":
+            # An "opaque" auto-object, but it may have semi-transparent fragments,
+            # because of aa, or maps with transparent regions. So back-to-front.
+            render_queue = 2600
         else:
-            alpha_method = self.alpha_config["method"]
+            alpha_method = self._store.alpha_method
             if alpha_method == "opaque":
                 if not self._store.use_alpha_test:
                     render_queue = 2000
@@ -589,7 +603,7 @@ class Material(Trackable):
                 render_queue = 2400
             else:  # alpha_method in ["blended", "weighted"]
                 render_queue = 3000
-            self._render_queue = render_queue
+        self._render_queue = render_queue
 
     def _get_alpha_config_options(
         self, method: str, keys: list, default_dict: dict, given_dict: dict
@@ -647,7 +661,7 @@ class Material(Trackable):
 
         * True: yes, write depth.
         * False: no, don't write depth.
-        * None: auto-determine based on ``alpha_config`` (default).
+        * None: auto-determine based on ``alpha_coalpha_mode`` and ``alpha_method`` (default).
 
         The auto-option provides good default behaviour for common use-case, but
         if you know what you're doing you should probably just set this value to
@@ -655,11 +669,10 @@ class Material(Trackable):
         """
         depth_write = self._store.depth_write
         if depth_write is None:
-            if self._store.alpha_config["mode"] == "auto":
-                depth_write = self._store.opacity_is_one
-            else:
-                alpha_method = self._store.alpha_config["method"]
-                depth_write = alpha_method in ("opaque", "stochastic")
+            depth_write = (
+                self._store.alpha_mode == "auto"
+                or self._store.alpha_method in ("opaque", "stochastic")
+            )
         return depth_write
 
     @depth_write.setter
@@ -670,7 +683,6 @@ class Material(Trackable):
             self._store.depth_write = bool(value)
         else:
             raise TypeError("material.depth_write must be bool or None.")
-        self._derive_render_queue()
 
     @property
     def depth_write_is_set(self):
@@ -693,8 +705,10 @@ class Material(Trackable):
         self.uniform_buffer.data["alpha_test"] = value
         self.uniform_buffer.update_full()
         # Store whether the alpha test is active, so we can invalidate shaders
-        self._store.use_alpha_test = value != 0
-        self._derive_render_queue()
+        use_alpha_test = value != 0
+        if use_alpha_test != self._store.use_alpha_test:
+            self._store.use_alpha_test = use_alpha_test
+            self._derive_render_queue()
 
     @property
     def alpha_compare(self) -> str:

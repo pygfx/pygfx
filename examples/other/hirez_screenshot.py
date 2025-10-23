@@ -47,6 +47,9 @@ else:
 canvas = RenderCanvas(size=canvas_size, pixel_ratio=1)
 renderer = gfx.WgpuRenderer(canvas)
 
+scene = gfx.Scene()
+scene.add(gfx.Background.from_color("#bbb", "#777", "#f00", "#0f0"))
+
 
 # %% The visualization
 
@@ -61,116 +64,120 @@ colors = np.array(
     np.float32,
 )
 
-npoints = len(colors)
+marker_names = list(gfx.MarkerShape)
+marker_names.remove("custom")
 
-positions = np.zeros((npoints, 3), np.float32)
-positions[:, 0] = np.arange(npoints) * 2
-geometry = gfx.Geometry(positions=positions, colors=colors)
+markers = np.zeros(len(marker_names), np.int32)
+for i, marker_name in enumerate(marker_names):
+    if marker_name not in {"custom"}:
+        markers[i] = gfx.MarkerInt[marker_name]
+
+ncolors = len(colors)
+nmarkers = len(markers)
+npoints = ncolors * nmarkers
+
+colors = colors.repeat(nmarkers, 0)
+markers = np.tile(markers, ncolors)
+
+positions = np.zeros((ncolors, nmarkers, 3), np.float32)
+positions[:, :, 0].flat = np.arange(ncolors).repeat(nmarkers) * 2
+positions[:, :, 1] = -np.arange(1, nmarkers + 1) * 2
+positions.shape = -1, 3
+
+geometry = gfx.Geometry(
+    positions=positions,
+    colors=colors,
+    markers=markers,
+)
 
 
-scene = gfx.Scene()
-scene.add(gfx.Background.from_color("#bbb", "#777", "#f00", "#0f0"))
-
-y = 0
 text = gfx.Text(
     text="centered",
     anchor="middle-center",
     font_size=1,
-    material=gfx.TextMaterial("#000"),
+    material=gfx.TextMaterial("#000", aa=True),
 )
-text.local.y = y
-text.local.x = npoints
+text.local.x = ncolors
 scene.add(text)
 
 text = gfx.Text(
     text="inner",
     anchor="middle-center",
     font_size=1,
-    material=gfx.TextMaterial("#000"),
+    material=gfx.TextMaterial("#000", aa=True),
 )
-text.local.y = y
-text.local.x = 2 * npoints + npoints
+text.local.x = 2 * ncolors + ncolors
 scene.add(text)
 
 text = gfx.Text(
     text="outer",
     anchor="middle-center",
     font_size=1,
-    material=gfx.TextMaterial("#000"),
+    material=gfx.TextMaterial("#000", aa=True),
 )
-text.local.y = y
-text.local.x = 4 * npoints + npoints
+text.local.x = 4 * ncolors + ncolors
 scene.add(text)
 
-all_points = []
-for marker in gfx.MarkerShape:
-    if marker == "custom":
-        continue
+y = 0
+for marker in marker_names:
     y += 2
-    points = gfx.Points(
-        geometry,
-        gfx.PointsMarkerMaterial(
-            size=1,
-            size_space="world",
-            color_mode="vertex",
-            marker=marker,
-            edge_color="#000",
-            edge_width=0.1,
-        ),
-    )
-    points.local.y = -y
-    points.local.x = 1
-    scene.add(points)
-    all_points.append(points)
-
-    points_inner = gfx.Points(
-        geometry,
-        gfx.PointsMarkerMaterial(
-            size=1,
-            size_space="world",
-            color_mode="vertex",
-            marker=marker,
-            edge_color="#000",
-            edge_width=0.1,
-            edge_mode="inner",
-        ),
-    )
-
-    points_inner.local.y = -y
-    points_inner.local.x = 1 + 2 * npoints
-
-    scene.add(points_inner)
-    all_points.append(points_inner)
-
-    points_outer = gfx.Points(
-        geometry,
-        gfx.PointsMarkerMaterial(
-            size=1,
-            size_space="world",
-            color_mode="vertex",
-            marker=marker,
-            edge_color="#000",
-            edge_width=0.1,
-            edge_mode="outer",
-        ),
-    )
-
-    points_outer.local.y = -y
-    points_outer.local.x = 1 + 4 * npoints
-
-    scene.add(points_outer)
-    all_points.append(points_outer)
-
     text = gfx.Text(
         text=marker,
         anchor="middle-right",
-        font_size=20,
-        screen_space=True,
-        material=gfx.TextMaterial("#000"),
+        font_size=1,
+        material=gfx.TextMaterial("#000", aa=True),
     )
     text.local.y = -y
     text.local.x = 0
     scene.add(text)
+
+
+points = gfx.Points(
+    geometry,
+    gfx.PointsMarkerMaterial(
+        size=1,
+        size_space="world",
+        color_mode="vertex",
+        marker_mode="vertex",
+        edge_color="#000",
+        edge_width=0.1,
+        aa=True,
+    ),
+)
+points.local.x = 1
+scene.add(points)
+
+points_inner = gfx.Points(
+    geometry,
+    gfx.PointsMarkerMaterial(
+        size=1,
+        size_space="world",
+        color_mode="vertex",
+        marker_mode="vertex",
+        edge_color="#000",
+        edge_width=0.1,
+        edge_mode="inner",
+        aa=True,
+    ),
+)
+points_inner.local.x = 1 + 2 * ncolors
+scene.add(points_inner)
+
+points_outer = gfx.Points(
+    geometry,
+    gfx.PointsMarkerMaterial(
+        size=1,
+        size_space="world",
+        color_mode="vertex",
+        marker_mode="vertex",
+        edge_color="#000",
+        edge_width=0.1,
+        edge_mode="outer",
+        aa=True,
+    ),
+)
+points_outer.local.x = 1 + 4 * ncolors
+scene.add(points_outer)
 
 
 camera = gfx.OrthographicCamera()

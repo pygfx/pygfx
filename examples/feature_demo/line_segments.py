@@ -25,9 +25,9 @@ positions = np.column_stack([x, y, np.zeros_like(x)])
 colors = np.random.uniform(0, 1, (x.size, 4)).astype(np.float32)
 colors[:, 3] = 1
 
-line = gfx.Line(
+line = gfx.Points(
     gfx.Geometry(positions=positions, colors=colors),
-    gfx.LineSegmentMaterial(thickness=6.0, color_mode="face", map=gfx.cm.viridis),
+    gfx.PointsMarkerMaterial(size=20, marker="pin", rotation_mode="curve"),
 )
 scene.add(line)
 

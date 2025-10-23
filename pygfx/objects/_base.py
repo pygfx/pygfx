@@ -227,6 +227,13 @@ class WorldObject(EventTarget, Trackable):
             None
         )  # break the circular reference so GC has it a little easier
 
+    def _self(self):
+        """Get self. This looks silly, but in case the WorldObject is
+        wrapped in a weakproxy, like FastPlotLib does, this gets the
+        real wobject, so we can hash it. You cannot dereference a weak.proxy.
+        """
+        return self
+
     @property
     def up(self) -> np.ndarray:
         """
@@ -273,11 +280,13 @@ class WorldObject(EventTarget, Trackable):
 
         The effective render order is the sum of its render order and thet of all its parents.
 
-        The final sort order is typically determined by:
-            1. the ``material.render_queue``
-            2. effective ``render_order``
-            3. distance to camera
+        The order in wich objects are rendered is:
+            1. the ``material.render_queue``.
+            2. the effective ``render_order``.
+            3. the distance to camera (if ``render.sort_objects==True``).
+            4. the position of the object in the scene graph.
 
+        Also see ``material.render_queue``.
         """
         # Note: the render order is on the object, not the material, because it affects
         # a specific object, and materials are often shared between multiple objects.
@@ -521,7 +530,7 @@ class WorldObject(EventTarget, Trackable):
             return bounds.aabb
 
     def get_bounding_box(self) -> np.ndarray | None:
-        """Axis-aligned bounding box in parent space.
+        """Axis-aligned bounding box in local model space.
 
         Returns
         -------
@@ -553,7 +562,7 @@ class WorldObject(EventTarget, Trackable):
         return final_aabb
 
     def get_bounding_sphere(self) -> np.ndarray | None:
-        """Bounding Sphere in parent space.
+        """Bounding Sphere in local model space.
 
         Returns
         -------

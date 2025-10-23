@@ -35,7 +35,7 @@ import pygfx as gfx
 from rendercanvas.auto import RenderCanvas, loop
 
 from wgpu.utils.imgui import ImguiRenderer
-from imgui_bundle import imgui, hello_imgui, icons_fontawesome_6  # type: ignore
+from imgui_bundle import imgui, hello_imgui, icons_fontawesome_4  # type: ignore
 
 gltf_path = model_dir / "Michelle.glb"
 
@@ -86,15 +86,11 @@ gui_renderer = ImguiRenderer(renderer.device, canvas)
 
 state = {"pause": False}
 
-fa_loading_params = hello_imgui.FontLoadingParams()
-fa_loading_params.use_full_glyph_range = True
-fa = hello_imgui.load_font("fonts/fontawesome-webfont.ttf", 14, fa_loading_params)
-gui_renderer.backend.create_fonts_texture()
+# Load pretty font and allow using font-awesome for icons
+hello_imgui.load_font_ttf_with_font_awesome_icons("fonts/DroidSans.ttf", 14)
 
 
 def draw_imgui():
-    imgui.new_frame()
-
     imgui.set_next_window_size(
         (gui_renderer.backend.io.display_size.x, 0), imgui.Cond_.always
     )
@@ -112,15 +108,13 @@ def draw_imgui():
 
     duration = action_clip.duration
 
-    imgui.push_font(fa)
     if action.paused:
-        if imgui.button(icons_fontawesome_6.ICON_FA_PLAY, size=(24, 20)):
+        if imgui.button(icons_fontawesome_4.ICON_FA_PLAY, size=(24, 24)):
             action.paused = False
     else:
-        if imgui.button(icons_fontawesome_6.ICON_FA_PAUSE, size=(24, 20)):
+        if imgui.button(icons_fontawesome_4.ICON_FA_PAUSE, size=(24, 24)):
             action.paused = True
 
-    imgui.pop_font()
     imgui.same_line()
     avail_size = imgui.get_content_region_avail()
     imgui.set_next_item_width(avail_size.x)
@@ -128,10 +122,6 @@ def draw_imgui():
     if changed:
         action.time = v
     imgui.end()
-
-    imgui.end_frame()
-    imgui.render()
-    return imgui.get_draw_data()
 
 
 gui_renderer.set_gui(draw_imgui)

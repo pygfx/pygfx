@@ -85,10 +85,7 @@ actions = [idle_action, walk_action, run_action]
 gui_renderer = ImguiRenderer(renderer.device, canvas)
 
 fonts = gfx.font_manager.select_font("Controls", FontProps())
-fonts_file = fonts[0][1]._filename
-font = gui_renderer.backend.io.fonts.add_font_from_file_ttf(fonts_file, 16)
-gui_renderer.backend.create_fonts_texture()
-
+font = gui_renderer.backend.io.fonts.add_font_from_file_ttf(fonts[0][1]._filename, 16)
 gui_renderer.backend.io.font_default = font
 
 state = {
@@ -179,7 +176,6 @@ next_step_size = 0.05
 
 
 def draw_imgui():
-    imgui.new_frame()
     imgui.set_next_window_size((300, 0), imgui.Cond_.always)
     imgui.set_next_window_pos(
         (gui_renderer.backend.io.display_size.x - 300, 0), imgui.Cond_.always
@@ -287,9 +283,6 @@ def draw_imgui():
                 animation_mixer.time_scale = speed
 
     imgui.end()
-    imgui.end_frame()
-    imgui.render()
-    return imgui.get_draw_data()
 
 
 gui_renderer.set_gui(draw_imgui)
