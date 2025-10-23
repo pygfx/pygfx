@@ -64,7 +64,10 @@ class MeshShader(BaseShader):
         # Per-vertex color, colormap, or a plane color?
         self["colorspace"] = "srgb"
 
-        if material.render_queue <= 2500:
+        if (
+            material.render_queue <= 2500
+            and material.alpha_config["method"] == "opaque"
+        ):
             self["OPAQUE"] = True
 
         color_mode = str(material.color_mode).split(".")[-1]

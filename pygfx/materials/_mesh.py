@@ -21,6 +21,9 @@ class MeshAbstractMaterial(Material):
         The texture map specifying the color at each texture coordinate. Optional.
     side : str | VisibleSide
         What side of the mesh is visible. Default "both".
+    force_single_pass : bool
+        Whether double-sided, transparent objects should be rendered with a single pass or not.
+        Default is False.
     kwargs : Any
         Additional kwargs will be passed to the :class:`material base class
         <pygfx.Material>`.
@@ -51,6 +54,7 @@ class MeshAbstractMaterial(Material):
         color_mode="auto",
         map=None,
         side="both",
+        force_single_pass: bool = False,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -59,6 +63,7 @@ class MeshAbstractMaterial(Material):
         self.color_mode = color_mode
         self.map = map
         self.side = side
+        self.force_single_pass = force_single_pass
 
     @property
     def color(self):
@@ -140,6 +145,15 @@ class MeshAbstractMaterial(Material):
                 f"MeshMaterial.side must be a string in {VisibleSide}, not {value!r}"
             )
         self._store.side = value
+
+    @property
+    def force_single_pass(self):
+        """Whether double-sided, transparent objects should be rendered with a single pass or not. Default is False."""
+        return self._force_single_pass
+
+    @force_single_pass.setter
+    def force_single_pass(self, value):
+        self._force_single_pass = bool(value)
 
 
 class MeshBasicMaterial(MeshAbstractMaterial):

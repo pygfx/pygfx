@@ -340,7 +340,7 @@ def test_against_glyph_bleeding():
 
     camera = gfx.OrthographicCamera(340, 200)
     target = gfx.Texture(dim=2, size=(3400, 2000), format="rgba8unorm")
-    renderer = gfx.WgpuRenderer(target, pixel_ratio=1)
+    renderer = gfx.WgpuRenderer(target, pixel_scale=1)
 
     def render_text():
         text = gfx.Text(

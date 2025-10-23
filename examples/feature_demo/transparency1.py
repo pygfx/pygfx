@@ -53,7 +53,7 @@ scene_overlay = gfx.Scene()
 blend_text = gfx.Text(
     text=f"alpha_mode: {plane1.material.alpha_mode}",
     anchor="bottom-left",
-    material=gfx.TextMaterial(outline_thickness=0.3),
+    material=gfx.TextMaterial(outline_thickness=0.3, aa=True),
 )
 scene_overlay.add(blend_text)
 
@@ -72,14 +72,16 @@ def handle_event(event):
         clr = "#fff" if background.material.color_bottom_left == "#000" else "#000"
         print(f"Changing background color to {clr}")
         background.material.set_colors(clr)
-    elif event.key in "12345":
+    elif event.key in "1234567":
         m = [
             None,
-            "solid",  # 1
-            "blend",  # 2
-            "add",  # 3
-            "dither",  # 4
-            "weighted_blend",  # 5
+            "auto",  # 1
+            "solid",  # 2
+            "blend",  # 3
+            "add",  # 4
+            "dither",  # 5
+            "bayer",  # 6
+            "weighted_blend",  # 7
         ]
         alpha_mode = m[int(event.key)]
         for plane in plane1, plane2, plane3:

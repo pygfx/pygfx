@@ -87,7 +87,9 @@ line1 = gfx.Line(
         thickness=40,
         thickness_space="screen",
         color=(0.0, 1.0, 1.0),
+        alpha_mode="blend",
         opacity=1.0,
+        aa=True,
     ),
 )
 
@@ -97,7 +99,9 @@ line2 = gfx.Line(
         thickness=40,
         thickness_space="screen",
         color_mode="vertex",
+        alpha_mode="blend",
         opacity=0.5,
+        aa=True,
     ),
 )
 
@@ -109,7 +113,9 @@ line3 = gfx.Line(
         color_mode="uniform",
         dash_pattern=[1, 1.2],
         color=(1.0, 0.0, 0.0),
+        alpha_mode="blend",
         opacity=0.5,
+        aa=True,
     ),
 )
 

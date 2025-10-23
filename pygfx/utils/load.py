@@ -191,10 +191,48 @@ def meshes_from_trimesh(scene, materials=True, apply_transforms=True):
     Returns
     -------
     meshes : list
-        A list of loaded meshes.
+        A list of loaded meshes (volumes are ignored).
+
+    """
+    return objects_from_trimesh(
+        scene,
+        meshes=True,
+        volumes=False,
+        materials=materials,
+        apply_transforms=apply_transforms,
+    )
+
+
+def objects_from_trimesh(
+    scene, meshes=True, volumes=True, materials=True, apply_transforms=True
+):
+    """Converts a trimesh scene into a flat list of pygfx objects.
+
+    Parameters
+    ----------
+    scene : trimesh.Scene
+        The scene to convert.
+    meshes : bool
+        Whether to import meshes. Default is True.
+    volumes : bool
+        Whether to load 3D image volumes. Default is True.
+    materials : bool
+        Whether to import materials for meshes. If False, a standard material will be created. Default is True.
+    apply_transforms : bool
+        Whether to apply the scene graph transforms directly to the meshes. Default is True.
+
+    Returns
+    -------
+    objects : list
+        A list of meshes/volumes.
 
     """
     import trimesh
+
+    # NOTE: this function also loads volumes. Initially it was foreseen that
+    # trimesh only supported meshes, but since it also loads volumes, we support that too.
+
+    objects = []
 
     # If this is a single object we can just convert and return it
     if isinstance(scene, trimesh.Trimesh):
@@ -202,8 +240,10 @@ def meshes_from_trimesh(scene, materials=True, apply_transforms=True):
             gfx.geometry_from_trimesh(scene),
             gfx.material_from_trimesh(scene),
         )
-        return [m]
-    # If this is a scene, we need to properly parse it
+        objects.append(m)
+    elif isinstance(scene, trimesh.voxel.VoxelGrid):
+        vol = _volume_from_voxelgrid(scene)
+        objects.append(vol)
     elif isinstance(scene, trimesh.Scene):
         # Scene consists of geometries (which in trimesh contain both
         # the vertices/faces as well as the mateiral) and a scene graph.
@@ -213,25 +253,39 @@ def meshes_from_trimesh(scene, materials=True, apply_transforms=True):
         # but in the future it might be better to use pygfx.InstancedMesh.
 
         # Extract the geometries and materials
-        gfx_geometries, gfx_materials = objects_from_trimesh(scene, materials=materials)
+        gfx_geometries, gfx_materials = geometries_and_materials_from_trimesh(
+            scene, materials=materials
+        )
 
         # Generate a visual for each node
-        meshes = []
         for node_name in scene.graph.nodes_geometry:
             transform, geometry_name = scene.graph[node_name]
-
-            mesh = gfx.Mesh(gfx_geometries[geometry_name], gfx_materials[geometry_name])
+            gfx_cls = gfx.Mesh
+            if gfx_materials[geometry_name].__class__.__name__.startswith("Volume"):
+                gfx_cls = gfx.Volume
+            ob = gfx_cls(gfx_geometries[geometry_name], gfx_materials[geometry_name])
 
             if apply_transforms:
-                mesh.local.matrix = transform  # set the node's transform
+                ob.local.matrix = transform  # set the node's transform
 
-            meshes.append(mesh)
-        return meshes
+            objects.append(ob)
     else:
-        raise ValueError(f"Unexpected trimesh data: {scene.__class__.__name__}")
+        raise NotImplementedError(
+            f"Unexpected trimesh data: {scene.__class__.__name__}"
+        )
+
+    # Filter on type
+    if meshes and volumes:
+        return objects
+    elif meshes:
+        return [ob for ob in objects if isinstance(ob, gfx.Mesh)]
+    elif volumes:
+        return [ob for ob in objects if isinstance(ob, gfx.Volume)]
+    else:
+        return []
 
 
-def objects_from_trimesh(scene, materials=True, de_duplicate=True):
+def geometries_and_materials_from_trimesh(scene, materials=True, de_duplicate=True):
     """Extract geometries and materials from a trimesh scene.
 
     Parameters
@@ -252,30 +306,41 @@ def objects_from_trimesh(scene, materials=True, de_duplicate=True):
         A dictionary of material objects. Keys are the names of the geometries.
 
     """
+    import trimesh
+
     trimesh_to_gfx_geometries = {}  # cache for geometries
     trimesh_to_gfx_materials = {}  # cache for materials
     gfx_geometries = {}
     gfx_materials = {}
-    for name, mesh in scene.geometry.items():
-        # Convert mesh
-        if de_duplicate and mesh in trimesh_to_gfx_materials:
-            gfx_geometries[name] = trimesh_to_gfx_geometries[mesh]
+    for name, tm_ob in scene.geometry.items():
+        # Convert object
+        if de_duplicate and tm_ob in trimesh_to_gfx_materials:
+            gfx_geometries[name] = trimesh_to_gfx_geometries[tm_ob]
         else:
-            gfx_geometries[name] = trimesh_to_gfx_geometries[mesh] = (
-                gfx.geometry_from_trimesh(mesh)
-            )
-
-        # If mesh has a material, convert it
-        if hasattr(mesh.visual, "material") and materials:
-            if de_duplicate and mesh.visual.material in trimesh_to_gfx_materials:
-                gfx_materials[name] = trimesh_to_gfx_materials[mesh.visual.material]
+            if isinstance(tm_ob, trimesh.Trimesh):
+                gfx_geo = gfx.geometry_from_trimesh(tm_ob)
+                if hasattr(tm_ob.visual, "material") and materials:
+                    if (
+                        de_duplicate
+                        and tm_ob.visual.material in trimesh_to_gfx_materials
+                    ):
+                        gfx_materials[name] = trimesh_to_gfx_materials[
+                            tm_ob.visual.material
+                        ]
+                    else:
+                        gfx_materials[name] = trimesh_to_gfx_materials[
+                            tm_ob.visual.material
+                        ] = gfx.material_from_trimesh(tm_ob.visual.material)
+                else:  # use a default material
+                    gfx_materials[name] = gfx.MeshStandardMaterial()
+            elif isinstance(tm_ob, trimesh.voxel.VoxelGrid):
+                vol = _volume_from_voxelgrid(tm_ob)
+                gfx_geo = vol.geometry
+                gfx_materials[name] = vol.material
             else:
-                gfx_materials[name] = trimesh_to_gfx_materials[mesh.visual.material] = (
-                    gfx.material_from_trimesh(mesh.visual.material)
-                )
-        # If not, use a default material
-        else:
-            gfx_materials[name] = gfx.MeshStandardMaterial()
+                raise NotImplementedError(f"{tm_ob.__class__.__name__}")
+
+            gfx_geometries[name] = trimesh_to_gfx_geometries[tm_ob] = gfx_geo
 
     return gfx_geometries, gfx_materials
 
@@ -302,7 +367,7 @@ def scene_from_trimesh(
     meshes : bool
         Whether to import meshes. Default is True.
     materials : bool
-        Whether to import materials. Default is True.
+        Whether to import materials for meshes. Default is True.
     volumes : bool
         Whether to load 3D image volumes. Default is True.
     lights :  "auto" | "file" | "none"
@@ -339,7 +404,7 @@ def scene_from_trimesh(
     # Basic scene setup
     gfx_scene = gfx.Scene()
 
-    # Convet single meshes into a scene (this makes the code below much simpler)
+    # Convert single meshes into a scene (this makes the code below much simpler)
     if isinstance(tm_scene, trimesh.Trimesh):
         tm_scene = trimesh.Scene(geometry=tm_scene)
     elif isinstance(tm_scene, trimesh.voxel.VoxelGrid):
@@ -372,7 +437,7 @@ def scene_from_trimesh(
     if meshes and len(tm_scene.graph.nodes):
         if not flatten:
             # Load the geometries and materials
-            gfx_geometries, gfx_materials = objects_from_trimesh(
+            gfx_geometries, gfx_materials = geometries_and_materials_from_trimesh(
                 tm_scene, materials=materials
             )
 
@@ -393,7 +458,12 @@ def scene_from_trimesh(
                     # See if this child has a geometry
                     if geometry_name is not None:
                         # Create the geometry
-                        child_object = gfx.Mesh(
+                        gfx_cls = gfx.Mesh
+                        if gfx_materials[geometry_name].__class__.__name__.startswith(
+                            "Volume"
+                        ):
+                            gfx_cls = gfx.Volume
+                        child_object = gfx_cls(
                             gfx_geometries[geometry_name],
                             gfx_materials[geometry_name],
                         )
@@ -420,8 +490,12 @@ def scene_from_trimesh(
             # If we're flattening the scene graph, we'll just
             # convert all geometries in the scene to meshes
             gfx_scene.add(
-                *meshes_from_trimesh(
-                    tm_scene, apply_transforms=True, materials=materials
+                *objects_from_trimesh(
+                    tm_scene,
+                    apply_transforms=True,
+                    meshes=meshes,
+                    volumes=volumes,
+                    materials=materials,
                 )
             )
 

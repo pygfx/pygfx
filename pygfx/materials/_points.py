@@ -6,7 +6,9 @@ from ..utils.enums import (
     ColorMode,
     SizeMode,
     CoordSpace,
+    MarkerInt,
     MarkerShape,
+    MarkerMode,
     RotationMode,
 )
 
@@ -33,7 +35,7 @@ class PointsMaterial(Material):
     map : TextureMap | Texture
         The texture map specifying the color for each texture coordinate.
     aa : bool
-        Whether or not the points are anti-aliased in the shader. Default True.
+        Whether the points are anti-aliased in the shader. Default False.
     rotation : float
         The rotation of the point marker in radians. Default 0.
     rotation_mode : str | RotationMode
@@ -61,7 +63,7 @@ class PointsMaterial(Material):
         color_mode="auto",
         edge_mode="centered",
         map=None,
-        aa=True,
+        aa=False,
         rotation=0,
         rotation_mode="uniform",
         **kwargs,
@@ -103,20 +105,28 @@ class PointsMaterial(Material):
         """Whether the point's visual edge is anti-aliased.
 
         Aliasing gives prettier results by producing semi-transparent fragments
-        at the edges. Points smaller than one physical pixel are also diminished
+        at the edges. Lines thinner than one physical pixel are also diminished
         by making them more transparent.
 
-        Note that by default, pygfx uses SSAA to anti-alias the total renderered
-        result. Point-based aa results in additional improvement.
+        However, because semi-transparent fragments are introduced, artifacts
+        may occur if certain cases. For the same reason, aa only works for the
+        "blended" and "weighted" alpha methods.
 
-        Because semi-transparent fragments are introduced, it may affect how the
-        points blends with other (semi-transparent) objects.
+        Note that by default, pygfx already uses SSAA and/or PPAA to anti-alias
+        the total renderered result. Point-based aa is an *additional* visual
+        improvement.
         """
         return self._store.aa
 
     @aa.setter
     def aa(self, aa):
         self._store.aa = bool(aa)
+        self._derive_render_queue()
+
+    @property
+    def _gfx_effective_aa(self):
+        aa_able_methods = ("blended", "weighted")
+        return self._store.aa and self.alpha_method in aa_able_methods
 
     @property
     def color_mode(self):
@@ -268,6 +278,8 @@ class PointsMarkerMaterial(PointsMaterial):
     ----------
     marker : str | MarkerShape
         The shape of the marker. Default 'circle'.
+    marker_mode : str | MarkerMode
+        The mode by which the markers are defined. Default 'uniform'.
     edge_color : str | tuple | Color
         The color of line marking the edge of the markers. Default 'black'.
     edge_width : float
@@ -287,7 +299,8 @@ class PointsMarkerMaterial(PointsMaterial):
         self,
         *,
         marker="circle",
-        edge_width=1,
+        marker_mode="uniform",
+        edge_width=1.0,
         edge_color="black",
         custom_sdf=None,
         edge_color_mode="auto",
@@ -295,6 +308,7 @@ class PointsMarkerMaterial(PointsMaterial):
     ):
         super().__init__(**kwargs)
         self.marker = marker
+        self.marker_mode = marker_mode
         self.edge_width = edge_width
         self.edge_color = edge_color
         self.edge_color_mode = edge_color_mode
@@ -328,7 +342,7 @@ class PointsMarkerMaterial(PointsMaterial):
         Supported values:
 
         * A string from :obj:`pygfx.utils.enums.MarkerShape`.
-        * Matplotlib compatible characters: "osD+x^v<>".
+        * Matplotlib compatible characters: "osD+x^v<>*".
         * Unicode symbols: "●○■♦♥♠♣✳▲▼◀▶".
         * Emojis: "❤️♠️♣️♦️💎💍✳️📍".
         * A string containing the value "custom". In this case, the WGSL
@@ -355,6 +369,7 @@ class PointsMarkerMaterial(PointsMaterial):
             "<": "triangle_left",
             ">": "triangle_right",
             "v": "triangle_down",
+            "*": "asterisk6",
             # Unicode
             "●": "circle",
             "○": "ring",
@@ -363,7 +378,7 @@ class PointsMarkerMaterial(PointsMaterial):
             "♥": "heart",
             "♠": "spade",
             "♣": "club",
-            "✳": "asterix",
+            "✳": "asterisk8",
             "▲": "triangle_up",
             "▼": "triangle_down",
             "◀": "triangle_left",
@@ -375,17 +390,48 @@ class PointsMarkerMaterial(PointsMaterial):
             "♦️": "diamond",
             "💎": "diamond",
             "💍": "ring",
-            "✳️": "asterix",
+            "✳️": "asterisk8",
             "📍": "pin",
+            # Compat
+            "asterisk": "asterisk6",
+            "asterix": "asterisk6",
         }
 
         name = name or "circle"
-        resolved_name = alt_names.get(name, name).lower()
-        if resolved_name not in MarkerShape:
-            raise ValueError(
-                f"PointsMarkerMaterial.marker must be a string in {SizeMode}, or a supported characted, not {name!r}"
-            )
+        if isinstance(name, int):
+            try:
+                resolved_name = MarkerInt[name]
+            except KeyError:
+                raise ValueError(
+                    f"PointsMarkerMaterial.marker was set using an int ({name}), but that int does not correspond to a marker."
+                ) from None
+        else:
+            resolved_name = alt_names.get(name, name).lower()
+            if resolved_name not in MarkerShape:
+                raise ValueError(
+                    f"PointsMarkerMaterial.marker must be a string in {MarkerShape}, or a supported character, not {name!r}"
+                )
         self._store.marker = resolved_name
+
+    @property
+    def marker_mode(self):
+        """The mode by which markers are defined.
+
+        See :obj:`pygfx.utils.enums.MarkerMode`:
+
+        When using per-vertex markers, the geometry should have a buffer called "markers", containing ints.
+        To make marker names to ints, use :obj:`pygfx.utils.enums.MarkerInt`:.
+        """
+        return self._store.marker_mode
+
+    @marker_mode.setter
+    def marker_mode(self, value):
+        value = value or "uniform"
+        if value not in MarkerMode:
+            raise ValueError(
+                f"PointsMaterial.marker_mode must be a string in {MarkerMode}, not {value!r}"
+            )
+        self._store.marker_mode = value
 
     @property
     def edge_color_mode(self):
@@ -459,8 +505,9 @@ class PointsSpriteMaterial(PointsMaterial):
 
     @sprite.setter
     def sprite(self, sprite):
-        assert sprite is None or isinstance(sprite, Texture)
+        if not (sprite is None or isinstance(sprite, Texture)):
+            raise TypeError(
+                f"sprite must be `None` or a Texture, you have passed a: {type(sprite)}"
+            )
+
         self._store.sprite = sprite
-
-
-# Idea: PointsSdfMaterial(PointsMaterial) -> a material where the point shape can be defined via an sdf.

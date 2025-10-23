@@ -353,7 +353,7 @@ class PipelineContainer:
             self.wobject_info = {}
             with tracker.track_usage("reset"):
                 self.wobject_info["pick_write"] = wobject.material.pick_write
-                alpha_method = wobject.material._store.alpha_method
+                alpha_method = wobject.material.alpha_method
                 self.wobject_info["alpha_method"] = alpha_method
                 if alpha_method in ["opaque", "stochastic", "weighted"]:
                     self.wobject_info["alpha_config"] = wobject.material.alpha_config
@@ -376,7 +376,7 @@ class PipelineContainer:
                 self.wobject_info["depth_test"] = wobject.material.depth_test
                 self.wobject_info["depth_compare"] = wobject.material.depth_compare
                 self.wobject_info["depth_write"] = wobject.material.depth_write
-                # For composite, the details need a new pipeline, but not a new shader
+                # For 'blended', the details need a new pipeline, but not a new shader
                 self.wobject_info["alpha_config"] = wobject.material.alpha_config
             self._check_pipeline_info()
             changed.add("render_info")

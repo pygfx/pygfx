@@ -1,4 +1,5 @@
 from math import floor, ceil, log10
+from typing import Literal, Callable
 
 import numpy as np
 
@@ -6,7 +7,7 @@ from ._base import WorldObject
 from ._more import Line, Points
 from ._text import MultiText
 from ..resources import Buffer
-from ..materials import LineMaterial, PointsMaterial, TextMaterial
+from ..materials import LineMaterial, PointsMarkerMaterial, TextMaterial
 from ..utils.compgeo import get_visible_part_of_line_ndc
 
 
@@ -14,24 +15,64 @@ class Ruler(WorldObject):
     """An object to represent a ruler with tickmarks.
 
     Can be used to measure distances in a scene, or as an axis in a plot.
+    The ruler object is a "compound" object; it has text, lines, and points as child objects.
 
     Usage:
 
     * Use the properties (most notably ``start_pos`` and ``end_pos``).
     * Call ``update()`` on each draw.
+
+    Parameters
+    ----------
+    start_pos : tuple[float, float, float]
+        The initial position of the start of the ruler.
+    end_pos : tuple[float, float, float]
+        The initial position of the end of the ruler.
+    start_value : float
+        The value (offset) at the start of the ruler.
+    ticks : array-like or None
+        A list of values, in world-space from the ruler's start_pos, where ticks should be drawn.
+        If not given or None, this will be determined automatically.
+    tick_format : str | Callable
+        The format to represent ticks with, or a function to convert floats to str. Default "0.4g".
+    tick_side : str
+        Whether the tick texts are on the 'left' or 'right' of the line (from the p.o.v. of the ruler). Default left.
+    tick_marker : str
+        Any marker from the PointsMarkerMaterial. Sensible values are 'tick', 'tick_left', and 'tick_right'.
+    tick_size : float
+        The size of the tickmarks (in logical screen pixels). When using half ticks
+        (tick_marker is 'tick_left' or 'tick_right', the effective size is halved). Default 8.
+    ticks_at_end_points : bool
+        Whether to draw ticks at the ruler's strat and end. Default False
+    min_tick_distance: float
+        The minimal distance between ticks in screen pixels, when using auto-ticks. Default 50.
+    color : str | tuple[float, float, float, float]
+        The color for the internal line, points and text objects. Default white.
+    line_width : float
+        The width of the line and tickmarks. Default 2.0.
+    alpha_mode : str | None
+        Override the default alpha mode for the line, points and text.
+    render_queue : int | None
+        Override the default render queue for the line, points and text.
     """
 
     def __init__(
         self,
         *,
-        start_pos=(0, 0, 0),
-        end_pos=(0, 0, 0),
-        start_value=0.0,
-        ticks=None,
-        tick_format="0.4g",
-        tick_side="left",
-        min_tick_distance=50,
+        start_pos: tuple[float, float, float] = (0, 0, 0),
+        end_pos: tuple[float, float, float] = (0, 0, 0),
+        start_value: float = 0.0,
+        ticks: list | None = None,
+        tick_format: str | Callable = "0.4g",
+        tick_side: Literal["left", "right"] = "left",
+        tick_marker: Literal["tick", "tick_left", "tick_right"] = "tick",
+        tick_size: float = 8.0,
         ticks_at_end_points=False,
+        min_tick_distance: float = 50.0,
+        color: str | tuple[float, float, float, float] = "#fff",
+        line_width: float = 2.0,
+        alpha_mode: str | None = None,
+        render_queue: int | None = None,
     ):
         super().__init__()
 
@@ -39,18 +80,51 @@ class Ruler(WorldObject):
         self.end_pos = end_pos
         self.start_value = start_value
         self.ticks = ticks
+        self._tick_size = float(tick_size)
 
         self.tick_format = tick_format
         self.tick_side = tick_side
         self.min_tick_distance = min_tick_distance
         self.ticks_at_end_points = ticks_at_end_points
 
-        # Create a line and points object, with a shared geometry
-        self._text = MultiText(material=TextMaterial(), screen_space=True)
+        # Common kwargs for the materials of the child objects
+        material_kwargs = dict(
+            alpha_mode=alpha_mode,
+            render_queue=render_queue,
+        )
+
+        # Create a line and points object, with a shared geometry.
+        # The 'tick' marker is a hair-line (i.e. no body), so you only
+        # see the edge of the marker; we can simply match the edge_width with the
+        # thickness of the line!
+        self._text = MultiText(
+            material=TextMaterial(color=color, aa=True, **material_kwargs),
+            screen_space=True,
+        )
         geometry = self._text.geometry  # has .positions buffer
         geometry.sizes = Buffer(np.zeros(geometry.positions.nitems, "f4"))
-        self._line = Line(geometry, LineMaterial(color="w", thickness=2))
-        self._points = Points(geometry, PointsMaterial(color="w", size_mode="vertex"))
+        self._line = Line(
+            geometry,
+            LineMaterial(
+                color=color, thickness=line_width, aa=False, **material_kwargs
+            ),
+        )
+        self._points = Points(
+            geometry,
+            PointsMarkerMaterial(
+                marker=tick_marker,
+                color="red",
+                edge_color=color,
+                edge_width=line_width,
+                size_mode="vertex",
+                rotation_mode="curve",
+                aa=False,
+                **material_kwargs,
+            ),
+        )
+
+        # NOTE: a potential improvement, for the marker material's support for ticks, would
+        # be be able to make every nth tick  (longer/ticker).
 
         self.add(self._line, self._points, self._text)
 
@@ -112,17 +186,17 @@ class Ruler(WorldObject):
         self._end_value = None
 
     @property
-    def start_value(self):
+    def start_value(self) -> float:
         """The value of the ruler at the start position (i.e. the offset)."""
         return self._start_value
 
     @start_value.setter
-    def start_value(self, value):
+    def start_value(self, value: float):
         self._start_value = float(value)
         self._end_value = None
 
     @property
-    def end_value(self):
+    def end_value(self) -> float:
         """The value at the end of the ruler (read-only)."""
         # Little caching mechanic. Props that affect the end_value set ._end_value to None
         if self._end_value is None:
@@ -157,7 +231,7 @@ class Ruler(WorldObject):
     # -- Properties for tweaking
 
     @property
-    def tick_format(self):
+    def tick_format(self) -> str:
         """The format to display the tick values.
 
         * A string to use as the second arg in ``format()``, default "0.4g".
@@ -167,7 +241,7 @@ class Ruler(WorldObject):
         return self._tick_format
 
     @tick_format.setter
-    def tick_format(self, tick_format):
+    def tick_format(self, tick_format: str):
         if isinstance(tick_format, str):
             self._tick_format = str(tick_format)
         elif callable(tick_format):
@@ -185,7 +259,7 @@ class Ruler(WorldObject):
             self._tick_format = tick_format
 
     @property
-    def tick_side(self):
+    def tick_side(self) -> str:
         """Whether the ticks are on the 'left' or 'right' of the line.
 
         Imagine standing on the start position, with the line in front of you.
@@ -193,7 +267,7 @@ class Ruler(WorldObject):
         return self._tick_side
 
     @tick_side.setter
-    def tick_side(self, side):
+    def tick_side(self, side: str):
         side = str(side).lower()
         if side in ("left", "right"):
             self._tick_side = side
@@ -201,25 +275,79 @@ class Ruler(WorldObject):
             raise ValueError("Tick side must be 'left' or 'right'.")
 
     @property
-    def min_tick_distance(self):
+    def tick_marker(self) -> str:
+        """The marker used for the ticks.
+
+        Alias for ``ruler.points.material.marker``.
+
+        This can be any value in :obj:`pygfx.utils.enums.MarkerShape`.
+        Sensible values include 'tick', 'tick_left', and 'tick_right'.
+        """
+        return self._points.material.marker
+
+    @tick_marker.setter
+    def tick_marker(self, marker: str):
+        self._points.material.marker = marker
+
+    @property
+    def tick_size(self) -> float:
+        """The size of the tick marker, i.e. the length of the little line segment."""
+        return self._tick_size
+
+    @tick_size.setter
+    def tick_size(self, size: float):
+        self._tick_size = float(size)
+
+    @property
+    def ticks_at_end_points(self) -> bool:
+        """Whether to show tickmarks at the end-points."""
+        return self._ticks_at_end_points
+
+    @ticks_at_end_points.setter
+    def ticks_at_end_points(self, value: bool):
+        self._ticks_at_end_points = bool(value)
+
+    @property
+    def min_tick_distance(self) -> float:
         """The minimal distance between ticks in screen pixels, when using auto-ticks."""
         return self._min_tick_dist
 
     @min_tick_distance.setter
-    def min_tick_distance(self, value):
+    def min_tick_distance(self, value: float):
         value = float(value)
         if value < 0.0:
             raise ValueError("tick distance must be larger than zero.")
         self._min_tick_dist = value
 
     @property
-    def ticks_at_end_points(self):
-        """Whether to show tickmarks at the end-points."""
-        return self._ticks_at_end_points
+    def color(self):
+        """The color of the ruler components.
 
-    @ticks_at_end_points.setter
-    def ticks_at_end_points(self, value):
-        self._ticks_at_end_points = bool(value)
+        The getter is an alias for ``ruler.text.material.color``. Setting this
+        value sets  ``ruler.text.material.color``, ``ruler.line.material.color``,
+        and ``ruler.points.material.edge_color``.
+        """
+        return self._text.material.color
+
+    @color.setter
+    def color(self, color):
+        self._text.material.color = color
+        self._line.material.color = color
+        self._points.material.edge_color = color
+
+    @property
+    def line_width(self) -> float:
+        """The width of the line and tickmarks.
+
+        The getter is an alias for ``ruler.line.material.thickness``. Setting this
+        value sets  ``ruler.line.material.thickness`` and ``ruler.points.material.edge_width``.
+        """
+        return self._line.material.thickness
+
+    @line_width.setter
+    def line_width(self, line_width: float):
+        self._line.material.thickness = line_width
+        self._points.material.edge_width = line_width
 
     # -- Methods
 
@@ -429,7 +557,7 @@ class Ruler(WorldObject):
         """Update the sub-objects to show the given ticks."""
         assert isinstance(ticks, dict)
 
-        tick_size = 5
+        tick_size = self._tick_size
 
         # Load config
         start_pos = self._start_pos

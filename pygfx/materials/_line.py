@@ -26,7 +26,7 @@ class LineMaterial(Material):
     loop : bool
         Whether the line's end should be connected. Default False.
     aa : bool
-        Whether or not the line is anti-aliased in the shader. Default True.
+        Whether the line is anti-aliased in the shader. Default False.
     kwargs : Any
         Additional kwargs will be passed to the :class:`material base class <pygfx.Material>`.
     """
@@ -49,7 +49,7 @@ class LineMaterial(Material):
         dash_pattern=(),
         dash_offset=0,
         loop=False,
-        aa=True,
+        aa=False,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -91,17 +91,25 @@ class LineMaterial(Material):
         at the edges. Lines thinner than one physical pixel are also diminished
         by making them more transparent.
 
-        Note that by default, pygfx uses SSAA to anti-alias the total renderered
-        result. Line-based aa results in additional improvement.
+        However, because semi-transparent fragments are introduced, artifacts
+        may occur if certain cases. For the same reason, aa only works for the
+        "blended" and "weighted" alpha methods.
 
-        Because semi-transparent fragments are introduced, it may affect how the
-        line blends with other (semi-transparent) objects.
+        Note that by default, pygfx already uses SSAA and/or PPAA to anti-alias
+        the total renderered result. Line-based aa is an *additional* visual
+        improvement.
         """
         return self._store.aa
 
     @aa.setter
     def aa(self, aa):
         self._store.aa = bool(aa)
+        self._derive_render_queue()
+
+    @property
+    def _gfx_effective_aa(self):
+        aa_able_methods = ("blended", "weighted")
+        return self._store.aa and self.alpha_method in aa_able_methods
 
     @property
     def color_mode(self):

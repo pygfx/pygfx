@@ -30,36 +30,61 @@ def test_uniform_types_uniform_type():
 def test_automatic_props():
     m = pygfx.Material(alpha_mode="auto")
 
-    # Default case
+    # Default case for 'auto'
     assert not m.depth_write_is_set
     assert m.depth_write is True
+    assert m.render_queue == 2600
+    assert m.depth_write is True
 
-    # Use opacity
-    m.opacity = 0.5
-    assert not m.depth_write_is_set
-    assert m.render_queue == 3000  # > 2500
+    # Go transparent
+    m.alpha_mode = "blend"
+    assert m.render_queue == 3000
     assert m.depth_write is False
 
+    # Go opaque
+    m.alpha_mode = "solid"
+    assert m.render_queue == 2000
+    assert m.depth_write is True
+
+    # With alpha test
+    m.alpha_mode = "solid"
+    m.alpha_test = 0.5
+    assert m.render_queue == 2400
+    assert m.depth_write is True
+
+    # Restore
+    m.alpha_test = 0
+    assert m.render_queue == 2000
+    assert m.depth_write is True
+
+    # Go Stochastic
+    m.alpha_mode = "dither"
+    assert m.render_queue == 2400
+    assert m.depth_write is True
+
+    # Overriding
+    m.alpha_mode = "auto"
+
     # Set to "transparent" queue
-    m.opacity = 1
     m.render_queue = 3000
-    assert not m.depth_write_is_set
+    assert m.render_queue_is_set
     assert m.render_queue == 3000
     assert m.depth_write is True
 
     # Set to "opaque" queue
-    m.opacity = 1
     m.render_queue = 2000
-    assert not m.depth_write_is_set
+    assert m.render_queue_is_set
     assert m.render_queue == 2000
     assert m.depth_write is True
 
-    # Use depth_write
-    m.opacity = 1
+    # Restore
     m.render_queue = None
+    assert not m.render_queue_is_set
+
+    # Use depth_write
     m.depth_write = False
     assert m.depth_write_is_set
-    assert m.render_queue == 3000
+    assert m.render_queue == 2600
     assert m.depth_write is False
 
 

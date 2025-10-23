@@ -148,7 +148,7 @@ def load_remote_model(model_index):
                 state["loading"] = False
                 return
 
-    print("Model not found", model_desc)
+    gfx.logger.error(f"Model not found {model_desc}")
 
 
 open_file_dialog = None
@@ -219,7 +219,7 @@ def load_model(model_path):
 
         collect_inspector_targets(model_obj)
     except Exception as e:
-        print(e)
+        gfx.logger.error(f"Error loading module: {e}")
 
 
 def draw_imgui():

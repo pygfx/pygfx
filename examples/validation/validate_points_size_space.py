@@ -106,7 +106,9 @@ add_three_cubes(
         size=10,
         size_space="screen",
         color=(1.0, 0.0, 0.0),
+        alpha_mode="blend",
         opacity=0.5,
+        aa=True,
     ),
 )
 
@@ -116,7 +118,9 @@ add_three_cubes(
         size=10,
         size_space="world",
         color=(0.0, 1.0, 0.0),
+        alpha_mode="blend",
         opacity=0.5,
+        aa=True,
     ),
 )
 
@@ -126,7 +130,9 @@ add_three_cubes(
         size=10,
         size_space="model",
         color=(0.0, 0.0, 1.0),
+        alpha_mode="blend",
         opacity=0.5,
+        aa=True,
     ),
 )
 

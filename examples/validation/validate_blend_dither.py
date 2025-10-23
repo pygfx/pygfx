@@ -38,7 +38,7 @@ t = gfx.Text(
     text="dither",
     screen_space=True,
     font_size=20,
-    material=gfx.TextMaterial(),
+    material=gfx.TextMaterial(aa=True),
 )
 t.local.position = (0, 40, 0)
 

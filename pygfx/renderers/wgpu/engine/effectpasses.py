@@ -521,21 +521,24 @@ class DDAAPass(PPAAPass):
 
     wgsl = "{$ include 'pygfx.ddaa2.wgsl' $}"
 
-    def __init__(self, *, max_edge_iters=2):
+    def __init__(self, *, max_edge_iters=5):
         super().__init__()
         self.max_edge_iters = max_edge_iters
 
     @property
     def max_edge_iters(self):
-        """The maximum number of iters (of 8 samples) to search along an edge.
+        """The maximum number of iters (of 3 samples) to search along an edge.
 
-        Default 2. Set to 3 for prettier edges, or to 0 or 1 for more performance.
+        Default 5 (i.e. search 15 pixels along an edge). Set higger for prettier
+        edges, or lower for more performance.
         """
-        return self._template_vars["MAX_EDGE_ITERS"]
+        return len(self._template_vars["EDGE_STEP_LIST"])
 
     @max_edge_iters.setter
     def max_edge_iters(self, max_edge_iters):
-        self._set_template_var(MAX_EDGE_ITERS=int(max_edge_iters))
+        # The default EDGE_STEP_LIST is [3, 3, 3, 3, 3]
+        edge_step_list = [3] * int(max_edge_iters)
+        self._set_template_var(EDGE_STEP_LIST=edge_step_list)
 
 
 class NoisePass(EffectPass):

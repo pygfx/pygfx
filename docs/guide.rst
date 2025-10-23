@@ -7,4 +7,6 @@ The Pygfx guide
 
     gettingstarted.rst
     basics.rst
+    aa.rst
     transparency.rst
+    performance.rst

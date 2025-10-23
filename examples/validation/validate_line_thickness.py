@@ -40,7 +40,7 @@ for x_offset, mode in enumerate(["noaa", "aa", "dashed"]):
     for thickness in [0.125, 0.25, 0.5, 1.0, 2.0, 4.0, 8.0]:
         line = gfx.Line(
             geometry,
-            gfx.LineMaterial(thickness=thickness, color=(1.0, 1.0, 1.0)),
+            gfx.LineMaterial(thickness=thickness, color=(1.0, 1.0, 1.0), aa=True),
         )
         y += 2
         line.local.y = -y

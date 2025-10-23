@@ -131,7 +131,7 @@ def test_updating_mesh_blending():
 
     # Same for custom classic blending
     mesh.material.alpha_config = {
-        "method": "composite",
+        "method": "blended",
         "color_src": "one",
         "color_dst": "zero",
         "alpha_src": "src",
@@ -193,10 +193,6 @@ def test_updating_mesh_material_color_and_opacity():
     # Now the color does not matter!
     mesh.material.color = (1, 1, 0, 0.5)
     snapshotter.check(shaders_same=True, pipelines_same=True, bindings_same=True)
-
-    # Changing the opacity to not-one, causes the depth_write to be auto-False
-    mesh.material.opacity = 0.7
-    snapshotter.check(shaders_same=True, pipelines_same=False, bindings_same=True)
 
 
 def test_updating_mesh_geometry_color():

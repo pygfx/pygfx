@@ -264,14 +264,15 @@ class Mesh(WorldObject):
     def _wgpu_get_pick_info(self, pick_value) -> dict:
         info = super()._wgpu_get_pick_info(pick_value)
         values = unpack_bitfield(
-            pick_value, wobject_id=20, index=26, coord1=6, coord2=6, coord3=6
+            pick_value, wobject_id=20, index=26, coord1=9, coord2=9
         )
         face_index = values["index"]
         face_coord = [
-            values["coord1"] / 63,
-            values["coord2"] / 63,
-            values["coord3"] / 63,
+            values["coord1"] / 511,
+            values["coord2"] / 511,
         ]
+        # The shader encodes only two of the barycentric coordinates. The third can be computed, as they add up to one.
+        face_coord.append(1.0 - face_coord[0] - face_coord[1])
         if (
             self.geometry.indices.data is not None
             and self.geometry.indices.data.shape[-1] == 4

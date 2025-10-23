@@ -74,7 +74,7 @@ def test_render_picking_simple():
 
     # Assert sub-info
     assert info1["face_index"] == 0
-    assert np.allclose(info1["face_coord"], (0.0159, 0.476, 0.492), atol=0.001)
+    assert np.allclose(info1["face_coord"], (0.0196, 0.487, 0.493), atol=0.001)
 
     assert info2["index"] == (4, 4)
     assert np.allclose(info2["pixel_coord"], (0.275, 0.425), atol=0.001)
