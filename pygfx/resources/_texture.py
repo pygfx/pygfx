@@ -90,6 +90,7 @@ class Texture(Resource):
         chunk_size=None,
         force_contiguous=False,
         usage=0,
+        name="",
     ):
         super().__init__()
         Resource._rev += 1
@@ -118,6 +119,8 @@ class Texture(Resource):
         self._colorrange = (colorrange or "limited").lower()
         assert self._colorrange in ("limited", "full")
         self._generate_mipmaps = bool(generate_mipmaps)
+
+        self.name = name
 
         # Normalize size
         if size is None:
