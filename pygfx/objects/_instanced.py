@@ -78,14 +78,10 @@ class InstancedObject(WorldObject):
     def get_bounding_box(self):
         aabb = super().get_bounding_box()
 
-        _aabbs = list()
+        transforms = self.instance_buffer.data["matrix"].transpose(0, 2, 1)
+        aabbs = la.aabb_transform(aabb[None], transforms)
 
-        for i in range(self.instance_buffer.nitems):
-            _aabbs.append(
-                la.aabb_transform(aabb, self.instance_buffer.data["matrix"][i].T)
-            )
-
-        aabbs = np.stack(_aabbs)
+        aabbs = np.stack(aabbs)
         final_aabb = np.zeros((2, 3), dtype=float)
         final_aabb[0] = np.min(aabbs[:, 0, :], axis=0)
         final_aabb[1] = np.max(aabbs[:, 1, :], axis=0)
