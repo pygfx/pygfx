@@ -81,7 +81,6 @@ class InstancedObject(WorldObject):
         transforms = self.instance_buffer.data["matrix"].transpose(0, 2, 1)
         aabbs = la.aabb_transform(aabb[None], transforms)
 
-        aabbs = np.stack(aabbs)
         final_aabb = np.zeros((2, 3), dtype=float)
         final_aabb[0] = np.min(aabbs[:, 0, :], axis=0)
         final_aabb[1] = np.max(aabbs[:, 1, :], axis=0)
