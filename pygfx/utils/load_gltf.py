@@ -197,6 +197,7 @@ class _GLTF:
         self._register_plugin(GLTFTextureTransformExtension)
         self._register_plugin(GLTFTextureWebPExtension)
         self._register_plugin(GLTFDracoMeshCompressionExtension)
+        self._register_plugin(GLTFMaterialsPBRSpecularGlossinessExtension)
 
     def _register_plugin(self, plugin_class):
         plugin = plugin_class(self)
@@ -422,6 +423,13 @@ class _GLTF:
             if unsupported_extensions_used:
                 gfx.utils.logger.warning(
                     f"This GLTF used extensions: {unsupported_extensions_used}, which are not supported yet, so the display may not be so correct."
+                )
+
+            if "KHR_materials_pbrSpecularGlossiness" in extensions_used:
+                gfx.utils.logger.warning(
+                    "This model uses the `KHR_materials_pbrSpecularGlossiness` extension, which is deprecated, and was archived in late 2021.\n"
+                    "Recent PBR features have been designed for the metal/rough workflow, "
+                    "This loader will automatically convert the specular/glossiness workflow to metal/roughness workflow."
                 )
 
         # mark the node types
@@ -1567,3 +1575,69 @@ class GLTFDracoMeshCompressionExtension(GLTFExtension):
 
         geometry = gfx.Geometry(**geometry_args)
         return geometry
+
+
+class GLTFMaterialsPBRSpecularGlossinessExtension(GLTFBaseMaterialsExtension):
+    EXTENSION_NAME = "KHR_materials_pbrSpecularGlossiness"
+
+    def extend_material(self, material_def, material):
+        if (
+            not material_def.extensions
+            or self.EXTENSION_NAME not in material_def.extensions
+        ):
+            return
+
+        extension = material_def.extensions[self.EXTENSION_NAME]
+
+        material.ior = 1000.0
+        material.metalness = 0.0
+        material.roughness = 1.0
+
+        # specular color factor
+        specular_factor = extension.get("specularFactor", [1.0, 1.0, 1.0])
+        material.specular = gfx.Color.from_physical(*specular_factor)
+
+        # diffuse -> base color
+        diffuse_factor = extension.get("diffuseFactor", [1.0, 1.0, 1.0, 1.0])
+        material.color = gfx.Color.from_physical(*diffuse_factor)
+
+        diffuse_texture = extension.get("diffuseTexture", None)
+        if diffuse_texture is not None:
+            material.map = self.parser._load_gltf_texture_map(diffuse_texture)
+
+        # Move specular + gloss -> specular + roughness.
+        specular_glossiness_texture = extension.get("specularGlossinessTexture", None)
+
+        if specular_glossiness_texture is not None:
+            # specularGlossiness -> specular.
+            specular_texture_map = self.parser._load_gltf_texture_map(
+                specular_glossiness_texture
+            )
+
+            glossiness_channel = specular_texture_map.texture.data[..., 3].copy()
+            specular_texture_map.texture.data[..., 3] = 255  # remove glossiness channel
+
+            material.specular_map = specular_texture_map
+
+            # specularGlossiness -> roughness.
+            glossiness_factor = extension.get("glossinessFactor", 1.0)
+
+            # load again
+            roughness_texture_map = self.parser._load_gltf_texture_map(
+                specular_glossiness_texture
+            )
+
+            roughness_texture_data = np.zeros_like(roughness_texture_map.texture.data)
+            # roughness = 255 - glossiness
+            roughness = 255 - glossiness_channel * glossiness_factor
+            roughness_texture_data[..., 1] = roughness
+            roughness_texture_data[..., 3] = 255
+            # create new texture for roughness
+            roughness_texture = gfx.Texture(roughness_texture_data, dim=2)
+            roughness_texture_map.texture = roughness_texture
+
+            material.roughness_map = roughness_texture_map
+
+        else:
+            glossiness_factor = extension.get("glossinessFactor", 1.0)
+            material.roughness = 1.0 - glossiness_factor
