@@ -553,7 +553,7 @@ class WorldObject(EventTarget, Trackable):
         # Combine
         if _aabbs:
             aabbs = np.stack(_aabbs)
-            final_aabb = np.zeros((2, 3), dtype=float)
+            final_aabb = np.empty((2, 3), dtype=float)
             final_aabb[0] = np.min(aabbs[:, 0, :], axis=0)
             final_aabb[1] = np.max(aabbs[:, 1, :], axis=0)
         else:
