@@ -1532,7 +1532,7 @@ class GLTFDracoMeshCompressionExtension(GLTFExtension):
         if not find_spec("DracoPy"):
             raise ImportError(
                 """The `DracoPy` library is required for loading Draco compressed meshes. \n
-                Please install it with `pip install DracoPy`."""
+                Please install it with `pip install -U DracoPy`."""
             )
 
         import DracoPy
@@ -1545,18 +1545,20 @@ class GLTFDracoMeshCompressionExtension(GLTFExtension):
 
         geometry_args = {}
 
-        if draco_mesh.points is not None:
-            geometry_args["positions"] = draco_mesh.points.astype(
-                np.float32, copy=False
-            )
-        if draco_mesh.normals is not None:
-            geometry_args["normals"] = draco_mesh.normals.astype(np.float32, copy=False)
-        if draco_mesh.colors is not None:
-            geometry_args["colors"] = draco_mesh.colors.astype(np.float32, copy=False)
-        if draco_mesh.tex_coord is not None:
-            geometry_args["texcoords"] = draco_mesh.tex_coord.astype(
-                np.float32, copy=False
-            )
+        attributes = draco_extension["attributes"]
+        if attributes:
+            for attr, unique_id in attributes.items():
+                draco_attr = draco_mesh.get_attribute_by_unique_id(unique_id)
+                if draco_attr is not None:
+                    if attr in self.parser.ATTRIBUTE_NAME:
+                        geometry_attr = self.parser.ATTRIBUTE_NAME[attr]
+                    else:
+                        if attr.startswith("TEXCOORD_"):
+                            geometry_attr = f"texcoords{attr[-1]}"
+                        else:
+                            geometry_attr = attr.lower()
+
+                    geometry_args[geometry_attr] = draco_attr["data"]
 
         if draco_mesh.faces is not None:
             geometry_args["indices"] = draco_mesh.faces.astype(np.uint32, copy=False)
