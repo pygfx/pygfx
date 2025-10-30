@@ -13,7 +13,7 @@ import pygfx as gfx
 from rendercanvas.auto import RenderCanvas, loop
 import imageio.v3 as iio
 
-from wgpu.utils.imgui import ImguiRenderer
+from wgpu.utils.imgui import ImguiRenderer, Stats
 from imgui_bundle import imgui, imspinner  # type: ignore
 from imgui_bundle import portable_file_dialogs as pfd  # type: ignore
 
@@ -40,7 +40,7 @@ camera = gfx.PerspectiveCamera(45, 1280 / 720)
 
 gfx.OrbitController(camera, register_events=renderer)
 
-stats = gfx.Stats(viewport=renderer)
+stats = Stats(device=renderer.device, canvas=canvas)
 
 clock = gfx.Clock()
 
@@ -263,8 +263,8 @@ def animate():
     mixer.update(dt)
 
     with stats:
-        renderer.render(scene, camera, flush=False)
-    stats.render()
+        renderer.render(scene, camera)
+
     gui_renderer.render()
     canvas.request_draw()
 
