@@ -21,6 +21,7 @@ from ....objects import (
     WheelEvent,
     WindowEvent,
     WorldObject,
+    Group,
 )
 from ....objects._lights import (
     Light,
@@ -76,13 +77,16 @@ class FlatScene:
         self.object_count = object_count
         self.add_scene(scene)
 
-    def _iter_scene(self, ob, render_order=0):
+    def _iter_scene(self, ob, group_order=0):
         if not ob.visible:
             return
-        render_order += ob.render_order
-        yield ob, render_order
+
+        if isinstance(ob, Group):
+            group_order = ob.render_order
+
+        yield ob, group_order
         for child in ob._children:
-            yield from self._iter_scene(child, render_order)
+            yield from self._iter_scene(child, group_order)
 
     def add_scene(self, scene):
         """Add a scene to the total flat scene. Is usually called just once."""
@@ -91,7 +95,7 @@ class FlatScene:
         view_matrix = self._view_matrix
         wobject_wrappers = self._wobject_wrappers
 
-        for wobject, render_order in self._iter_scene(scene):
+        for wobject, group_order in self._iter_scene(scene):
             # Dereference the object in case its a weak proxy
             wobject = wobject._self()
             # Assign renderer id's
@@ -147,7 +151,7 @@ class FlatScene:
                     distance_to_camera = float(-relative_pos[2])
                     dist_flag = distance_to_camera * dist_sort_sign
 
-                sort_key = (render_queue, render_order, dist_flag)
+                sort_key = (render_queue, group_order, wobject.render_order, dist_flag)
                 wobject_wrappers.append(WobjectWrapper(wobject, sort_key, pass_type))
 
     def sort(self):
