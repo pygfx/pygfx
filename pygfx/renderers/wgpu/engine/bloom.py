@@ -135,7 +135,8 @@ class PhysicalBasedBloomPass(EffectPass):
             @fragment
             fn fs_main(varyings: Varyings) -> @location(0) vec4<f32> {
                 let x = u_effect.filter_radius;
-                let y = u_effect.filter_radius;
+                let aspect = f32(textureDimensions(colorTex).x) / f32(textureDimensions(colorTex).y);
+                let y = u_effect.filter_radius * aspect;
                 let coord = varyings.texCoord;
 
                 // Take 9 samples around current texel using tent filter:
