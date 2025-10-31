@@ -11,6 +11,9 @@ at ACM Siggraph 2014.
 See: https://learnopengl.com/Guest-Articles/2022/Phys.-Based-Bloom
 """
 
+# sphinx_gallery_pygfx_docs = 'screenshot'
+# sphinx_gallery_pygfx_test = 'run'
+
 import numpy as np
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
