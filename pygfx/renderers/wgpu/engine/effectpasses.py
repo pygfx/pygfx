@@ -373,6 +373,19 @@ class EffectPass(FullQuadPass):
     def __repr__(self):
         return f"<{self.__class__.__name__} at {hex(id(self))}>"
 
+    def __init__(self):
+        super().__init__()
+        self._enable = True
+
+    @property
+    def enable(self):
+        """Whether the effect pass is enabled."""
+        return self._enable
+
+    @enable.setter
+    def enable(self, value):
+        self._enable = bool(value)
+
     def render(
         self,
         command_encoder,
