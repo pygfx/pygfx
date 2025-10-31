@@ -15,7 +15,7 @@ See: https://learnopengl.com/Guest-Articles/2022/Phys.-Based-Bloom
 # sphinx_gallery_pygfx_test = 'run'
 
 import numpy as np
-from wgpu.gui.auto import WgpuCanvas, run
+from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 import pylinalg as la
 import time
@@ -25,7 +25,7 @@ from imgui_bundle import imgui
 
 
 # Create canvas and renderer
-canvas = WgpuCanvas(title="Physical Based Bloom Demo", size=(1280, 720))
+canvas = RenderCanvas(title="Physical Based Bloom Demo", size=(1280, 720))
 renderer = gfx.renderers.WgpuRenderer(canvas)
 
 # Create HDR scene with bright objects
@@ -160,4 +160,4 @@ def animate():
 
 if __name__ == "__main__":
     canvas.request_draw(animate)
-    run()
+    loop.run()
