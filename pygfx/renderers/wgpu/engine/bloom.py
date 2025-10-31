@@ -1,5 +1,11 @@
 import wgpu
-from .effectpasses import EffectPass, FullQuadPass, CopyPass
+from .effectpasses import (
+    EffectPass,
+    FullQuadPass,
+    CopyPass,
+    create_full_quad_pipeline,
+    apply_templating,
+)
 from .shared import get_shared
 
 
@@ -165,6 +171,114 @@ class PhysicalBasedBloomPass(EffectPass):
                 return vec4<f32>(upsample, 1.0);
             }
         """
+
+        def _render(self, command_encoder, source_textures, target_textures):
+            # Create bind group. This is very light and can be done every time.
+            # Chances are we get new views on every call anyway.
+            bind_group_entries = [
+                self._uniform_binding_entry,
+                self._sampler_binding_entry,
+            ]
+            for i, tex in enumerate(source_textures, 2):
+                bind_group_entries.append({"binding": i, "resource": tex})
+            bind_group = self._device.create_bind_group(
+                layout=self._render_pipeline.get_bind_group_layout(0),
+                entries=bind_group_entries,
+            )
+
+            # Create attachments
+            color_attachments = []
+            for tex in target_textures:
+                color_attachments.append(
+                    {
+                        "view": tex,
+                        "resolve_target": None,
+                        "clear_value": (0, 0, 0, 0),
+                        "load_op": wgpu.LoadOp.load,
+                        "store_op": wgpu.StoreOp.store,
+                    }
+                )
+
+            render_pass = command_encoder.begin_render_pass(
+                color_attachments=color_attachments,
+                depth_stencil_attachment=None,
+            )
+            render_pass.set_pipeline(self._render_pipeline)
+            render_pass.set_bind_group(0, bind_group, [], 0, 99)
+            render_pass.draw(4, 1)
+            render_pass.end()
+
+        def _create_pipeline(self, source_names, target_formats):
+            binding_layout = []
+            definitions_code = ""
+
+            # Uniform buffer
+            binding_layout.append(
+                {
+                    "binding": 0,
+                    "visibility": wgpu.ShaderStage.FRAGMENT,
+                    "buffer": {"type": wgpu.BufferBindingType.uniform},
+                }
+            )
+            definitions_code += self._uniform_binding_definition
+
+            # Sampler
+            binding_layout.append(
+                {
+                    "binding": 1,
+                    "visibility": wgpu.ShaderStage.FRAGMENT,
+                    "sampler": {"type": wgpu.SamplerBindingType.filtering},
+                }
+            )
+            definitions_code += self._sampler_binding_definition
+
+            # Source textures
+            for i, name in enumerate(source_names, 2):
+                sample_type = wgpu.TextureSampleType.float
+                wgsl_type = "texture_2d<f32>"
+                if "depth" in name.lower():
+                    sample_type = wgpu.TextureSampleType.depth
+                    wgsl_type = "texture_depth_2d"
+                binding_layout.append(
+                    {
+                        "binding": i,
+                        "visibility": wgpu.ShaderStage.FRAGMENT,
+                        "texture": {
+                            "sample_type": sample_type,
+                            "view_dimension": wgpu.TextureViewDimension.d2,
+                            "multisampled": False,
+                        },
+                    }
+                )
+                definitions_code += f"""
+                    @group(0) @binding({i})
+                    var {name}: {wgsl_type};
+                """
+
+            # Render targets
+            targets = []
+            for format in target_formats:
+                targets.append(
+                    {
+                        "format": format,
+                        "blend": {
+                            "alpha": {
+                                "operation": wgpu.BlendOperation.add,
+                                "src_factor": wgpu.BlendFactor.one,
+                                "dst_factor": wgpu.BlendFactor.zero,
+                            },
+                            "color": {
+                                "operation": wgpu.BlendOperation.add,
+                                "src_factor": wgpu.BlendFactor.one,
+                                "dst_factor": wgpu.BlendFactor.one,
+                            },
+                        },
+                    }
+                )
+
+            wgsl = definitions_code
+            wgsl += apply_templating(self.wgsl, **self._template_vars)
+            return create_full_quad_pipeline(targets, binding_layout, wgsl)
 
     def __init__(
         self,
@@ -417,8 +531,8 @@ class PhysicalBasedBloomPass(EffectPass):
                 let original = textureSample(originalTex, texSampler, varyings.texCoord);
                 let bloom = textureSample(bloomTex, texSampler, varyings.texCoord);
 
-                // Additive blending: original + bloom * strength
-                let result = original + bloom * u_effect.bloom_strength;
+                // Mix original and bloom based on strength
+                let result = mix(original, bloom, u_effect.bloom_strength);
 
                 return vec4<f32>(result.rgb, original.a);
             }
