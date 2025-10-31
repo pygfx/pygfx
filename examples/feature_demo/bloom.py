@@ -126,7 +126,7 @@ def draw_imgui():
         bloom_pass.mip_levels = value
 
     changed, value = imgui.slider_float(
-        "Filter Radius", bloom_pass.filter_radius, 0.0, 0.05
+        "Filter Radius", bloom_pass.filter_radius, 0.0, 0.01
     )
     if changed:
         bloom_pass.filter_radius = value
