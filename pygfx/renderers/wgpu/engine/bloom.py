@@ -2,11 +2,11 @@ import wgpu
 from .effectpasses import (
     EffectPass,
     FullQuadPass,
-    CopyPass,
     create_full_quad_pipeline,
     apply_templating,
 )
 from .shared import get_shared
+import numpy as np
 
 
 class PhysicalBasedBloomPass(EffectPass):
@@ -311,7 +311,7 @@ class PhysicalBasedBloomPass(EffectPass):
         self._composite_pass = self._CompositePass(self.bloom_strength)
 
         # Store mip chain data
-        self._mip_textures = []
+        self._bloom_texture = None
         self._current_source_size = (0, 0)
 
     @property
@@ -350,42 +350,30 @@ class PhysicalBasedBloomPass(EffectPass):
     def use_karis_average(self, value):
         self._use_karis_average = bool(value)
 
-    def _create_mip_textures(self, source_texture):
-        """Create mip chain textures for bloom processing."""
-
-        # todo: Use one mip-mapped texture instead of separate textures
+    def _create_mip_bloom_texture(self, source_texture):
+        """Create a mip chain texture for bloom processing."""
 
         device = get_shared().device
 
-        # Clean up old textures
-        self._mip_textures.clear()
-
         # Get source dimensions
         source_size = source_texture.size
-        current_size = [source_size[0], source_size[1]]
+        bloom_texture_size = [source_size[0] // 2, source_size[1] // 2]
+        max_mip_levels = int(
+            np.floor(np.log2(max(bloom_texture_size[0], bloom_texture_size[1]))) + 1
+        )
+
+        mip_levels = min(self._mip_levels, max_mip_levels)
 
         # Create mip chain
-        for _ in range(self._mip_levels):
-            # Halve the size for each mip level
-            current_size[0] = max(1, current_size[0] // 2)
-            current_size[1] = max(1, current_size[1] // 2)
-
-            # Create texture for this mip level
-            mip_texture = device.create_texture(
-                size=(current_size[0], current_size[1], 1),
-                format=source_texture.format,
-                usage=wgpu.TextureUsage.RENDER_ATTACHMENT
-                | wgpu.TextureUsage.TEXTURE_BINDING,
-                sample_count=1,
-                mip_level_count=1,
-                dimension=wgpu.TextureDimension.d2,
-            )
-
-            self._mip_textures.append(mip_texture)
-
-            # Stop if we reach 1x1
-            if current_size[0] == 1 and current_size[1] == 1:
-                break
+        self._bloom_texture = device.create_texture(
+            size=(bloom_texture_size[0], bloom_texture_size[1], 1),
+            format=source_texture.format,
+            usage=wgpu.TextureUsage.RENDER_ATTACHMENT
+            | wgpu.TextureUsage.TEXTURE_BINDING,
+            sample_count=1,  # todo: use multi-sampling
+            mip_level_count=mip_levels,
+            dimension=wgpu.TextureDimension.d2,
+        )
 
     def _perform_downsampling(self, command_encoder, source_view):
         """Perform the downsampling phase."""
@@ -394,20 +382,28 @@ class PhysicalBasedBloomPass(EffectPass):
             1 if self._use_karis_average else 0
         )
 
-        target_view = self._mip_textures[0].create_view()
+        # target_view = self._mip_textures[0].create_view()
+
+        target_view = self._bloom_texture.create_view(
+            base_mip_level=0,
+            mip_level_count=1,
+        )
 
         self._downsample_pass.render(
             command_encoder, colorTex=source_view, targetTex=target_view
         )
 
         # Subsequent downsamples: mip to mip
-        for i in range(1, len(self._mip_textures)):
+        for i in range(1, self._bloom_texture.mip_level_count):
             self._downsample_pass._uniform_data["use_karis_average"] = (
-                0  # Only first mip uses Karis
+                0  # No Karis after first
             )
 
-            source_view = self._mip_textures[i - 1].create_view()
-            target_view = self._mip_textures[i].create_view()
+            source_view = target_view
+            target_view = self._bloom_texture.create_view(
+                base_mip_level=i,
+                mip_level_count=1,
+            )
 
             self._downsample_pass.render(
                 command_encoder, colorTex=source_view, targetTex=target_view
@@ -417,16 +413,18 @@ class PhysicalBasedBloomPass(EffectPass):
         """Perform the upsampling phase with accumulation."""
         self._upsample_pass._uniform_data["filter_radius"] = self._filter_radius
 
-        if len(self._mip_textures) < 2:
-            return
-
         # Work from smallest to largest, accumulating results
-        for i in range(len(self._mip_textures) - 1, 0, -1):
-            source_mip = self._mip_textures[i]  # Smaller mip (source)
-            target_mip = self._mip_textures[i - 1]  # Larger mip (target)
+        target_view = self._bloom_texture.create_view(
+            base_mip_level=self._bloom_texture.mip_level_count - 1,
+            mip_level_count=1,
+        )
 
-            source_view = source_mip.create_view()
-            target_view = target_mip.create_view()
+        for i in range(self._bloom_texture.mip_level_count - 1, 0, -1):
+            source_view = target_view
+            target_view = self._bloom_texture.create_view(
+                base_mip_level=i - 1,
+                mip_level_count=1,
+            )
 
             self._upsample_pass.render(
                 command_encoder, colorTex=source_view, targetTex=target_view
@@ -448,19 +446,12 @@ class PhysicalBasedBloomPass(EffectPass):
             The target texture to render the bloom result to
         """
         # Ensure we have the right mip textures
-        source_texture = (
-            color_tex.texture if hasattr(color_tex, "texture") else color_tex
-        )
+        source_texture = color_tex.texture
         source_size = (source_texture.size[0], source_texture.size[1])
 
-        if source_size != self._current_source_size or not self._mip_textures:
-            self._create_mip_textures(source_texture)
+        if source_size != self._current_source_size or not self._bloom_texture:
+            self._create_mip_bloom_texture(source_texture)
             self._current_source_size = source_size
-
-        if not self._mip_textures:
-            # Fallback: just copy the original image
-            self._render_copy_fallback(command_encoder, color_tex, target_tex)
-            return
 
         # Phase 1: Downsampling - create bloom mip chain
         self._perform_downsampling(command_encoder, color_tex)
@@ -471,12 +462,6 @@ class PhysicalBasedBloomPass(EffectPass):
         # Phase 3: Final composition - blend original + bloom
         self._perform_final_composition(command_encoder, color_tex, target_tex)
 
-    def _render_copy_fallback(self, command_encoder, color_tex, target_tex):
-        """Fallback to simply copy the original image when no mip textures."""
-        # Create a simple copy pass
-        copy_pass = CopyPass()
-        copy_pass.render(command_encoder, color_tex, None, target_tex)
-
     def _perform_final_composition(self, command_encoder, original_tex, target_tex):
         """Perform final composition: original + bloom."""
         # Update bloom strength uniform
@@ -485,7 +470,10 @@ class PhysicalBasedBloomPass(EffectPass):
         )
 
         # Get bloom result from first mip texture
-        bloom_view = self._mip_textures[0].create_view()
+        bloom_view = self._bloom_texture.create_view(
+            base_mip_level=0,
+            mip_level_count=1,
+        )
 
         # Render with both original and bloom textures
         self._composite_pass.render(
