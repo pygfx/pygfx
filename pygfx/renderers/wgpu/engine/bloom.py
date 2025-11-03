@@ -35,11 +35,6 @@ class PhysicalBasedBloomPass(EffectPass):
         Whether to use Karis average for the first downsample pass. Default false.
     """
 
-    uniform_type = dict(
-        EffectPass.uniform_type,
-        bloom_strength="f4",
-    )
-
     class _DownsamplePass(FullQuadPass):
         """Internal downsampling pass using 13-tap filter."""
 
@@ -54,7 +49,7 @@ class PhysicalBasedBloomPass(EffectPass):
             }
 
             fn karis_average(color: vec3<f32>) -> f32 {
-                let luma = rgb_to_luminance(color) * 0.25;
+                let luma = rgb_to_luminance(color);
                 return 1.0 / (1.0 + luma);
             }
 
@@ -107,7 +102,7 @@ class PhysicalBasedBloomPass(EffectPass):
                     var downsample = groups[0] * kw0 + groups[1] * kw1 + groups[2] * kw2 + groups[3] * kw3 + groups[4] * kw4;
                     downsample /= (kw0 + kw1 + kw2 + kw3 + kw4);
 
-                    downsample = max(downsample, vec3<f32>(0.0001)); // Prevent pure black
+                    downsample = max(downsample, vec3<f32>(0.0)); // Prevent NaNs
                     return vec4<f32>(downsample, 1.0);
                 }
 
@@ -119,7 +114,7 @@ class PhysicalBasedBloomPass(EffectPass):
                 downsample += (b + d + f + h) * 0.0625;
                 downsample += (j + k + l + m) * 0.125;
 
-                downsample = max(downsample, vec3<f32>(0.0001)); // Prevent pure black
+                downsample = max(downsample, vec3<f32>(0.0)); // Prevent NaNs
                 return vec4<f32>(downsample, 1.0);
             }
         """
@@ -310,9 +305,6 @@ class PhysicalBasedBloomPass(EffectPass):
         self._filter_radius = filter_radius
         self._use_karis_average = use_karis_average
 
-        # Initialize uniform data
-        self._uniform_data["bloom_strength"] = float(bloom_strength)
-
         # Create internal passes
         self._downsample_pass = self._DownsamplePass()
         self._upsample_pass = self._UpsamplePass()
@@ -325,11 +317,10 @@ class PhysicalBasedBloomPass(EffectPass):
     @property
     def bloom_strength(self):
         """The strength of the bloom effect."""
-        return float(self._uniform_data["bloom_strength"])
+        return self._bloom_strength
 
     @bloom_strength.setter
     def bloom_strength(self, value):
-        self._uniform_data["bloom_strength"] = float(value)
         self._bloom_strength = float(value)
 
     @property
@@ -361,6 +352,9 @@ class PhysicalBasedBloomPass(EffectPass):
 
     def _create_mip_textures(self, source_texture):
         """Create mip chain textures for bloom processing."""
+
+        # todo: Use one mip-mapped texture instead of separate textures
+
         device = get_shared().device
 
         # Clean up old textures
@@ -393,20 +387,13 @@ class PhysicalBasedBloomPass(EffectPass):
             if current_size[0] == 1 and current_size[1] == 1:
                 break
 
-    def _perform_downsampling(self, command_encoder, source_texture):
+    def _perform_downsampling(self, command_encoder, source_view):
         """Perform the downsampling phase."""
         # First downsample: from source to first mip
-        # self._downsample_pass._uniform_data["src_resolution"] = [source_texture.size[0], source_texture.size[1]]
-        # self._downsample_pass._uniform_data["mip_level"] = 0
-        self._downsample_pass._uniform_data["use_karis_average"] = int(
-            self._use_karis_average
+        self._downsample_pass._uniform_data["use_karis_average"] = (
+            1 if self._use_karis_average else 0
         )
 
-        source_view = (
-            source_texture.create_view()
-            if hasattr(source_texture, "create_view")
-            else source_texture
-        )
         target_view = self._mip_textures[0].create_view()
 
         self._downsample_pass.render(
@@ -415,11 +402,6 @@ class PhysicalBasedBloomPass(EffectPass):
 
         # Subsequent downsamples: mip to mip
         for i in range(1, len(self._mip_textures)):
-            # self._downsample_pass._uniform_data["src_resolution"] = [
-            #     self._mip_textures[i-1].size[0],
-            #     self._mip_textures[i-1].size[1]
-            # ]
-            # self._downsample_pass._uniform_data["mip_level"] = i
             self._downsample_pass._uniform_data["use_karis_average"] = (
                 0  # Only first mip uses Karis
             )
@@ -435,12 +417,8 @@ class PhysicalBasedBloomPass(EffectPass):
         """Perform the upsampling phase with accumulation."""
         self._upsample_pass._uniform_data["filter_radius"] = self._filter_radius
 
-        # For proper physical-based bloom, we need to accumulate all mip levels
-        # Start with the smallest mip as base
         if len(self._mip_textures) < 2:
             return
-
-        # Create a temporary texture for accumulation if needed
 
         # Work from smallest to largest, accumulating results
         for i in range(len(self._mip_textures) - 1, 0, -1):
@@ -450,8 +428,6 @@ class PhysicalBasedBloomPass(EffectPass):
             source_view = source_mip.create_view()
             target_view = target_mip.create_view()
 
-            # For now, use simple upsampling. In a complete implementation,
-            # we would use additive blending to accumulate with existing content
             self._upsample_pass.render(
                 command_encoder, colorTex=source_view, targetTex=target_view
             )
@@ -487,7 +463,7 @@ class PhysicalBasedBloomPass(EffectPass):
             return
 
         # Phase 1: Downsampling - create bloom mip chain
-        self._perform_downsampling(command_encoder, source_texture)
+        self._perform_downsampling(command_encoder, color_tex)
 
         # Phase 2: Upsampling - accumulate bloom across mips
         self._perform_upsampling(command_encoder)
