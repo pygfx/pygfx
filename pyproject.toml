@@ -18,17 +18,18 @@ keywords = [
 ]
 requires-python = ">= 3.10"
 dependencies = [
+    # Packages under the PyGfx umbrella.
+    # For some of these we set an upper bound because (for now) they regularly break their API.
+    # Packages that depend on PyGfx should not set an upper bound on e.g. wgpu, unless really needed!
     "rendercanvas >= 2.2",
-    "wgpu >=0.19.0,<0.23.0",
-    "pylinalg >=0.6.7,<0.7.0",
+    "wgpu >=0.24.0, <0.26",
+    "pylinalg >=0.6.8,<0.7.0",
+    # External dependencies
     "numpy",
     "freetype-py",
-    # ttb font shaping was brokein in uharfbuzz 0.51.0
-    # https://github.com/harfbuzz/uharfbuzz/issues/248
-    # https://github.com/pygfx/pygfx/issues/1149
-    "uharfbuzz !=0.51.0",
+    "uharfbuzz",
     "jinja2",
-    "hsluv >=5.0.0,<6.0.0",
+    "hsluv >=5",
 ]
 
 [project.optional-dependencies]
@@ -37,9 +38,9 @@ examples = [
     "pytest",
     "imageio[pyav]",
     "scikit-image",
-    "trimesh <4.6",
+    "trimesh",
     "gltflib",
-    "imgui-bundle >=1.6,<1.92",
+    "imgui-bundle >=1.92",
     "httpx",
 ]
 docs = [
@@ -50,12 +51,12 @@ docs = [
     # Duplicate from 'examples'
     "imageio[pyav]",
     "scikit-image",
-    "trimesh <4.6",
+    "trimesh",
     "gltflib",
-    "imgui-bundle >=1.6,<1.92",
+    "imgui-bundle >=1.92",
     "httpx",
 ]
-tests = ["pytest", "psutil", "trimesh <4.6", "httpx", "gltflib", "imageio"]
+tests = ["pytest", "psutil", "trimesh", "httpx", "gltflib", "imageio"]
 dev = ["pygfx[lint,tests,examples,docs]"]
 
 [project.entry-points."pyinstaller40"]

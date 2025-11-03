@@ -276,8 +276,6 @@ current_image_index = 0
 def draw_imgui():
     global current_image_index
 
-    imgui.new_frame()
-
     imgui.set_next_window_size((300, 0), imgui.Cond_.always)
     imgui.set_next_window_pos((0, 0), imgui.Cond_.always)
 
@@ -304,9 +302,6 @@ def draw_imgui():
             histogram_object.local.scale_x = image_texture.size[0] / (nbins - 1)
 
     imgui.end()
-    imgui.end_frame()
-    imgui.render()
-    return imgui.get_draw_data()
 
 
 # Create GUI renderer

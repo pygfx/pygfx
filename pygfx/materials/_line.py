@@ -108,7 +108,7 @@ class LineMaterial(Material):
     @property
     def _gfx_effective_aa(self):
         aa_able_methods = ("blended", "weighted")
-        return self._store.aa and self._store.alpha_config["method"] in aa_able_methods
+        return self._store.aa and self.alpha_method in aa_able_methods
 
     @property
     def color_mode(self):

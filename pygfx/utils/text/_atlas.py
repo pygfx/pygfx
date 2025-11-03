@@ -359,7 +359,6 @@ class GlyphAtlas(RectPacker):
             # Free in data structure
             assert index < self._index_counter, "Invalid index to free"
             info = self._infos[index]
-            x, y = info["origin"]
             w, h = info["size"]
             info["size"] = 0, 0
             self._free_indices.add(index)

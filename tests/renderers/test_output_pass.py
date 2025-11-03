@@ -38,19 +38,19 @@ def test_outpass_scale_is_1():
 
     # Always use linear filtering when scaleFactor == 1
     p.filter = "mitchell"
-    wgsl, lines = p.resolve_wgsl()
+    _wgsl, lines = p.resolve_wgsl()
     assert len(lines) == 1
     assert "texCoordOri" in lines[0]
 
     # Also with other filter
     p.filter = "linear"
-    wgsl, lines = p.resolve_wgsl()
+    _wgsl, lines = p.resolve_wgsl()
     assert len(lines) == 1
     assert "texCoordOri" in lines[0]
 
     # But can force nearest
     p.filter = "nearest"
-    wgsl, lines = p.resolve_wgsl()
+    _wgsl, lines = p.resolve_wgsl()
     assert len(lines) == 1
     assert "texCoordNear" in lines[0]
 
@@ -61,13 +61,13 @@ def test_outpass_filter_nearest():
 
     p.set_scale_factor(0.5)  # upsampling, source is smaller
 
-    wgsl, lines = p.resolve_wgsl()
+    _wgsl, lines = p.resolve_wgsl()
     assert len(lines) == 1
     assert "texCoordNear" in lines[0]
 
     p.set_scale_factor(2)  # downsampling, source is larger
 
-    wgsl, lines = p.resolve_wgsl()
+    _wgsl, lines = p.resolve_wgsl()
     assert len(lines) == 1
     assert "texCoordNear" in lines[0]
 
@@ -78,13 +78,13 @@ def test_outpass_filter_linear():
 
     p.set_scale_factor(0.5)  # upsampling, source is smaller
 
-    wgsl, lines = p.resolve_wgsl()
+    _wgsl, lines = p.resolve_wgsl()
     assert len(lines) == 1
     assert "texCoordOri" in lines[0]
 
     p.set_scale_factor(2)  # downsampling, source is larger
 
-    wgsl, lines = p.resolve_wgsl()
+    _wgsl, lines = p.resolve_wgsl()
     assert len(lines) == 1
     assert "texCoordOri" in lines[0]
 
@@ -104,65 +104,65 @@ def _test_outpass_filter_medium(filter):
     # When the source is smaller, it always uses four samples
     p.set_scale_factor(0.9)
 
-    wgsl, lines = p.resolve_wgsl()
+    _wgsl, lines = p.resolve_wgsl()
     assert len(lines) == 4
-    assert "texCoordLeft" in lines[0]
+    assert "texCoordEven" in lines[0]
 
     # Does not really matter how small
     p.set_scale_factor(0.01)
 
-    wgsl, lines = p.resolve_wgsl()
+    _wgsl, lines = p.resolve_wgsl()
     assert len(lines) == 4
-    assert "texCoordLeft" in lines[0]
+    assert "texCoordEven" in lines[0]
 
     # When the source is larger, the kernel needs a larger support.
     p.set_scale_factor(1.1)
 
-    wgsl, lines = p.resolve_wgsl()
+    _wgsl, lines = p.resolve_wgsl()
     assert len(lines) == 9
     assert "texCoordNear" in lines[0]
 
     # We keep this support until halfway
     p.set_scale_factor(1.5)
 
-    wgsl, lines = p.resolve_wgsl()
+    _wgsl, lines = p.resolve_wgsl()
     assert len(lines) == 9
     assert "texCoordNear" in lines[0]
 
     # And then the kernel size is upped
     p.set_scale_factor(1.6)
 
-    wgsl, lines = p.resolve_wgsl()
+    _wgsl, lines = p.resolve_wgsl()
     assert len(lines) == 16
-    assert "texCoordLeft" in lines[0]
+    assert "texCoordEven" in lines[0]
 
     # Until its a whole number again
     p.set_scale_factor(2.0)
 
-    wgsl, lines = p.resolve_wgsl()
+    _wgsl, lines = p.resolve_wgsl()
     assert len(lines) == 16
-    assert "texCoordLeft" in lines[0]
+    assert "texCoordEven" in lines[0]
 
     # And then it bumps again
     p.set_scale_factor(2.1)
 
-    wgsl, lines = p.resolve_wgsl()
+    _wgsl, lines = p.resolve_wgsl()
     assert len(lines) == 25
     assert "texCoordNear" in lines[0]
 
     # Familiar
     p.set_scale_factor(2.5)
 
-    wgsl, lines = p.resolve_wgsl()
+    _wgsl, lines = p.resolve_wgsl()
     assert len(lines) == 25
     assert "texCoordNear" in lines[0]
 
     # Familiar
     p.set_scale_factor(2.6)
 
-    wgsl, lines = p.resolve_wgsl()
+    _wgsl, lines = p.resolve_wgsl()
     assert len(lines) == 36
-    assert "texCoordLeft" in lines[0]
+    assert "texCoordEven" in lines[0]
 
     # But here is a fun one!
     # The scale is a round number, and because it's uneven, every
@@ -170,7 +170,7 @@ def _test_outpass_filter_medium(filter):
     # an uneven kernel is sufficient, and smaller!
     p.set_scale_factor(3.0)
 
-    wgsl, lines = p.resolve_wgsl()
+    _wgsl, lines = p.resolve_wgsl()
     assert len(lines) == 25
     assert "texCoordNear" in lines[0]
 
@@ -194,89 +194,89 @@ def _test_outpass_filter_cubic(filter):
     # When the source is smaller, it always uses 16 samples
     p.set_scale_factor(0.9)
 
-    wgsl, lines = p.resolve_wgsl()
+    _wgsl, lines = p.resolve_wgsl()
     assert len(lines) == 16
-    assert "texCoordLeft" in lines[0]
+    assert "texCoordEven" in lines[0]
 
     # Does not really matter how small
     p.set_scale_factor(0.01)
 
-    wgsl, lines = p.resolve_wgsl()
+    _wgsl, lines = p.resolve_wgsl()
     assert len(lines) == 16
-    assert "texCoordLeft" in lines[0]
+    assert "texCoordEven" in lines[0]
 
     # When the source is larger, the kernel needs a larger support.
     p.set_scale_factor(1.1)
 
-    wgsl, lines = p.resolve_wgsl()
+    _wgsl, lines = p.resolve_wgsl()
     assert len(lines) == 25
     assert "texCoordNear" in lines[0]
 
     # We keep this support until halfway
     p.set_scale_factor(1.25)
 
-    wgsl, lines = p.resolve_wgsl()
+    _wgsl, lines = p.resolve_wgsl()
     assert len(lines) == 25
     assert "texCoordNear" in lines[0]
 
     # And then the kernel size is upped
     p.set_scale_factor(1.26)
 
-    wgsl, lines = p.resolve_wgsl()
+    _wgsl, lines = p.resolve_wgsl()
     assert len(lines) == 36
-    assert "texCoordLeft" in lines[0]
+    assert "texCoordEven" in lines[0]
 
     # Until its a whole number again
     p.set_scale_factor(1.5)
 
-    wgsl, lines = p.resolve_wgsl()
+    _wgsl, lines = p.resolve_wgsl()
     assert len(lines) == 36
-    assert "texCoordLeft" in lines[0]
+    assert "texCoordEven" in lines[0]
 
     # And then it bumps again
     p.set_scale_factor(1.6)
 
-    wgsl, lines = p.resolve_wgsl()
+    _wgsl, lines = p.resolve_wgsl()
     assert len(lines) == 49 - 4
     assert "texCoordNear" in lines[0]
 
     # Now we bump to a 7x7 kernel, at which point the corners are dropped
     p.set_scale_factor(1.75)
 
-    wgsl, lines = p.resolve_wgsl()
+    _wgsl, lines = p.resolve_wgsl()
     assert len(lines) == 49 - 4
     assert "texCoordNear" in lines[0]
 
     # Familiar
     p.set_scale_factor(1.76)
 
-    wgsl, lines = p.resolve_wgsl()
+    _wgsl, lines = p.resolve_wgsl()
     assert len(lines) == 64 - 4
-    assert "texCoordLeft" in lines[0]
+    assert "texCoordEven" in lines[0]
 
     # We've reached factor 2
     p.set_scale_factor(2.0)
 
-    wgsl, lines = p.resolve_wgsl()
+    _wgsl, lines = p.resolve_wgsl()
     if True:  # filter in ["mitchell", "bspline", "catmull"]:
         # assert len(lines) == 64- 4
         assert len(lines) in (12, 16)  # opt!
         assert "texCoordOrig" in lines[0]
     else:
         assert len(lines) == 64 - 4
-        assert "texCoordLeft" in lines[0]
+        assert "texCoordEven" in lines[0]
 
     # Skip some beats
     p.set_scale_factor(2.9)
 
-    wgsl, lines = p.resolve_wgsl()
+    _wgsl, lines = p.resolve_wgsl()
     assert len(lines) == 12 * 12 - 4
-    assert "texCoordLeft" in lines[0]
+    assert "texCoordEven" in lines[0]
 
     # And then the interesting one
     p.set_scale_factor(3.0)
 
-    wgsl, lines = p.resolve_wgsl()
+    _wgsl, lines = p.resolve_wgsl()
     assert len(lines) == 11 * 11 - 4
     assert "texCoordNear" in lines[0]
 
@@ -297,19 +297,19 @@ def test_extra_kernel_support():
             p.set_scale_factor(scale_factor)
 
             p._set_template_var(extraKernelSupport=0)
-            wgsl, lines = p.resolve_wgsl()
+            _wgsl, lines = p.resolve_wgsl()
             kernel_width = int(len(lines) ** 0.5)
 
             p._set_template_var(extraKernelSupport=-0.5)
-            wgsl, lines = p.resolve_wgsl()
+            _wgsl, lines = p.resolve_wgsl()
             assert len(lines) == (kernel_width - 1) * (kernel_width - 1)
 
             p._set_template_var(extraKernelSupport=0.5)
-            wgsl, lines = p.resolve_wgsl()
+            _wgsl, lines = p.resolve_wgsl()
             assert len(lines) == (kernel_width + 1) * (kernel_width + 1)
 
             p._set_template_var(extraKernelSupport=1)
-            wgsl, lines = p.resolve_wgsl()
+            _wgsl, lines = p.resolve_wgsl()
             assert len(lines) == (kernel_width + 2) * (kernel_width + 2)
 
 
