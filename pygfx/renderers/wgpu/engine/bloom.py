@@ -2,8 +2,6 @@ import wgpu
 from .effectpasses import (
     EffectPass,
     FullQuadPass,
-    create_full_quad_pipeline,
-    apply_templating,
 )
 from .shared import get_shared
 import numpy as np
@@ -168,119 +166,50 @@ class PhysicalBasedBloomPass(EffectPass):
             }
         """
 
-        def _render(self, command_encoder, source_textures, target_textures):
-            # Create bind group. This is very light and can be done every time.
-            # Chances are we get new views on every call anyway.
-            bind_group_entries = [
-                self._uniform_binding_entry,
-                self._sampler_binding_entry,
-            ]
-            for i, tex in enumerate(source_textures, 2):
-                bind_group_entries.append({"binding": i, "resource": tex})
-            bind_group = self._device.create_bind_group(
-                layout=self._render_pipeline.get_bind_group_layout(0),
-                entries=bind_group_entries,
-            )
+        load_op = wgpu.LoadOp.load
 
-            # Create attachments
-            color_attachments = []
-            for tex in target_textures:
-                color_attachments.append(
-                    {
-                        "view": tex,
-                        "resolve_target": None,
-                        "clear_value": (0, 0, 0, 0),
-                        "load_op": wgpu.LoadOp.load,
-                        "store_op": wgpu.StoreOp.store,
-                    }
-                )
+        blend_op = {
+            "alpha": {
+                "operation": wgpu.BlendOperation.add,
+                "src_factor": wgpu.BlendFactor.one,
+                "dst_factor": wgpu.BlendFactor.zero,
+            },
+            "color": {
+                "operation": wgpu.BlendOperation.add,
+                "src_factor": wgpu.BlendFactor.one,
+                "dst_factor": wgpu.BlendFactor.one,
+            },
+        }
 
-            render_pass = command_encoder.begin_render_pass(
-                color_attachments=color_attachments,
-                depth_stencil_attachment=None,
-            )
-            render_pass.set_pipeline(self._render_pipeline)
-            render_pass.set_bind_group(0, bind_group, [], 0, 99)
-            render_pass.draw(4, 1)
-            render_pass.end()
+    class _CompositePass(FullQuadPass):
+        """Internal composite pass for blending original + bloom."""
 
-        def _create_pipeline(self, source_names, target_formats):
-            binding_layout = []
-            definitions_code = ""
+        uniform_type = dict(
+            bloom_strength="f4",
+        )
 
-            # Uniform buffer
-            binding_layout.append(
-                {
-                    "binding": 0,
-                    "visibility": wgpu.ShaderStage.FRAGMENT,
-                    "buffer": {"type": wgpu.BufferBindingType.uniform},
-                }
-            )
-            definitions_code += self._uniform_binding_definition
+        wgsl = """
+            @fragment
+            fn fs_main(varyings: Varyings) -> @location(0) vec4<f32> {
+                let original = textureSample(originalTex, texSampler, varyings.texCoord);
+                let bloom = textureSample(bloomTex, texSampler, varyings.texCoord);
 
-            # Sampler
-            binding_layout.append(
-                {
-                    "binding": 1,
-                    "visibility": wgpu.ShaderStage.FRAGMENT,
-                    "sampler": {"type": wgpu.SamplerBindingType.filtering},
-                }
-            )
-            definitions_code += self._sampler_binding_definition
+                // Mix original and bloom based on strength
+                let result = mix(original, bloom, u_effect.bloom_strength);
 
-            # Source textures
-            for i, name in enumerate(source_names, 2):
-                sample_type = wgpu.TextureSampleType.float
-                wgsl_type = "texture_2d<f32>"
-                if "depth" in name.lower():
-                    sample_type = wgpu.TextureSampleType.depth
-                    wgsl_type = "texture_depth_2d"
-                binding_layout.append(
-                    {
-                        "binding": i,
-                        "visibility": wgpu.ShaderStage.FRAGMENT,
-                        "texture": {
-                            "sample_type": sample_type,
-                            "view_dimension": wgpu.TextureViewDimension.d2,
-                            "multisampled": False,
-                        },
-                    }
-                )
-                definitions_code += f"""
-                    @group(0) @binding({i})
-                    var {name}: {wgsl_type};
-                """
+                return vec4<f32>(result.rgb, original.a);
+            }
+        """
 
-            # Render targets
-            targets = []
-            for format in target_formats:
-                targets.append(
-                    {
-                        "format": format,
-                        "blend": {
-                            "alpha": {
-                                "operation": wgpu.BlendOperation.add,
-                                "src_factor": wgpu.BlendFactor.one,
-                                "dst_factor": wgpu.BlendFactor.zero,
-                            },
-                            "color": {
-                                "operation": wgpu.BlendOperation.add,
-                                "src_factor": wgpu.BlendFactor.one,
-                                "dst_factor": wgpu.BlendFactor.one,
-                            },
-                        },
-                    }
-                )
-
-            wgsl = definitions_code
-            wgsl += apply_templating(self.wgsl, **self._template_vars)
-            return create_full_quad_pipeline(targets, binding_layout, wgsl)
+        def __init__(self, bloom_strength):
+            super().__init__()
+            self._uniform_data["bloom_strength"] = float(bloom_strength)
 
     def __init__(
         self,
         *,
         bloom_strength=0.04,
-        mip_levels=5,
+        max_mip_levels=6,
         filter_radius=0.005,
         use_karis_average=False,
     ):
@@ -291,7 +220,7 @@ class PhysicalBasedBloomPass(EffectPass):
         -----------
         bloom_strength : float, default 0.04
             The strength of the bloom effect. Lower values create more subtle bloom.
-        mip_levels : int, default 5
+        max_mip_levels : int, default 6
             Max number of mip levels for downsampling/upsampling chain.
         filter_radius : float, default 0.005
             Filter radius for upsampling in texture coordinates.
@@ -301,7 +230,7 @@ class PhysicalBasedBloomPass(EffectPass):
         super().__init__()
 
         self._bloom_strength = bloom_strength
-        self._mip_levels = max(1, min(mip_levels, 10))  # Clamp between 1-10
+        self._max_mip_levels = max_mip_levels
         self._filter_radius = filter_radius
         self._use_karis_average = use_karis_average
 
@@ -324,13 +253,13 @@ class PhysicalBasedBloomPass(EffectPass):
         self._bloom_strength = float(value)
 
     @property
-    def mip_levels(self):
-        """Number of mip levels in the bloom chain."""
-        return self._mip_levels
+    def max_mip_levels(self):
+        """Maximum number of mip levels in the bloom chain."""
+        return self._max_mip_levels
 
-    @mip_levels.setter
-    def mip_levels(self, value):
-        self._mip_levels = max(1, min(int(value), 10))
+    @max_mip_levels.setter
+    def max_mip_levels(self, value):
+        self._max_mip_levels = int(value)
 
     @property
     def filter_radius(self):
@@ -362,7 +291,7 @@ class PhysicalBasedBloomPass(EffectPass):
             np.floor(np.log2(max(bloom_texture_size[0], bloom_texture_size[1]))) + 1
         )
 
-        mip_levels = min(self._mip_levels, max_mip_levels)
+        mip_levels = min(self._max_mip_levels, max_mip_levels)
 
         # Create mip chain
         self._bloom_texture = device.create_texture(
@@ -482,30 +411,6 @@ class PhysicalBasedBloomPass(EffectPass):
             bloomTex=bloom_view,
             targetTex=target_tex,
         )
-
-    class _CompositePass(FullQuadPass):
-        """Internal composite pass for blending original + bloom."""
-
-        uniform_type = dict(
-            bloom_strength="f4",
-        )
-
-        wgsl = """
-            @fragment
-            fn fs_main(varyings: Varyings) -> @location(0) vec4<f32> {
-                let original = textureSample(originalTex, texSampler, varyings.texCoord);
-                let bloom = textureSample(bloomTex, texSampler, varyings.texCoord);
-
-                // Mix original and bloom based on strength
-                let result = mix(original, bloom, u_effect.bloom_strength);
-
-                return vec4<f32>(result.rgb, original.a);
-            }
-        """
-
-        def __init__(self, bloom_strength):
-            super().__init__()
-            self._uniform_data["bloom_strength"] = float(bloom_strength)
 
     def __repr__(self):
         return f"<{self.__class__.__name__} strength={self.bloom_strength} mips={self.mip_levels} at {hex(id(self))}>"

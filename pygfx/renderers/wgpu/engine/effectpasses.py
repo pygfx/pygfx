@@ -129,6 +129,23 @@ class FullQuadPass:
 
     wgsl = ""
 
+    # todo: configurable for each render target
+    load_op = wgpu.LoadOp.clear
+
+    # todo: configurable for each render target
+    blend_op = {
+        "alpha": {
+            "operation": wgpu.BlendOperation.add,
+            "src_factor": wgpu.BlendFactor.one,
+            "dst_factor": wgpu.BlendFactor.zero,
+        },
+        "color": {
+            "operation": wgpu.BlendOperation.add,
+            "src_factor": wgpu.BlendFactor.one,
+            "dst_factor": wgpu.BlendFactor.zero,
+        },
+    }
+
     def __init__(self):
         self._device = get_shared().device
 
@@ -233,7 +250,7 @@ class FullQuadPass:
                     "view": tex,
                     "resolve_target": None,
                     "clear_value": (0, 0, 0, 0),
-                    "load_op": wgpu.LoadOp.clear,
+                    "load_op": self.load_op,
                     "store_op": wgpu.StoreOp.store,
                 }
             )
@@ -243,7 +260,7 @@ class FullQuadPass:
             depth_stencil_attachment=None,
         )
         render_pass.set_pipeline(self._render_pipeline)
-        render_pass.set_bind_group(0, bind_group, [], 0, 99)
+        render_pass.set_bind_group(0, bind_group)
         render_pass.draw(4, 1)
         render_pass.end()
 
@@ -300,18 +317,7 @@ class FullQuadPass:
             targets.append(
                 {
                     "format": format,
-                    "blend": {
-                        "alpha": {
-                            "operation": wgpu.BlendOperation.add,
-                            "src_factor": wgpu.BlendFactor.one,
-                            "dst_factor": wgpu.BlendFactor.zero,
-                        },
-                        "color": {
-                            "operation": wgpu.BlendOperation.add,
-                            "src_factor": wgpu.BlendFactor.one,
-                            "dst_factor": wgpu.BlendFactor.zero,
-                        },
-                    },
+                    "blend": self.blend_op,
                 }
             )
 

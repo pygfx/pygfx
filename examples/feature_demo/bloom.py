@@ -72,7 +72,7 @@ controller = gfx.OrbitController(
 # Create bloom effect pass using the new API
 bloom_pass = gfx.renderers.wgpu.PhysicalBasedBloomPass(
     bloom_strength=0.4,
-    mip_levels=5,
+    max_mip_levels=6,
     filter_radius=0.005,
     use_karis_average=False,
 )
@@ -94,7 +94,7 @@ gui_renderer = ImguiRenderer(renderer.device, canvas)
 
 
 def draw_imgui():
-    imgui.set_next_window_size((350, 0), imgui.Cond_.always)
+    imgui.set_next_window_size((400, 0), imgui.Cond_.always)
     imgui.set_next_window_pos((0, 0), imgui.Cond_.always)
     imgui.begin("Settings")
 
@@ -124,9 +124,11 @@ def draw_imgui():
     if changed:
         bloom_pass.bloom_strength = value
 
-    changed, value = imgui.slider_int("Mipmap Levels", bloom_pass.mip_levels, 1, 10)
+    changed, value = imgui.slider_int(
+        "Max Mipmap Levels", bloom_pass.max_mip_levels, 1, 10
+    )
     if changed:
-        bloom_pass.mip_levels = value
+        bloom_pass.max_mip_levels = value
 
     changed, value = imgui.slider_float(
         "Filter Radius", bloom_pass.filter_radius, 0.0, 0.01

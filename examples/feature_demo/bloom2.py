@@ -34,11 +34,13 @@ import imageio.v3 as iio
 from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 
-from wgpu.utils.imgui import ImguiRenderer
+from wgpu.utils.imgui import ImguiRenderer, Stats
 from imgui_bundle import imgui
 
 # Init
-canvas = RenderCanvas(size=(1280, 720), title="bloom_effect")
+canvas = RenderCanvas(
+    size=(1280, 720), title="bloom_effect", update_mode="fastest", vsync=False
+)
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
@@ -80,10 +82,10 @@ scene.add(light)
 
 # Create bloom effect pass using the new API
 bloom_pass = gfx.renderers.wgpu.PhysicalBasedBloomPass(
-    bloom_strength=0.5,
-    mip_levels=5,
+    bloom_strength=0.4,
+    max_mip_levels=6,
     filter_radius=0.005,
-    use_karis_average=True,
+    use_karis_average=False,
 )
 
 # Add bloom pass to renderer's effect passes
@@ -106,7 +108,7 @@ gui_renderer = ImguiRenderer(renderer.device, canvas)
 
 
 def draw_imgui():
-    imgui.set_next_window_size((350, 0), imgui.Cond_.always)
+    imgui.set_next_window_size((400, 0), imgui.Cond_.always)
     imgui.set_next_window_pos((0, 0), imgui.Cond_.always)
     imgui.begin("Bloom Settings")
 
@@ -120,9 +122,11 @@ def draw_imgui():
     if changed:
         bloom_pass.bloom_strength = value
 
-    changed, value = imgui.slider_int("Mipmap Levels", bloom_pass.mip_levels, 1, 10)
+    changed, value = imgui.slider_int(
+        "Max Mipmap Levels", bloom_pass.max_mip_levels, 1, 10
+    )
     if changed:
-        bloom_pass.mip_levels = value
+        bloom_pass.max_mip_levels = value
 
     changed, value = imgui.slider_float(
         "Filter Radius", bloom_pass.filter_radius, 0.0, 0.01
@@ -138,15 +142,16 @@ def draw_imgui():
 
 
 gui_renderer.set_gui(draw_imgui)
+stats = Stats(renderer.device, canvas, align="right")
 
 
 def animate():
     dt = clock.get_delta()
 
     animation_mixer.update(dt)
-
-    renderer.render(scene, camera)
-    gui_renderer.render()
+    with stats:
+        renderer.render(scene, camera)
+        gui_renderer.render()
     canvas.request_draw()
 
 
