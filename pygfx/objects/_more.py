@@ -61,14 +61,12 @@ class Scene(Group):
 
         if environment is not None:
             # todo: for now, we only support cube maps
-            assert environment.texture.dim == 2 and environment.texture.size[2] == 6, (
-                "Environment map must be a Cube texture."
-            )
+            if environment.texture.dim != 2 or environment.texture.size[2] != 6:
+                raise ValueError("Environment map must be a Cube texture.")
 
             # todo: for now, we use normal mipmaps, but we should use a PMREM texture
-            assert environment.texture.generate_mipmaps, (
-                "Environment map texture must generate mipmaps."
-            )
+            if not environment.texture.generate_mipmaps:
+                raise ValueError("Environment map texture must generate mipmaps.")
 
         self._store.environment = environment
 
