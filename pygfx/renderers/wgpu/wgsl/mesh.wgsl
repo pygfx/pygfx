@@ -22,6 +22,9 @@ $$ endif
 $$ if USE_IRIDESCENCE is defined
     {$ include 'pygfx.iridescence.wgsl' $}
 $$ endif
+$$ if USE_TRANSMISSION is defined
+    {$ include 'pygfx.transmission.wgsl' $}
+$$ endif
 
 struct VertexInput {
     @builtin(vertex_index) vertex_index : u32,
@@ -422,9 +425,9 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
 
     $$ endif
     // Apply opacity
-    diffuse_color.a = diffuse_color.a * u_material.opacity;
+    var opacity = diffuse_color.a * u_material.opacity;
 
-    do_alpha_test(diffuse_color.a);
+    do_alpha_test(opacity);
 
     let physical_albeido = diffuse_color.rgb;
 
@@ -577,7 +580,30 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
     $$ endif
 
     // Combine direct and indirect light
-    var physical_color = reflected_light.direct_diffuse + reflected_light.direct_specular + reflected_light.indirect_diffuse + reflected_light.indirect_specular;
+    // var physical_color = reflected_light.direct_diffuse + reflected_light.direct_specular + reflected_light.indirect_diffuse + reflected_light.indirect_specular;
+
+    var total_diffuse = reflected_light.direct_diffuse + reflected_light.indirect_diffuse;
+    var total_specular = reflected_light.direct_specular + reflected_light.indirect_specular;
+
+    $$ if USE_TRANSMISSION is defined
+        let pos = varyings.world_pos;
+        let v = normalize(u_stdinfo.cam_transform_inv[3].xyz - pos);
+        let n = surface_normal;
+        let model_matrix = u_wobject.world_transform;
+        let view_matrix = u_stdinfo.cam_transform;
+        let projection_matrix = u_stdinfo.projection_transform;
+
+        let transmitted = getIBLVolumeRefraction(
+            n, v, material.roughness, material.diffuse_color, material.specular_color, material.specular_f90,
+            pos, model_matrix, view_matrix, projection_matrix, material.dispersion, material.ior, material.thickness,
+            material.attenuation_color, material.attenuation_distance );
+
+        material.transmission_alpha = mix( material.transmission_alpha, transmitted.a, material.transmission );
+
+        total_diffuse = mix( total_diffuse, transmitted.rgb, material.transmission );
+    $$ endif
+
+    var physical_color = total_diffuse + total_specular;
 
     // Add emissive color
     // Now for phong、pbr and toon lighting
@@ -632,7 +658,15 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
         }
     $$ endif
 
-    let out_color = vec4<f32>(physical_color, diffuse_color.a);
+    $$ if OPAQUE is defined
+        opacity = 1.0;
+    $$ endif
+
+    $$ if USE_TRANSMISSION is defined
+        opacity *= material.transmission_alpha;
+    $$ endif
+
+    let out_color = vec4<f32>(physical_color, opacity);
 
     var out: FragmentOutput;
     out.color = out_color;

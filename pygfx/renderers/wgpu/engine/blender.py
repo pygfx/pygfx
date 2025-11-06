@@ -58,13 +58,13 @@ default_targets = {
     # This is 4 bytes per pixel.
     # TODO: use half-floats
     "color": (
-        wgpu.TextureFormat.rgba8unorm_srgb,
+        wgpu.TextureFormat.rgba16float,
         usg.RENDER_ATTACHMENT | usg.COPY_SRC | usg.TEXTURE_BINDING,
     ),
     # A texture of the same size, to allow post-processing effects.
     # When applying effects, the color and altcolor texture are ping-ponged.
     "altcolor": (
-        wgpu.TextureFormat.rgba8unorm_srgb,
+        wgpu.TextureFormat.rgba16float,
         usg.RENDER_ATTACHMENT | usg.COPY_SRC | usg.TEXTURE_BINDING,
     ),
     # The depth buffer should preferably at least 24bit - we need that precision. It's 4 bytes per pixel.

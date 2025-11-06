@@ -196,6 +196,9 @@ class _GLTF:
         self._register_plugin(GLTFLightsExtension)
         self._register_plugin(GLTFTextureTransformExtension)
         self._register_plugin(GLTFTextureWebPExtension)
+        self._register_plugin(GLTFMaterialsTransmissionExtension)
+        self._register_plugin(GLTFMaterialsVolumeExtension)
+        self._register_plugin(GLTFMaterialsDispersionExtension)
         self._register_plugin(GLTFDracoMeshCompressionExtension)
 
     def _register_plugin(self, plugin_class):
@@ -634,7 +637,7 @@ class _GLTF:
                             material_type = _material_type
                             break
 
-            gfx_material = material_type()
+            gfx_material = material_type(name=material.name)
 
             # check if any plugin can extend the material
             for extension in extensions:
@@ -645,19 +648,23 @@ class _GLTF:
 
             pbr_metallic_roughness = material.pbrMetallicRoughness
             if pbr_metallic_roughness is not None:
-                if pbr_metallic_roughness.baseColorFactor is not None:
+                base_color = pbr_metallic_roughness.baseColorFactor
+                if base_color is not None:
                     gfx_material.color = gfx.Color.from_physical(
-                        *pbr_metallic_roughness.baseColorFactor
+                        base_color[0], base_color[1], base_color[2]
                     )
+                    gfx_material.opacity = base_color[3]
 
                 if pbr_metallic_roughness.baseColorTexture is not None:
                     gfx_material.map = self._load_gltf_texture_map(
-                        pbr_metallic_roughness.baseColorTexture
+                        pbr_metallic_roughness.baseColorTexture,
+                        name=f"{material.name} (Base Color)",
                     )
 
                 if pbr_metallic_roughness.metallicRoughnessTexture is not None:
                     metallic_roughness_map = self._load_gltf_texture_map(
-                        pbr_metallic_roughness.metallicRoughnessTexture
+                        pbr_metallic_roughness.metallicRoughnessTexture,
+                        name=f"{material.name} (Metallic Roughness)",
                     )
                     gfx_material.roughness_map = metallic_roughness_map
                     gfx_material.metalness_map = metallic_roughness_map
@@ -674,7 +681,7 @@ class _GLTF:
 
             if material.normalTexture is not None:
                 gfx_material.normal_map = self._load_gltf_texture_map(
-                    material.normalTexture
+                    material.normalTexture, name=f"{material.name} (Normal)"
                 )
                 scale_factor = material.normalTexture.scale
                 if scale_factor is None:
@@ -684,7 +691,7 @@ class _GLTF:
 
             if material.occlusionTexture is not None:
                 gfx_material.ao_map = self._load_gltf_texture_map(
-                    material.occlusionTexture
+                    material.occlusionTexture, name=f"{material.name} (Occlusion)"
                 )
 
             if material.emissiveFactor is not None:
@@ -694,7 +701,7 @@ class _GLTF:
 
             if material.emissiveTexture is not None:
                 gfx_material.emissive_map = self._load_gltf_texture_map(
-                    material.emissiveTexture
+                    material.emissiveTexture, name=f"{material.name} (Emissive)"
                 )
 
         if material.alphaMode == "BLEND":
@@ -716,7 +723,7 @@ class _GLTF:
 
         return gfx_material
 
-    def _load_gltf_texture_map(self, texture_info):
+    def _load_gltf_texture_map(self, texture_info, name=""):
         if isinstance(texture_info, dict):
             texture_index = texture_info["index"]
             uv_channel = texture_info.get("texCoord", 0)
@@ -730,7 +737,7 @@ class _GLTF:
         if texture is None:
             return None
 
-        texture_map = gfx.TextureMap(texture, uv_channel=uv_channel)
+        texture_map = gfx.TextureMap(texture, uv_channel=uv_channel, name=name)
 
         texture_desc = self._gltf.model.textures[texture_index]
 
@@ -793,7 +800,7 @@ class _GLTF:
         if source is None:
             return None
         image = self._load_image(source)
-        texture = gfx.Texture(image, dim=2)
+        texture = gfx.Texture(image, dim=2, name=texture_desc.name)
         return texture
 
     @lru_cache(maxsize=None)
@@ -1198,7 +1205,7 @@ class GLTFMaterialsSpecularExtension(GLTFBaseMaterialsExtension):
 
         if specular_texture is not None:
             material.specular_intensity_map = self.parser._load_gltf_texture_map(
-                specular_texture
+                specular_texture, name=f"{material.name} (Specular Intensity)"
             )
 
         specular_color = extension.get("specularColorFactor", [1.0, 1.0, 1.0])
@@ -1208,7 +1215,7 @@ class GLTFMaterialsSpecularExtension(GLTFBaseMaterialsExtension):
 
         if specular_color_texture is not None:
             material.specular_map = self.parser._load_gltf_texture_map(
-                specular_color_texture
+                specular_color_texture, name=f"{material.name} (Specular)"
             )
 
 
@@ -1231,7 +1238,7 @@ class GLTFMaterialsClearcoatExtension(GLTFBaseMaterialsExtension):
         clearcoat_texture = extension.get("clearcoatTexture", None)
         if clearcoat_texture is not None:
             material.clearcoat_map = self.parser._load_gltf_texture_map(
-                clearcoat_texture
+                clearcoat_texture, name=f"{material.name} (Clearcoat)"
             )
 
         clearcoat_roughness_factor = extension.get("clearcoatRoughnessFactor", None)
@@ -1241,13 +1248,14 @@ class GLTFMaterialsClearcoatExtension(GLTFBaseMaterialsExtension):
         clearcoat_rughness_texture = extension.get("clearcoatRoughnessTexture", None)
         if clearcoat_rughness_texture is not None:
             material.clearcoat_roughness_map = self.parser._load_gltf_texture_map(
-                clearcoat_rughness_texture
+                clearcoat_rughness_texture,
+                name=f"{material.name} (Clearcoat Roughness)",
             )
 
         clearcoat_normal_texture = extension.get("clearcoatNormalTexture", None)
         if clearcoat_normal_texture is not None:
             material.clearcoat_normal_map = self.parser._load_gltf_texture_map(
-                clearcoat_normal_texture
+                clearcoat_normal_texture, name=f"{material.name} (Clearcoat Normal)"
             )
             clearcoat_normal_scale = clearcoat_normal_texture.get("scale", None)
             if clearcoat_normal_scale is not None:
@@ -1276,7 +1284,7 @@ class GLTFMaterialsIridescenceExtension(GLTFBaseMaterialsExtension):
         iridescence_texture = extension.get("iridescenceTexture", None)
         if iridescence_texture is not None:
             material.iridescence_map = self.parser._load_gltf_texture_map(
-                iridescence_texture
+                iridescence_texture, name=f"{material.name} (Iridescence)"
             )
 
         iridescence_ior = extension.get("iridescenceIor", None)
@@ -1295,7 +1303,8 @@ class GLTFMaterialsIridescenceExtension(GLTFBaseMaterialsExtension):
         )
         if iridescence_thickness_texture is not None:
             material.iridescence_thickness_map = self.parser._load_gltf_texture_map(
-                iridescence_thickness_texture
+                iridescence_thickness_texture,
+                name=f"{material.name} (Iridescence Thickness)",
             )
 
 
@@ -1322,7 +1331,7 @@ class GLTFMaterialsAnisotropyExtension(GLTFBaseMaterialsExtension):
         anisotropy_texture = extension.get("anisotropyTexture", None)
         if anisotropy_texture is not None:
             material.anisotropy_map = self.parser._load_gltf_texture_map(
-                anisotropy_texture
+                anisotropy_texture, name=f"{material.name} (Anisotropy)"
             )
 
 
@@ -1346,7 +1355,7 @@ class GLTFMaterialsSheenExtension(GLTFBaseMaterialsExtension):
         sheen_color_texture = extension.get("sheenColorTexture", None)
         if sheen_color_texture is not None:
             material.sheen_color_map = self.parser._load_gltf_texture_map(
-                sheen_color_texture
+                sheen_color_texture, name=f"{material.name} (Sheen Color)"
             )
 
         sheen_roughness_factor = extension.get("sheenRoughnessFactor", None)
@@ -1356,7 +1365,7 @@ class GLTFMaterialsSheenExtension(GLTFBaseMaterialsExtension):
         sheen_roughness_texture = extension.get("sheenRoughnessTexture", None)
         if sheen_roughness_texture is not None:
             material.sheen_roughness_map = self.parser._load_gltf_texture_map(
-                sheen_roughness_texture
+                sheen_roughness_texture, name=f"{material.name} (Sheen Roughness)"
             )
 
 
@@ -1400,7 +1409,8 @@ class GLTFMaterialsUnlitExtension(GLTFBaseMaterialsExtension):
 
             if pbr_metallic_roughness.baseColorTexture is not None:
                 material.map = self.parser._load_gltf_texture_map(
-                    pbr_metallic_roughness.baseColorTexture
+                    pbr_metallic_roughness.baseColorTexture,
+                    name=f"{material.name} (Base Color)",
                 )
 
 
@@ -1514,6 +1524,76 @@ class GLTFTextureWebPExtension(GLTFExtension):
         image = self.parser._load_image(source)
         texture = gfx.Texture(image, dim=2)
         return texture
+
+
+class GLTFMaterialsTransmissionExtension(GLTFBaseMaterialsExtension):
+    EXTENSION_NAME = "KHR_materials_transmission"
+
+    def extend_material(self, material_def, material):
+        if (
+            not material_def.extensions
+            or self.EXTENSION_NAME not in material_def.extensions
+        ):
+            return
+
+        extension = material_def.extensions[self.EXTENSION_NAME]
+
+        transmission_factor = extension.get("transmissionFactor", None)
+        if transmission_factor is not None:
+            material.transmission = transmission_factor
+
+        transmission_texture = extension.get("transmissionTexture", None)
+        if transmission_texture is not None:
+            material.transmission_map = self.parser._load_gltf_texture_map(
+                transmission_texture, name=f"{material.name} (Transmission)"
+            )
+
+
+class GLTFMaterialsVolumeExtension(GLTFBaseMaterialsExtension):
+    EXTENSION_NAME = "KHR_materials_volume"
+
+    def extend_material(self, material_def, material):
+        if (
+            not material_def.extensions
+            or self.EXTENSION_NAME not in material_def.extensions
+        ):
+            return
+
+        extension = material_def.extensions[self.EXTENSION_NAME]
+
+        thickness_factor = extension.get("thicknessFactor", None)
+        if thickness_factor is not None:
+            material.thickness = thickness_factor
+
+        thickness_texture = extension.get("thicknessTexture", None)
+        if thickness_texture is not None:
+            material.thickness_map = self.parser._load_gltf_texture_map(
+                thickness_texture, name=f"{material.name} (Thickness)"
+            )
+
+        attenuation_color = extension.get("attenuationColor", None)
+        if attenuation_color is not None:
+            material.attenuation_color = gfx.Color.from_physical(*attenuation_color)
+
+        attenuation_distance = extension.get("attenuationDistance", None)
+        if attenuation_distance is not None:
+            material.attenuation_distance = attenuation_distance
+
+
+class GLTFMaterialsDispersionExtension(GLTFBaseMaterialsExtension):
+    EXTENSION_NAME = "KHR_materials_dispersion"
+
+    def extend_material(self, material_def, material):
+        if (
+            not material_def.extensions
+            or self.EXTENSION_NAME not in material_def.extensions
+        ):
+            return
+
+        extension = material_def.extensions[self.EXTENSION_NAME]
+        dispersion = extension.get("dispersion", None)
+        if dispersion is not None:
+            material.dispersion = dispersion
 
 
 class GLTFDracoMeshCompressionExtension(GLTFExtension):
