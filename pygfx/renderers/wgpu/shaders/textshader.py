@@ -26,7 +26,7 @@ class TextShader(BaseShader):
         self["aa"] = material._gfx_effective_aa
         self["REF_GLYPH_SIZE"] = REF_GLYPH_SIZE
 
-    def get_bindings(self, wobject, shared):
+    def get_bindings(self, wobject, shared, scene):
         geometry = wobject.geometry
         material = wobject.material
 

@@ -61,7 +61,7 @@ class TriangleMaterial(gfx.Material):
 class TriangleShader(BaseShader):
     type = "render"
 
-    def get_bindings(self, wobject, shared):
+    def get_bindings(self, wobject, shared, scene):
         # We now use three uniform buffers
         bindings = {
             0: Binding("u_stdinfo", "buffer/uniform", shared.uniform_buffer),

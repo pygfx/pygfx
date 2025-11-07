@@ -74,7 +74,7 @@ class ImageShader(BaseShader):
             self["use_colormap"] = True
             self["colorspace"] = material.map.texture.colorspace
 
-    def get_bindings(self, wobject, shared):
+    def get_bindings(self, wobject, shared, scene):
         geometry = wobject.geometry
         material = wobject.material
 
