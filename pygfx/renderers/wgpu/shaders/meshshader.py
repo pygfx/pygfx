@@ -566,10 +566,12 @@ class MeshStandardShader(MeshShader):
 
         bindings = []
 
-        if getattr(material, "env_map", None) or scene.environment:
-            # special check for env_map
-            env_map = getattr(material, "env_map", None) or scene.environment
+        env_map = getattr(material, "env_map", None) or getattr(
+            scene, "environment", None
+        )
 
+        if env_map:
+            # special check for env_map
             assert isinstance(env_map, TextureMap)
             assert env_map.texture.size[2] == 6, "env_map must be a cube map"
             fmt = to_texture_format(env_map.texture.format)
