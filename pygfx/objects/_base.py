@@ -282,9 +282,9 @@ class WorldObject(EventTarget, Trackable):
 
         The order in wich objects are rendered is:
             1. the ``material.render_queue``.
-            2. the ``group_order``.
-            3. the ``render_order``.
-            4. the distance to camera (if ``render.sort_objects==True``).
+            2. the ``ob.parent.render_order`` (if ``isinstance(ob.parent, gfx.Group)``).
+            3. the ``ob.render_order``.
+            4. the distance to camera (if ``renderer.sort_objects==True``).
             5. the position of the object in the scene graph.
 
         Also see ``material.render_queue``.
