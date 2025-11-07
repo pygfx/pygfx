@@ -133,7 +133,7 @@ class FullQuadPass:
     load_op = wgpu.LoadOp.clear
 
     # todo: configurable for each render target
-    blend_op = {
+    blend_state = {
         "alpha": {
             "operation": wgpu.BlendOperation.add,
             "src_factor": wgpu.BlendFactor.one,
@@ -317,7 +317,7 @@ class FullQuadPass:
             targets.append(
                 {
                     "format": format,
-                    "blend": self.blend_op,
+                    "blend": self.blend_state,
                 }
             )
 
