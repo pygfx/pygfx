@@ -278,13 +278,14 @@ class WorldObject(EventTarget, Trackable):
         This affects both opaque and transparent objects and can be used to resolve z-fighting,
         or control draw order beyond automatic depth sorting.
 
-        The effective render order is the sum of its render order and thet of all its parents.
+        If the object is part of a Group, the group's render_order is considered first (that is the group_order of the object).
 
         The order in wich objects are rendered is:
             1. the ``material.render_queue``.
-            2. the effective ``render_order``.
-            3. the distance to camera (if ``render.sort_objects==True``).
-            4. the position of the object in the scene graph.
+            2. the ``ob.parent.render_order`` (if ``isinstance(ob.parent, gfx.Group)``).
+            3. the ``ob.render_order``.
+            4. the distance to camera (if ``renderer.sort_objects==True``).
+            5. the position of the object in the scene graph.
 
         Also see ``material.render_queue``.
         """
