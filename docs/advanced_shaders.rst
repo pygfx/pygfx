@@ -315,7 +315,7 @@ For points / lines, meshes, etc.:
 
 .. code-block:: python
 
-        def get_bindings(self, wobjwect, shared, scene):
+        def get_bindings(self, wobject, shared, scene):
             ...
             extra_bindings = self.define_vertex_colormap(material.map, geometry.texcoords)
             bindings.extend(extra_bindings)

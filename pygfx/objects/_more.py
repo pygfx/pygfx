@@ -49,7 +49,7 @@ class Scene(Group):
     @property
     def environment(self):
         """The environment map for all physical materials in the scene.
-        However, it's not possible to overwrite an existing map assigned to individual materials.
+       If a material has its own environment map set, it will override the scene's environment map.
         """
         return self._store.environment
 
