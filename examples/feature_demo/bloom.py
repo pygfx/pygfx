@@ -113,9 +113,9 @@ def draw_imgui():
 
     imgui.separator()
 
-    changed, enabled = imgui.checkbox("Bloom", bloom_pass.enable)
+    changed, enabled = imgui.checkbox("Bloom", bloom_pass.enabled)
     if changed:
-        bloom_pass.enable = enabled
+        bloom_pass.enabled = enabled
 
     imgui.begin_disabled(not enabled)
     changed, value = imgui.slider_float(

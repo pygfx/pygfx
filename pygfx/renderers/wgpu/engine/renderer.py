@@ -803,7 +803,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         else:
             # Apply any effect passes
             for step in self._effect_passes:
-                if not step.enable:
+                if not step.enabled:
                     continue
                 color_tex = self._blender.get_texture_view(
                     src_name, src_usage, create_if_not_exist=True

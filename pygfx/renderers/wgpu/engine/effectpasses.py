@@ -381,16 +381,16 @@ class EffectPass(FullQuadPass):
 
     def __init__(self):
         super().__init__()
-        self._enable = True
+        self._enabled = True
 
     @property
-    def enable(self):
+    def enabled(self):
         """Whether the effect pass is enabled."""
-        return self._enable
+        return self._enabled
 
-    @enable.setter
-    def enable(self, value):
-        self._enable = bool(value)
+    @enabled.setter
+    def enabled(self, value):
+        self._enabled = bool(value)
 
     def render(
         self,

@@ -112,9 +112,9 @@ def draw_imgui():
     imgui.set_next_window_pos((0, 0), imgui.Cond_.always)
     imgui.begin("Bloom Settings")
 
-    changed, value = imgui.checkbox("bloom", bloom_pass.enable)
+    changed, value = imgui.checkbox("bloom", bloom_pass.enabled)
     if changed:
-        bloom_pass.enable = value
+        bloom_pass.enabled = value
 
     changed, value = imgui.slider_float(
         "Bloom Strength", bloom_pass.bloom_strength, 0.0, 3.0
