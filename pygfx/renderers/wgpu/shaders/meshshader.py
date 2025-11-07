@@ -133,7 +133,7 @@ class MeshShader(BaseShader):
 
         return bindings
 
-    def get_bindings(self, wobject, shared):
+    def get_bindings(self, wobject, shared, scene):
         geometry = wobject.geometry
         material = wobject.material
 
@@ -292,9 +292,10 @@ class MeshShader(BaseShader):
             self["use_normal_map"] = True
 
         # set envmap configs
-        if getattr(material, "env_map", None):
+        if getattr(material, "env_map", None) and not isinstance(
+            material, MeshStandardMaterial
+        ):
             # TODO: Support envmap not only cube, but also equirect (hdr format)
-
             # special check for env_map
             assert isinstance(material.env_map, TextureMap)
             assert material.env_map.texture.size[2] == 6, "env_map must be a cube map"
@@ -307,13 +308,8 @@ class MeshShader(BaseShader):
                 )  # check=False because we don't need texcoords for env_map
             )
 
-            if isinstance(material, MeshStandardMaterial):
-                self["USE_IBL"] = True
-            elif isinstance(material, MeshBasicMaterial):
-                self["use_env_map"] = True
-                self["env_combine_mode"] = getattr(
-                    material, "env_combine_mode", "MULTIPLY"
-                )
+            self["use_env_map"] = True
+            self["env_combine_mode"] = getattr(material, "env_combine_mode", "MULTIPLY")
 
             self["env_mapping_mode"] = getattr(
                 material, "env_mapping_mode", "CUBE-REFLECTION"
@@ -531,8 +527,8 @@ class MeshToonShader(MeshShader):
         super().__init__(wobject)
         self["lighting"] = "toon"
 
-    def get_bindings(self, wobject, shared):
-        result = super().get_bindings(wobject, shared)
+    def get_bindings(self, wobject, shared, scene):
+        result = super().get_bindings(wobject, shared, scene)
 
         geometry = wobject.geometry
         material = wobject.material
@@ -562,13 +558,39 @@ class MeshStandardShader(MeshShader):
         super().__init__(wobject)
         self["lighting"] = "pbr"
 
-    def get_bindings(self, wobject, shared):
-        result = super().get_bindings(wobject, shared)
+    def get_bindings(self, wobject, shared, scene):
+        result = super().get_bindings(wobject, shared, scene)
 
         geometry = wobject.geometry
         material = wobject.material
 
         bindings = []
+
+        env_map = getattr(material, "env_map", None) or getattr(
+            scene, "environment", None
+        )
+
+        if env_map:
+            # special check for env_map
+            assert isinstance(env_map, TextureMap)
+            assert env_map.texture.size[2] == 6, "env_map must be a cube map"
+            fmt = to_texture_format(env_map.texture.format)
+            assert "norm" in fmt or "float" in fmt
+
+            bindings.extend(
+                self._define_texture_map(
+                    geometry, env_map, "env_map", view_dim="cube", check=False
+                )  # check=False because we don't need texcoords for env_map
+            )
+
+            width, height, _ = env_map.texture.size
+            max_level = math.floor(math.log2(max(width, height))) + 1
+            material.uniform_buffer.data["env_map_max_mip_level"] = float(max_level)
+
+            self["USE_IBL"] = True
+            self["env_mapping_mode"] = getattr(
+                material, "env_mapping_mode", "CUBE-REFLECTION"
+            )
 
         if material.roughness_map is not None:
             bindings.extend(
@@ -603,8 +625,8 @@ class MeshPhysicalShader(MeshStandardShader):
         self["USE_IOR"] = True
         self["USE_SPECULAR"] = True
 
-    def get_bindings(self, wobject, shared):
-        result = super().get_bindings(wobject, shared)
+    def get_bindings(self, wobject, shared, scene):
+        result = super().get_bindings(wobject, shared, scene)
 
         geometry = wobject.geometry
         material = wobject.material
@@ -784,7 +806,7 @@ class MeshSliceShader(BaseShader):
         else:
             raise RuntimeError(f"Unknown color_mode: '{color_mode}'")
 
-    def get_bindings(self, wobject, shared):
+    def get_bindings(self, wobject, shared, scene):
         # It would technically be possible to implement colormapping or
         # per-vertex colors, but its a tricky dance to get the per-vertex
         # data (e.g. texcoords) into a varying. And because the visual
