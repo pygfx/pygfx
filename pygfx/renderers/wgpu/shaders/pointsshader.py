@@ -112,7 +112,7 @@ class PointsShader(BaseShader):
             for marker_name in MarkerShape:
                 self[f"markerenum_{marker_name}"] = MarkerInt[marker_name]
 
-    def get_bindings(self, wobject, shared):
+    def get_bindings(self, wobject, shared, scene):
         geometry = wobject.geometry
         material = wobject.material
 
