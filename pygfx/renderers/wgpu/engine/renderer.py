@@ -528,6 +528,19 @@ class WgpuRenderer(RootEventHandler, Renderer):
         pixel_scale = self._pixel_scale
         return max(1, int(w * pixel_scale)), max(1, int(h * pixel_scale))
 
+    @physical_size.setter
+    def physical_size(self, size: tuple[int, int]) -> None:
+        """Set the physical size of the internal render texture."""
+        width, height = size
+        if width < 1 or height < 1:
+            raise ValueError("Renderer physical size must be at least 1x1 pixels.")
+        if isinstance(self._target, GPUCanvasContext):
+            self._canvas_context.set_physical_size(width, height)
+        else:
+            raise RuntimeError(
+                "Cannot set physical size when the target is not a GPUCanvasContext."
+            )
+
     @property
     def blend_mode(self):
         raise DeprecationWarning(

@@ -71,6 +71,16 @@ present_info = get_glfw_present_info(window)
 
 context = wgpu.gpu.get_canvas_context(present_info)
 
+
+def _on_size_change(*args):
+    renderer.pixel_ratio = glfw.get_window_content_scale(window)[0]
+    renderer.physical_size = glfw.get_framebuffer_size(window)
+
+
+glfw.set_framebuffer_size_callback(window, _on_size_change)
+glfw.set_window_content_scale_callback(window, _on_size_change)
+
+
 # Initialize physical size once. For robust apps update this on resize events.
 context.set_physical_size(*glfw.get_framebuffer_size(window))
 
@@ -96,14 +106,12 @@ def main():
         # process inputs
         glfw.poll_events()
 
-        # resize handling
-        context.set_physical_size(*glfw.get_framebuffer_size(window))
-
         # draw a frame
         renderer.render(triangle, camera)
 
         # present the frame to the screen
         context.present()
+
         # stats
         frame_count += 1
         etime = time.perf_counter() - last_frame_time
