@@ -81,9 +81,6 @@ glfw.set_framebuffer_size_callback(window, _on_size_change)
 glfw.set_window_content_scale_callback(window, _on_size_change)
 
 
-# Initialize physical size once. For robust apps update this on resize events.
-context.set_physical_size(*glfw.get_framebuffer_size(window))
-
 renderer = gfx.WgpuRenderer(context)
 camera = gfx.NDCCamera()
 
@@ -95,6 +92,9 @@ triangle = gfx.Mesh(
     ),
     gfx.MeshBasicMaterial(color_mode="vertex"),
 )
+
+# Initialize physical size once. For robust apps update this on resize events.
+_on_size_change()
 
 
 def main():
