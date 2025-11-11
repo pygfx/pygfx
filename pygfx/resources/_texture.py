@@ -66,15 +66,17 @@ class Texture(Resource):
         where it doesn't this param provides an override. This is a bitmask flag
         (values are OR'd).
 
+    Notes
+    -----
     Performance tips:
-
-    * If the given data is not c_contiguous, extra memory-copies may be needed
-      at upload time, which reduces performance when the data is changed often.
-    * RGB textures do not exist in wgpu, but are emulated with an RGBA texture.
-      This may introduce extra memory copies, which reduces performance when
-      data is changed often.
-    * Setting ``force_contiguous`` ensures that the set data is contiguous and
-      not RGB, it is recommended to use this when the texture data is dynamic.
+    
+        * If the given data is not c_contiguous, extra memory-copies may be needed
+          at upload time, which reduces performance when the data is changed often.
+        * RGB textures do not exist in wgpu, but are emulated with an RGBA texture.
+          This may introduce extra memory copies, which reduces performance when
+          data is changed often.
+        * Setting ``force_contiguous`` ensures that the set data is contiguous and
+          not RGB, it is recommended to use this when the texture data is dynamic.
     """
 
     def __init__(
