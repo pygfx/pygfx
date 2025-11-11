@@ -48,14 +48,17 @@ fn vs_main(in: VertexInput) -> Varyings {
     // and scaling of the volume is part of the world transform.
     varyings.data_back_pos = vec4<f32>(data_pos);
 
+    // Take care to take into account of the camera flipping any axii
+    let cam_sign = sign(u_stdinfo.cam_transform[0][0] * u_stdinfo.cam_transform[1][1] * u_stdinfo.cam_transform[2][2]);
+
     // We calculate the NDC positions for the near and front clipping planes,
     // and transform these back to data coordinates. From these positions
     // we can construct the view vector in the fragment shader, which is then
     // resistant to perspective transforms. It also makes that if the camera
     // is inside the volume, only the part in front in rendered.
     // Note that the w component for these positions should be left intact.
-    let ndc_pos1 = vec4<f32>(ndc_pos.xy, -ndc_pos.w, ndc_pos.w);
-    let ndc_pos2 = vec4<f32>(ndc_pos.xy, ndc_pos.w, ndc_pos.w);
+    let ndc_pos1 = vec4<f32>(ndc_pos.xy, -1.0 * cam_sign * ndc_pos.w, ndc_pos.w);
+    let ndc_pos2 = vec4<f32>(ndc_pos.xy, cam_sign * ndc_pos.w, ndc_pos.w);
     varyings.data_near_pos = vec4<f32>(ndc_to_data * ndc_pos1);
     varyings.data_far_pos = vec4<f32>(ndc_to_data * ndc_pos2);
 
