@@ -69,7 +69,6 @@ class Texture(Resource):
     Notes
     -----
     Performance tips:
-    
         * If the given data is not c_contiguous, extra memory-copies may be needed
           at upload time, which reduces performance when the data is changed often.
         * RGB textures do not exist in wgpu, but are emulated with an RGBA texture.
