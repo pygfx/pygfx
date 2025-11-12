@@ -79,6 +79,7 @@ from .engine.effectpasses import (
     FogPass,
     DepthPass,
 )
+from .engine.bloom import PhysicalBasedBloomPass
 from .engine.pipeline import Binding
 
 # Shader classes

@@ -200,6 +200,7 @@ class _GLTF:
         self._register_plugin(GLTFMaterialsVolumeExtension)
         self._register_plugin(GLTFMaterialsDispersionExtension)
         self._register_plugin(GLTFDracoMeshCompressionExtension)
+        self._register_plugin(GLTFMaterialsPBRSpecularGlossinessExtension)
 
     def _register_plugin(self, plugin_class):
         plugin = plugin_class(self)
@@ -425,6 +426,13 @@ class _GLTF:
             if unsupported_extensions_used:
                 gfx.utils.logger.warning(
                     f"This GLTF used extensions: {unsupported_extensions_used}, which are not supported yet, so the display may not be so correct."
+                )
+
+            if "KHR_materials_pbrSpecularGlossiness" in extensions_used:
+                gfx.utils.logger.warning(
+                    "This model uses the `KHR_materials_pbrSpecularGlossiness` extension, which is deprecated, and was archived in late 2021.\n"
+                    "Recent PBR features have been designed for the metal/rough workflow, "
+                    "This loader will automatically convert the specular/glossiness workflow to metal/roughness workflow."
                 )
 
         # mark the node types
@@ -910,26 +918,14 @@ class _GLTF:
         ]
         return view
 
-    @lru_cache(maxsize=None)
-    def _load_accessor(self, accessor_index):
-        gltf = self._gltf
-        accessor = gltf.model.accessors[accessor_index]
+    def _buffer_view_to_ndarray(
+        self, buffer_view_index, dtype, item_size, count, offset=0
+    ):
+        view = self._get_buffer_memory_view(buffer_view_index)
+        buffer_view = self._gltf.model.bufferViews[buffer_view_index]
 
-        buffer_view = gltf.model.bufferViews[accessor.bufferView]
-        view = self._get_buffer_memory_view(accessor.bufferView)
-
-        # todo accessor.sparse
-        if accessor.sparse is not None:
-            gfx.utils.logger.warning("Sparse accessor is not supported yet.")
-
-        accessor_type = accessor.type
-        accessor_component_type = accessor.componentType
-        accessor_count = accessor.count
-        accessor_dtype = np.dtype(self.COMPONENT_TYPE[accessor_component_type])
-        accessor_offset = accessor.byteOffset or 0
-        accessor_type_size = self.ACCESSOR_TYPE_SIZE[accessor_type]
-
-        item_bytes = accessor_type_size * accessor_dtype.itemsize
+        accessor_offset = offset or 0
+        item_bytes = item_size * np.dtype(dtype).itemsize
 
         if buffer_view.byteStride and buffer_view.byteStride != item_bytes:
             # It's a interleaved buffer
@@ -937,19 +933,63 @@ class _GLTF:
             # TODO: optimize this after pygfx support interleaved buffer.
             ar = np.lib.stride_tricks.as_strided(
                 view[accessor_offset:],
-                shape=(accessor_count, item_bytes),
+                shape=(count, item_bytes),
                 strides=(buffer_view.byteStride, 1),
             )
-            ar = np.frombuffer(np.ascontiguousarray(ar), dtype=accessor_dtype)
+            ar = np.frombuffer(np.ascontiguousarray(ar), dtype=dtype)
         else:
             ar = np.frombuffer(
                 view,
-                dtype=accessor_dtype,
+                dtype=dtype,
                 offset=accessor_offset,
-                count=accessor_count * accessor_type_size,
+                count=count * item_size,
             )
-        if accessor_type_size > 1:
-            ar = ar.reshape(accessor_count, accessor_type_size)
+        if item_size > 1:
+            ar = ar.reshape(count, item_size)
+
+        return ar
+
+    @lru_cache(maxsize=None)
+    def _load_accessor(self, accessor_index):
+        gltf = self._gltf
+        accessor = gltf.model.accessors[accessor_index]
+
+        accessor_dtype = np.dtype(self.COMPONENT_TYPE[accessor.componentType])
+        accessor_type_size = self.ACCESSOR_TYPE_SIZE[accessor.type]
+
+        if accessor.bufferView is None:
+            ar = np.zeros((accessor.count, accessor_type_size), dtype=accessor_dtype)
+        else:
+            ar = self._buffer_view_to_ndarray(
+                accessor.bufferView,
+                accessor_dtype,
+                accessor_type_size,
+                accessor.count,
+                accessor.byteOffset or 0,
+            )
+
+        if accessor.sparse is not None:
+            # Handle  sparse accessor
+            sparse_indices = accessor.sparse.indices
+            sparse_values = accessor.sparse.values
+            indices_dtype = self.COMPONENT_TYPE[sparse_indices.componentType]
+            indices_ar = self._buffer_view_to_ndarray(
+                sparse_indices.bufferView,
+                indices_dtype,
+                1,
+                accessor.sparse.count,
+                sparse_indices.byteOffset or 0,
+            )
+            values_ar = self._buffer_view_to_ndarray(
+                sparse_values.bufferView,
+                accessor_dtype,
+                accessor_type_size,
+                accessor.sparse.count,
+                sparse_values.byteOffset or 0,
+            )
+
+            ar = ar.copy()
+            ar[indices_ar.flatten()] = values_ar
 
         if accessor.normalized:
             # KHR_mesh_quantization
@@ -1605,7 +1645,7 @@ class GLTFDracoMeshCompressionExtension(GLTFExtension):
         if not find_spec("DracoPy"):
             raise ImportError(
                 """The `DracoPy` library is required for loading Draco compressed meshes. \n
-                Please install it with `pip install DracoPy`."""
+                Please install it with `pip install -U DracoPy`."""
             )
 
         import DracoPy
@@ -1618,18 +1658,20 @@ class GLTFDracoMeshCompressionExtension(GLTFExtension):
 
         geometry_args = {}
 
-        if draco_mesh.points is not None:
-            geometry_args["positions"] = draco_mesh.points.astype(
-                np.float32, copy=False
-            )
-        if draco_mesh.normals is not None:
-            geometry_args["normals"] = draco_mesh.normals.astype(np.float32, copy=False)
-        if draco_mesh.colors is not None:
-            geometry_args["colors"] = draco_mesh.colors.astype(np.float32, copy=False)
-        if draco_mesh.tex_coord is not None:
-            geometry_args["texcoords"] = draco_mesh.tex_coord.astype(
-                np.float32, copy=False
-            )
+        attributes = draco_extension["attributes"]
+        if attributes:
+            for attr, unique_id in attributes.items():
+                draco_attr = draco_mesh.get_attribute_by_unique_id(unique_id)
+                if draco_attr is not None:
+                    if attr in self.parser.ATTRIBUTE_NAME:
+                        geometry_attr = self.parser.ATTRIBUTE_NAME[attr]
+                    else:
+                        if attr.startswith("TEXCOORD_"):
+                            geometry_attr = f"texcoords{attr[-1]}"
+                        else:
+                            geometry_attr = attr.lower()
+
+                    geometry_args[geometry_attr] = draco_attr["data"]
 
         if draco_mesh.faces is not None:
             geometry_args["indices"] = draco_mesh.faces.astype(np.uint32, copy=False)
@@ -1640,3 +1682,69 @@ class GLTFDracoMeshCompressionExtension(GLTFExtension):
 
         geometry = gfx.Geometry(**geometry_args)
         return geometry
+
+
+class GLTFMaterialsPBRSpecularGlossinessExtension(GLTFBaseMaterialsExtension):
+    EXTENSION_NAME = "KHR_materials_pbrSpecularGlossiness"
+
+    def extend_material(self, material_def, material):
+        if (
+            not material_def.extensions
+            or self.EXTENSION_NAME not in material_def.extensions
+        ):
+            return
+
+        extension = material_def.extensions[self.EXTENSION_NAME]
+
+        material.ior = 1000.0
+        material.metalness = 0.0
+        material.roughness = 1.0
+
+        # specular color factor
+        specular_factor = extension.get("specularFactor", [1.0, 1.0, 1.0])
+        material.specular = gfx.Color.from_physical(*specular_factor)
+
+        # diffuse -> base color
+        diffuse_factor = extension.get("diffuseFactor", [1.0, 1.0, 1.0, 1.0])
+        material.color = gfx.Color.from_physical(*diffuse_factor)
+
+        diffuse_texture = extension.get("diffuseTexture", None)
+        if diffuse_texture is not None:
+            material.map = self.parser._load_gltf_texture_map(diffuse_texture)
+
+        # Move specular + gloss -> specular + roughness.
+        specular_glossiness_texture = extension.get("specularGlossinessTexture", None)
+
+        if specular_glossiness_texture is not None:
+            # specularGlossiness -> specular.
+            specular_texture_map = self.parser._load_gltf_texture_map(
+                specular_glossiness_texture
+            )
+
+            glossiness_channel = specular_texture_map.texture.data[..., 3].copy()
+            specular_texture_map.texture.data[..., 3] = 255  # remove glossiness channel
+
+            material.specular_map = specular_texture_map
+
+            # specularGlossiness -> roughness.
+            glossiness_factor = extension.get("glossinessFactor", 1.0)
+
+            # load again
+            roughness_texture_map = self.parser._load_gltf_texture_map(
+                specular_glossiness_texture
+            )
+
+            roughness_texture_data = np.zeros_like(roughness_texture_map.texture.data)
+            # roughness = 255 - glossiness
+            roughness = 255 - glossiness_channel * glossiness_factor
+            roughness_texture_data[..., 1] = roughness
+            roughness_texture_data[..., 3] = 255
+            # create new texture for roughness
+            roughness_texture = gfx.Texture(roughness_texture_data, dim=2)
+            roughness_texture_map.texture = roughness_texture
+
+            material.roughness_map = roughness_texture_map
+
+        else:
+            glossiness_factor = extension.get("glossinessFactor", 1.0)
+            material.roughness = 1.0 - glossiness_factor
