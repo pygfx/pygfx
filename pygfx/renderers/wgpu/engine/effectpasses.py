@@ -88,22 +88,22 @@ def create_full_quad_pipeline(targets, binding_layout, fragment_code):
 
         render_pipeline = device.create_render_pipeline(
             layout=pipeline_layout,
-            vertex={
-                "module": shader_module,
-                "entry_point": "vs_main",
-                "buffers": [],
-            },
-            primitive={
-                "topology": wgpu.PrimitiveTopology.triangle_strip,
-                "strip_index_format": wgpu.IndexFormat.uint32,
-            },
+            vertex=wgpu.VertexState(
+                module=shader_module,
+                entry_point="vs_main",
+                buffers=[],
+            ),
+            primitive=wgpu.PrimitiveState(
+                topology="triangle-strip",
+                strip_index_format="uint32",
+            ),
             depth_stencil=None,
             multisample=None,
-            fragment={
-                "module": shader_module,
-                "entry_point": "fs_main",
-                "targets": targets,
-            },
+            fragment=wgpu.FragmentState(
+                module=shader_module,
+                entry_point="fs_main",
+                targets=targets,
+            ),
         )
 
         # Bind shader module object to the lifetime of the pipeline object
@@ -246,13 +246,13 @@ class FullQuadPass:
         color_attachments = []
         for tex in target_textures:
             color_attachments.append(
-                {
-                    "view": tex,
-                    "resolve_target": None,
-                    "clear_value": (0, 0, 0, 0),
-                    "load_op": self.load_op,
-                    "store_op": wgpu.StoreOp.store,
-                }
+                wgpu.RenderPassColorAttachment(
+                    view=tex,
+                    resolve_target=None,
+                    clear_value=(0, 0, 0, 0),
+                    load_op=self.load_op,
+                    store_op="store",
+                )
             )
 
         render_pass = command_encoder.begin_render_pass(
@@ -270,21 +270,21 @@ class FullQuadPass:
 
         # Uniform buffer
         binding_layout.append(
-            {
-                "binding": 0,
-                "visibility": wgpu.ShaderStage.FRAGMENT,
-                "buffer": {"type": wgpu.BufferBindingType.uniform},
-            }
+            wgpu.BindGroupLayoutEntry(
+                binding=0,
+                visibility=wgpu.ShaderStage.FRAGMENT,
+                buffer=wgpu.BufferBindingLayout(type="uniform"),
+            )
         )
         definitions_code += self._uniform_binding_definition
 
         # Sampler
         binding_layout.append(
-            {
-                "binding": 1,
-                "visibility": wgpu.ShaderStage.FRAGMENT,
-                "sampler": {"type": wgpu.SamplerBindingType.filtering},
-            }
+            wgpu.BindGroupLayoutEntry(
+                binding=1,
+                visibility=wgpu.ShaderStage.FRAGMENT,
+                sampler=wgpu.SamplerBindingLayout(type="filtering"),
+            )
         )
         definitions_code += self._sampler_binding_definition
 
@@ -296,15 +296,15 @@ class FullQuadPass:
                 sample_type = wgpu.TextureSampleType.depth
                 wgsl_type = "texture_depth_2d"
             binding_layout.append(
-                {
-                    "binding": i,
-                    "visibility": wgpu.ShaderStage.FRAGMENT,
-                    "texture": {
-                        "sample_type": sample_type,
-                        "view_dimension": wgpu.TextureViewDimension.d2,
-                        "multisampled": False,
-                    },
-                }
+                wgpu.BindGroupLayoutEntry(
+                    binding=i,
+                    visibility=wgpu.ShaderStage.FRAGMENT,
+                    texture=wgpu.TextureBindingLayout(
+                        sample_type=sample_type,
+                        view_dimension="2d",
+                        multisampled=False,
+                    ),
+                )
             )
             definitions_code += f"""
                 @group(0) @binding({i})
@@ -315,10 +315,10 @@ class FullQuadPass:
         targets = []
         for format in target_formats:
             targets.append(
-                {
-                    "format": format,
-                    "blend": self.blend_state,
-                }
+                wgpu.ColorTargetState(
+                    format=format,
+                    blend=self.blend_state,
+                )
             )
 
         wgsl = definitions_code
