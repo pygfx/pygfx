@@ -56,7 +56,7 @@ class BaseVolumeShader(BaseShader):
         if material.map is not None:
             self["colorspace"] = material.map.texture.colorspace
 
-    def get_bindings(self, wobject, shared):
+    def get_bindings(self, wobject, shared, scene):
         geometry = wobject.geometry
         material = wobject.material
 
@@ -105,7 +105,7 @@ class VolumeSliceShader(BaseVolumeShader):
 class VolumeRayShader(BaseVolumeShader):
     type = "render"
 
-    def get_bindings(self, wobject, shared):
+    def get_bindings(self, wobject, shared, scene):
         render_mode = wobject.material.render_mode
 
         # Fall back to MIP, because we've written our examples to use the plain VolumeRayMaterial for quite a while.
@@ -117,7 +117,7 @@ class VolumeRayShader(BaseVolumeShader):
                 f"Invalid value for {wobject.material.__class__.__name__}.render_mode: {render_mode!r}. Use an appropriate volume material, e.g. VolumeMipMaterial or VolumeIsoMaterial."
             )
         self["mode"] = render_mode
-        return super().get_bindings(wobject, shared)
+        return super().get_bindings(wobject, shared, scene)
 
     def get_pipeline_info(self, wobject, shared):
         return {

@@ -642,9 +642,8 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
     out.pick = (
         pick_pack(varyings.pick_id, 20) +
         pick_pack(varyings.pick_idx, 26) +
-        pick_pack(u32(varyings.pick_coords.x * 63.0), 6) +
-        pick_pack(u32(varyings.pick_coords.y * 63.0), 6) +
-        pick_pack(u32(varyings.pick_coords.z * 63.0), 6)
+        pick_pack(u32(varyings.pick_coords.x * 511.0), 9) +
+        pick_pack(u32(varyings.pick_coords.y * 511.0), 9)
     );
     $$ endif
 

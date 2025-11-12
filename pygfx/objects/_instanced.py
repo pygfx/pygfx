@@ -1,5 +1,7 @@
 import numpy as np
 
+import pylinalg as la
+
 from ._base import id_provider
 from . import WorldObject, Mesh, Line
 from ..resources import Buffer
@@ -72,6 +74,18 @@ class InstancedObject(WorldObject):
     def get_matrix_at(self, index: int):
         """get the matrix for the instance at the given index."""
         return self._store["instance_buffer"].data["matrix"][index].T
+
+    def get_bounding_box(self):
+        aabb = super().get_bounding_box()
+
+        transforms = self.instance_buffer.data["matrix"].transpose(0, 2, 1)
+        aabbs = la.aabb_transform(aabb[None], transforms)
+
+        final_aabb = np.empty((2, 3), dtype=float)
+        final_aabb[0] = np.min(aabbs[:, 0, :], axis=0)
+        final_aabb[1] = np.max(aabbs[:, 1, :], axis=0)
+
+        return final_aabb
 
     def _wgpu_get_pick_info(self, pick_value) -> dict:
         info = super()._wgpu_get_pick_info(pick_value)

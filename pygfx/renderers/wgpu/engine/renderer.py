@@ -21,6 +21,7 @@ from ....objects import (
     WheelEvent,
     WindowEvent,
     WorldObject,
+    Group,
 )
 from ....objects._lights import (
     Light,
@@ -74,15 +75,19 @@ class FlatScene:
         }
         self.shadow_objects = []
         self.object_count = object_count
+        self.scene = scene
         self.add_scene(scene)
 
-    def _iter_scene(self, ob, render_order=0):
+    def _iter_scene(self, ob, group_order=0):
         if not ob.visible:
             return
-        render_order += ob.render_order
-        yield ob, render_order
+
+        if isinstance(ob, Group):
+            group_order = ob.render_order
+
+        yield ob, group_order
         for child in ob._children:
-            yield from self._iter_scene(child, render_order)
+            yield from self._iter_scene(child, group_order)
 
     def add_scene(self, scene):
         """Add a scene to the total flat scene. Is usually called just once."""
@@ -91,7 +96,7 @@ class FlatScene:
         view_matrix = self._view_matrix
         wobject_wrappers = self._wobject_wrappers
 
-        for wobject, render_order in self._iter_scene(scene):
+        for wobject, group_order in self._iter_scene(scene):
             # Dereference the object in case its a weak proxy
             wobject = wobject._self()
             # Assign renderer id's
@@ -147,7 +152,7 @@ class FlatScene:
                     distance_to_camera = float(-relative_pos[2])
                     dist_flag = distance_to_camera * dist_sort_sign
 
-                sort_key = (render_queue, render_order, dist_flag)
+                sort_key = (render_queue, group_order, wobject.render_order, dist_flag)
                 wobject_wrappers.append(WobjectWrapper(wobject, sort_key, pass_type))
 
     def sort(self):
@@ -159,7 +164,9 @@ class FlatScene:
         self._compute_pipeline_containers = compute_pipeline_containers = []
         self._bake_functions = bake_functions = []
         for wrapper in self._wobject_wrappers:
-            container_group = get_pipeline_container_group(wrapper.wobject, renderstate)
+            container_group = get_pipeline_container_group(
+                wrapper.wobject, self.scene, renderstate
+            )
             compute_pipeline_containers.extend(container_group.compute_containers)
             wrapper.render_containers = container_group.render_containers
             for func in container_group.bake_functions:
@@ -803,6 +810,8 @@ class WgpuRenderer(RootEventHandler, Renderer):
         else:
             # Apply any effect passes
             for step in self._effect_passes:
+                if not step.enabled:
+                    continue
                 color_tex = self._blender.get_texture_view(
                     src_name, src_usage, create_if_not_exist=True
                 )

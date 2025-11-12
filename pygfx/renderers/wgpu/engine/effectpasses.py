@@ -129,6 +129,23 @@ class FullQuadPass:
 
     wgsl = ""
 
+    # todo: configurable for each render target
+    load_op = wgpu.LoadOp.clear
+
+    # todo: configurable for each render target
+    blend_state = {
+        "alpha": {
+            "operation": wgpu.BlendOperation.add,
+            "src_factor": wgpu.BlendFactor.one,
+            "dst_factor": wgpu.BlendFactor.zero,
+        },
+        "color": {
+            "operation": wgpu.BlendOperation.add,
+            "src_factor": wgpu.BlendFactor.one,
+            "dst_factor": wgpu.BlendFactor.zero,
+        },
+    }
+
     def __init__(self):
         self._device = get_shared().device
 
@@ -233,7 +250,7 @@ class FullQuadPass:
                     view=tex,
                     resolve_target=None,
                     clear_value=(0, 0, 0, 0),
-                    load_op="clear",
+                    load_op=self.load_op,
                     store_op="store",
                 )
             )
@@ -243,7 +260,7 @@ class FullQuadPass:
             depth_stencil_attachment=None,
         )
         render_pass.set_pipeline(self._render_pipeline)
-        render_pass.set_bind_group(0, bind_group, [], 0, 99)
+        render_pass.set_bind_group(0, bind_group)
         render_pass.draw(4, 1)
         render_pass.end()
 
@@ -300,18 +317,7 @@ class FullQuadPass:
             targets.append(
                 wgpu.ColorTargetState(
                     format=format,
-                    blend=wgpu.BlendState(
-                        alpha=wgpu.BlendComponent(
-                            operation="add",
-                            src_factor="one",
-                            dst_factor="zero",
-                        ),
-                        color=wgpu.BlendComponent(
-                            operation="add",
-                            src_factor="one",
-                            dst_factor="zero",
-                        ),
-                    ),
+                    blend=self.blend_state,
                 )
             )
 
@@ -372,6 +378,19 @@ class EffectPass(FullQuadPass):
 
     def __repr__(self):
         return f"<{self.__class__.__name__} at {hex(id(self))}>"
+
+    def __init__(self):
+        super().__init__()
+        self._enabled = True
+
+    @property
+    def enabled(self):
+        """Whether the effect pass is enabled."""
+        return self._enabled
+
+    @enabled.setter
+    def enabled(self, value):
+        self._enabled = bool(value)
 
     def render(
         self,
@@ -521,21 +540,24 @@ class DDAAPass(PPAAPass):
 
     wgsl = "{$ include 'pygfx.ddaa2.wgsl' $}"
 
-    def __init__(self, *, max_edge_iters=2):
+    def __init__(self, *, max_edge_iters=5):
         super().__init__()
         self.max_edge_iters = max_edge_iters
 
     @property
     def max_edge_iters(self):
-        """The maximum number of iters (of 8 samples) to search along an edge.
+        """The maximum number of iters (of 3 samples) to search along an edge.
 
-        Default 2. Set to 3 for prettier edges, or to 0 or 1 for more performance.
+        Default 5 (i.e. search 15 pixels along an edge). Set higger for prettier
+        edges, or lower for more performance.
         """
-        return self._template_vars["MAX_EDGE_ITERS"]
+        return len(self._template_vars["EDGE_STEP_LIST"])
 
     @max_edge_iters.setter
     def max_edge_iters(self, max_edge_iters):
-        self._set_template_var(MAX_EDGE_ITERS=int(max_edge_iters))
+        # The default EDGE_STEP_LIST is [3, 3, 3, 3, 3]
+        edge_step_list = [3] * int(max_edge_iters)
+        self._set_template_var(EDGE_STEP_LIST=edge_step_list)
 
 
 class NoisePass(EffectPass):
