@@ -960,7 +960,9 @@ class WgpuRenderer(RootEventHandler, Renderer):
                 # Render back side
                 for item in flat.transparent_double_pass_objects:
                     item.wobject.material.side = "back"
-                    item.container_group.update(item.wobject, flat.scene, renderstate)
+                    item.container_group.update(
+                        item.wobject, flat.scene, self, renderstate
+                    )
 
                 self._render_objects(
                     flat.transparent_double_pass_objects,
@@ -969,14 +971,17 @@ class WgpuRenderer(RootEventHandler, Renderer):
                     command_encoder,
                 )
 
-                # Copy the color texture to the transmission framebuffer again
-                self.generate_mipmapped_color_texture(
-                    command_encoder, self._transmission_framebuffer
-                )
+                if flat.has_transmissive_objects:
+                    # Copy the color texture to the transmission framebuffer again
+                    self.generate_mipmapped_color_texture(
+                        command_encoder, self._transmission_framebuffer
+                    )
                 # Render front side
                 for item in flat.transparent_double_pass_objects:
                     item.wobject.material.side = "front"
-                    item.container_group.update(item.wobject, flat.scene, renderstate)
+                    item.container_group.update(
+                        item.wobject, flat.scene, self, renderstate
+                    )
 
                 self._render_objects(
                     flat.transparent_objects,
