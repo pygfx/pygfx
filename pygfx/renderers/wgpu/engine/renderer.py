@@ -186,7 +186,7 @@ class FlatScene:
             # No view matrix, so we cannot sort by distance
             render_items.sort(key=lambda item: item.sort_key)
 
-    def collect_pipelines_container_groups(self, renderstate):
+    def collect_pipelines_container_groups(self, renderer, renderstate):
         """Select and resolve the pipeline, compiling shaders, building pipelines and composing binding as needed."""
         self._compute_pipeline_containers = compute_pipeline_containers = []
         self._bake_functions = bake_functions = []
@@ -197,7 +197,7 @@ class FlatScene:
         ]:
             for item in objects:
                 container_group = get_pipeline_container_group(
-                    item.wobject, self.scene, renderstate
+                    item.wobject, self.scene, renderer, renderstate
                 )
                 compute_pipeline_containers.extend(container_group.compute_containers)
                 item.container_group = container_group
@@ -341,6 +341,8 @@ class WgpuRenderer(RootEventHandler, Renderer):
         self._show_fps = bool(show_fps)
         now = time.perf_counter()
         self._fps = {"start": now, "count": 0}
+
+        self._store.transmission_framebuffer = None
 
         if enable_events:
             self.enable_events()
@@ -742,10 +744,12 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # Get renderstate object
         renderstate = get_renderstate(flat.lights, self._blender)
         self._renderstates_per_flush[0].append(renderstate)
-        self._shared.ensure_transmission_framebuffer_size(self.physical_size)
+
+        if flat.has_transmissive_objects:
+            self._ensure_transmission_framebuffer()
 
         # Make sure pipeline objects exist for all wobjects. This also collects the bake functons.
-        flat.collect_pipelines_container_groups(renderstate)
+        flat.collect_pipelines_container_groups(self, renderstate)
 
         # Enable pipelines to update data on the CPU.
         flat.call_bake_functions(camera, logical_size)
@@ -858,6 +862,46 @@ class WgpuRenderer(RootEventHandler, Renderer):
         if need_mipmaps:
             generate_texture_mipmaps(target)
 
+    def _ensure_transmission_framebuffer(self):
+        size = self.physical_size
+        color_tex_format = self._blender.texture_info["color"]["format"]
+
+        if (
+            self._transmission_framebuffer is None
+            or self._transmission_framebuffer.size[:2] != (size[0], size[1])
+            or self._transmission_framebuffer.format != color_tex_format
+        ):
+            colorspace = "tex-srgb" if "srgb" in color_tex_format else "physical"
+            self._store.transmission_framebuffer = Texture(
+                dim=2,
+                size=(size[0], size[1], 1),
+                colorspace=colorspace,
+                format=color_tex_format,
+                generate_mipmaps=True,
+                usage=wgpu.TextureUsage.COPY_DST
+                | wgpu.TextureUsage.TEXTURE_BINDING
+                | wgpu.TextureUsage.COPY_SRC,
+            )
+
+        return self._store.transmission_framebuffer
+
+    def generate_mipmapped_color_texture(self, command_encoder, target_texture):
+        command_encoder.copy_texture_to_texture(
+            {
+                "texture": self._blender._textures.get("color"),
+                "origin": (0, 0, 0),
+            },
+            {
+                "texture": ensure_wgpu_object(target_texture),
+            },
+            copy_size=self.physical_size,
+        )
+        generate_texture_mipmaps(target_texture, command_encoder)
+
+    @property
+    def _transmission_framebuffer(self):
+        return self._store.transmission_framebuffer
+
     def _render_recording(
         self,
         renderstate,
@@ -908,20 +952,8 @@ class WgpuRenderer(RootEventHandler, Renderer):
         if flat.transparent_objects:
             if flat.has_transmissive_objects:
                 # Copy the color texture to the transmission framebuffer
-                command_encoder.copy_texture_to_texture(
-                    {
-                        "texture": self._blender._textures.get("color"),
-                        "origin": (0, 0, 0),
-                    },
-                    {
-                        "texture": ensure_wgpu_object(
-                            self._shared.transmission_framebuffer
-                        ),
-                    },
-                    copy_size=self.physical_size,
-                )
-                generate_texture_mipmaps(
-                    self._shared.transmission_framebuffer, command_encoder
+                self.generate_mipmapped_color_texture(
+                    command_encoder, self._transmission_framebuffer
                 )
 
             if flat.transparent_double_pass_objects:
@@ -938,22 +970,9 @@ class WgpuRenderer(RootEventHandler, Renderer):
                 )
 
                 # Copy the color texture to the transmission framebuffer again
-                command_encoder.copy_texture_to_texture(
-                    {
-                        "texture": self._blender._textures.get("color"),
-                        "origin": (0, 0, 0),
-                    },
-                    {
-                        "texture": ensure_wgpu_object(
-                            self._shared.transmission_framebuffer
-                        ),
-                    },
-                    copy_size=self.physical_size,
+                self.generate_mipmapped_color_texture(
+                    command_encoder, self._transmission_framebuffer
                 )
-                generate_texture_mipmaps(
-                    self._shared.transmission_framebuffer, command_encoder
-                )
-
                 # Render front side
                 for item in flat.transparent_double_pass_objects:
                     item.wobject.material.side = "front"
