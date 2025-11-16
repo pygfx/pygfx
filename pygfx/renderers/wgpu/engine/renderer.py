@@ -366,7 +366,9 @@ class WgpuRenderer(RootEventHandler, Renderer):
         else:
             pixel_scale = float(pixel_scale)
             if pixel_scale < 0.1 or pixel_scale > 10:
-                raise ValueError("renderer.pixel_scale must be bwteen 0.1 and 10.")
+                raise ValueError(
+                    f"renderer.pixel_scale must be bwteen 0.1 and 10. Got {pixel_scale}."
+                )
             self._pixel_scale = pixel_scale
 
     @property
