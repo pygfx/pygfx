@@ -230,10 +230,7 @@ class Blender:
 
         # Get the color_blend mini-dict
         if alpha_method == "opaque":
-            color_blend = {
-                "alpha": blend_dict(bf.one, bf.zero, bo.add),
-                "color": blend_dict(bf.one, bf.zero, bo.add),
-            }
+            color_blend = None  # no blending needed for opaque
         elif alpha_method == "blended":
             # Note that color_constant and alpha_constant are not yet supported.
             # We'd need to call GPURenderPassEncoder.set_blend_constant(rgba), close to where we call GPURenderPassEncoder.set_viewport() in renderer.py
