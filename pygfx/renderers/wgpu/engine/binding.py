@@ -79,14 +79,15 @@ class Binding:
                 else:
                     usage_flags |= wgpu.BufferUsage.VERTEX
             self._require_usage_flags(resource, usage_flags)
-            binding = {
-                "binding": slot,
-                "resource": {
-                    "buffer": ensure_wgpu_object(resource),
-                    "offset": 0,
-                    "size": resource.nbytes,
-                },
-            }
+            bind_group_entry = wgpu.BindGroupEntry(
+                binding=slot,
+                resource=wgpu.BufferBinding(
+                    buffer=ensure_wgpu_object(resource),
+                    offset=0,
+                    size=resource.nbytes,
+                ),
+            )
+
             # Determine min_binding_size. We can set it to None, so it won't do
             # an early check, causing runtime checks to be needed. If we want to
             # specify it, the needed value is different for shader array
@@ -102,37 +103,37 @@ class Binding:
                 min_binding_size = resource.nbytes
             else:
                 min_binding_size = None  # None or resource.itemsize
-            binding_layout = {
-                "binding": slot,
-                "visibility": self.visibility,
-                "buffer": {
-                    "type": getattr(wgpu.BufferBindingType, subtype),
-                    "has_dynamic_offset": False,
-                    "min_binding_size": min_binding_size,
-                },
-            }
+            bind_group_layout_entry = wgpu.BindGroupLayoutEntry(
+                binding=slot,
+                visibility=self.visibility,
+                buffer=wgpu.BufferBindingLayout(
+                    type=getattr(wgpu.BufferBindingType, subtype),
+                    has_dynamic_offset=False,
+                    min_binding_size=min_binding_size,
+                ),
+            )
         elif self.type.startswith("sampler/"):
             assert isinstance(resource, GfxSampler)
-            binding = {
-                "binding": slot,
-                "resource": ensure_wgpu_object(resource),
-            }
-            binding_layout = {
-                "binding": slot,
-                "visibility": self.visibility,
-                "sampler": {
-                    "type": getattr(wgpu.SamplerBindingType, subtype),
-                },
-            }
+            bind_group_entry = wgpu.BindGroupEntry(
+                binding=slot,
+                resource=ensure_wgpu_object(resource),
+            )
+            bind_group_layout_entry = wgpu.BindGroupLayoutEntry(
+                binding=slot,
+                visibility=self.visibility,
+                sampler=wgpu.SamplerBindingLayout(
+                    type=getattr(wgpu.SamplerBindingType, subtype),
+                ),
+            )
         elif self.type.startswith("texture/"):
             assert isinstance(resource, GfxTextureView)
             self._require_usage_flags(
                 resource.texture, wgpu.TextureUsage.TEXTURE_BINDING
             )
-            binding = {
-                "binding": slot,
-                "resource": ensure_wgpu_object(resource),
-            }
+            bind_group_entry = wgpu.BindGroupEntry(
+                binding=slot,
+                resource=ensure_wgpu_object(resource),
+            )
             dim = resource.view_dim
             dim = getattr(wgpu.TextureViewDimension, dim, dim)
             sample_type = getattr(wgpu.TextureSampleType, subtype, subtype)
@@ -156,62 +157,69 @@ class Binding:
                     sample_type = wgpu.TextureSampleType.depth
                 else:
                     raise ValueError("Could not determine texture sample type.")
-            binding_layout = {
-                "binding": slot,
-                "visibility": self.visibility,
-                "texture": {
-                    "sample_type": sample_type,
-                    "view_dimension": dim,
-                    "multisampled": False,
-                },
-            }
+            bind_group_layout_entry = wgpu.BindGroupLayoutEntry(
+                binding=slot,
+                visibility=self.visibility,
+                texture=wgpu.TextureBindingLayout(
+                    sample_type=sample_type,
+                    view_dimension=dim,
+                    multisampled=False,
+                ),
+            )
         elif self.type.startswith("storage_texture/"):
             assert isinstance(resource, GfxTextureView)
             self._require_usage_flags(
                 resource.texture, wgpu.TextureUsage.STORAGE_BINDING
             )
-            binding = {
-                "binding": slot,
-                "resource": ensure_wgpu_object(resource),
-            }
+            bind_group_entry = wgpu.BindGroupEntry(
+                binding=slot,
+                resource=ensure_wgpu_object(resource),
+            )
             dim = resource.view_dim
             dim = getattr(wgpu.TextureViewDimension, dim, dim)
             fmt = to_texture_format(resource.format)
             fmt = ALTTEXFORMAT.get(fmt, [fmt])[0]
-            binding_layout = {
-                "binding": slot,
-                "visibility": self.visibility,
-                "storage_texture": {
-                    "access": getattr(wgpu.StorageTextureAccess, subtype),
-                    "format": fmt,
-                    "view_dimension": dim,
-                },
-            }
+            bind_group_layout_entry = wgpu.BindGroupLayoutEntry(
+                binding=slot,
+                visibility=self.visibility,
+                storage_texture=wgpu.StorageTextureBindingLayout(
+                    access=getattr(wgpu.StorageTextureAccess, subtype),
+                    format=fmt,
+                    view_dimension=dim,
+                ),
+            )
         elif self.type.startswith("shadow_texture/"):
             # a shadow_texture's resource is wgpu.GPUTextureView
             assert isinstance(resource, wgpu.GPUTextureView)
-            binding = {"binding": slot, "resource": resource}
+            bind_group_entry = wgpu.BindGroupEntry(
+                binding=slot,
+                resource=resource,
+            )
 
-            binding_layout = {
-                "binding": slot,
-                "visibility": wgpu.ShaderStage.FRAGMENT,
-                "texture": {
-                    "sample_type": wgpu.TextureSampleType.depth,
-                    "view_dimension": subtype,
-                    "multisampled": False,
-                },
-            }
+            bind_group_layout_entry = wgpu.BindGroupLayoutEntry(
+                binding=slot,
+                visibility=wgpu.ShaderStage.FRAGMENT,
+                texture=wgpu.TextureBindingLayout(
+                    sample_type="depth",
+                    view_dimension=subtype,
+                    multisampled=False,
+                ),
+            )
         elif self.type.startswith("shadow_sampler/"):
             # a shadow_sampler's resource is wgpu.GPUSampler
             assert isinstance(resource, wgpu.GPUSampler)
-            binding = {"binding": slot, "resource": resource}
+            bind_group_entry = wgpu.BindGroupEntry(
+                binding=slot,
+                resource=resource,
+            )
 
-            binding_layout = {
-                "binding": slot,
-                "visibility": wgpu.ShaderStage.FRAGMENT,
-                "sampler": {"type": wgpu.SamplerBindingType.comparison},
-            }
+            bind_group_layout_entry = wgpu.BindGroupLayoutEntry(
+                binding=slot,
+                visibility=wgpu.ShaderStage.FRAGMENT,
+                sampler=wgpu.SamplerBindingLayout(type="comparison"),
+            )
+
         else:
             raise RuntimeError(f"Unexpected binding type: '{self.type}'")
 
-        return binding, binding_layout
+        return bind_group_entry, bind_group_layout_entry

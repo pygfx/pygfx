@@ -134,28 +134,28 @@ def get_cached_render_pipeline(device, *args):
 
         result = device.create_render_pipeline(
             layout=pipeline_layout,
-            vertex={
-                "module": shader_module,
-                "entry_point": "vs_main",
-                "buffers": [],
-            },
-            primitive={
-                "topology": primitive_topology,
-                "strip_index_format": strip_index_format,
-                "front_face": wgpu.FrontFace.ccw,
-                "cull_mode": cull_mode,
-            },
+            vertex=wgpu.VertexState(
+                module=shader_module,
+                entry_point="vs_main",
+                buffers=[],
+            ),
+            primitive=wgpu.PrimitiveState(
+                topology=primitive_topology,
+                strip_index_format=strip_index_format,
+                front_face=wgpu.FrontFace.ccw,
+                cull_mode=cull_mode,
+            ),
             depth_stencil=depth_descriptor,
-            multisample={
-                "count": 1,
-                "mask": 0xFFFFFFFF,
-                "alpha_to_coverage_enabled": False,
-            },
-            fragment={
-                "module": shader_module,
-                "entry_point": "fs_main",
-                "targets": color_descriptors,
-            },
+            multisample=wgpu.MultisampleState(
+                count=1,
+                mask=0xFFFFFFFF,
+                alpha_to_coverage_enabled=False,
+            ),
+            fragment=wgpu.FragmentState(
+                module=shader_module,
+                entry_point="fs_main",
+                targets=color_descriptors,
+            ),
         )
 
         PIPELINE_CACHE.set(key, result)
