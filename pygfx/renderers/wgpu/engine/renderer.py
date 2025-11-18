@@ -399,10 +399,12 @@ class WgpuRenderer(RootEventHandler, Renderer):
             if isinstance(self._target, BaseRenderCanvas):
                 target_pixel_ratio = self._target.get_pixel_ratio()
             pixel_scale = pixel_ratio / target_pixel_ratio
-            if 0.9 < pixel_scale < 1.1:
+            if 0.999 < pixel_scale < 1.001:
                 pixel_scale = 1  # snap
-            elif 1.9 < pixel_scale < 2.1:
+            elif 1.999 < pixel_scale < 2.001:
                 pixel_scale = 2  # snap
+            elif 2.999 < pixel_scale < 3.001:
+                pixel_scale = 3  # snap
             self.pixel_scale = pixel_scale
 
     @property
