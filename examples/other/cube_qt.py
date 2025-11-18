@@ -21,7 +21,7 @@ from rendercanvas.pyside6 import RenderCanvas, loop
 
 
 canvas = RenderCanvas()
-renderer = gfx.renderers.WgpuRenderer(canvas)
+renderer = gfx.renderers.WgpuRenderer(canvas, pixel_ratio=1.)
 scene = gfx.Scene()
 
 cube = gfx.Mesh(

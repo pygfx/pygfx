@@ -31,7 +31,7 @@ class Main(QtWidgets.QWidget):
 
         # Create canvas, renderer and a scene object
         self._canvas = QRenderWidget(parent=self)
-        self._renderer = gfx.WgpuRenderer(self._canvas)
+        self._renderer = gfx.WgpuRenderer(self._canvas, pixel_ratio=1)
         self._scene = gfx.Scene()
         self._camera = gfx.OrthographicCamera(110, 110)
 
