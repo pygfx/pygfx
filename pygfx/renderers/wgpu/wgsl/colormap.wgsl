@@ -1,7 +1,13 @@
 // Colormap support
 
 fn sample_colormap(texcoord: {{ colormap_coord_type }}) -> vec4<f32> {
-    
+    return sample_colormap_nomaprange(
+        (texcoord - u_material.maprange[0]) / (u_material.maprange[1] - u_material.maprange[0])
+    );
+}
+
+fn sample_colormap_nomaprange(texcoord: {{ colormap_coord_type }}) -> vec4<f32> {
+
     $$ if use_colormap is defined and use_colormap
         // apply the colormap transform
         $$ if colormap_coord_type == "f32"

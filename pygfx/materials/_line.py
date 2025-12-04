@@ -19,6 +19,8 @@ class LineMaterial(Material):
         The mode by which the line is coloured. Default 'auto'.
     map : TextureMap | Texture
         The texture map specifying the color for each texture coordinate. Optional.
+    maprange : tuple
+        The range of the ``geometry.texcoords`` that is projected onto the (color) map. Default (0, 1).
     dash_pattern : tuple
         The pattern of the dash, e.g. `[2, 3]`. See `dash_pattern` docs for details. Defaults to an empty tuple, i.e. no dashing.
     dash_offset : float
@@ -34,6 +36,7 @@ class LineMaterial(Material):
     uniform_type = dict(
         Material.uniform_type,
         color="4xf4",
+        maprange="2xf4",
         thickness="f4",
         dash_offset="f4",
     )
@@ -46,6 +49,7 @@ class LineMaterial(Material):
         color=(1, 1, 1, 1),
         color_mode="auto",
         map=None,
+        maprange=None,
         dash_pattern=(),
         dash_offset=0,
         loop=False,
@@ -59,6 +63,7 @@ class LineMaterial(Material):
         self.color = color
         self.color_mode = color_mode
         self.map = map
+        self.maprange = maprange
         self.dash_pattern = dash_pattern
         self.dash_offset = dash_offset
         self.loop = loop
@@ -183,6 +188,26 @@ class LineMaterial(Material):
         if isinstance(map, Texture):
             map = TextureMap(map)
         self._store.map = map
+
+    @property
+    def maprange(self):
+        """The range of the ``geometry.texcoords`` that is projected onto the (color) map.
+
+        By default this value is (0.0, 1.0), but if the ``texcoords`` represents some
+        domain-specific value, e.g. temperature, then ``maprange`` can be set to e.g. (0, 100).
+        """
+        v1, v2 = self.uniform_buffer.data["maprange"]
+        return float(v1), float(v2)
+
+    @maprange.setter
+    def maprange(self, maprange):
+        # Check and store given value
+        if maprange is None:
+            maprange = 0, 1
+        maprange = float(maprange[0]), float(maprange[1])
+        # Update uniform data
+        self.uniform_buffer.data["maprange"] = maprange
+        self.uniform_buffer.update_full()
 
     @property
     def dash_pattern(self):
