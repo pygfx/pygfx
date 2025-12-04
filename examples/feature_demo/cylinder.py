@@ -13,13 +13,7 @@ from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 
 
-canvas = RenderCanvas(
-    title="Cylinder - $fps fps - $ms ms",
-    update_mode="continuous",
-    present_method="bitmap",
-    vsync=0,
-    max_fps=10,
-)
+canvas = RenderCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
