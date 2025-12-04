@@ -4,11 +4,10 @@ Line colormapping
 
 Nearly all objects in Pygfx can have a colormap. And the texcoords
 can also be scaled using ``material.maprange``. This is useful
-in scientific applications, where texcoords can e.g. mean temperatire of force.
+in scientific applications, where texcoords can e.g. mean temperature of force.
 
 The same approach can be used in points and meshes (and images and
 volumes, where this concept is commonly known as contrast limits.)
-
 """
 
 # sphinx_gallery_pygfx_docs = 'screenshot'
