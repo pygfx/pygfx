@@ -49,6 +49,10 @@ class OrbitController(PanZoomController):
     _default_controls = {
         "mouse1": ("rotate", "drag", (0.005, 0.005)),
         "mouse2": ("pan", "drag", (1, 1)),
+        # On macOS with trackpad, just 'mouse2' doesn't work
+        # Holding the control key will trigger the mouse2
+        # but uses 'meta' key as modifier
+        "meta+mouse2": ("pan", "drag", (1, 1)),
         "mouse4": ("quickzoom", "peek", 2),
         "wheel": ("zoom", "push", -0.001),
         "alt+wheel": ("fov", "push", -0.01),
