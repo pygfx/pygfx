@@ -198,6 +198,7 @@ class _GLTF:
         self._register_plugin(GLTFTextureWebPExtension)
         self._register_plugin(GLTFDracoMeshCompressionExtension)
         self._register_plugin(GLTFMaterialsPBRSpecularGlossinessExtension)
+        self._register_plugin(GLTFMeshoptCompressionExtension)
 
     def _register_plugin(self, plugin_class):
         plugin = plugin_class(self)
@@ -1675,3 +1676,68 @@ class GLTFMaterialsPBRSpecularGlossinessExtension(GLTFBaseMaterialsExtension):
         else:
             glossiness_factor = extension.get("glossinessFactor", 1.0)
             material.roughness = 1.0 - glossiness_factor
+
+
+class GLTFMeshoptCompressionExtension(GLTFExtension):
+    EXTENSION_NAME = "EXT_meshopt_compression"
+
+    def __init__(self, parser: _GLTF):
+        super().__init__(parser)
+
+    def load_buffer_view(self, buffer_view_def):
+        if (
+            buffer_view_def.extensions is None
+            or self.EXTENSION_NAME not in buffer_view_def.extensions
+        ):
+            return None
+
+        if not find_spec("meshoptimizer"):
+            raise ImportError(
+                """The `meshoptimizer` library is required for loading meshopt compressed meshes. \n
+                Please install it with `pip install -U meshoptimizer`."""
+            )
+
+        from meshoptimizer import (
+            decode_vertex_buffer,
+            decode_index_buffer,
+            decode_index_sequence,
+            decode_filter_oct,
+            decode_filter_quat,
+            decode_filter_exp,
+        )
+
+        modes = {
+            "ATTRIBUTES": decode_vertex_buffer,
+            "TRIANGLES": decode_index_buffer,
+            "INDICES": decode_index_sequence,
+        }
+
+        filters = {
+            "OCTAHEDRAL": decode_filter_oct,
+            "QUATERNION": decode_filter_quat,
+            "EXPONENTIAL": decode_filter_exp,
+        }
+
+        extension = buffer_view_def.extensions[self.EXTENSION_NAME]
+        buffer_index = extension["buffer"]
+        byte_offset = extension.get("byteOffset", 0)
+        byte_length = extension.get("byteLength")
+        byte_stride = extension.get("byteStride")
+        count = extension.get("count")
+        mode = extension.get("mode")
+        filter_ = extension.get("filter", None)
+
+        mode_func = modes[mode]
+
+        buffer = self.parser._gltf.model.buffers[buffer_index]
+        data = memoryview(buffer.data)[
+            byte_offset : byte_offset + (byte_length or len(buffer.data))
+        ]
+
+        res = mode_func(count, byte_stride, data)
+
+        if filter_ is not None:
+            filter_func = filters[filter_]
+            res = filter_func(res, count, byte_stride)
+
+        return memoryview(res.tobytes())
