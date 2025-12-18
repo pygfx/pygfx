@@ -361,9 +361,10 @@ class Image(WorldObject):
             tex = tex.texture  # tex was a view
         # This should match with the shader
         values = unpack_bitfield(pick_value, wobject_id=20, x=22, y=22)
-        x = values["x"] / 4194303 * tex.size[0] - 0.5
-        y = values["y"] / 4194303 * tex.size[1] - 0.5
-        ix, iy = int(x + 0.5), int(y + 0.5)
+        size = tex.size
+        x = values["x"] / 4194303 * size[0]
+        y = values["y"] / 4194303 * size[1]
+        ix, iy = (min(int(x), size[0] - 1), min(int(y), size[1] - 1))
         info["index"] = (ix, iy)
         info["pixel_coord"] = (x - ix, y - iy)
         return info
@@ -405,9 +406,13 @@ class Volume(WorldObject):
         texcoords_encoded = values["x"], values["y"], values["z"]
         size = tex.size
         x, y, z = [
-            (v / 16383) * s - 0.5 for v, s in zip(texcoords_encoded, size, strict=True)
+            (v / 16383) * s for v, s in zip(texcoords_encoded, size, strict=True)
         ]
-        ix, iy, iz = int(x + 0.5), int(y + 0.5), int(z + 0.5)
+        ix, iy, iz = (
+            min(int(x), size[0] - 1),
+            min(int(y), size[1] - 1),
+            min(int(z), size[2] - 1),
+        )
         info["index"] = (ix, iy, iz)
         info["voxel_coord"] = (x - ix, y - iy, z - iz)
         return info
