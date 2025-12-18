@@ -327,8 +327,8 @@ class Mesh(WorldObject):
 class Image(WorldObject):
     """A 2D image.
 
-    The geometry for this object consists only of ``geometry.grid``: a
-    texture with the 2D data.
+    The geometry for this object consists only of ``geometry.grid``: a texture
+    with the 2D data.
 
     If no colormap is applied to the material, the data are interpreted as
     colors in sRGB space. To use physical space instead, set the texture's
@@ -336,7 +336,8 @@ class Image(WorldObject):
 
     The picking info of an Image (the result of ``renderer.get_pick_info()``)
     will for most materials include ``index`` (tuple of 2 int), and
-    ``pixel_coord`` (tuple of float subpixel coordinates).
+    ``pixel_coord`` (tuple of float subpixel coordinates, zero at the center of
+    the pixel and 0.5 at the edge).
 
     Parameters
     ----------
@@ -361,9 +362,10 @@ class Image(WorldObject):
             tex = tex.texture  # tex was a view
         # This should match with the shader
         values = unpack_bitfield(pick_value, wobject_id=20, x=22, y=22)
-        x = values["x"] / 4194303 * tex.size[0] - 0.5
-        y = values["y"] / 4194303 * tex.size[1] - 0.5
-        ix, iy = int(x + 0.5), int(y + 0.5)
+        size = tex.size
+        x = values["x"] / 4194303 * size[0] - 0.5
+        y = values["y"] / 4194303 * size[1] - 0.5
+        ix, iy = (min(int(x + 0.5), size[0] - 1), min(int(y + 0.5), size[1] - 1))
         info["index"] = (ix, iy)
         info["pixel_coord"] = (x - ix, y - iy)
         return info
@@ -377,7 +379,8 @@ class Volume(WorldObject):
 
     The picking info of a Volume (the result of ``renderer.get_pick_info()``)
     will for most materials include ``index`` (tuple of 3 int), and
-    ``voxel_coord`` (tuple of float subpixel coordinates).
+    ``voxel_coord``  (tuple of float subpixel coordinates, zero at the center of
+    the voxel and 0.5 at the edge).
 
     Parameters
     ----------
@@ -407,7 +410,11 @@ class Volume(WorldObject):
         x, y, z = [
             (v / 16383) * s - 0.5 for v, s in zip(texcoords_encoded, size, strict=True)
         ]
-        ix, iy, iz = int(x + 0.5), int(y + 0.5), int(z + 0.5)
+        ix, iy, iz = (
+            min(int(x + 0.5), size[0] - 1),
+            min(int(y + 0.5), size[1] - 1),
+            min(int(z + 0.5), size[2] - 1),
+        )
         info["index"] = (ix, iy, iz)
         info["voxel_coord"] = (x - ix, y - iy, z - iz)
         return info
