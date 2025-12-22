@@ -658,3 +658,142 @@ class FogPass(EffectPass):
     @power.setter
     def power(self, power):
         self._uniform_data["power"] = float(power)
+
+
+class NormalPass(EffectPass):
+    """An effect that reconstructs normals from the depth buffer. Based on https://atyuwen.github.io/posts/normal-reconstruction/"""
+
+    USES_DEPTH = True
+
+    uniform_type = dict(
+        EffectPass.uniform_type,
+        cam_transform_inv="4x4xf4",
+        projection_transform_inv="4x4xf4",
+        near="f4",
+        far="f4",
+        width="i4",
+        height="i4",
+    )
+
+    wgsl = """
+        fn linear_eye_depth(depth: f32) -> f32 {
+            let d = depth * 2.0 - 1.0;
+            let n = u_effect.near;
+            let f = u_effect.far;
+            return (2.0 * n * f) / (f + n - d * (f - n));
+        }
+
+        fn to_view_space(uv: vec2<f32>, depth: f32) -> vec3<f32> {
+            let ndc = vec4<f32>(uv * 2.0 - 1.0, 1.0, 1.0);
+            let view_ray_h = u_effect.projection_transform_inv * ndc;
+            let view_ray = view_ray_h.xyz / view_ray_h.w;
+            return view_ray * linear_eye_depth(depth);
+        }
+
+        @fragment
+        fn fs_main(varyings: Varyings) -> @location(0) vec4<f32> {
+
+            // Normal reconstruction based on atyuwen's article
+            // https://atyuwen.github.io/posts/normal-reconstruction/
+
+            // tap depth buffer at current pixel
+            let texIndex = vec2i(varyings.position.xy);
+            let depth = textureLoad(depthTex, texIndex, 0);
+
+            // horizontal and vertical depth taps, 2 in each direction
+            let H = vec4<f32>(
+                textureLoad(depthTex, texIndex + vec2<i32>(-1, 0), 0),
+                textureLoad(depthTex, texIndex + vec2<i32>(1, 0), 0),
+                textureLoad(depthTex, texIndex + vec2<i32>(-2, 0), 0),
+                textureLoad(depthTex, texIndex + vec2<i32>(2, 0), 0));
+
+            let V = vec4<f32>(
+                textureLoad(depthTex, texIndex + vec2<i32>(0, -1), 0),
+                textureLoad(depthTex, texIndex + vec2<i32>(0, 1), 0),
+                textureLoad(depthTex, texIndex + vec2<i32>(0, -2), 0),
+                textureLoad(depthTex, texIndex + vec2<i32>(0, 2), 0));
+
+            // get view space position of pixels from depth taps
+            let view_space_pos = to_view_space(varyings.texCoord, depth);
+            let view_space_pos_l = to_view_space(varyings.texCoord + vec2<f32>(-1.0, 0.0) / f32(u_effect.width), H.x);
+            let view_space_pos_r = to_view_space(varyings.texCoord + vec2<f32>( 1.0, 0.0) / f32(u_effect.width), H.y);
+            let view_space_pos_d = to_view_space(varyings.texCoord + vec2<f32>( 0.0,-1.0) / f32(u_effect.height), V.x);
+            let view_space_pos_u = to_view_space(varyings.texCoord + vec2<f32>( 0.0, 1.0) / f32(u_effect.height), V.y);
+
+            // get the difference between the current and each offset position
+            let l = view_space_pos - view_space_pos_l;
+            let r = view_space_pos_r - view_space_pos;
+            let d = view_space_pos - view_space_pos_d;
+            let u = view_space_pos_u - view_space_pos;
+
+            // current pixel depth difference from the slopes defined by the taps
+            // this is to handle perspective correction (non-linear depth buffer)
+            let he = abs((2 * H.xy - H.zw) - depth);
+            let ve = abs((2 * V.xy - V.zw) - depth);
+
+            // pick horizontal and vertical diff with the smallest depth difference from slopes
+            let hDeriv = select(r, l, he.x < he.y);
+            let vDeriv = select(u, d, ve.x < ve.y);
+
+            let view_normal = normalize(cross(hDeriv, vDeriv));
+
+            let world_normal = u_effect.cam_transform_inv * vec4<f32>(view_normal, 0.0);
+
+            // visualize normal in [0,1] range
+            return vec4f(world_normal.xyz * 0.5 + vec3<f32>(0.5), 1.0);
+        }
+    """
+
+    @property
+    def cam_transform_inv(self):
+        """The inverse camera transform matrix."""
+        return self._uniform_data["cam_transform_inv"]
+
+    @cam_transform_inv.setter
+    def cam_transform_inv(self, cam_transform_inv):
+        self._uniform_data["cam_transform_inv"] = cam_transform_inv
+
+    @property
+    def projection_transform_inv(self):
+        """The inverse projection transform matrix."""
+        return self._uniform_data["projection_transform_inv"]
+
+    @projection_transform_inv.setter
+    def projection_transform_inv(self, projection_transform_inv):
+        self._uniform_data["projection_transform_inv"] = projection_transform_inv
+
+    @property
+    def near(self):
+        """The near plane distance."""
+        return float(self._uniform_data["near"])
+
+    @near.setter
+    def near(self, near):
+        self._uniform_data["near"] = float(near)
+
+    @property
+    def far(self):
+        """The far plane distance."""
+        return float(self._uniform_data["far"])
+
+    @far.setter
+    def far(self, far):
+        self._uniform_data["far"] = float(far)
+
+    @property
+    def width(self):
+        """The width."""
+        return float(self._uniform_data["width"])
+
+    @width.setter
+    def width(self, width):
+        self._uniform_data["width"] = float(width)
+
+    @property
+    def height(self):
+        """The height."""
+        return float(self._uniform_data["height"])
+
+    @height.setter
+    def height(self, height):
+        self._uniform_data["height"] = float(height)
