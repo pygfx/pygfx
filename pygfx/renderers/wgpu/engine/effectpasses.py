@@ -676,18 +676,40 @@ class NormalPass(EffectPass):
     )
 
     wgsl = """
-        fn linear_eye_depth(depth: f32) -> f32 {
-            let d = depth * 2.0 - 1.0;
-            let n = u_effect.near;
-            let f = u_effect.far;
-            return (2.0 * n * f) / (f + n - d * (f - n));
+        fn linear_eye_depth(depth: f32, near: f32, far: f32) -> f32 {
+            // convert non-linear depth buffer value [0..1] to linear [near, far] depth
+            // note: depth buffer values are in [0,1] range (non-linear)
+            // note: ndc z is in [0,1] range as well
+            return (near * far) / (far - depth * (far - near));
         }
 
-        fn to_view_space(uv: vec2<f32>, depth: f32) -> vec3<f32> {
+        fn linear_01_depth(depth: f32, near: f32, far: f32) -> f32 {
+            // convert non-linear depth buffer value [0..1] to linear [0,1] depth
+            // same as linear_eye_depth but maps to [0,1]
+            let ld = linear_eye_depth(depth, near, far);
+            return (ld - near) / (far - near);
+        }
+
+        fn to_view_dir(uv: vec2<f32>, depth: f32, near: f32, far: f32) -> vec3<f32> {
+            // convert from texture uv [0..1] and non-linear depth buffer value [0..1]
+            // to view space position [-w/2..w/2, -h/2..h/2, -near..-far]
+            // note: assumes perspective projection
+
+            // first we define a point in NDC space [-1..1, -1..1, 0..1] at z=1 (far plane)
             let ndc = vec4<f32>(uv * 2.0 - 1.0, 1.0, 1.0);
+
+            // then we apply the inverse projection matrix to get a ray
+            // towards the far plane in view space [-w/2..w/2, -h/2..h/2, -far]
+            // note: negative z view direction
             let view_ray_h = u_effect.projection_transform_inv * ndc;
             let view_ray = view_ray_h.xyz / view_ray_h.w;
-            return view_ray * linear_eye_depth(depth);
+
+            // normalize to get the view direction
+            return normalize(view_ray);
+        }
+
+        fn to_view_pos(uv: vec2<f32>, depth: f32, near: f32, far: f32) -> vec3<f32> {
+            return to_view_dir(uv, depth, near, far) * linear_eye_depth(depth, near, far);
         }
 
         @fragment
@@ -714,11 +736,11 @@ class NormalPass(EffectPass):
                 textureLoad(depthTex, texIndex + vec2<i32>(0, 2), 0));
 
             // get view space position of pixels from depth taps
-            let view_space_pos = to_view_space(varyings.texCoord, depth);
-            let view_space_pos_l = to_view_space(varyings.texCoord + vec2<f32>(-1.0, 0.0) / f32(u_effect.width), H.x);
-            let view_space_pos_r = to_view_space(varyings.texCoord + vec2<f32>( 1.0, 0.0) / f32(u_effect.width), H.y);
-            let view_space_pos_d = to_view_space(varyings.texCoord + vec2<f32>( 0.0,-1.0) / f32(u_effect.height), V.x);
-            let view_space_pos_u = to_view_space(varyings.texCoord + vec2<f32>( 0.0, 1.0) / f32(u_effect.height), V.y);
+            let view_space_pos = to_view_pos(varyings.texCoord, depth, u_effect.near, u_effect.far);
+            let view_space_pos_l = to_view_pos(varyings.texCoord + vec2<f32>(-1.0, 0.0) / f32(u_effect.width), H.x, u_effect.near, u_effect.far);
+            let view_space_pos_r = to_view_pos(varyings.texCoord + vec2<f32>( 1.0, 0.0) / f32(u_effect.width), H.y, u_effect.near, u_effect.far);
+            let view_space_pos_d = to_view_pos(varyings.texCoord + vec2<f32>( 0.0,-1.0) / f32(u_effect.height), V.x, u_effect.near, u_effect.far);
+            let view_space_pos_u = to_view_pos(varyings.texCoord + vec2<f32>( 0.0, 1.0) / f32(u_effect.height), V.y, u_effect.near, u_effect.far);
 
             // get the difference between the current and each offset position
             let l = view_space_pos - view_space_pos_l;
@@ -735,12 +757,21 @@ class NormalPass(EffectPass):
             let hDeriv = select(r, l, he.x < he.y);
             let vDeriv = select(u, d, ve.x < ve.y);
 
+            // cross product to get normal [-1..1, -1..1, -1..1]
+            // x increases to right, y to down, z to away from camera
             let view_normal = normalize(cross(hDeriv, vDeriv));
 
-            let world_normal = u_effect.cam_transform_inv * vec4<f32>(view_normal, 0.0);
+            // TODO: how to transform normals to world space correctly? appears to be unstable?
+            let normal_matrix_inv = mat3x3<f32>(
+                u_effect.cam_transform_inv[0].xyz,
+                u_effect.cam_transform_inv[1].xyz,
+                u_effect.cam_transform_inv[2].xyz,
+            );
+            let world_normal = normal_matrix_inv * (view_normal * vec3<f32>(1.0, -1.0, -1.0));
 
             // visualize normal in [0,1] range
-            return vec4f(world_normal.xyz * 0.5 + vec3<f32>(0.5), 1.0);
+            let tmp = view_normal.y * 0.5 + 0.5;
+            return vec4f(tmp, tmp, tmp, 1.0);
         }
     """
 

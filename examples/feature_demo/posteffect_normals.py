@@ -76,6 +76,18 @@ def animate():
         renderer.render(scene, camera, flush=False)
     stats.render()
 
+    # vs = la.vec_normalize(la.vec_transform([0, 0, 1.0], camera.projection_matrix_inverse))
+    # print("----")
+    # print(vs)
+    # print(-(camera.near + camera.far) / 2)
+
+    # depth = 0.0  # example depth buffer value
+    # z_eye = (camera.near * camera.far) / (camera.far - depth * (camera.far - camera.near))
+    # print(z_eye)
+
+    # print(vs * z_eye)
+
+
 
 if __name__ == "__main__":
     renderer.request_draw(animate)
