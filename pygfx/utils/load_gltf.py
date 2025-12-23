@@ -907,14 +907,24 @@ class _GLTF:
     def _get_buffer_memory_view(self, buffer_view_index):
         gltf = self._gltf
         buffer_view = gltf.model.bufferViews[buffer_view_index]
-        buffer = gltf.model.buffers[buffer_view.buffer]
-        resource = self._get_resource_by_uri(buffer.uri)
-        m = memoryview(resource.data)
-        view = m[
-            buffer_view.byteOffset : (buffer_view.byteOffset or 0)
-            + buffer_view.byteLength
-        ]
-        return view
+
+        extensions = buffer_view.extensions or {}
+        if extensions:
+            for extension in extensions:
+                if extension in self._plugins:
+                    plugin = self._plugins[extension]
+                    if hasattr(plugin, "load_buffer_view"):
+                        view = plugin.load_buffer_view(buffer_view)
+                        return view
+        else:
+            buffer = gltf.model.buffers[buffer_view.buffer]
+            resource = self._get_resource_by_uri(buffer.uri)
+            m = memoryview(resource.data)
+            view = m[
+                buffer_view.byteOffset : (buffer_view.byteOffset or 0)
+                + buffer_view.byteLength
+            ]
+            return view
 
     def _buffer_view_to_ndarray(
         self, buffer_view_index, dtype, item_size, count, offset=0
@@ -1730,7 +1740,8 @@ class GLTFMeshoptCompressionExtension(GLTFExtension):
         mode_func = modes[mode]
 
         buffer = self.parser._gltf.model.buffers[buffer_index]
-        data = memoryview(buffer.data)[
+        resource = self.parser._get_resource_by_uri(buffer.uri)
+        data = memoryview(resource.data)[
             byte_offset : byte_offset + (byte_length or len(buffer.data))
         ]
 
