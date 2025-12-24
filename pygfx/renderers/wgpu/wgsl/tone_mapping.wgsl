@@ -30,7 +30,7 @@ $$ if tone_mapping_mode == "aces_filmic"
     }
 
     // this implementation of ACES is modified to accommodate a brighter viewing environment.
-    // the scale factor of 1/0.6 is subjective. see discussion in three.js #19621.
+    // the scale factor of 1/0.6 is subjective. see discussion in https://github.com/mrdoob/three.js/pull/19621.
 
     fn toneMapping(color: vec3<f32>) -> vec3<f32> {
         // sRGB => XYZ => D65_2_D60 => AP1 => RRT_SAT
