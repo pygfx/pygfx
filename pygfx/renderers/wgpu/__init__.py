@@ -80,6 +80,7 @@ from .engine.effectpasses import (
     DepthPass,
 )
 from .engine.bloom import PhysicalBasedBloomPass
+from .engine.tonemapping import ToneMappingPass
 from .engine.pipeline import Binding
 
 # Shader classes
