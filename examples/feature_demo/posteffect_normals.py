@@ -1,13 +1,13 @@
 """
-Post processing effect: normal reconstruction
-=============================================
+Screen space normal reconstruction
+==================================
 
-This example demonstrates how to accurately reconstruct normals from the depth buffer.
+This example demonstrates how to accurately reconstruct surface normals using the depth buffer.
 
 Implementation is based on https://atyuwen.github.io/posts/normal-reconstruction/
 """
 
-# sphinx_gallery_pygfx_docs = 'animate 4s'
+# sphinx_gallery_pygfx_docs = 'screenshot'
 # sphinx_gallery_pygfx_test = 'run'
 
 import pygfx as gfx
