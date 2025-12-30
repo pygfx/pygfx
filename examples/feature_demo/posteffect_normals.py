@@ -59,8 +59,6 @@ scene.add(boxes)
 
 controller = gfx.OrbitController(camera, target=scene_center, register_events=renderer)
 
-stats = gfx.Stats(viewport=renderer)
-
 normal_pass = NormalPass()
 renderer.effect_passes = [normal_pass]
 
@@ -69,11 +67,10 @@ def animate():
     normal_pass.cam_transform_inv = camera.world.matrix.T
     normal_pass.projection_transform_inv = camera.projection_matrix_inverse.T
     normal_pass.width, normal_pass.height = canvas.get_physical_size()
-    with stats:
-        renderer.render(scene, camera, flush=False)
-    stats.render()
+    renderer.render(scene, camera)
+    canvas.request_draw()
 
 
 if __name__ == "__main__":
-    renderer.request_draw(animate)
+    canvas.request_draw(animate)
     loop.run()
