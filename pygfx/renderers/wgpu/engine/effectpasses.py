@@ -57,8 +57,17 @@ FULL_QUAD_SHADER = """
         );
         let pos = positions[in.index];
         var varyings: Varyings;
+
+        // texCoord has +Y downwards, standard UV coords
+        // so we need to flip Y here
         varyings.texCoord = vec2<f32>(pos.x, 1.0 - pos.y);
+
+        // builtin position is in clip space [-1..1,-1..1]
+        // +Y is up in clip space, 0,0 is the center of the screen
+        // after rasterization (in frag shader) +Y is down, 0,0 is top-left
+        // and the X/Y axes go from 0..width and 0..height
         varyings.position = vec4<f32>(pos * 2.0 - 1.0, 0.0, 1.0);
+
         return varyings;
     }
 """
@@ -661,7 +670,8 @@ class FogPass(EffectPass):
 
 
 class NormalPass(EffectPass):
-    """An effect that reconstructs normals from the depth buffer. Based on https://atyuwen.github.io/posts/normal-reconstruction/"""
+    """An effect that reconstructs normals from the depth buffer.
+    Based on https://atyuwen.github.io/posts/normal-reconstruction/"""
 
     USES_DEPTH = True
 
@@ -669,80 +679,108 @@ class NormalPass(EffectPass):
         EffectPass.uniform_type,
         cam_transform_inv="4x4xf4",
         projection_transform_inv="4x4xf4",
-        near="f4",
-        far="f4",
         width="i4",
         height="i4",
     )
 
     wgsl = """
-        fn to_view_pos(uv: vec2<f32>, depth: f32) -> vec3<f32> {
-            let ndc = vec4<f32>(uv * 2.0 - 1.0, depth, 1.0);
-            let h = u_effect.projection_transform_inv * ndc;
-            return h.xyz / h.w; // position at far plane
+        // Function to convert from UV + depth to view space position
+        fn to_view_pos(uv: vec2<f32>, depth: f32, projection_transform_inv: mat4x4<f32>) -> vec3<f32> {
+            // map uv to NDC, note flipping Y
+            // take depth directly from depth buffer (non-linear)
+            let ndc = vec4<f32>(
+                uv.x * 2.0 - 1.0,
+                1.0 - uv.y * 2.0,
+                depth,
+                1.0);
+            // convert to view space
+            let h = projection_transform_inv * ndc;
+            return h.xyz / h.w;
+        }
+
+        // Function to extract a 3x3 matrix from the top-left of a 4x4 matrix
+        fn get_mat_3x3_from_4x4(m: mat4x4<f32>) -> mat3x3<f32> {
+            return mat3x3<f32>(
+                m[0].xyz,
+                m[1].xyz,
+                m[2].xyz
+            );
+        }
+
+        // Function to reconstruct view space normal from depth buffer
+        fn reconstruct_view_normal(uv: vec2<f32>, width: i32, height: i32, projection_transform_inv: mat4x4<f32>) -> vec3<f32> {
+            // Normal reconstruction based on atyuwen's article
+            // https://atyuwen.github.io/posts/normal-reconstruction/
+
+            // cast width and height to f32 once
+            let _width = f32(width);
+            let _height = f32(height);
+
+            // sample raw (non-linear) depth buffer at current pixel
+            // and at 2 pixels in each direction horizontally and vertically
+            let texIndex = vec2<i32>(uv * vec2<f32>(_width, _height));
+            let depth = textureLoad(depthTex, texIndex, 0);
+            let H = vec4<f32>(
+                textureLoad(depthTex, texIndex + vec2<i32>(-1, 0), 0), // left 1
+                textureLoad(depthTex, texIndex + vec2<i32>(1, 0), 0), // right 1
+                textureLoad(depthTex, texIndex + vec2<i32>(-2, 0), 0), // left 2
+                textureLoad(depthTex, texIndex + vec2<i32>(2, 0), 0)); // right 2
+            let V = vec4<f32>(
+                textureLoad(depthTex, texIndex + vec2<i32>(0, -1), 0), // up 1 (+Y is down)
+                textureLoad(depthTex, texIndex + vec2<i32>(0, 1), 0), // down 1
+                textureLoad(depthTex, texIndex + vec2<i32>(0, -2), 0), // up 2
+                textureLoad(depthTex, texIndex + vec2<i32>(0, 2), 0)); // down 2
+
+            // extrapolate the depth from each pair towards the center pixel
+            // and compute the absolute difference between that and the actual depth
+            let he = abs((2 * H.xy - H.zw) - depth);
+            let ve = abs((2 * V.xy - V.zw) - depth);
+
+            // get view space position of center pixel and the four direct neighbors
+            let view_space_pos = to_view_pos(uv, depth, projection_transform_inv);
+            let view_space_pos_l = to_view_pos(uv + vec2<f32>(-1.0 / _width, 0.0), H.x, projection_transform_inv);
+            let view_space_pos_r = to_view_pos(uv + vec2<f32>( 1.0 / _width, 0.0), H.y, projection_transform_inv);
+            let view_space_pos_u = to_view_pos(uv + vec2<f32>( 0.0, -1.0 / _height), V.x, projection_transform_inv);
+            let view_space_pos_d = to_view_pos(uv + vec2<f32>( 0.0, 1.0 / _height), V.y, projection_transform_inv);
+
+            // get the difference vectors, note that they are oriented
+            // through the center pixel and continue outwards
+            let l = view_space_pos - view_space_pos_l; // left to center
+            let r = view_space_pos_r - view_space_pos; // center to right
+            let d = view_space_pos - view_space_pos_d; // down to center
+            let u = view_space_pos_u - view_space_pos; // center to up
+
+            // pick the horizontal difference vector (left or right)
+            // based on which has the smallest depth extrapolation error
+            let hDeriv = select(r, l, he.x < he.y);
+            let vDeriv = select(d, u, ve.x < ve.y); // repeat for vertical
+
+            // take the cross product of the horizontal and vertical difference vectors
+            // and normalize to get the surface normal in view space
+            let view_normal = normalize(cross(hDeriv, vDeriv));
+
+            return view_normal;
         }
 
         @fragment
         fn fs_main(varyings: Varyings) -> @location(0) vec4<f32> {
+            let view_normal = reconstruct_view_normal(
+                varyings.texCoord,
+                u_effect.width,
+                u_effect.height,
+                u_effect.projection_transform_inv);
 
-            // Normal reconstruction based on atyuwen's article
-            // https://atyuwen.github.io/posts/normal-reconstruction/
+            // purely for visualization purposes:
 
-            // tap depth buffer at current pixel
-            let texIndex = vec2i(varyings.position.xy);
-            let depth = textureLoad(depthTex, texIndex, 0);
+            // extract the inverse normal matrix from the inverse camera transform
+            // (we don't want translation, so take the top-left 3x3 part)
+            let normal_matrix_inv = get_mat_3x3_from_4x4(u_effect.cam_transform_inv);
 
-            // horizontal and vertical depth taps, 2 in each direction
-            let H = vec4<f32>(
-                textureLoad(depthTex, texIndex + vec2<i32>(-1, 0), 0),
-                textureLoad(depthTex, texIndex + vec2<i32>(1, 0), 0),
-                textureLoad(depthTex, texIndex + vec2<i32>(-2, 0), 0),
-                textureLoad(depthTex, texIndex + vec2<i32>(2, 0), 0));
-
-            let V = vec4<f32>(
-                textureLoad(depthTex, texIndex + vec2<i32>(0, 1), 0),
-                textureLoad(depthTex, texIndex + vec2<i32>(0, -1), 0),
-                textureLoad(depthTex, texIndex + vec2<i32>(0, 2), 0),
-                textureLoad(depthTex, texIndex + vec2<i32>(0, -2), 0));
-
-            // get view space position of pixels from depth taps
-            let view_space_pos = to_view_pos(varyings.texCoord, depth);
-            let view_space_pos_l = to_view_pos(varyings.texCoord + vec2<f32>(-1.0, 0.0) / f32(u_effect.width), H.x);
-            let view_space_pos_r = to_view_pos(varyings.texCoord + vec2<f32>( 1.0, 0.0) / f32(u_effect.width), H.y);
-            let view_space_pos_d = to_view_pos(varyings.texCoord + vec2<f32>( 0.0, 1.0) / f32(u_effect.height), V.x);
-            let view_space_pos_u = to_view_pos(varyings.texCoord + vec2<f32>( 0.0, -1.0) / f32(u_effect.height), V.y);
-
-            // get the difference between the current and each offset position
-            let l = view_space_pos - view_space_pos_l;
-            let r = view_space_pos_r - view_space_pos;
-            let d = view_space_pos - view_space_pos_d;
-            let u = view_space_pos_u - view_space_pos;
-
-            // current pixel depth difference from the slopes defined by the taps
-            // this is to handle perspective correction (non-linear depth buffer)
-            let he = abs((2 * H.xy - H.zw) - depth);
-            let ve = abs((2 * V.xy - V.zw) - depth);
-
-            // pick horizontal and vertical diff with the smallest depth difference from slopes
-            let hDeriv = select(r, l, he.x < he.y);
-            let vDeriv = select(u, d, ve.x < ve.y);
-
-            // cross product to get normal [-1..1, -1..1, -1..1]
-            // x increases to right, y to down, z to away from camera
-            let view_normal = normalize(cross(hDeriv, vDeriv));
-
-            // TODO: how to transform normals to world space correctly? appears to be unstable?
-            let normal_matrix_inv = mat3x3<f32>(
-                u_effect.cam_transform_inv[0].xyz,
-                u_effect.cam_transform_inv[1].xyz,
-                u_effect.cam_transform_inv[2].xyz,
-            );
-            // flip reverse Z axis
-            let world_normal = normalize(normal_matrix_inv * (view_normal * vec3<f32>(1.0, 1.0, -1.0)));
+            // transform normal to world space
+            let world_normal = normal_matrix_inv * view_normal;
 
             // visualize normal in [0,1] range
-            let _world_normal = world_normal.xyz * 0.5 + 0.5;
-            return vec4f(_world_normal.xyz, 1.0);
+            return vec4f(world_normal.xyz * 0.5 + 0.5, 1.0);
         }
     """
 
@@ -763,24 +801,6 @@ class NormalPass(EffectPass):
     @projection_transform_inv.setter
     def projection_transform_inv(self, projection_transform_inv):
         self._uniform_data["projection_transform_inv"] = projection_transform_inv
-
-    @property
-    def near(self):
-        """The near plane distance."""
-        return float(self._uniform_data["near"])
-
-    @near.setter
-    def near(self, near):
-        self._uniform_data["near"] = float(near)
-
-    @property
-    def far(self):
-        """The far plane distance."""
-        return float(self._uniform_data["far"])
-
-    @far.setter
-    def far(self, far):
-        self._uniform_data["far"] = float(far)
 
     @property
     def width(self):

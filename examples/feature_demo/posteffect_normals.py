@@ -14,15 +14,14 @@ import pygfx as gfx
 import numpy as np
 import pylinalg as la
 from rendercanvas.auto import RenderCanvas, loop
-from pygfx.renderers.wgpu import NormalPass, DepthPass
+from pygfx.renderers.wgpu import NormalPass
 
 canvas = RenderCanvas(
     size=(800, 600), update_mode="fastest", title="Animations", vsync=False
 )
 
 renderer = gfx.WgpuRenderer(canvas)
-# camera = gfx.PerspectiveCamera(45, 800 / 600, depth_range=(0.1, 1000))
-camera = gfx.PerspectiveCamera(45, 800 / 600, depth_range=(3, 10))
+camera = gfx.PerspectiveCamera(45, 800 / 600, depth_range=(0.1, 1000))
 camera.local.position = (3, 4, 1)
 scene_center = (-1, 0.5, -2)
 camera.look_at(scene_center)
@@ -64,43 +63,15 @@ stats = gfx.Stats(viewport=renderer)
 
 normal_pass = NormalPass()
 renderer.effect_passes = [normal_pass]
-# renderer.effect_passes = [DepthPass()]
+
 
 def animate():
     normal_pass.cam_transform_inv = camera.world.matrix.T
     normal_pass.projection_transform_inv = camera.projection_matrix_inverse.T
-    normal_pass.near = camera.near
-    normal_pass.far = camera.far
-    # need to be able to sample neighboring pixels in the shader
-    normal_pass.width = canvas.get_physical_size()[0]
-    normal_pass.height = canvas.get_physical_size()[1]
+    normal_pass.width, normal_pass.height = canvas.get_physical_size()
     with stats:
         renderer.render(scene, camera, flush=False)
     stats.render()
-
-    # print(normal_pass.cam_transform_inv)
-
-    # cross product to get normal [-1..1, -1..1, -1..1]
-    # x increases to right, y to down, z to away from camera
-
-    # view_space_normal = la.vec_normalize(camera.view_matrix[:3, :3] @ [0, 1.0, 0])
-    # world_space_normal = la.vec_normalize(camera.world.matrix[:3, :3] @ view_space_normal)
-    # print(world_space_normal)
-    # print(la.vec_normalize(view_ray))
-
-    # print(la.vec_normalize(la.vec_transform(view_normal_up, camera.world.matrix, projection=False)))
-
-    # vs = la.vec_normalize(la.vec_transform([1.0, 1.0, 1.0], camera.projection_matrix_inverse))
-    # print("----")
-    # print(vs)
-    # print(-(camera.near + camera.far) / 2)
-
-    # depth = 0.0  # example depth buffer value
-    # z_eye = (camera.near * camera.far) / (camera.far - depth * (camera.far - camera.near))
-    # print(z_eye)
-
-    # print(vs * z_eye)
-
 
 
 if __name__ == "__main__":
