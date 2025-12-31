@@ -26,10 +26,15 @@ void mainImage(out vec4 O, vec2 u) {
 """
 # it's important to use the same device!
 # also the texture needs to support the usage TEXTURE_BINDING for the later use case - this isn't default behaviour. you can set that in canvas.configure()
-shadertoy = Shadertoy(shader_code, resolution=(512, 512), offscreen=True, device=gfx.renderers.wgpu.get_shared().device)
-gpu_texture = shadertoy._present_context.get_current_texture() # now this might change between different texture objects with the rendercanvas offscreen context
+shadertoy = Shadertoy(
+    shader_code,
+    resolution=(512, 512),
+    offscreen=True,
+    device=gfx.renderers.wgpu.get_shared().device,
+)
+gpu_texture = shadertoy._present_context.get_current_texture()  # now this might change between different texture objects with the rendercanvas offscreen context
 # perhaps we only get a new texture every other frame or so?... needs investigation
-texture1 = gfx.Texture.from_gpu(gpu_texture) # use this new class method
+texture1 = gfx.Texture.from_gpu(gpu_texture)  # use this new class method
 
 # Then create the actual scene, in the visible canvas
 
@@ -52,7 +57,7 @@ def animate():
     rot = la.quat_from_euler((0.005, 0.01), order="xy")
     cube2.local.rotation = la.quat_mul(rot, cube2.local.rotation)
 
-    shadertoy._draw_frame() # draw the external app... (can also be done in a different shedule etc)
+    shadertoy._draw_frame()  # draw the external app... (can also be done in a different shedule etc)
 
     renderer2.render(scene2, camera2)
 

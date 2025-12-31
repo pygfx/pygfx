@@ -564,7 +564,9 @@ class Texture(Resource):
         return chunk
 
     @classmethod
-    def from_gpu(cls, texture_or_view: wgpu.GPUTexture | wgpu.GPUTextureView) -> "Texture":
+    def from_gpu(
+        cls, texture_or_view: wgpu.GPUTexture | wgpu.GPUTextureView
+    ) -> "Texture":
         """Create a pygfx Texture from an existing wgpu GPUTexture(or view).
         Most likely doesn't have the local data or most of that functionality
         """
@@ -584,8 +586,10 @@ class Texture(Resource):
         obj._wgpu_object = gpu_texture
         obj._wgpu_usage = gpu_texture.usage
         obj._wgpu_mip_level_count = gpu_texture.mip_level_count
-        obj._wgpu_emulate_rgb = False  # usually don't expect this, but maybe in special cases...
-        obj._data = None # as it only exists on the GPU
+        obj._wgpu_emulate_rgb = (
+            False  # usually don't expect this, but maybe in special cases...
+        )
+        obj._data = None  # as it only exists on the GPU
         obj._view = None
         obj._nbytes = gpu_texture._nbytes
         obj._store.dim = int(gpu_texture.dimension[0])
@@ -601,6 +605,7 @@ class Texture(Resource):
         )
 
         return obj
+
 
 def nchannels_from_format(format):
     if len(format) == 2 and format[0] in "usf":
