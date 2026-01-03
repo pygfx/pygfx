@@ -102,7 +102,7 @@ class Blender:
     Each renderer has one blender object.
     """
 
-    def __init__(self, *, enable_pick=True, enable_depth=True):
+    def __init__(self, *, enable_pick=True, enable_depth=True, enable_hdr=False):
         self.device = get_shared().device
 
         # We could allow custom targets, but this is not yet implemented in the methods.
@@ -127,6 +127,20 @@ class Blender:
 
         # Collect render targets
         all_targets = default_targets.copy()
+
+        self._enable_hdr = bool(enable_hdr)
+
+        if self._enable_hdr:
+            # Use rgba16float for hdr color targets
+            all_targets["color"] = (
+                wgpu.TextureFormat.rgba16float,
+                all_targets["color"][1],
+            )
+            all_targets["altcolor"] = (
+                wgpu.TextureFormat.rgba16float,
+                all_targets["altcolor"][1],
+            )
+
         for name in sorted(custom_targets):
             all_targets[name] = custom_targets[name]
         if not enable_pick:

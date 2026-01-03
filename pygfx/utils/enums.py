@@ -20,6 +20,7 @@ The enums used in pygfx. The enums are all available from the root ``pygfx`` nam
     TextAnchor
     VisibleSide
     PixelFilter
+    ToneMappingMode
 
 """
 
@@ -40,6 +41,7 @@ __all__ = [
     "SizeMode",
     "TextAlign",
     "TextAnchor",
+    "ToneMappingMode",
     "VisibleSide",
 ]
 
@@ -250,6 +252,17 @@ class TextAnchor(Enum):
     bottom_left = "bottom-left"
     bottom_center = "bottom-center"
     bottom_right = "bottom-right"
+
+
+class ToneMappingMode(Enum):
+    """The ToneMappingMode enum specifies the tone mapping operator to use."""
+
+    linear = "linear"
+    neutral = "neutral"
+    reinhard = "reinhard"
+    cineon = "cineon"
+    aces_filmic = "aces_filmic"
+    agx = "agx"
 
 
 # TODO: I experimented with using a Literal[] here, an idea discussed in https://github.com/pygfx/wgpu-py/issues/720.

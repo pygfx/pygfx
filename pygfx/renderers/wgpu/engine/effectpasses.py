@@ -346,6 +346,10 @@ class EffectPass(FullQuadPass):
     """Overloadable class attribute to state whether bindings to the depth buffer are needed.
     """
 
+    REQUIRES_HDR = False
+    """Overloadable class attribute to state whether this effect requires HDR rendering.
+    """
+
     uniform_type = dict(
         time="f4",
     )

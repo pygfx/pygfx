@@ -13,7 +13,7 @@ import pygfx as gfx
 from rendercanvas.auto import RenderCanvas, loop
 import imageio.v3 as iio
 
-from wgpu.utils.imgui import ImguiRenderer
+from wgpu.utils.imgui import ImguiRenderer, Stats
 from imgui_bundle import imgui, imspinner  # type: ignore
 from imgui_bundle import portable_file_dialogs as pfd  # type: ignore
 
@@ -25,22 +25,35 @@ canvas = RenderCanvas(
     size=(1280, 720), update_mode="fastest", title="glTF viewer", vsync=False
 )
 
-renderer = gfx.WgpuRenderer(canvas)
+renderer = gfx.WgpuRenderer(canvas, hdr=True)
 
 scene = gfx.Scene()
+
+# Create bloom effect pass using the new API
+bloom_pass = gfx.renderers.wgpu.PhysicalBasedBloomPass(
+    bloom_strength=0.05,
+    max_mip_levels=6,
+    filter_radius=0.003,
+    use_karis_average=False,
+)
+
+tone_mapping_pass = gfx.renderers.wgpu.ToneMappingPass()
+
+# Add bloom pass to renderer's effect passes
+renderer.effect_passes = [bloom_pass, tone_mapping_pass]
 
 
 ambient_light = gfx.AmbientLight(intensity=0.3)
 scene.add(ambient_light)
 directional_light = gfx.DirectionalLight(intensity=2.5)
-directional_light.local.position = (0.5, 0, 0.866)
+directional_light.local.position = (1, 1, 1)
 scene.add(directional_light)
 
 camera = gfx.PerspectiveCamera(45, 1280 / 720)
 
 gfx.OrbitController(camera, register_events=renderer)
 
-stats = gfx.Stats(viewport=renderer)
+stats = Stats(device=renderer.device, canvas=canvas)
 
 clock = gfx.Clock()
 
@@ -211,6 +224,67 @@ def draw_imgui():
                 else:
                     scene.environment = None
 
+        if imgui.collapsing_header("Effects", imgui.TreeNodeFlags_.default_open):
+            imgui.begin_group()
+            _, bloom_pass.enabled = imgui.checkbox("Bloom", bloom_pass.enabled)
+
+            if bloom_pass.enabled:
+                changed, bloom_pass.bloom_strength = imgui.slider_float(
+                    "Bloom Strength", bloom_pass.bloom_strength, 0.0, 1.0
+                )
+                changed, bloom_pass.max_mip_levels = imgui.slider_int(
+                    "Max Mipmap Levels", bloom_pass.max_mip_levels, 1, 10
+                )
+                changed, bloom_pass.filter_radius = imgui.slider_float(
+                    "Filter Radius", bloom_pass.filter_radius, 0.0, 0.01
+                )
+                changed, bloom_pass.use_karis_average = imgui.checkbox(
+                    "Use Karis Average", bloom_pass.use_karis_average
+                )
+            imgui.end_group()
+
+            if renderer._blender._enable_hdr:
+                imgui.separator()
+                imgui.begin_group()
+
+                _, tone_mapping_pass.enabled = imgui.checkbox(
+                    "Tone Mapping", tone_mapping_pass.enabled
+                )
+
+                if tone_mapping_pass.enabled:
+                    changed, tone_mapping_pass.exposure = imgui.slider_float(
+                        "Exposure", tone_mapping_pass.exposure, 0.1, 5.0
+                    )
+                    changed, v = imgui.combo(
+                        "Tone Mapping Type",
+                        [
+                            gfx.enums.ToneMappingMode.linear,
+                            gfx.enums.ToneMappingMode.neutral,
+                            gfx.enums.ToneMappingMode.reinhard,
+                            gfx.enums.ToneMappingMode.cineon,
+                            gfx.enums.ToneMappingMode.aces_filmic,
+                            gfx.enums.ToneMappingMode.agx,
+                        ].index(tone_mapping_pass.mode),
+                        [
+                            "Linear",
+                            "Neutral",
+                            "Reinhard",
+                            "Cineon",
+                            "ACESFilmic",
+                            "AgX",
+                        ],
+                    )
+                    if changed:
+                        tone_mapping_pass.mode = [
+                            gfx.enums.ToneMappingMode.linear,
+                            gfx.enums.ToneMappingMode.neutral,
+                            gfx.enums.ToneMappingMode.reinhard,
+                            gfx.enums.ToneMappingMode.cineon,
+                            gfx.enums.ToneMappingMode.aces_filmic,
+                            gfx.enums.ToneMappingMode.agx,
+                        ][v]
+                imgui.end_group()
+
         if imgui.collapsing_header("Visibility", imgui.TreeNodeFlags_.default_open):
             _, background.visible = imgui.checkbox(
                 "show background", background.visible
@@ -258,8 +332,8 @@ def animate():
     mixer.update(dt)
 
     with stats:
-        renderer.render(scene, camera, flush=False)
-    stats.render()
+        renderer.render(scene, camera)
+
     gui_renderer.render()
     canvas.request_draw()
 

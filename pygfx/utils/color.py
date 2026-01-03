@@ -142,7 +142,6 @@ class Color:
         return self.__mul__(1 / factor)
 
     def _set_from_rgba(self, r, g, b, a):
-        a = max(0.0, min(1.0, float(a)))
         self._val = F4(float(r), float(g), float(b), a)
 
     def _set_from_tuple(self, color):
