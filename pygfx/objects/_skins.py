@@ -3,6 +3,7 @@ import pylinalg as la
 from typing import List
 from ._base import WorldObject
 from ..utils import array_from_shadertype
+from ..utils.bounds import Bounds
 from ..utils.enums import BindMode
 from ..resources import Buffer
 from ._more import Mesh
@@ -111,6 +112,16 @@ class Skeleton:
                 return bone
         return None
 
+    def get_world_bounds(self):
+        """Get the bounds of the skeleton based on its bones' world positions."""
+        points = []
+        for bone in self.bones:
+            pos = bone.world.position
+            points.append(pos)
+        points = np.array(points)
+        world_bound = Bounds.from_points(points)
+        return world_bound
+
 
 class SkinnedMesh(Mesh):
     """A skinned mesh.
@@ -139,9 +150,12 @@ class SkinnedMesh(Mesh):
         return self._bind_matrix
 
     @property
-    def bind_matrix_inv(self):
-        """The base matrix that is used for resetting the bound bone transforms."""
-        return self._bind_matrix_inv
+    def effective_bind_matrix_inv(self):
+        """The effective inverse bind matrix that is used for resetting the bound bone transforms., depending on the bind mode."""
+        if self.bind_mode == BindMode.attached:
+            return self.world.inverse_matrix
+        elif self.bind_mode == BindMode.detached:
+            return self._bind_matrix_inv
 
     @property
     def bind_mode(self):
@@ -161,12 +175,7 @@ class SkinnedMesh(Mesh):
         # Update when the world transform has changed
         super()._update_world_transform()
 
-        if self.bind_mode == BindMode.attached:
-            self._bind_matrix_inv = self.world.inverse_matrix
-        elif self.bind_mode == BindMode.detached:
-            self._bind_matrix_inv = la.mat_inverse(self.bind_matrix)
-
-        self.uniform_buffer.data["bind_matrix_inv"] = self._bind_matrix_inv.T
+        self.uniform_buffer.data["bind_matrix_inv"] = self.effective_bind_matrix_inv.T
         self.uniform_buffer.update_full()
 
     def bind(self, skeleton: Skeleton, bind_matrix=None):
@@ -189,6 +198,24 @@ class SkinnedMesh(Mesh):
         self.uniform_buffer.data["bind_matrix"] = self._bind_matrix.T
         self.uniform_buffer.data["bind_matrix_inv"] = self._bind_matrix_inv.T
         self.uniform_buffer.update_full()
+
+    def _get_bounds_from_geometry(self):
+        # For skinned mesh, we cannot directly use the geometry's bounding box/sphere,
+        # We Use the skeleton's bones to estimate the bounds.
+        if self.skeleton:
+            bounds = self.skeleton.get_world_bounds()
+            aabb = bounds.aabb
+
+            local_aabb = la.aabb_transform(aabb, self.effective_bind_matrix_inv)
+            # scale up the aabb a bit to accomodate possible vertex offsets around
+            expand = (local_aabb[1] - local_aabb[0]) * 0.25 * 0.5
+            local_aabb[0] -= expand
+            local_aabb[1] += expand
+            self._bounds_geometry = Bounds(local_aabb, None)
+
+            return self._bounds_geometry
+        else:
+            return super()._get_bounds_from_geometry()
 
     def pose(self):
         """Reset the skinned mesh to the binding-time pose."""

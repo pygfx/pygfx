@@ -78,6 +78,7 @@ from .engine.effectpasses import (
     NoisePass,
     FogPass,
     DepthPass,
+    NormalPass,
 )
 from .engine.bloom import PhysicalBasedBloomPass
 from .engine.tonemapping import ToneMappingPass

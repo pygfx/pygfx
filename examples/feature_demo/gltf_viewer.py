@@ -45,7 +45,7 @@ renderer.effect_passes = [bloom_pass, tone_mapping_pass]
 
 ambient_light = gfx.AmbientLight(intensity=0.3)
 scene.add(ambient_light)
-directional_light = gfx.DirectionalLight(intensity=2.5)
+directional_light = gfx.DirectionalLight(intensity=1.0)
 directional_light.local.position = (1, 1, 1)
 scene.add(directional_light)
 
@@ -147,7 +147,7 @@ def load_model(model_path):
         scene.add(model_obj)
         state["selected_action"] = 0
 
-        camera.show_object(model_obj, scale=1.4)
+        camera.show_object(model_obj, scale=1.2)
 
         if actions:
             for action in actions:
