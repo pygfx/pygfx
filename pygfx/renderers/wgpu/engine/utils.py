@@ -3,6 +3,7 @@ Utils for the wgpu renderer.
 """
 
 import json
+import weakref
 from collections import OrderedDict
 
 import wgpu
@@ -236,9 +237,21 @@ def generate_uniform_struct(dtype_struct, structname):
 
 
 class JsonEncoderWithWgpuSupport(json.JSONEncoder):
+    """JSON encoder that handles GPU objects with stable unique IDs for cache keys."""
+
+    _object_ids = weakref.WeakKeyDictionary()
+    _object_counter = 0
+
+    def _get_stable_id(self, ob):
+        """Get a unique ID for a GPU object that is never reused, even after GC."""
+        if ob not in self._object_ids:
+            JsonEncoderWithWgpuSupport._object_counter += 1
+            self._object_ids[ob] = self._object_counter
+        return self._object_ids[ob]
+
     def default(self, ob):
         if isinstance(ob, wgpu.GPUObjectBase):
-            return ob.__class__.__name__ + "@" + hex(id(ob))
+            return ob.__class__.__name__ + "@" + str(self._get_stable_id(ob))
 
 
 jsonencoder = JsonEncoderWithWgpuSupport()
