@@ -14,7 +14,6 @@ of id() to ensure each GPU object gets a unique identifier that is never reused.
 
 import gc
 import wgpu
-import pytest
 
 from pygfx.renderers.wgpu.engine.shared import get_shared
 from pygfx.renderers.wgpu.engine.utils import jsonencoder
@@ -30,7 +29,7 @@ def test_gpu_object_json_encoding_unique():
 
     seen_encodings = set()
 
-    for i in range(50):
+    for _ in range(50):
         buffer = device.create_buffer(size=256, usage=wgpu.BufferUsage.STORAGE)
         encoding = jsonencoder.encode(buffer)
 
