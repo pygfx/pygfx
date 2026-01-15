@@ -242,16 +242,13 @@ class JsonEncoderWithWgpuSupport(json.JSONEncoder):
     _object_ids = weakref.WeakKeyDictionary()
     _object_counter = 0
 
-    def _get_stable_id(self, ob):
-        """Get a unique ID for a GPU object that is never reused, even after GC."""
-        if ob not in self._object_ids:
-            JsonEncoderWithWgpuSupport._object_counter += 1
-            self._object_ids[ob] = self._object_counter
-        return self._object_ids[ob]
-
     def default(self, ob):
         if isinstance(ob, wgpu.GPUObjectBase):
-            return ob.__class__.__name__ + "@" + str(self._get_stable_id(ob))
+            object_id = self._object_ids.get(ob)
+            if object_id is None:
+                JsonEncoderWithWgpuSupport._object_counter += 1
+                object_id = self._object_ids[ob] = str(self._object_counter)
+            return f"{ob.__class__.__name__}@{object_id}"
 
 
 jsonencoder = JsonEncoderWithWgpuSupport()
