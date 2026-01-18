@@ -1,5 +1,5 @@
 import numpy as np
-import freetype
+# import freetype
 
 from ._atlas import glyph_atlas
 from ._shaper import CACHE_FT

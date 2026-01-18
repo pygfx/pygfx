@@ -14,7 +14,9 @@ import json
 import time
 import secrets
 
-import freetype
+# import freetype
+
+from js import FontFace
 
 from .. import logger, get_resources_dir, get_cache_dir
 
@@ -68,11 +70,22 @@ class FontFile:
         return f"<FontFile {self.name} at 0x{hex(id(self))}>"
 
     def __hash__(self):
+        _ = self._get_face() # get this to run early
         return hash(self.name)
 
     def _get_face(self):
         # This was factored out so it can be overloaded in tests
-        return freetype.Face(self._filename)
+        if not hasattr(self, "_face"):
+            # just trying to map https://developer.mozilla.org/en-US/docs/Web/API/FontFace to this?
+            face = FontFace.new(str(self._family), self._filename)
+            self._family = face.family
+            self._variant = face.variant
+            self._weight = face.weight
+            self._style = face.style
+            self._codepoints = face.unicodeRange
+
+            self._face = face
+        return self._face
 
     @property
     def filename(self):
@@ -365,6 +378,8 @@ def get_system_font_directories():
         return get_windows_font_directories()
     elif sys.platform.startswith("darwin"):
         return get_osx_font_directories()
+    elif sys.platform == "emscripten":
+        return set() # not sure what browsers would do here... tbd
     else:
         return get_unix_font_directories()
 

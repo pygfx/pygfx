@@ -8,7 +8,7 @@ Relevant links:
 """
 
 import time
-import freetype
+# import freetype
 import uharfbuzz
 import numpy as np
 
