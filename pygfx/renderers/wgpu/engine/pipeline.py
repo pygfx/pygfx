@@ -571,7 +571,7 @@ class RenderPipelineContainer(PipelineContainer):
             return
         # Set strip_index_format
         index_format = wgpu.IndexFormat.uint32
-        strip_index_format = 0
+        strip_index_format = None
         if "strip" in self.pipeline_info["primitive_topology"]:
             strip_index_format = index_format
         # Trigger a pipeline rebuild?
