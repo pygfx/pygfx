@@ -441,7 +441,7 @@ class Blender:
             fn apply_virtual_fields_of_fragment_output(outp: ptr<function,FragmentOutput>, stub: bool) {
                 let color = (*outp).color;
                 let rgb = MAKE_RGB;
-                (*outp).color = vec4f(rgb, 1.0);  // force alpha 1
+                (*outp).color = vec4f(rgb, color.a);
             }
             """.replace("MAKE_RGB", make_rgb)
 

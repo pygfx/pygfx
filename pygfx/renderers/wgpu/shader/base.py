@@ -38,7 +38,7 @@ class ShaderInterface:
     def generate_wgsl(self, **template_vars):
         raise NotImplementedError()
 
-    def get_bindings_info(self, wobject, shared, scene):
+    def get_bindings_info(self, wobject, shared, scene, renderer):
         """Subclasses must return a dict describing the buffers and
         textures used by this shader.
 
@@ -168,7 +168,7 @@ class BaseShader(ShaderInterface):
                 ]
             )
 
-    def get_bindings_info(self, wobject, shared, scene):
+    def get_bindings_info(self, wobject, shared, scene, renderer):
         # We assume that in normal usage (by the pipeline.py logic),
         # this method is called first after initialization,
         # which means that we can handle the _template_vars_current here.
@@ -180,12 +180,12 @@ class BaseShader(ShaderInterface):
         self._binding_definitions.clear()
 
         try:
-            return self.get_bindings(wobject, shared, scene)
+            return self.get_bindings(wobject, shared, scene, renderer)
         finally:
             self._template_vars_current = None
             self._hash = None  # template vars my have changed, so force a recalculation
 
-    def get_bindings(self, wobject, shared, scene):
+    def get_bindings(self, wobject, shared, scene, renderer):
         # Default implementation returns zero bindings
         return {0: {}}
 
