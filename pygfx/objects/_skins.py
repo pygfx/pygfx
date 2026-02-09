@@ -203,12 +203,28 @@ class SkinnedMesh(Mesh):
         # For skinned mesh, we cannot directly use the geometry's bounding box/sphere,
         # We Use the skeleton's bones to estimate the bounds.
         if self.skeleton:
-            bounds = self.skeleton.get_world_bounds()
+            skin_indices = getattr(self.geometry, "skin_indices", None)
+            if skin_indices is None or len(skin_indices.data) == 0:
+                return super()._get_bounds_from_geometry()
+
+            bones = []
+            for bone_idx in skin_indices.data:
+                for idx in bone_idx:
+                    bone = self.skeleton.bones[idx]
+                    if bone not in bones:
+                        bones.append(bone)
+            points = []
+            for bone in bones:
+                pos = bone.world.position
+                points.append(pos)
+
+            points = np.array(points)
+            bounds = Bounds.from_points(points)
             aabb = bounds.aabb
 
             local_aabb = la.aabb_transform(aabb, self.effective_bind_matrix_inv)
             # scale up the aabb a bit to accomodate possible vertex offsets around
-            expand = (local_aabb[1] - local_aabb[0]) * 0.25 * 0.5
+            expand = (local_aabb[1] - local_aabb[0]) * 0.2 * 0.5
             local_aabb[0] -= expand
             local_aabb[1] += expand
             self._bounds_geometry = Bounds(local_aabb, None)
