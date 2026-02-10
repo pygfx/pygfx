@@ -145,11 +145,11 @@ def get_ft_face(font_filename):
     return face
 
 
-CACHE_FT = TemporalCache(
-    lifetime=10,
-    getter=get_ft_face,
-    minimum_items=20,
-)
+# CACHE_FT = TemporalCache(
+#     lifetime=10,
+#     getter=get_ft_face,
+#     minimum_items=20,
+# )
 
 
 def shape_text_hb(text, font_filename, direction=None):

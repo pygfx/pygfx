@@ -77,7 +77,7 @@ class FontFile:
         # This was factored out so it can be overloaded in tests
         if not hasattr(self, "_face"):
             # just trying to map https://developer.mozilla.org/en-US/docs/Web/API/FontFace to this?
-            face = FontFace.new(str(self._family), self._filename)
+            face = FontFace.new(str(self._family), f"url({self._filename})")
             self._family = face.family
             self._variant = face.variant
             self._weight = face.weight

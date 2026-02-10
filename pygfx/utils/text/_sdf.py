@@ -1,8 +1,10 @@
+import sys
+
 import numpy as np
 # import freetype
 
 from ._atlas import glyph_atlas
-from ._shaper import CACHE_FT
+# from ._shaper import CACHE_FT
 
 
 # A little cache so we can assign numbers to fonts
@@ -38,7 +40,7 @@ def generate_glyph(glyph_indices, font_filename):
     # Get the face object. We will not need it if all glyphs are already
     # in the atlas, but because of the cache it is fast, and this way
     # we keep the face alive in the cache.
-    face = CACHE_FT[font_filename]
+    # face = CACHE_FT[font_filename]
 
     atlas_indices = np.empty((len(glyph_indices),), "u4")
     for i in range(len(glyph_indices)):
@@ -93,3 +95,64 @@ def _generate_sdf(face, glyph_index):
     offset = face.glyph.bitmap_left, face.glyph.bitmap_top
 
     return glyph, offset
+
+
+
+# in the browser, we can use the canas api to generate our atlast of SDFs...
+def generate_glyph_browser(glyph_indices, font_filename):
+    """Generate a glyph for the given glyph indices.
+
+    Parameters:
+        glyph_indices (list): the indices in the font to render a glyph for.
+        font_filename (str): the font to use.
+    """
+    # Get font index (so we can make it part of the glyph hash)
+    try:
+        font_index = fontname_cache[font_filename]
+    except KeyError:
+        font_index = len(fontname_cache) + 1
+        fontname_cache[font_filename] = font_index
+
+    atlas_indices = np.empty((len(glyph_indices),), "u4")
+    for i in range(len(glyph_indices)):
+        glyph_index = int(glyph_indices[i])
+        glyph_hash = (font_index, glyph_index)
+        index = glyph_atlas.get_index_from_hash(glyph_hash)
+        if index is None:
+            glyphs, offset = _generate_sdf_browser(font_filename, glyph_index)
+            index = glyph_atlas.store_region_with_hash(glyph_hash, glyphs, offset)
+        atlas_indices[i] = index
+    return atlas_indices
+
+# replace all the freetype logic by canvas logic? https://tchayen.com/drawing-text-in-webgpu-using-just-the-font-file
+def _generate_sdf_browser(font_filename, glyph_index):
+    from js import document, OffscreenCanvas, FontFace, ArrayBuffer
+    from pyodide.ffi import run_sync
+    canvas = OffscreenCanvas.new(64, 64)
+    ctx = canvas.getContext("2d")
+
+    # print("Loading font", font_filename)
+    with open(font_filename, "rb") as f:
+        data = f.read()
+    js_buf = ArrayBuffer.new(len(data))
+    js_buf.assign(data)
+    js_fontFace = FontFace.new(font_filename, js_buf)
+    run_sync(js_fontFace.load())
+    document.fonts.add(js_fontFace)
+    # print("Font loaded", js_fontFace)
+
+    ctx.font = f"64px {js_fontFace.family}"
+
+    ctx.fillStyle = "white"
+    ctx.fillText(chr(glyph_index), 0, 64)
+
+    data = ctx.getImageData(0, 0, 64, 64).data
+    glyph = np.array(data, np.uint8).reshape(64, 64, 4)[:, :, 0]
+    offset = 0, 0
+
+    # TODO: make this a signed distance field...
+    return glyph, offset
+
+
+if sys.platform == "emscripten":
+    generate_glyph = generate_glyph_browser
