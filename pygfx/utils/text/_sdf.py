@@ -1,10 +1,8 @@
 import sys
 
 import numpy as np
-# import freetype
 
 from ._atlas import glyph_atlas
-# from ._shaper import CACHE_FT
 
 
 # A little cache so we can assign numbers to fonts
@@ -40,7 +38,7 @@ def generate_glyph(glyph_indices, font_filename):
     # Get the face object. We will not need it if all glyphs are already
     # in the atlas, but because of the cache it is fast, and this way
     # we keep the face alive in the cache.
-    # face = CACHE_FT[font_filename]
+    face = CACHE_FT[font_filename]
 
     atlas_indices = np.empty((len(glyph_indices),), "u4")
     for i in range(len(glyph_indices)):
@@ -153,6 +151,8 @@ def _generate_sdf_browser(font_filename, glyph_index):
     # TODO: make this a signed distance field...
     return glyph, offset
 
-
 if sys.platform == "emscripten":
     generate_glyph = generate_glyph_browser
+else:
+    import freetype
+    from ._shaper import CACHE_FT

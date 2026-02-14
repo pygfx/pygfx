@@ -7,10 +7,13 @@ Relevant links:
 
 """
 
+import sys
 import time
-# import freetype
 import uharfbuzz
 import numpy as np
+
+if sys.platform != "emscripten":
+    import freetype
 
 
 # Determine reference size. This affects the size of the SDF bitmap.
@@ -144,12 +147,12 @@ def get_ft_face(font_filename):
 
     return face
 
-
-# CACHE_FT = TemporalCache(
-#     lifetime=10,
-#     getter=get_ft_face,
-#     minimum_items=20,
-# )
+if sys.platform != "emscripten":
+    CACHE_FT = TemporalCache(
+        lifetime=10,
+        getter=get_ft_face,
+        minimum_items=20,
+    )
 
 
 def shape_text_hb(text, font_filename, direction=None):

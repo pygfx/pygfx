@@ -66,12 +66,13 @@ class FontFile:
         self._weight = None
         self._style = None
         self._codepoints = codepoints
+        if sys.platform == "emscripten":
+            self._get_face() # load it early so the direct access to freetype attributes is skipped... feels janky.
 
     def __repr__(self):
         return f"<FontFile {self.name} at 0x{hex(id(self))}>"
 
     def __hash__(self):
-        _ = self._get_face() # get this to run early
         return hash(self.name)
 
     def _get_face(self):

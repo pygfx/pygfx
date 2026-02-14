@@ -22,6 +22,8 @@ import pygfx
 
 # sphinx_gallery_pygfx_test = 'off'
 
+# sphinx_gallery_pygfx_docs = 'hidden'
+
 # from here: https://github.com/harfbuzz/uharfbuzz/pull/275 placed in /dist
 uharfbuzz_wheel = "uharfbuzz-0.1.dev1+ga19185453-cp310-abi3-pyodide_2025_0_wasm32.whl"
 wgpu_wheel = "https://wgpu-py--753.org.readthedocs.build/en/753/_static/wgpu-0.29.0-py3-none-any.whl" # very hacky way to serve this but it does work...
