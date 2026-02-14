@@ -1,5 +1,6 @@
 import os
 import json
+import sys
 
 from .. import logger, get_resources_dir
 from ._fontfinder import FontFile, get_all_fonts, weight_dict, style_dict
@@ -166,9 +167,10 @@ class FontManager:
 
         # The main font of the default font is the fallback of fallbacks.
         # We copy the fontfile so we can detect when it's used to show tofu's.
-        print(self._family_to_font.items())
-        # ff = self._family_to_font["Noto Sans"]["Regular"]
-        ff = self._family_to_font["None"]["normal"]
+        if sys.platform == "emscripten":
+            ff = self._family_to_font["None"]["normal"]
+        else:
+            ff = self._family_to_font["Noto Sans"]["Regular"]
         self._fallback_font = FontFile(ff.filename, ff.family, ff.variant)
 
     def _load_default_font_index(self):

@@ -14,9 +14,10 @@ import json
 import time
 import secrets
 
-# import freetype
-
-from js import FontFace
+if sys.platform == "emscripten":
+    from js import FontFace
+else:
+    import freetype
 
 from .. import logger, get_resources_dir, get_cache_dir
 
@@ -76,15 +77,19 @@ class FontFile:
     def _get_face(self):
         # This was factored out so it can be overloaded in tests
         if not hasattr(self, "_face"):
-            # just trying to map https://developer.mozilla.org/en-US/docs/Web/API/FontFace to this?
-            face = FontFace.new(str(self._family), f"url({self._filename})")
-            self._family = face.family
-            self._variant = face.variant
-            self._weight = face.weight
-            self._style = face.style
-            self._codepoints = face.unicodeRange
+            if sys.platform == "emscripten":
+                # TODO: this doesn't actually work... and we might want to use this abstraction in the _shader and _sdf too.
+                # just trying to map https://developer.mozilla.org/en-US/docs/Web/API/FontFace to this?
+                face = FontFace.new(str(self._family), f"url({self._filename})")
+                self._family = face.family
+                self._variant = face.variant
+                self._weight = face.weight
+                self._style = face.style
+                self._codepoints = face.unicodeRange
 
-            self._face = face
+                self._face = face
+            else:
+                self._face = freetype.Face(self._filename)
         return self._face
 
     @property
