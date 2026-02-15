@@ -14,7 +14,10 @@ import json
 import time
 import secrets
 
-import freetype
+if sys.platform == "emscripten":
+    from js import FontFace
+else:
+    import freetype
 
 from .. import logger, get_resources_dir, get_cache_dir
 
@@ -63,6 +66,8 @@ class FontFile:
         self._weight = None
         self._style = None
         self._codepoints = codepoints
+        if sys.platform == "emscripten":
+            self._get_face() # load it early so the direct access to freetype attributes is skipped... feels janky.
 
     def __repr__(self):
         return f"<FontFile {self.name} at 0x{hex(id(self))}>"
@@ -72,7 +77,21 @@ class FontFile:
 
     def _get_face(self):
         # This was factored out so it can be overloaded in tests
-        return freetype.Face(self._filename)
+        if not hasattr(self, "_face"):
+            if sys.platform == "emscripten":
+                # TODO: this doesn't actually work... and we might want to use this abstraction in the _shader and _sdf too.
+                # just trying to map https://developer.mozilla.org/en-US/docs/Web/API/FontFace to this?
+                face = FontFace.new(str(self._family), f"url({self._filename})")
+                self._family = face.family
+                self._variant = face.variant
+                self._weight = face.weight
+                self._style = face.style
+                self._codepoints = face.unicodeRange
+
+                self._face = face
+            else:
+                self._face = freetype.Face(self._filename)
+        return self._face
 
     @property
     def filename(self):
@@ -365,6 +384,8 @@ def get_system_font_directories():
         return get_windows_font_directories()
     elif sys.platform.startswith("darwin"):
         return get_osx_font_directories()
+    elif sys.platform == "emscripten":
+        return set() # not sure what browsers would do here... tbd
     else:
         return get_unix_font_directories()
 

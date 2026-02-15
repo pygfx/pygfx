@@ -68,7 +68,7 @@ default_targets = {
         usg.RENDER_ATTACHMENT | usg.COPY_SRC | usg.TEXTURE_BINDING,
     ),
     # The depth buffer should preferably at least 24bit - we need that precision. It's 4 bytes per pixel.
-    # 32 but is cool, but we may want stencil at some point, so depth24plus_stencil8 seems like a good default.
+    # 32 bit is cool, but we may want stencil at some point, so depth24plus_stencil8 seems like a good default.
     # The depth24plus is either depth32float or depth24unorm, depending on the backend.
     # Note that there is also depth32float-stencil8, but it needs the (webgpu) extension with the same name.
     "depth": (

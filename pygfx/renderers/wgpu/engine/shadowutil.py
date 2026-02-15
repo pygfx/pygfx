@@ -113,6 +113,7 @@ def render_shadow_map(
     """Render the wobjects into the given shadow map."""
 
     shadow_pass = command_encoder.begin_render_pass(
+        label="Shadow Map Renderpass",
         color_attachments=[],
         depth_stencil_attachment={
             "view": shadow_map,
@@ -191,6 +192,7 @@ def get_shadow_bind_group(device, shadow_buffer):
         update_resource(shadow_buffer)
 
         bind_group = device.create_bind_group(
+            label="Shadow Map Bind Group",
             layout=global_bind_group_layout,
             entries=[
                 {
@@ -321,6 +323,7 @@ def create_shadow_pipeline(
         shader_module = device.create_shader_module(code=shadow_vertex_shader)
 
     pipeline = device.create_render_pipeline(
+        label="Shadow Map Pipeline",
         layout=device.create_pipeline_layout(
             bind_group_layouts=[global_bind_group_layout, global_bind_group_layout]
         ),
