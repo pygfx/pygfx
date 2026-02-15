@@ -125,10 +125,10 @@ pyodide_compute_template = """
     <p>
     {docstring}
     </p>
-    <div id="output" style="white-space: pre-wrap; background:#eee; padding:4px; margin:4px; border:1px solid #ccc;">
+    <div id="output" style="white-space: per-line; background:#eee; padding:4px; margin:4px; border:1px solid #ccc;">
         <p>Output:</p>
     </div>
-    <canvas id='canvas' style='width:calc(100% - 40px); height:600px; background-color: #ddd;'></canvas>
+    <canvas id='canvas' style='width:calc(90% - 40px); height:640px; background-color: #ddd;'></canvas>
     <script type="text/javascript">
         async function main() {{
             let loading = document.getElementById('loading');
