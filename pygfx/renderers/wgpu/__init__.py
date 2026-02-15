@@ -81,6 +81,7 @@ from .engine.effectpasses import (
     NormalPass,
 )
 from .engine.bloom import PhysicalBasedBloomPass
+from .engine.tonemapping import ToneMappingPass
 from .engine.pipeline import Binding
 
 # Shader classes

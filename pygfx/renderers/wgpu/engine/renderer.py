@@ -245,6 +245,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         enable_events=True,
         gamma_correction=1.0,
         ppaa="default",
+        hdr=False,
         **kwargs,
     ):
         blend_mode = kwargs.pop("blend_mode", None)
@@ -302,7 +303,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
             self._target._wgpu_usage |= wgpu.TextureUsage.RENDER_ATTACHMENT
             self._target._wgpu_usage |= wgpu.TextureUsage.TEXTURE_BINDING
 
-        self._blender = Blender()
+        self._blender = Blender(enable_hdr=hdr)
         self._effect_passes = ()
         self.ppaa = ppaa
         self._name_of_texture_with_effects = (
@@ -825,6 +826,13 @@ class WgpuRenderer(RootEventHandler, Renderer):
             for step in self._effect_passes:
                 if not step.enabled:
                     continue
+                if step.REQUIRES_HDR and not self._blender._enable_hdr:
+                    logger.warning(
+                        f"Effect pass {step.__class__.__name__} requires HDR rendering, but the renderer is not configured for HDR. Skipping this effect step."
+                    )
+                    step.enabled = False
+                    continue
+
                 color_tex = self._blender.get_texture_view(
                     src_name, src_usage, create_if_not_exist=True
                 )
