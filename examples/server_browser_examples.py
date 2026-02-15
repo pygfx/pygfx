@@ -1,4 +1,8 @@
 """
+Serve browser examples locally.
+===============================
+
+
 A little script to serve pygfx examples on localhost so you can try them in the browser.
 This is an iteration of the same script in rendercanvas and wgpu-py although some changes:
 
@@ -20,9 +24,9 @@ import flit
 import pygfx
 
 
+# sphinx_gallery_pygfx_docs = 'hidden'
 # sphinx_gallery_pygfx_test = 'off'
 
-# sphinx_gallery_pygfx_docs = 'hidden'
 
 # from here: https://github.com/harfbuzz/uharfbuzz/pull/275 placed in /dist
 uharfbuzz_wheel = "uharfbuzz-0.1.dev1+ga19185453-cp310-abi3-pyodide_2025_0_wasm32.whl"
