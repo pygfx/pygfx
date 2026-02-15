@@ -498,7 +498,7 @@ class Blender:
                 // virtualfield objectId: u32 = u_wobject.renderer_id;
                 // virtualfield elementIndex: u32 = varyings.elementIndex;
                 @location(0) color: vec4<f32>,
-                MAYBE_PICK@location(1) pick: vec4<u 32>,
+                MAYBE_PICK@location(1) pick: vec4<u32>,
             };
 
             fn apply_virtual_fields_of_fragment_output(outp: ptr<function,FragmentOutput>, position: vec3f, objectId: u32, elementIndex: u32) {
