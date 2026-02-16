@@ -50,28 +50,34 @@ def get_extended_version() -> str:
     # Sample first 3 parts of __version__
     base_release = ".".join(__version__.split(".")[:3])
 
-    # Check release
-    if not release:
-        release = base_release
-    elif release != base_release:
-        warning(
-            f"{project_name} version from git ({release})"
-            f" and __version__ ({base_release}) don't match."
-        )
+    # Start version string (__version__ string is leading)
+    version = base_release
+    tag_prefix = "#"
 
-    # Build the total version
-    version = release
+    if release and release != base_release:
+        # Can happen between bumping and tagging. And also when merging a
+        # version bump into a working branch, because we use --first-parent.
+        release2, _post, _labels = get_version_info_from_git(first_parent=False)
+        if release2 != base_release:
+            warning(
+                f"{project_name} version from git ({release})"
+                f" and __version__ ({base_release}) don't match."
+            )
+        version += "+from_tag_" + release.replace(".", "_")
+        tag_prefix = "."
+
+    # Add git info
     if post and post != "0":
         version += f".post{post}"
         if labels:
-            version += "+" + ".".join(labels)
+            version += tag_prefix + ".".join(labels)
     elif labels and labels[-1] == "dirty":
-        version += "+" + ".".join(labels)
+        version += tag_prefix + ".".join(labels)
 
     return version
 
 
-def get_version_info_from_git() -> str:
+def get_version_info_from_git(*, first_parent: bool = True) -> str:
     """
     Get (release, post, labels) from Git.
 
@@ -80,15 +86,9 @@ def get_version_info_from_git() -> str:
     git-hash and optionally a dirty flag.
     """
     # Call out to Git
-    command = [
-        "git",
-        "describe",
-        "--long",
-        "--always",
-        "--tags",
-        "--dirty",
-        "--first-parent",
-    ]
+    command = ["git", "describe", "--long", "--always", "--tags", "--dirty"]
+    if first_parent:
+        command.append("--first-parent")
     try:
         p = subprocess.run(command, check=False, cwd=repo_dir, capture_output=True)
     except Exception as e:
