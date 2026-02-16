@@ -125,10 +125,10 @@ pyodide_compute_template = """
     <p>
     {docstring}
     </p>
-    <div id="output" style="white-space: per-line; background:#eee; padding:4px; margin:4px; border:1px solid #ccc;">
+    <canvas id='canvas' style='width:calc(90% - 40px); height:640px; background-color: #ddd;'></canvas>
+    <div id="output" style="white-space: per-line; overflow-y: auto; height:300px; background:#eee; padding:4px; margin:4px; border:1px solid #ccc;">
         <p>Output:</p>
     </div>
-    <canvas id='canvas' style='width:calc(90% - 40px); height:640px; background-color: #ddd;'></canvas>
     <script type="text/javascript">
         async function main() {{
             let loading = document.getElementById('loading');
@@ -141,7 +141,9 @@ pyodide_compute_template = """
                 pyodide.setStdout({{
                     batched: (s) => {{
                         // TODO: newline, scrollable, echo to console?
-                        document.getElementById("output").innerHTML += "<br>" + s.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                        el = document.getElementById("output");
+                        el.innerHTML += "<br>" + s.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                        el.scrollTop = el.scrollHeight;  // scroll to bottom
                         console.log(s); // so we also have it formatted
                     }}
                 }});
@@ -166,6 +168,24 @@ pyodide_compute_template = """
 
 </html>
 """
+
+imageio_patch = """
+from pyodide.http import pyfetch
+from io import BytesIO
+response = await pyfetch("https://raw.githubusercontent.com/imageio/imageio-binaries/master/images/{filename}")
+{varname} = iio.imread(BytesIO(await response.bytes()))
+"""
+
+# NOTE: this doesn't seem to work with the stenz.npz file... something baout IOmode
+def patch_imageio_for_pyodide(python_code:str) -> str:
+    """
+    to use the imageio examples in pyodide, we awkwardly replace the code a bit.
+    """
+    import re
+    # varname = iio.imread("imageio:filename")
+    pattern = re.compile(r"""([\w_]*)\s?=\s?iio.imread\(["']imageio:(.*)["']\)""")
+    patched = re.sub(pattern=pattern, repl=imageio_patch.rstrip().format(filename=r"\2", varname=r"\1"), string=python_code)
+    return patched
 
 
 def build_wheel():
@@ -195,7 +215,7 @@ def get_docstring_from_py_file(fname):
                 else:
                     doc += line
 
-    return doc.replace("\n\n", "<br><br>")
+    return doc.replace("\n", "<br>")
 
 
 class MyHandler(BaseHTTPRequestHandler):
@@ -242,9 +262,14 @@ class MyHandler(BaseHTTPRequestHandler):
             if os.path.isfile(filename):
                 with open(filename, "rb") as f:
                     data = f.read()
+                data = patch_imageio_for_pyodide(data.decode()).encode()
                 self.respond(200, data, "text/plain")
             else:
                 self.respond(404, "py file not found")
+
+        # TODO: maybe we can also locally serve the files in examples/data?
+        # might need to use some browser file system instead...
+
         else:
             self.respond(404, "not found")
 
