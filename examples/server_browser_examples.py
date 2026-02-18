@@ -149,7 +149,6 @@ pyodide_compute_template = """
                 await pyodide.loadPackage("micropip");
                 const micropip = pyodide.pyimport("micropip");
                 {dependencies}
-                // TODO: maybe use https://pyodide.org/en/stable/usage/api/js-api.html#pyodide.loadPackagesFromImports
                 await pyodide.loadPackagesFromImports(pythonCode);
                 pyodide.setDebug(true);
                 let ret = await pyodide.runPythonAsync(pythonCode);
