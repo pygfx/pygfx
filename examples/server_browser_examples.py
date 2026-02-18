@@ -32,10 +32,9 @@ import pygfx
 uharfbuzz_wheel = "uharfbuzz-0.1.dev1+ga19185453-cp310-abi3-pyodide_2025_0_wasm32.whl"
 wgpu_wheel = "https://wgpu-py--753.org.readthedocs.build/en/753/_static/wgpu-0.29.0-py3-none-any.whl" # very hacky way to serve this but it does work...
 # wgpu_wheel = "wgpu-0.29.0-py3-none-any.whl"
-rendercanvas_deps = ["sniffio", "rendercanvas==2.4.2"] #TODO: I put a restriction into the pyproject.toml so it might pick <2.5.0 already.
 
 # the pygfx wheel will be listed after this. it might be possible to still get deps from pyproject.toml
-pygfx_deps = [*rendercanvas_deps, wgpu_wheel, uharfbuzz_wheel, "hsluv", "pylinalg", "jinja2"]
+pygfx_deps = [wgpu_wheel, uharfbuzz_wheel, "hsluv", "pylinalg", "jinja2"]
 
 root = Path(__file__).parent.parent.absolute()
 
