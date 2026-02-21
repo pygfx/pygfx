@@ -30,8 +30,8 @@ import pygfx
 
 # from here: https://github.com/harfbuzz/uharfbuzz/pull/275 placed in /dist
 uharfbuzz_wheel = "uharfbuzz-0.1.dev1+ga19185453-cp310-abi3-pyodide_2025_0_wasm32.whl"
-wgpu_wheel = "https://wgpu-py--753.org.readthedocs.build/en/753/_static/wgpu-0.29.0-py3-none-any.whl" # very hacky way to serve this but it does work...
-# wgpu_wheel = "wgpu-0.29.0-py3-none-any.whl"
+# wgpu_wheel = "https://wgpu-py--753.org.readthedocs.build/en/753/_static/wgpu-0.29.0-py3-none-any.whl" # very hacky way to serve this but it does work...
+wgpu_wheel = "wgpu-0.29.0-py3-none-any.whl"
 
 # the pygfx wheel will be listed after this. it might be possible to still get deps from pyproject.toml
 pygfx_deps = [wgpu_wheel, uharfbuzz_wheel, "hsluv", "pylinalg", "jinja2"]
@@ -146,6 +146,7 @@ pyodide_compute_template = """
                         console.log(s); // so we also have it formatted
                     }}
                 }});
+
                 await pyodide.loadPackage("micropip");
                 const micropip = pyodide.pyimport("micropip");
                 {dependencies}
@@ -170,8 +171,8 @@ pyodide_compute_template = """
 imageio_patch = """
 from pyodide.http import pyfetch
 from io import BytesIO
-response = await pyfetch("https://raw.githubusercontent.com/imageio/imageio-binaries/master/images/{filename}")
-{varname} = iio.imread(BytesIO(await response.bytes()))
+response = await pyfetch("https://raw.githubusercontent.com/imageio/imageio-binaries/master/images/{filename}{ext}")
+{varname} = iio.imread(BytesIO(await response.bytes()), extension="{ext}")
 """
 
 # NOTE: this doesn't seem to work with the stenz.npz file... something baout IOmode
@@ -181,13 +182,15 @@ def patch_imageio_for_pyodide(python_code:str) -> str:
     """
     import re
     # varname = iio.imread("imageio:filename")
-    pattern = re.compile(r"""([\w_]*)\s?=\s?iio.imread\(["']imageio:(.*)["']\)""")
-    patched = re.sub(pattern=pattern, repl=imageio_patch.rstrip().format(filename=r"\2", varname=r"\1"), string=python_code)
+    # TODO: maybe I write a _imread function as this gets more complex and put that at the beginning or something...
+    pattern = re.compile(r"""([\w_]*)\s?=\s?iio.imread\(["']imageio:([^"']+)(\.[^"')]+)["']\)""")
+    patched = re.sub(pattern=pattern, repl=imageio_patch.rstrip().format(filename=r"\2", varname=r"\1", ext=r"\3"), string=python_code)
     return patched
 
 
 def build_wheel():
     toml_filename = (root / "pyproject.toml")
+    # spews more and more with each build... might need to clear stdout or something?
     flit.main(["-f", str(toml_filename.resolve()), "build", "--no-use-vcs", "--format", "wheel"])
     wheel_filename = root / "dist" / wheel_name
     assert wheel_filename.is_file(), f"{wheel_name} does not exist"
@@ -265,8 +268,17 @@ class MyHandler(BaseHTTPRequestHandler):
             else:
                 self.respond(404, "py file not found")
 
-        # TODO: maybe we can also locally serve the files in examples/data?
-        # might need to use some browser file system instead...
+        # TODO: we could try to mount a virtual filesystem and fill it... but I think using fetch and serving the files could work easier.
+        elif self.path.startswith("/home/data/"):
+            requested_path = Path(self.path)
+            # this is for the pyodide examples that need to load data files - we mount the examples/data folder to /home/data in pyodide, so we can serve those files here.
+            filename = root / "examples" / "data" / requested_path.relative_to("/home/data")
+            if os.path.isfile(filename):
+                with open(filename, "rb") as f:
+                    data = f.read()
+                self.respond(200, data, "application/octet-stream")
+            else:
+                self.respond(404, "data file not found")
 
         else:
             self.respond(404, "not found")
