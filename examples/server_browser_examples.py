@@ -168,24 +168,36 @@ pyodide_compute_template = """
 </html>
 """
 
+
 imageio_patch = """
 from pyodide.http import pyfetch
+from pyodide.ffi import run_sync
 from io import BytesIO
-response = await pyfetch("https://raw.githubusercontent.com/imageio/imageio-binaries/master/images/{filename}{ext}")
-{varname} = iio.imread(BytesIO(await response.bytes()), extension="{ext}")
+
+async def _imread_async(filename, **kwargs):
+    # pyodide working version of iio.imread, uses fetch and waiting on it, also replaced the "imageio:"
+    if filename.startswith("imageio:"):
+        filename = filename.replace("imageio:", "https://raw.githubusercontent.com/imageio/imageio-binaries/master/images/")
+
+    if "." in filename:
+        kwargs["extension"] = "." + filename.rsplit(".", 1)[-1]
+
+    response = await pyfetch(filename)
+    res = iio.imread(BytesIO(await response.bytes()), **kwargs)
+    return res
+
+def _imread(filename:str, **kwargs):
+    print(f"Loading image: {filename!r} with kwargs: {kwargs}")
+    res = run_sync(_imread_async(filename, **kwargs))
+    return res
 """
 
-# NOTE: this doesn't seem to work with the stenz.npz file... something baout IOmode
 def patch_imageio_for_pyodide(python_code:str) -> str:
-    """
-    to use the imageio examples in pyodide, we awkwardly replace the code a bit.
-    """
-    import re
-    # varname = iio.imread("imageio:filename")
-    # TODO: maybe I write a _imread function as this gets more complex and put that at the beginning or something...
-    pattern = re.compile(r"""([\w_]*)\s?=\s?iio.imread\(["']imageio:([^"']+)(\.[^"')]+)["']\)""")
-    patched = re.sub(pattern=pattern, repl=imageio_patch.rstrip().format(filename=r"\2", varname=r"\1", ext=r"\3"), string=python_code)
-    return patched
+    if "iio.imread(" not in python_code:
+        return python_code
+
+    return imageio_patch + "\n\n" + python_code.replace("iio.imread(", "_imread(")
+
 
 
 def build_wheel():
