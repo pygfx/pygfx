@@ -325,6 +325,7 @@ def create_shadow_pipeline(
     pipeline = device.create_render_pipeline(
         label="Shadow Map Pipeline",
         layout=device.create_pipeline_layout(
+            label="Shadow Map Pipeline Layout",
             bind_group_layouts=[global_bind_group_layout, global_bind_group_layout]
         ),
         vertex={

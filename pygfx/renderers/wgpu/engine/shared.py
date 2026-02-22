@@ -85,7 +85,9 @@ class Shared(Trackable):
         # indirection in the pipeline objects (device -> renderstate -> passes).
         # So out of scope for the time being.
         self._device = self.adapter.request_device_sync(
-            required_features=list(Shared._features), required_limits=Shared._limits
+            label="pygfx shared device",
+            required_features=list(Shared._features),
+            required_limits=Shared._limits
         )
 
         self._create_diagnostics()

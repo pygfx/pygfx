@@ -34,7 +34,7 @@ uharfbuzz_wheel = "uharfbuzz-0.1.dev1+ga19185453-cp310-abi3-pyodide_2025_0_wasm3
 wgpu_wheel = "wgpu-0.29.0-py3-none-any.whl"
 
 # the pygfx wheel will be listed after this. it might be possible to still get deps from pyproject.toml
-pygfx_deps = [wgpu_wheel, uharfbuzz_wheel, "hsluv", "pylinalg", "jinja2"]
+pygfx_deps = [wgpu_wheel, uharfbuzz_wheel, "hsluv", "pylinalg", "jinja2", "httpx", "trimesh", "gltflib"]
 
 root = Path(__file__).parent.parent.absolute()
 
@@ -176,6 +176,7 @@ from io import BytesIO
 
 async def _imread_async(filename, **kwargs):
     # pyodide working version of iio.imread, uses fetch and waiting on it, also replaced the "imageio:"
+    filename = str(filename) # maybe breaks some Path stuff?
     if filename.startswith("imageio:"):
         filename = filename.replace("imageio:", "https://raw.githubusercontent.com/imageio/imageio-binaries/master/images/")
 

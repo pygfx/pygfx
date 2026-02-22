@@ -15,6 +15,8 @@ import pygfx as gfx
 
 # Init
 canvas = RenderCanvas(size=(1280, 720), title="Anisotropy")
+
+gfx.renderers.wgpu.set_wgpu_limits(max_bind_groups=5) # the default on browser is 4, so this example doesn't work I think
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
