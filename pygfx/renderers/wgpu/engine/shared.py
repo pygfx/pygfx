@@ -42,7 +42,9 @@ def _preconfigure_wgpu_device():
         adapters = wgpu.gpu.enumerate_adapters_sync()
         selected_adapters = [a for a in adapters if adapter_name in a.summary]
         if not selected_adapters:
-            raise ValueError(f"Adapter with name '{adapter_name}' not found.")
+            raise ValueError(
+                f"Adapter with name '{adapter_name}' (set by PYGFX_WGPU_ADAPTER_NAME env var) not found."
+            )
         else:
             wgpu.preconfigure_default_device(adapter=selected_adapters[0])
 
