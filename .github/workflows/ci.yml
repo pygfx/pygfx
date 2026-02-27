@@ -102,9 +102,9 @@ jobs:
         rm -r pygfx
     - name: Unit tests
       run: |
-        pytest -v tests/linalg
         pytest -v tests/utils
         pytest -v tests/controllers
+        pytest -v tests/objects
 
 
   # test-pyinstaller-build:
