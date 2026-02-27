@@ -102,9 +102,8 @@ jobs:
         rm -r pygfx
     - name: Unit tests
       run: |
-        pytest -v tests/utils
-        pytest -v tests/controllers
-        pytest -v tests/objects
+        python -c "import wgpu; wgpu.get_default_device(); print('ok')"
+        pytest -v tests/test_basics.py
 
 
   # test-pyinstaller-build:

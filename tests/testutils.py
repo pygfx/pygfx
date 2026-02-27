@@ -5,7 +5,7 @@ import subprocess
 def _determine_can_use_wgpu_lib():
     # For some reason, since wgpu-native 5c304b5ea1b933574edb52d5de2d49ea04a053db
     # the process' exit code is not zero, so we test more pragmatically.
-    code = "import wgpu.utils; wgpu.utils.get_default_device(); print('ok')"
+    code = "import wgpu; wgpu.get_default_device(); print('ok')"
     result = subprocess.run(
         [
             sys.executable,
