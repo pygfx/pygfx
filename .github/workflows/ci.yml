@@ -104,6 +104,7 @@ jobs:
       run: |
         python -c "import wgpu; print(wgpu.get_default_device)"
         python -c "import wgpu; wgpu.get_default_device(); print('ok')"
+        python -c "print('foo')"
         pytest -v tests/test_basics.py
 
 
