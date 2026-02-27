@@ -102,6 +102,7 @@ jobs:
         rm -r pygfx
     - name: Unit tests
       run: |
+        python -c "import wgpu; print(wgpu.get_default_device)"
         python -c "import wgpu; wgpu.get_default_device(); print('ok')"
         pytest -v tests/test_basics.py
 
