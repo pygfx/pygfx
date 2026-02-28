@@ -1,0 +1,59 @@
+<!doctype html>
+<html>
+<!-- adapted from wgpu-py, adapted from rendercanvas -->
+<head>
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <title>Rendercanvas example.py in Pyodide</title>
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.29.3/full/pyodide.js"></script>
+</head>
+
+<body>
+    <dialog id="loading" style='outline: none; border: none; background: transparent;'>
+        <h1>click the button to load pyodide</h1>
+        <button id="load_button" type="button" onclick="main()">load in browser!</button>
+    </dialog>
+    <canvas id='canvas' style='width:calc(100%); height:400px; background-color: #ddd;'></canvas>
+    <div id="output" style="white-space: per-line; overflow-y: auto; height:90px; background:#eee; border:1px solid #ccc;">
+        <p>Output:</p>
+    </div>
+    <script type="text/javascript">
+        let loading = document.getElementById('loading');
+        loading.showModal();
+        async function main() {
+            let button = document.getElementById("load_button");
+            button.disabled = true;
+            button.innerText = "loading...";
+            try {
+                let example_name = document.location.hash.slice(1);
+                pythonCode = await (await fetch(window.parent.location.pathname.replace(".html", ".py"))).text();
+                // this env var is really only used for the pygfx examples - so maybe we make a script for that gallery instead?
+                let pyodide = await loadPyodide({env: {'PYGFX_DEFAULT_PPAA': 'none' }});
+                pyodide.setStdout({
+                    batched: (s) => {
+                        el = document.getElementById("output");
+                        el.innerHTML += "<br>" + s.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                        el.scrollTop = el.scrollHeight;  // scroll to bottom
+                        console.log(s); // so we also have it formatted
+                    }
+                });
+                await pyodide.loadPackage("micropip");
+                const micropip = pyodide.pyimport("micropip");
+                await micropip.install('https://wgpu-py--753.org.readthedocs.build/en/753/_static/wgpu-0.29.0-py3-none-any.whl'); // wgpu preview from that docs build
+                await micropip.install('../_static/uharfbuzz-0.1.dev1+ga19185453-cp310-abi3-pyodide_2025_0_wasm32.whl'); // preview from https://github.com/harfbuzz/uharfbuzz/pull/275 copied into _static by hand
+                await micropip.install(['hsluv', 'pylinalg', 'jinja2', 'httpx', 'trimesh', 'gltflib']); // pygfx deps and some for the examples... don't seem to load correctly from a local wheel
+                await micropip.install("pygfx") // this one should be replaced by the wheel during docs build.
+                await pyodide.loadPackagesFromImports(pythonCode); // additional non pypi packages from the examples... like imageio (not patched...)
+                pyodide.setDebug(true);
+                let ret = await pyodide.runPythonAsync(pythonCode);
+                console.log("Example finished:", ret);
+                loading.close();
+            } catch (err) {
+                // TODO: this could be formatted better as this overlaps and is unreadable...
+                loading.innerHTML = "Failed to load: " + err;
+                console.error(err); // so we have it here too
+            }
+        }
+    </script>
+</body>
+
+</html>
