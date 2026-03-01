@@ -15,6 +15,7 @@ def _determine_can_use_wgpu_lib():
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         universal_newlines=True,
+        timeout=5,
     )
     print("_determine_can_use_wgpu_lib() status code:", result.returncode)
     return (
