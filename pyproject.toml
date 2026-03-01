@@ -22,7 +22,7 @@ dependencies = [
     # For some of these we set an upper bound because (for now) they regularly break their API.
     # Packages that depend on PyGfx should not set an upper bound on e.g. wgpu, unless really needed!
     "rendercanvas >= 2.6.1",
-    "wgpu >= 0.30.0",
+    "wgpu >= 0.30.1",
     "pylinalg >=0.6.8,<0.7.0",
     # External dependencies
     "numpy",

@@ -40,30 +40,32 @@ jobs:
       run: |
           slotscheck -m pygfx --no-strict-imports
 
-  # docs-build:
-  #   name: Docs
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #   - uses: actions/checkout@v4
-  #   - name: Set up Python
-  #     uses: actions/setup-python@v5
-  #     with:
-  #       python-version: 3.12
-  #   - name: Install llvmpipe and lavapipe for offscreen canvas
-  #     run: |
-  #       sudo apt-get update -y -qq
-  #       sudo apt-get install -y libegl1-mesa-dev libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers
-  #   - name: Install dev dependencies
-  #     run: |
-  #       python -m pip install --upgrade pip
-  #       pip install -U -e .[docs]
-  #   - name: Build docs
-  #     run: |
-  #       cd docs
-  #       make html SPHINXOPTS="-W --keep-going"
+  docs-build:
+    name: Docs
+    timeout-minutes: 5
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: 3.12
+    - name: Install llvmpipe and lavapipe for offscreen canvas
+      run: |
+        sudo apt-get update -y -qq
+        sudo apt-get install -y libegl1-mesa-dev libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers
+    - name: Install dev dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -U -e .[docs]
+    - name: Build docs
+      run: |
+        cd docs
+        make html SPHINXOPTS="-W --keep-going"
 
   test-builds:
     name: ${{ matrix.name }}
+    timeout-minutes: 5
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -102,138 +104,137 @@ jobs:
         rm -r pygfx
     - name: Unit tests
       run: |
-        python -c "import wgpu; print(wgpu.get_default_device)"
-        python -c "import wgpu; wgpu.get_default_device(); print('ok')"
-        python -c "print('foo')"
-        pytest -v tests/test_basics.py
+        pytest -v tests
 
 
-  # test-pyinstaller-build:
-  #   name: Test pyinstaller
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #   - uses: actions/checkout@v4
-  #   - name: Set up Python
-  #     uses: actions/setup-python@v5
-  #     with:
-  #       python-version: 3.12
-  #   - name: Install package and dev dependencies
-  #     run: |
-  #       python -m pip install --upgrade pip
-  #       pip install -U .
-  #       pip install pytest psutil pyinstaller
-  #   - name: Unit tests
-  #     run: |
-  #       pushd $HOME
-  #       pytest -v --pyargs pygfx.__pyinstaller
+  test-pyinstaller-build:
+    name: Test pyinstaller
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: 3.12
+    - name: Install package and dev dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -U .
+        pip install pytest psutil pyinstaller
+    - name: Unit tests
+      run: |
+        pushd $HOME
+        pytest -v --pyargs pygfx.__pyinstaller
 
-  # test-examples-build:
-  #   name: Test examples ${{ matrix.pyversion }}
-  #   runs-on: ${{ matrix.os }}
-  #   strategy:
-  #     fail-fast: false
-  #     matrix:
-  #       include:
-  #         - os: ubuntu-latest
-  #           pyversion: '3.10'
-  #         - os: ubuntu-latest
-  #           pyversion: '3.13'
-  #   steps:
-  #   - uses: actions/checkout@v4
-  #   - name: Set up Python
-  #     uses: actions/setup-python@v5
-  #     with:
-  #       python-version: 3.12
-  #   - name: Install llvmpipe and lavapipe for offscreen canvas
-  #     run: |
-  #       sudo apt-get update -y -qq
-  #       sudo apt-get install -y libegl1-mesa-dev libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers
-  #   - name: Install dev dependencies
-  #     run: |
-  #       python -m pip install --upgrade pip
-  #       pip install -e .[examples]
-  #   - name: Show wgpu backend
-  #     run: |
-  #       python -c "import pygfx; print(pygfx.__version__)"
-  #       python -c "from examples.tests.testutils import adapter; print(adapter.info)"
-  #   - name: Test examples
-  #     env:
-  #       PYGFX_EXPECT_LAVAPIPE: true
-  #     run: |
-  #       pytest -v examples
-  #   - uses: actions/upload-artifact@v4
-  #     if: ${{ failure() }}
-  #     with:
-  #       name: screenshot-diffs-py${{ matrix.pyversion }}
-  #       path: examples/screenshots/diffs
+  test-examples-build:
+    name: Test examples ${{ matrix.pyversion }}
+    timeout-minutes: 10
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            pyversion: '3.10'
+          - os: ubuntu-latest
+            pyversion: '3.13'
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: 3.12
+    - name: Install llvmpipe and lavapipe for offscreen canvas
+      run: |
+        sudo apt-get update -y -qq
+        sudo apt-get install -y libegl1-mesa-dev libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers
+    - name: Install dev dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .[examples]
+    - name: Show wgpu backend
+      run: |
+        python -c "import pygfx; print(pygfx.__version__)"
+        python -c "from examples.tests.testutils import adapter; print(adapter.info)"
+    - name: Test examples
+      env:
+        PYGFX_EXPECT_LAVAPIPE: true
+      run: |
+        pytest -v examples
+    - uses: actions/upload-artifact@v4
+      if: ${{ failure() }}
+      with:
+        name: screenshot-diffs-py${{ matrix.pyversion }}
+        path: examples/screenshots/diffs
 
-  # release-build:
-  #   name: Build release on ubuntu-latest
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - name: Set up Python
-  #       uses: actions/setup-python@v5
-  #       with:
-  #         python-version: 3.12
-  #     - name: Install dev dependencies
-  #       run: |
-  #         python -m pip install --upgrade pip
-  #         pip install -U flit build twine
-  #     - name: Create source distribution
-  #       run: |
-  #         python -m build -n -s
-  #     - name: Build wheel
-  #       run: |
-  #         python -m build -n -w
-  #     - name: Test sdist
-  #       shell: bash
-  #       run: |
-  #         rm -rf ./pygfx
-  #         pushd $HOME
-  #         pip install $GITHUB_WORKSPACE/dist/*.tar.gz
-  #         python -c "import pygfx; print(pygfx.__version__)"
-  #         popd
-  #         # don't run tests, we just want to know if the sdist can be installed
-  #         pip uninstall -y pygfx
-  #         git reset --hard HEAD
-  #     - name: Twine check
-  #       run: |
-  #         twine check dist/*
-  #     - name: Upload distributions
-  #       uses: actions/upload-artifact@v4
-  #       with:
-  #         path: dist
-  #         name: dist
+  release-build:
+    name: Build release on ubuntu-latest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.12
+      - name: Install dev dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -U flit build twine
+      - name: Create source distribution
+        run: |
+          python -m build -n -s
+      - name: Build wheel
+        run: |
+          python -m build -n -w
+      - name: Test sdist
+        shell: bash
+        run: |
+          rm -rf ./pygfx
+          pushd $HOME
+          pip install $GITHUB_WORKSPACE/dist/*.tar.gz
+          python -c "import pygfx; print(pygfx.__version__)"
+          popd
+          # don't run tests, we just want to know if the sdist can be installed
+          pip uninstall -y pygfx
+          git reset --hard HEAD
+      - name: Twine check
+        run: |
+          twine check dist/*
+      - name: Upload distributions
+        uses: actions/upload-artifact@v4
+        with:
+          path: dist
+          name: dist
 
-  # publish:
-  #   name: Publish release to Github and Pypi
-  #   runs-on: ubuntu-latest
-  #   needs: [test-builds, release-build]
-  #   if: success() && startsWith(github.ref, 'refs/tags/v')
-  #   environment:
-  #     name: pypi
-  #     url: https://pypi.org/p/pygfx
-  #   permissions:
-  #     contents: write
-  #     id-token: write
-  #   steps:
-  #   - uses: actions/checkout@v4
-  #   - name: Download assets
-  #     uses: actions/download-artifact@v4
-  #     with:
-  #       name: dist
-  #       path: dist
-  #   - name: Release
-  #     uses: softprops/action-gh-release@v2
-  #     with:
-  #       token: ${{ secrets.GITHUB_TOKEN }}
-  #       files: |
-  #         dist/*.tar.gz
-  #         dist/*.whl
-  #       draft: true
-  #       prerelease: false
-  #   - name: Publish to PyPI
-  #     uses: pypa/gh-action-pypi-publish@release/v1
-  #     with:
-  #       print-hash: true
+  publish:
+    name: Publish release to Github and Pypi
+    runs-on: ubuntu-latest
+    needs: [test-builds, release-build]
+    if: success() && startsWith(github.ref, 'refs/tags/v')
+    environment:
+      name: pypi
+      url: https://pypi.org/p/pygfx
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+    - uses: actions/checkout@v4
+    - name: Download assets
+      uses: actions/download-artifact@v4
+      with:
+        name: dist
+        path: dist
+    - name: Release
+      uses: softprops/action-gh-release@v2
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        files: |
+          dist/*.tar.gz
+          dist/*.whl
+        draft: true
+        prerelease: false
+    - name: Publish to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        print-hash: true
