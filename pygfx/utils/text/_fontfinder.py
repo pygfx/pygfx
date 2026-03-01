@@ -15,7 +15,8 @@ import time
 import secrets
 
 if sys.platform == "emscripten":
-    from js import FontFace
+    from js import FontFace, ArrayBuffer
+    from pyodide.ffi import run_sync
 else:
     import freetype
 
@@ -79,14 +80,31 @@ class FontFile:
         # This was factored out so it can be overloaded in tests
         if not hasattr(self, "_face"):
             if sys.platform == "emscripten":
-                # TODO: this doesn't actually work... and we might want to use this abstraction in the _shader and _sdf too.
-                # just trying to map https://developer.mozilla.org/en-US/docs/Web/API/FontFace to this?
-                face = FontFace.new(str(self._family), f"url({self._filename})")
-                self._family = face.family
-                self._variant = face.variant
-                self._weight = face.weight
-                self._style = face.style
-                self._codepoints = face.unicodeRange
+                with open(self._filename, "rb") as f:
+                    data = f.read()
+                js_buf = ArrayBuffer.new(len(data))
+                js_buf.assign(data)
+                # copied the code form above becasue we need the family name before we can load the js Font Face
+                # but we can't call the method insie this method because recursion.
+                name = os.path.basename(self._filename).split(".")[0]
+                family, _, _ = name.partition("-")
+                # add spaces before uppercase letters, as that seems to match freetype
+                family = "".join((" " + c if c.isupper() else c for c in family)).strip()
+                self._family = family or "Unknown"
+                face = FontFace.new(self._family, js_buf)
+                run_sync(face.load())
+
+                # We could also att attributes to self._face that look like the freetype attributes
+                # so the code below for lazy init can work and get expected defaults?
+                self._family = face.family # redundant?
+                self._variant = {"normal": "Regular"}.get(face.variant, "Regular")
+                self._weight = face.weight or 400
+                self._style = face.style or "normal"
+                # https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/At-rules/@font-face/unicode-range
+                start, _, stop = face.unicodeRange.partition("-")
+                start = int(start.removeprefix("U+"), 16) if start else 0
+                stop = int(stop, 16) if stop else start
+                self._codepoints = {k:k for k in range(start, stop + 1)} # turns out we don't get access to the glyph index :/
 
                 self._face = face
             else:
