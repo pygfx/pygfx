@@ -35,7 +35,7 @@ def _preconfigure_wgpu_device():
     # (in some way) when it's not available, but this easily results in complex
     # code. I think we can probably get away with requiring only a few features that
     # are available on the main target platforms.
-    wgpu.preconfigure_default_device("pygfx", required_features="float32-filterable")
+    wgpu.preconfigure_default_device("pygfx", required_features={"float32-filterable"})
 
     if adapter_name := os.environ.get("PYGFX_WGPU_ADAPTER_NAME"):
         # Similar to https://github.com/gfx-rs/wgpu?tab=readme-ov-file#environment-variables
