@@ -13,6 +13,7 @@ fn sample_vol(texcoord: vec3<f32>, sizef: vec3<f32>) -> vec4<f32> {
 }
 
 struct VolGeometry {
+    size: vec3u,
     indices: array<i32,36>,
     positions: array<vec3<f32>,8>,
     texcoords: array<vec3<f32>,8>,
@@ -21,6 +22,8 @@ struct VolGeometry {
 fn get_vol_geometry() -> VolGeometry {
     let size = textureDimensions(t_img);
     var geo: VolGeometry;
+
+    geo.size = vec3u(size.xyz);
 
     geo.indices = array<i32,36>(
         0, 1, 2,   3, 2, 1,   4, 5, 6,   7, 6, 5,   6, 7, 3,   2, 3, 7,
