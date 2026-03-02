@@ -35,7 +35,7 @@ def _preconfigure_wgpu_device():
     # (in some way) when it's not available, but this easily results in complex
     # code. I think we can probably get away with requiring only a few features that
     # are available on the main target platforms.
-    wgpu.preconfigure_default_device(required_features="float32-filterable")
+    wgpu.preconfigure_default_device("pygfx", required_features="float32-filterable")
 
     if adapter_name := os.environ.get("PYGFX_WGPU_ADAPTER_NAME"):
         # Similar to https://github.com/gfx-rs/wgpu?tab=readme-ov-file#environment-variables
@@ -46,7 +46,7 @@ def _preconfigure_wgpu_device():
                 f"Adapter with name '{adapter_name}' (set by PYGFX_WGPU_ADAPTER_NAME env var) not found."
             )
         else:
-            wgpu.preconfigure_default_device(adapter=selected_adapters[0])
+            wgpu.preconfigure_default_device("pygfx", adapter=selected_adapters[0])
 
 
 _preconfigure_wgpu_device()
@@ -142,18 +142,18 @@ class Shared(Trackable):
 def select_power_preference(power_preference):
     """Select whether a powerful or battery-friendly GPU is selected.
 
-    This is an alias to ``wgpu.preconfigure_default_device(power_preference=...)``.
+    This is an alias to ``wgpu.preconfigure_default_device(.., power_preference=...)``.
 
     Accepts a value from ``wgpu.PowerPreference``: "high-performance" or "low-power".
     This function must be called before before the first ``Renderer`` is created.
     """
-    wgpu.preconfigure_default_device(power_preference=power_preference)
+    wgpu.preconfigure_default_device("pygfx", power_preference=power_preference)
 
 
 def select_adapter(adapter):
     """Select a specific adapter / GPU.
 
-    This is an alias to ``wgpu.preconfigure_default_device(adapter=...)``.
+    This is an alias to ``wgpu.preconfigure_default_device(.., adapter=...)``.
 
     Select an adapter as obtained via ``wgpu.gpu.enumerate_adapters_sync()``, which
     can be useful in multi-gpu environments.
@@ -202,13 +202,13 @@ def select_adapter(adapter):
 
     See https://github.com/pygfx/wgpu-py/issues/482 for more details.
     """
-    wgpu.preconfigure_default_device(adapter=adapter)
+    wgpu.preconfigure_default_device("pygfx", adapter=adapter)
 
 
 def enable_wgpu_features(*features):
     """Enable specific features (as strings) on the wgpu device.
 
-    This is an alias to ``wgpu.preconfigure_default_device(required_features=...)``.
+    This is an alias to ``wgpu.preconfigure_default_device(.., required_features=...)``.
 
     WARNING: enabling features means that your code may not work on all
     devices. The point of wgpu is that it can make a promise that a
@@ -233,13 +233,13 @@ def enable_wgpu_features(*features):
     * https://gpuweb.github.io/gpuweb/#gpufeaturename for the official webgpu features (excl. native features).
     * https://docs.rs/wgpu/latest/wgpu/struct.Features.html for the features and their limitations in wgpu-core.
     """
-    wgpu.preconfigure_default_device(required_features=features)
+    wgpu.preconfigure_default_device("pygfx", required_features=features)
 
 
 def set_wgpu_limits(**limits):
     """Set specific limits (as key-value pairs) on the wgpu device.
 
-    This is an alias to ``wgpu.preconfigure_default_device(required_limits=...)``.
+    This is an alias to ``wgpu.preconfigure_default_device(.., required_limits=...)``.
 
     WARNING: setting high limits may make your code less portable across devices.
 
@@ -253,7 +253,7 @@ def set_wgpu_limits(**limits):
     * ``renderer.device.limits`` for the currently set limits.
     * https://gpuweb.github.io/gpuweb/#limits for the official webgpu limits.
     """
-    wgpu.preconfigure_default_device(required_limits=limits)
+    wgpu.preconfigure_default_device("pygfx", required_limits=limits)
 
 
 def get_shared():
