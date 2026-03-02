@@ -8,8 +8,10 @@ class VolumeBasicMaterial(Material):
 
     Parameters
     ----------
+    maprange : tuple
+        The range of the ``geometry.texcoords`` that is projected onto the (color) map. Default (0, 1).
     clim : tuple
-        The contrast limits to scale the data values with. Default (0, 1).
+        The contrast limits. Alias for maprange.
     map : TextureMap | Texture
         The colormap to turn the voxel values into their final color.
     gamma : float
@@ -24,12 +26,13 @@ class VolumeBasicMaterial(Material):
 
     uniform_type = dict(
         Material.uniform_type,
-        clim="2xf4",
+        maprange="2xf4",
         gamma="f4",
     )
 
     def __init__(
         self,
+        maprange=None,
         clim=None,
         map=None,
         gamma=1.0,
@@ -38,7 +41,7 @@ class VolumeBasicMaterial(Material):
     ):
         super().__init__(**kwargs)
         self.map = map
-        self.clim = clim
+        self.maprange = maprange if maprange is not None else clim
         self.gamma = gamma
         # Note: the default volume interpolation is 'linear' while it's nearest
         # for images. The ability to spot the individual voxels simply results in
@@ -62,20 +65,33 @@ class VolumeBasicMaterial(Material):
         self._store.map = map
 
     @property
-    def clim(self):
-        """The contrast limits to scale the data values with. Default (0, 1)."""
-        v1, v2 = self.uniform_buffer.data["clim"]
+    def maprange(self):
+        """The range of the ``geometry.texcoords`` that is projected onto the (color) map.
+
+        By default this value is (0.0, 1.0), but if the ``texcoords`` represents some
+        domain-specific value, e.g. temperature, then ``maprange`` can be set to e.g. (0, 100).
+        """
+        v1, v2 = self.uniform_buffer.data["maprange"]
         return float(v1), float(v2)
+
+    @maprange.setter
+    def maprange(self, maprange):
+        # Check and store given value
+        if maprange is None:
+            maprange = 0, 1
+        maprange = float(maprange[0]), float(maprange[1])
+        # Update uniform data
+        self.uniform_buffer.data["maprange"] = maprange
+        self.uniform_buffer.update_full()
+
+    @property
+    def clim(self):
+        """Alias for maprange; for images, clim (contrast limits) is a common term."""
+        return self.maprange
 
     @clim.setter
     def clim(self, clim):
-        # Check and store given clim
-        if clim is None:
-            clim = 0, 1
-        clim = float(clim[0]), float(clim[1])
-        # Update uniform data
-        self.uniform_buffer.data["clim"] = clim
-        self.uniform_buffer.update_full()
+        self.maprange = clim
 
     @property
     def gamma(self):

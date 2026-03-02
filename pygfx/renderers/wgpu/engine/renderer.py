@@ -260,7 +260,10 @@ class WgpuRenderer(RootEventHandler, Renderer):
                 f"Render target must be a Canvas or Texture, not a {target.__class__.__name__}"
             )
         self._target = target
-        self.pixel_ratio = pixel_ratio
+        self._pixel_scale = None
+        self._pixel_ratio = None
+        if pixel_ratio is not None:
+            self.pixel_ratio = pixel_ratio
         if pixel_scale is not None:
             self.pixel_scale = pixel_scale
 
@@ -352,18 +355,33 @@ class WgpuRenderer(RootEventHandler, Renderer):
         ``canvas.pixel_ratio>=2``), and 2 otherwise. That way, the internal
         texture size is the same, regardless of the user's system/monitor.
         """
-        return self._pixel_scale
-
-    @pixel_scale.setter
-    def pixel_scale(self, pixel_scale: None | int | float):
-        if pixel_scale is None:
-            # Select hirez config
-            self._pixel_scale = 2.0  # default
+        if self._pixel_scale is not None:
+            return self._pixel_scale
+        elif self._pixel_ratio is not None:
+            target_pixel_ratio = 1
+            if isinstance(self._target, BaseRenderCanvas):
+                target_pixel_ratio = self._target.get_pixel_ratio()
+            pixel_scale = self._pixel_ratio / target_pixel_ratio
+            if 0.999 < pixel_scale < 1.001:
+                pixel_scale = 1  # snap
+            elif 1.999 < pixel_scale < 2.001:
+                pixel_scale = 2  # snap
+            elif 2.999 < pixel_scale < 3.001:
+                pixel_scale = 3  # snap
+            return pixel_scale
+        else:
+            pixel_scale = 2.0  # default
             if isinstance(self._target, BaseRenderCanvas):
                 target_pixel_ratio = self._target.get_pixel_ratio()
                 if target_pixel_ratio >= 2.0:
-                    self._pixel_scale = 1.0
-        else:
+                    pixel_scale = 1.0
+            return pixel_scale
+
+    @pixel_scale.setter
+    def pixel_scale(self, pixel_scale: None | int | float):
+        self._pixel_scale = None
+        self._pixel_ratio = None
+        if pixel_scale is not None:
             pixel_scale = float(pixel_scale)
             if pixel_scale < 0.1 or pixel_scale > 10:
                 raise ValueError("renderer.pixel_scale must be bwteen 0.1 and 10.")
@@ -388,22 +406,17 @@ class WgpuRenderer(RootEventHandler, Renderer):
         target_pixel_ratio = 1
         if isinstance(self._target, BaseRenderCanvas):
             target_pixel_ratio = self._target.get_pixel_ratio()
-        return self._pixel_scale * target_pixel_ratio
+        return self.pixel_scale * target_pixel_ratio
 
     @pixel_ratio.setter
     def pixel_ratio(self, pixel_ratio: None | float):
-        if pixel_ratio is None:
-            self.pixel_scale = None
-        else:
-            target_pixel_ratio = 1
-            if isinstance(self._target, BaseRenderCanvas):
-                target_pixel_ratio = self._target.get_pixel_ratio()
-            pixel_scale = pixel_ratio / target_pixel_ratio
-            if 0.9 < pixel_scale < 1.1:
-                pixel_scale = 1  # snap
-            elif 1.9 < pixel_scale < 2.1:
-                pixel_scale = 2  # snap
-            self.pixel_scale = pixel_scale
+        self._pixel_scale = None
+        self._pixel_ratio = None
+        if pixel_ratio is not None:
+            pixel_ratio = float(pixel_ratio)
+            if pixel_ratio < 0.01 or pixel_ratio > 100:
+                raise ValueError("renderer.pixel_ratio must be between 0.01 and 100.")
+            self._pixel_ratio = pixel_ratio
 
     @property
     def pixel_filter(self) -> PixelFilter:
@@ -516,7 +529,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         else:
             target_physical_size = target.size[:2]
         w, h = target_physical_size
-        pixel_scale = self._pixel_scale
+        pixel_scale = self.pixel_scale
         return max(1, int(w * pixel_scale)), max(1, int(h * pixel_scale))
 
     @property

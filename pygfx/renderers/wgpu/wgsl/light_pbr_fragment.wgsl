@@ -116,12 +116,12 @@ $$ if USE_SHEEN is defined
     material.sheen_color = srgb2physical(u_material.sheen_color.rgb) * u_material.sheen;
 
     $$ if use_sheen_color_map is defined
-        material.sheen_color *= textureSample( t_sheen_color_map, s_sheen_color_map, varyings.texcoord{{sheen_color_map_uv or ''}} ).rgb;
+        material.sheen_color *= textureSample( t_sheen_color_map, s_sheen_color_map, sheen_color_map_uv ).rgb;
     $$ endif
 
     material.sheen_roughness = clamp( u_material.sheen_roughness, 0.07, 1.0 );
     $$ if use_sheen_roughness_map is defined
-        material.sheen_roughness *= textureSample( t_sheen_roughness_map, s_sheen_roughness_map, varyings.texcoord{{sheen_roughness_map_uv or ''}} ).a;
+        material.sheen_roughness *= textureSample( t_sheen_roughness_map, s_sheen_roughness_map, sheen_roughness_map_uv ).a;
     $$ endif
 
 $$ endif

@@ -71,7 +71,7 @@ __all__ = sorted([*_data.keys(), "create_colormap"])
 
 
 def create_colormap(input, n=256):
-    """Create a colormap from given data.
+    """Create a colormap from given 1D data.
 
     Returns a TextureMap with (at least) n colors.
 

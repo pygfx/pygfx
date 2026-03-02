@@ -34,6 +34,8 @@ class PointsMaterial(Material):
         The mode by which the points are edged. Default 'centered'.
     map : TextureMap | Texture
         The texture map specifying the color for each texture coordinate.
+    maprange : tuple
+        The range of the ``geometry.texcoords`` that is projected onto the (color) map. Default (0, 1).
     aa : bool
         Whether the points are anti-aliased in the shader. Default False.
     rotation : float
@@ -49,6 +51,7 @@ class PointsMaterial(Material):
     uniform_type = dict(
         Material.uniform_type,
         color="4xf4",
+        maprange="2xf4",
         size="f4",
         rotation="f4",
     )
@@ -63,6 +66,7 @@ class PointsMaterial(Material):
         color_mode="auto",
         edge_mode="centered",
         map=None,
+        maprange=None,
         aa=False,
         rotation=0,
         rotation_mode="uniform",
@@ -77,6 +81,7 @@ class PointsMaterial(Material):
         self.color_mode = color_mode
         self.edge_mode = edge_mode
         self.map = map
+        self.maprange = maprange
         self.aa = aa
         self.rotation = rotation
         self.rotation_mode = rotation_mode
@@ -231,6 +236,26 @@ class PointsMaterial(Material):
         if isinstance(map, Texture):
             map = TextureMap(map)
         self._store.map = map
+
+    @property
+    def maprange(self):
+        """The range of the ``geometry.texcoords`` that is projected onto the (color) map.
+
+        By default this value is (0.0, 1.0), but if the ``texcoords`` represents some
+        domain-specific value, e.g. temperature, then ``maprange`` can be set to e.g. (0, 100).
+        """
+        v1, v2 = self.uniform_buffer.data["maprange"]
+        return float(v1), float(v2)
+
+    @maprange.setter
+    def maprange(self, maprange):
+        # Check and store given value
+        if maprange is None:
+            maprange = 0, 1
+        maprange = float(maprange[0]), float(maprange[1])
+        # Update uniform data
+        self.uniform_buffer.data["maprange"] = maprange
+        self.uniform_buffer.update_full()
 
     @property
     def rotation(self):

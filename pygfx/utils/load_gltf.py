@@ -869,7 +869,10 @@ class _GLTF:
                     geometry_args[geometry_attr] = data
 
             if indices_accessor is not None:
-                indices = self._load_accessor(indices_accessor).reshape(-1, 3)
+                # wgpu itself does not require the length of the indices to be a multiple of 3.
+                # However, pygfx uses an Nx3-shaped array for indices, so we need to trim any extra indices here before reshaping.
+                indices = self._load_accessor(indices_accessor).squeeze()
+                indices = indices[: len(indices) // 3 * 3].reshape((-1, 3))
             else:
                 # TODO: For now, pygfx not support non-indexed geometry, so we need to generate indices for them.
                 # Remove this after pygfx support non-indexed geometry.

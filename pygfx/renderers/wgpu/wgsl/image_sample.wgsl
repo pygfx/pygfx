@@ -18,15 +18,16 @@ fn sampled_value_to_color(value_rgba: vec4<f32>) -> vec4<f32> {
 
     // Apply contrast limits
     let value_cor = value_raw {{ climcorrection }};
-    let value_clim = (value_cor - u_material.clim[0]) / (u_material.clim[1] - u_material.clim[0]);
+    let value_clim = (value_cor - u_material.maprange[0]) / (u_material.maprange[1] - u_material.maprange[0]);
 
     // Apply gamma correction
     let value_gamma = saturate(pow(value_clim, gamma_vec));
 
     // Apply colormap or compose final color
+    // Note that we apply the maprange here, because we also need to apply gamma, so the map-lookup, should not use the maprange.
     $$ if colormap_dim
         // In the render function we make sure that colormap_dim matches img_nchannels
-        let color = sample_colormap(value_gamma);
+        let color = sample_colormap_nomaprange(value_gamma);
     $$ else
         $$ if img_nchannels == 1
             let r = value_gamma;

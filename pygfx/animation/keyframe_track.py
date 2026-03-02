@@ -10,7 +10,7 @@ class KeyframeTrack:
         assert len(times) == len(values), "times and values must have the same length"
 
         self._optimize(times, values)
-        self.interpolation = interpolation(times, values)
+        self.interpolation = interpolation(self.times, self.values)
 
     def _optimize(self, times, values):
         # removes equivalent sequential keys as common in morph target sequences

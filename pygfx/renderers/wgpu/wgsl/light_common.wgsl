@@ -99,7 +99,7 @@ fn F_Schlick_f(f0: f32, f90: f32, dot_vh: f32,) -> f32 {
     return f0 * ( 1.0 - fresnel ) + ( f90 * fresnel );
 }
 
-$$ if use_normal_map is defined or use_clearcoat_normal_map is defined
+$$ if use_normal_map is defined or use_clearcoat_normal_map is defined or USE_ANISOTROPY is defined
 fn getTangentFrame( eye_pos: vec3<f32>, surf_norm: vec3<f32>, uv: vec2<f32>) -> mat3x3<f32> {
     let q0 = dpdx( eye_pos.xyz );
     let q1 = dpdy( eye_pos.xyz );

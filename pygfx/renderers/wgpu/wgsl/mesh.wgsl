@@ -445,7 +445,16 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
             $$ if use_tangent is defined
                 var tbn = mat3x3f(varyings.v_tangent, varyings.v_bitangent, surface_normal);
             $$ else
-                var tbn = getTangentFrame(view, normal, normal_map_uv );
+                $$ if use_normal_map is defined
+                    let n_uv = normal_map_uv; 
+                $$ elif use_clearcoat_normal_map is defined
+                    let n_uv = clearcoat_normal_map_uv;
+                $$ elif map_uv is defined
+                    let n_uv = map_uv;
+                $$ else
+                    let n_uv = varyings.texcoord;
+                $$ endif
+                var tbn = getTangentFrame(view, normal, n_uv );
             $$ endif
 
             tbn[0] = tbn[0] * face_direction;

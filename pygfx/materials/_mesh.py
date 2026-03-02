@@ -19,6 +19,8 @@ class MeshAbstractMaterial(Material):
         The mode by which the mesh is coloured. Default 'auto'.
     map : TextureMap | Texture
         The texture map specifying the color at each texture coordinate. Optional.
+    maprange : tuple
+        The range of the ``geometry.texcoords`` that is projected onto the (color) map. Default (0, 1).
     side : str | VisibleSide
         What side of the mesh is visible. Default "both".
     kwargs : Any
@@ -42,6 +44,7 @@ class MeshAbstractMaterial(Material):
     uniform_type = dict(
         Material.uniform_type,
         color="4xf4",
+        maprange="2xf4",
         wireframe="f4",
     )
 
@@ -50,6 +53,7 @@ class MeshAbstractMaterial(Material):
         color="#fff",
         color_mode="auto",
         map=None,
+        maprange=None,
         side="both",
         **kwargs,
     ):
@@ -58,6 +62,7 @@ class MeshAbstractMaterial(Material):
         self.color = color
         self.color_mode = color_mode
         self.map = map
+        self.maprange = maprange
         self.side = side
 
     @property
@@ -119,6 +124,30 @@ class MeshAbstractMaterial(Material):
         if isinstance(map, Texture):
             map = TextureMap(map)
         self._store.map = map
+
+    @property
+    def maprange(self):
+        """The range of the ``geometry.texcoords`` that is projected onto the (color) map.
+
+        By default this value is (0.0, 1.0), but if the ``texcoords`` represents some
+        domain-specific value, e.g. temperature, then ``maprange`` can be set to e.g. (0, 100).
+        """
+        # NOTE: the maprange seems quite similar to the TextureMap's offset and scale,
+        # and indeed the same effect can be achieved with these. The difference is that
+        # TextureMap's transform defines what part of the texture is used as the map,
+        # while maprange defines how to scale the texcoords before looking them up in the map.
+        v1, v2 = self.uniform_buffer.data["maprange"]
+        return float(v1), float(v2)
+
+    @maprange.setter
+    def maprange(self, maprange):
+        # Check and store given value
+        if maprange is None:
+            maprange = 0, 1
+        maprange = float(maprange[0]), float(maprange[1])
+        # Update uniform data
+        self.uniform_buffer.data["maprange"] = maprange
+        self.uniform_buffer.update_full()
 
     @property
     def side(self):

@@ -228,10 +228,7 @@ class Blender:
 
         # Get the color_blend mini-dict
         if alpha_method == "opaque":
-            color_blend = wgpu.BlendState(
-                alpha=blend_component(bf.one, bf.zero, bo.add),
-                color=blend_component(bf.one, bf.zero, bo.add),
-            )
+            color_blend = None  # no blending needed for opaque
         elif alpha_method == "blended":
             # Note that color_constant and alpha_constant are not yet supported.
             # We'd need to call GPURenderPassEncoder.set_blend_constant(rgba), close to where we call GPURenderPassEncoder.set_viewport() in renderer.py
@@ -500,7 +497,7 @@ class Blender:
                 // virtualfield objectId: u32 = u_wobject.renderer_id;
                 // virtualfield elementIndex: u32 = varyings.elementIndex;
                 @location(0) color: vec4<f32>,
-                MAYBE_PICK@location(1) pick: vec4<u 32>,
+                MAYBE_PICK@location(1) pick: vec4<u32>,
             };
 
             fn apply_virtual_fields_of_fragment_output(outp: ptr<function,FragmentOutput>, position: vec3f, objectId: u32, elementIndex: u32) {

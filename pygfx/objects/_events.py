@@ -70,6 +70,8 @@ class Event:
         cancelled: bool = False,
         # Swallow event_type to ease conversion from wgpu events to Event objects
         event_type: Optional[str] = None,
+        # Swallow additional keys
+        **unknown_keys,
     ):
         self._type = type
         # Using perf_counter_ns instead of perf_counter
