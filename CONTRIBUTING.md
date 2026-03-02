@@ -47,7 +47,7 @@ increases the chance of a successful pull-request.
 
 ### Promoting Pygfx
 
-We love it when Pygfx in used in a derived project, blog posts, article, or scientific paper.
+We love it when Pygfx is used in a derived project, blog posts, article, or scientific paper.
 We love it even more if Pygfx is referenced to help increase the visibility of the project.
 Also feel free to reach out to let us know!
 
