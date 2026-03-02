@@ -1,58 +1,105 @@
 # Contributor's Guide
 
-
-## Who can contribute?
-
-We accept contributions from anyone as long as these contributions meet our standards.
-While we will accept contributions from anyone, we especially value ideas and
-contributions from folks with diverse backgrounds and identities. There are
-many ways to contribute (see below) and no contribution is too small.
+Pygfx is a community effort, shaped by a group of contributors from around the
+world. And you can contribute too!
 
 
-## What can be contributed?
+## Creating issues, pull-requests, and discussions
 
-At this time, the project is still in a somewhat experimental phase of development.
-Some parts of the architecture are not settled yet, and several decisions about
-the API are yet to be made. Further the API is not complete yet.
+We coordinate our work using GitHub,
 
-1. **Try the examples**: in any case, the examples should work. Try them out and
-   report a bug if one does not work. This helps us improve the stability of Pygfx.
-1. **Play with it**: If you're up for it, try to create your own visualizations
-   with Pygfx, and let us know if you run into problems or if you have suggestions
-   about the API. This will help us set the direction of the API.
-4. **Documentation**: We could use help to improve the documentations, especially
-    tutorials.
+* The [issues](https://github.com/pygfx/pygfx/issues) are meant to track problems and feature requests.
+* The [pull-requests](https://github.com/pygfx/pygfx/pulls) (a.k.a. PR's) are used to contribute new code to the project.
+* The [discussions](https://github.com/pygfx/pygfx/pulls) are to ask questions and have discussions related to (using) the project.
+
+Before creating a new issues, please first search the issue list to see if your problem is
+already known. If it is, you can then participate by letting us know you encountered the
+same problem, and maybe add specific details that can help us fix the problem.
+
+If you're new to Github, see Github's documentation for
+[creating an issue](https://docs.github.com/en/free-pro-team@latest/github/managing-your-work-on-github/creating-an-issue)
+and [creating a pull-request](https://docs.github.com/en/get-started/using-github/github-flow).
+And we are also here to help you!
 
 
 ## How can I contribute?
 
-Almost all communication should be done through
-the main GitHub repository: https://github.com/pygfx/pygfx
+### Reporting problems
 
-* Bug reports and feature requests can be submitted through the "Issues" on
-  the repository.
-  [This GitHub page](https://docs.github.com/en/free-pro-team@latest/github/managing-your-work-on-github/creating-an-issue)
-  can help you create an issue if you're unfamiliar with the process.
-* Any changes to actual code, including documentation, should be submitted as a
-  pull request on GitHub. We use a pull request (PR) based workflow similar to
-  many other open-source libraries in the python ecosystem. You can read more
-  about this workflow [here](https://docs.github.com/en/get-started/quickstart/github-flow); if you
-  have previously contributed to open-source, a lot of this will look familiar
-  already. Don't be afraid to submit a pull request with only partial fixes/features.
-  Pull requests can always be updated after they are created. Creating them
-  early gives maintainers a chance to provide an early review of your code if
-  that's something you're looking for.
+If you run into a difficulty when using Pygfx, we'd like to know, so that we can
+fix or document it. If you encounter what you think is a bug, please let us
+know by creating an issue! Likewise in case things are unclear, e.g. because the documentation is incomplete or
+outdated.
 
-No matter how you contribute, the maintainers will try their best to read,
-research, and respond to your query as soon as possible. For code changes,
-automated checks and tests will run on GitHub to provide an initial "review"
-of your changes.
+### Asking questions
+
+If you are trying to achieve something and you're not sure how to do this with Pygfx, you
+can start a discussion. We can then give some tips, and others with similar
+goals can benefit too.
+
+### Requesting and contributing features
+
+If you feel that something is missing, you can create an issue to request that
+feature. We especially appreciate if you're willing to contribute the new
+feature via a pull-request. It can be good to first open an issue (especially
+for large/complex features) to discuss the approach and design. This
+increases the chance of a successful pull-request.
+
+### Promoting Pygfx
+
+We love it when Pygfx is used in a derived project, blog posts, article, or scientific paper.
+We love it even more if Pygfx is referenced to help increase the visibility of the project.
+Also feel free to reach out to let us know!
+
+### Active contributions
+
+If you just want to help move the project forward, we welcome you to:
+
+* Check the issue list, to see if there are issues that you can help with, maybe by fixing a bug or contributing a new feature.
+* Check the pull-requests, to see if you can help review it, or maybe test it out.
+* Check the discussions, to see if you can help answer user questions.
+* Read the documentation, and see if it can be improved.
 
 
-## What if I need help?
+## AI Policy
 
-Currently, the best way to ask for help from the maintainers is to start a
-[discussion](https://github.com/pygfx/pygfx/discussions).
+*This policy was gratefully inspired by the AI policies of SciPy and scikit-image.*
+
+We are a small developer team, and we enjoy reviewing and discussing code
+written by other humans. We recognize that LLMs may be useful, but overall
+prefer for contributions to be hand-written.
+
+### Responsibility
+
+You are responsible for all the code that you contribute, including the AI
+generated code. You must understand and be able to explain the submitted code as
+well as its relation with the surrounding code. It is not acceptable to submit a
+patch that you cannot understand and explain yourself.
+
+### Disclosure
+
+You must disclose whether AI has been used to produce any code of your
+pull-request. If so, you must document which tool(s) have been used, how they
+were used, and specify what code or text is AI generated.
+
+### Copyright
+
+Contributors must own the copyright of any code submitted to Pygfx. Code
+generated by AI may infringe on copyright and it is your responsibility to not
+infringe. We reserve the right to reject any pull requests where the copyright
+is in question.
+
+### Communication
+
+When interacting with developers (in discussions, issues, pull-requests,
+etc.) do not use AI to speak for you, except for translation or grammar editing.
+Human-to-human communication is essential for an open source community to
+thrive.
+
+### AI Agents
+
+The use of an AI agent that writes code and then submits a pull request
+autonomously is not permitted.
 
 
 ## Coding Style
@@ -61,9 +108,9 @@ The Pygfx project uses `ruff` to format and lint the code:
 
 ```bash
 # Reformat the code if necessary
-ruff format .
+ruff format
 # Check for linting errors.
-ruff check .
+ruff check
 ```
 
 
