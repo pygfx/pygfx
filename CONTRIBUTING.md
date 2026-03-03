@@ -50,6 +50,7 @@ increases the chance of a successful pull-request.
 We love it when Pygfx is used in a derived project, blog posts, article, or scientific paper.
 We love it even more if Pygfx is referenced to help increase the visibility of the project.
 Also feel free to reach out to let us know!
+See our Zenodo page for citation details: https://doi.org/10.5281/zenodo.18847595
 
 ### Active contributions
 
