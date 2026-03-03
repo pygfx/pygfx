@@ -1,14 +1,9 @@
 <h1 align="center"><img src="docs/_static/pygfx.svg" height="80"><br>Pygfx</h1>
 
-[![CI
-](https://github.com/pygfx/pygfx/actions/workflows/ci.yml/badge.svg)
-](https://github.com/pygfx/pygfx/actions/workflows/ci.yml)
-[![Documentation Status
-](https://readthedocs.org/projects/pygfx/badge/?version=stable)
-](https://docs.pygfx.org)
-[![PyPI version
-](https://badge.fury.io/py/pygfx.svg)
-](https://badge.fury.io/py/pygfx)
+[![CI](https://github.com/pygfx/pygfx/actions/workflows/ci.yml/badge.svg)](https://github.com/pygfx/pygfx/actions/workflows/ci.yml)
+[![Documentation Status](https://readthedocs.org/projects/pygfx/badge/?version=stable)](https://docs.pygfx.org)
+[![PyPI version](https://badge.fury.io/py/pygfx.svg)](https://badge.fury.io/py/pygfx)
+[![Zenodo badge](https://zenodo.org/badge/DOI/10.5281/zenodo.18847595.svg)](https://doi.org/10.5281/zenodo.18847595)
 
 The purpose of Pygfx is to bring powerful and reliable visualization to the Python world. 🚀
 
@@ -46,7 +41,7 @@ essence, you need modern (enough) graphics drivers, and `pip>=20.3`.
 ## Status
 
 We're currently working towards version `1.0`, which means that the API
-can change with each version. We expect to reach `1.0` near July 2026, 
+can change with each version. We expect to reach `1.0` near July 2026,
 at which point we start caring about backwards compatibility.
 
 This means that until then, you should probably pin the Pygfx version
