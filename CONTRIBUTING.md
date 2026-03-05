@@ -10,7 +10,7 @@ We coordinate our work using GitHub,
 
 * The [issues](https://github.com/pygfx/pygfx/issues) are meant to track problems and feature requests.
 * The [pull-requests](https://github.com/pygfx/pygfx/pulls) (a.k.a. PR's) are used to contribute new code to the project.
-* The [discussions](https://github.com/pygfx/pygfx/pulls) are to ask questions and have discussions related to (using) the project.
+* The [discussions](https://github.com/pygfx/pygfx/discussions) are to ask questions and have discussions related to (using) the project.
 
 Before creating a new issues, please first search the issue list to see if your problem is
 already known. If it is, you can then participate by letting us know you encountered the
