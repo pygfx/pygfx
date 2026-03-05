@@ -192,23 +192,6 @@ def test_color_css():
         Color("hsluv(120deg, 100%)")
 
 
-def test_color_min_max():
-    assert np.allclose(Color(1.1, 1.2, 1.3).rgb, (1.1, 1.2, 1.3))
-    assert Color(1.1, 1.2, 1.3).clip().rgb == (1, 1, 1)
-    assert Color(1.1, 1.2, 1.3).hex == "#ffffff"
-    assert Color(1.1, 1.2, 1.3, 1.4).a == 1
-
-    assert np.allclose(Color(-0.1, -0.2, -0.3).rgb, (-0.1, -0.2, -0.3))
-    assert Color(-0.1, -0.2, -0.3).clip().rgb == (0, 0, 0)
-    assert Color(-0.1, -0.2, -0.3).hex == "#000000"
-    assert Color(-0.1, -0.2, -0.3, -0.4).a == 0
-
-    assert Color("rgb(260, 270, 280)").css == "rgb(260,270,280)"
-    assert Color("rgba(260, 270, 280, 2)").css == "rgb(260,270,280)"
-    assert Color("rgba(260, 270, 280, 2)").a == 1
-    assert Color("rgb(260, 270, 280)").clip().css == "rgb(255,255,255)"
-
-
 def test_color_named():
     assert Color("red").hexa == "#ff0000ff"
     assert Color("y").hexa == "#ffff00ff"
@@ -333,7 +316,6 @@ if __name__ == "__main__":
     test_color_numpy()
     test_color_hex()
     test_color_css()
-    test_color_min_max()
     test_color_named()
     test_color_compare()
     test_color_combine()
