@@ -16,6 +16,7 @@ The cubemap of skybox is also the environment cubemap of the helmet.
 
 import os
 from pathlib import Path
+import sys
 
 try:
     # modify this line if your model is located elsewhere
@@ -57,6 +58,10 @@ scene.add(background)
 # Load meshes, and apply env map
 # Note that this lights the helmet already
 gltf_path = model_dir / "DamagedHelmet" / "glTF" / "DamagedHelmet.gltf"
+
+# quick hack to avoid serving the files or implemting a virtual file system
+if sys.platform == "emscripten":
+    gltf_path = "https://raw.githubusercontent.com/pygfx/pygfx/main/examples/data/DamagedHelmet/glTF/DamagedHelmet.gltf"
 
 gltf = gfx.load_gltf(gltf_path)
 # gfx.print_scene_graph(gltf.scene) # Uncomment to see the tree structure

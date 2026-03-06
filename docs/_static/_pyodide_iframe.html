@@ -27,7 +27,7 @@
                 let example_name = document.location.hash.slice(1);
                 pythonCode = await (await fetch(window.parent.location.pathname.replace(".html", ".py"))).text();
                 // this env var is really only used for the pygfx examples - so maybe we make a script for that gallery instead?
-                let pyodide = await loadPyodide({env: {'PYGFX_DEFAULT_PPAA': 'none' }});
+                let pyodide = await loadPyodide();
                 pyodide.setStdout({
                     batched: (s) => {
                         el = document.getElementById("output");

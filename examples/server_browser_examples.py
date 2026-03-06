@@ -136,7 +136,7 @@ pyodide_compute_template = """
                 let example_name = {example_script!r};
                 pythonCode = await (await fetch(example_name)).text();
                 // this env var is really only used for the pygfx examples - so maybe we make a script for that gallery instead?
-                let pyodide = await loadPyodide({{env: {{'PYGFX_DEFAULT_PPAA': 'none' }}}});
+                let pyodide = await loadPyodide();
                 pyodide.setStdout({{
                     batched: (s) => {{
                         // TODO: newline, scrollable, echo to console?
@@ -313,6 +313,9 @@ class MyHandler(BaseHTTPRequestHandler):
     def respond(self, code, body, content_type="text/plain"):
         self.send_response(code)
         self.send_header("Content-type", content_type)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
         if isinstance(body, str):
             body = body.encode()
