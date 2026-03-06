@@ -256,6 +256,7 @@ class Controller:
             "key_up",
             "wheel",
             "before_render",
+            "resize",
         )
 
     def tick(self):
@@ -445,6 +446,9 @@ class Controller:
         elif type == "key_up":
             # End key presses, regardless of modifier state
             need_update = self._handle_button_up(f"{event.key.lower()}")
+        elif type == "resize":
+            # Draw a fresh frame on resize
+            need_update = True
 
         if need_update and self.auto_update:
             viewport.renderer.request_draw()
