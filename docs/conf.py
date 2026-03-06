@@ -101,6 +101,10 @@ iframe_placeholder_rst = """
 """
 python_files = {}
 
+# I have a feeling this import might be really sketchy to have on CI... but hey - this is a hack for a hack
+from examples.server_browser_examples import patch_imageio_for_pyodide
+
+
 def add_pyodide_to_examples(app):
     if app.builder.name != "html":
         return
@@ -112,6 +116,7 @@ def add_pyodide_to_examples(app):
         fname = py_file.name
         with open(py_file, "rb") as f:
             py = f.read().decode()
+            py = patch_imageio_for_pyodide(py)
         if fname:
             print("Adding Pyodide example to", fname)
             fname_rst = py_file.with_suffix(".rst")

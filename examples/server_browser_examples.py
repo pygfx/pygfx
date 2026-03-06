@@ -172,7 +172,6 @@ pyodide_compute_template = """
 imageio_patch = """
 from pyodide.http import pyfetch
 from pyodide.ffi import run_sync
-from io import BytesIO
 
 async def _imread_async(filename, **kwargs):
     # pyodide working version of iio.imread, uses fetch and waiting on it, also replaced the "imageio:"
@@ -184,7 +183,7 @@ async def _imread_async(filename, **kwargs):
         kwargs["extension"] = "." + filename.rsplit(".", 1)[-1]
 
     response = await pyfetch(filename)
-    res = iio.imread(BytesIO(await response.bytes()), **kwargs)
+    res = iio.imread((await response.bytes()), **kwargs)
     return res
 
 def _imread(filename:str, **kwargs):
