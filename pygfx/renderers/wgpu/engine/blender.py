@@ -9,19 +9,17 @@ from .shared import get_shared
 from ..wgsl import load_wgsl
 
 
-standard_texture_des = {
-    "sample_type": wgpu.TextureSampleType.unfilterable_float,
-    "view_dimension": wgpu.TextureViewDimension.d2,
-    "multisampled": False,
-}
+standard_texture_binding_layout = wgpu.TextureBindingLayout(
+    sample_type="unfilterable-float",
+    view_dimension="2d",
+    multisampled=False,
+)
 
 
-def blend_dict(src_factor, dst_factor, operation):
-    return {
-        "operation": operation,
-        "src_factor": src_factor,
-        "dst_factor": dst_factor,
-    }
+def blend_component(src_factor, dst_factor, operation):
+    return wgpu.BlendComponent(
+        operation=operation, src_factor=src_factor, dst_factor=dst_factor
+    )
 
 
 DEPTH_MAP = {
@@ -234,23 +232,23 @@ class Blender:
         elif alpha_method == "blended":
             # Note that color_constant and alpha_constant are not yet supported.
             # We'd need to call GPURenderPassEncoder.set_blend_constant(rgba), close to where we call GPURenderPassEncoder.set_viewport() in renderer.py
-            color_blend = {
-                "color": blend_dict(
+            color_blend = wgpu.BlendState(
+                color=blend_component(
                     alpha_config["color_src"],
                     alpha_config["color_dst"],
                     alpha_config.get("color_op", "add"),
                 ),
-                "alpha": blend_dict(
+                alpha=blend_component(
                     alpha_config["alpha_src"],
                     alpha_config["alpha_dst"],
                     alpha_config.get("alpha_op", "add"),
                 ),
-            }
+            )
         elif alpha_method == "stochastic":
-            color_blend = {
-                "alpha": blend_dict(bf.one, bf.zero, bo.add),
-                "color": blend_dict(bf.one, bf.zero, bo.add),
-            }
+            color_blend = wgpu.BlendState(
+                alpha=blend_component(bf.one, bf.zero, bo.add),
+                color=blend_component(bf.one, bf.zero, bo.add),
+            )
         elif alpha_method == "weighted":
             color_blend = None  # handled below
         else:
@@ -268,18 +266,18 @@ class Blender:
         if alpha_method == "weighted":
             accum_target_state = {
                 "name": "accum",
-                "blend": {
-                    "alpha": blend_dict(bf.one, bf.one, bo.add),
-                    "color": blend_dict(bf.one, bf.one, bo.add),
-                },
+                "blend": wgpu.BlendState(
+                    alpha=blend_component(bf.one, bf.one, bo.add),
+                    color=blend_component(bf.one, bf.one, bo.add),
+                ),
                 "write_mask": wgpu.ColorWrite.ALL,
             }
             reveal_target_state = {
                 "name": "reveal",
-                "blend": {
-                    "alpha": blend_dict(bf.zero, bf.one_minus_src_alpha, bo.add),
-                    "color": blend_dict(bf.zero, bf.one_minus_src, bo.add),
-                },
+                "blend": wgpu.BlendState(
+                    alpha=blend_component(bf.zero, bf.one_minus_src_alpha, bo.add),
+                    color=blend_component(bf.zero, bf.one_minus_src, bo.add),
+                ),
                 "write_mask": wgpu.ColorWrite.ALL,
             }
             target_states = [accum_target_state, reveal_target_state]
@@ -323,15 +321,15 @@ class Blender:
         texinfo = self._texture_info["depth"]
         texinfo["is_used"] = True
 
-        return {
-            "format": texinfo["format"],
-            "depth_write_enabled": depth_write,
-            "depth_compare": wgpu_depth_compare,
-            "stencil_read_mask": 0,
-            "stencil_write_mask": 0,
-            "stencil_front": {},  # use defaults
-            "stencil_back": {},  # use defaults
-        }
+        return wgpu.DepthStencilState(
+            format=texinfo["format"],
+            depth_write_enabled=depth_write,
+            depth_compare=wgpu_depth_compare,
+            stencil_read_mask=0,
+            stencil_write_mask=0,
+            stencil_front={},  # use defaults
+            stencil_back={},  # use defaults
+        )
 
     def get_color_attachments(self, pass_type):
         """Get the texture render targets for color.
@@ -340,20 +338,21 @@ class Blender:
         This is called by the renderer for each 'batch' of objects (of a particular pass_type) is being rendered.
         """
 
-        color_attachment = {
-            "name": "color",
-            "resolve_target": None,
-            "clear_value": (0, 0, 0, 0),
-            "load_op": wgpu.LoadOp.load,  # maybe set to clear at the end of this func
-            "store_op": wgpu.StoreOp.store,
-        }
-        pick_attachment = {
-            "name": "pick",
-            "resolve_target": None,
-            "clear_value": (0, 0, 0, 0),
-            "load_op": wgpu.LoadOp.load,
-            "store_op": wgpu.StoreOp.store,
-        }
+        color_attachment = wgpu.RenderPassColorAttachment(
+            view="color",  # type: ignore - set below
+            resolve_target=None,
+            clear_value=(0, 0, 0, 0),
+            load_op="load",  # maybe set to clear at the end of this func
+            store_op="store",
+        )
+
+        pick_attachment = wgpu.RenderPassColorAttachment(
+            view="pick",  # type: ignore - set below
+            resolve_target=None,
+            clear_value=(0, 0, 0, 0),
+            load_op="load",
+            store_op="store",
+        )
         attachments = [color_attachment]
 
         self._weighted_blending_was_used_in_last_pass = False
@@ -364,20 +363,20 @@ class Blender:
             # that pass it will be merged with the color buffer using the combine pass.
             accum_clear_value = 0, 0, 0, 0
             reveal_clear_value = 1, 0, 0, 0
-            accum_attachment = {
-                "name": "accum",
-                "resolve_target": None,
-                "clear_value": accum_clear_value,
-                "load_op": wgpu.LoadOp.load,
-                "store_op": wgpu.StoreOp.store,
-            }
-            reveal_attachment = {
-                "name": "reveal",
-                "resolve_target": None,
-                "clear_value": reveal_clear_value,
-                "load_op": wgpu.LoadOp.load,
-                "store_op": wgpu.StoreOp.store,
-            }
+            accum_attachment = wgpu.RenderPassColorAttachment(
+                view="accum",  # type: ignore - set below
+                resolve_target=None,
+                clear_value=accum_clear_value,
+                load_op="load",
+                store_op="store",
+            )
+            reveal_attachment = wgpu.RenderPassColorAttachment(
+                view="reveal",  # type: ignore - set below
+                resolve_target=None,
+                clear_value=reveal_clear_value,
+                load_op="load",
+                store_op="store",
+            )
             attachments = [accum_attachment, reveal_attachment]
 
         # Add pick attachment if this blender supports picking.
@@ -386,14 +385,14 @@ class Blender:
 
         # Finalize attachments
         for attachment in attachments:
-            name = attachment.pop("name")
+            name = attachment.view
             texinfo = self._texture_info[name]
 
             if texinfo["clear"]:
                 texinfo["clear"] = False
-                attachment["load_op"] = wgpu.LoadOp.clear
+                attachment.load_op = "clear"
 
-            attachment["view"] = self._get_texture_view_for_rendering(name)
+            attachment.view = self._get_texture_view_for_rendering(name)
 
         return attachments
 
@@ -414,12 +413,12 @@ class Blender:
 
         # We don't use the stencil yet, but when we do, we will also have to specify
         # "stencil_read_only", "stencil_load_op", and "stencil_store_op"
-        return {
-            "view": view,
-            "depth_clear_value": 1.0,
-            "depth_load_op": load_op,
-            "depth_store_op": wgpu.StoreOp.store,
-        }
+        return wgpu.RenderPassDepthStencilAttachment(
+            view=view,
+            depth_clear_value=1.0,
+            depth_load_op=load_op,
+            depth_store_op="store",
+        )
 
     def get_shader_kwargs(self, material_pick_write, alpha_config):
         """Get the shader templating variables for the given alpha config."""
@@ -622,12 +621,12 @@ class Blender:
         # Render
         render_pass = command_encoder.begin_render_pass(
             color_attachments=[
-                {
-                    "view": self._get_texture_view_for_rendering("color"),
-                    "resolve_target": None,
-                    "load_op": load_op,
-                    "store_op": wgpu.StoreOp.store,
-                }
+                wgpu.RenderPassColorAttachment(
+                    view=self._get_texture_view_for_rendering("color"),
+                    resolve_target=None,
+                    load_op=load_op,
+                    store_op="store",
+                ),
             ],
             depth_stencil_attachment=None,
             occlusion_query_set=None,
@@ -639,27 +638,27 @@ class Blender:
 
     def _create_combination_pipeline(self):
         binding_layout = [
-            {
-                "binding": 0,
-                "visibility": wgpu.ShaderStage.FRAGMENT,
-                "texture": standard_texture_des,
-            },
-            {
-                "binding": 1,
-                "visibility": wgpu.ShaderStage.FRAGMENT,
-                "texture": standard_texture_des,
-            },
+            wgpu.BindGroupLayoutEntry(
+                binding=0,
+                visibility=wgpu.ShaderStage.FRAGMENT,
+                texture=standard_texture_binding_layout,
+            ),
+            wgpu.BindGroupLayoutEntry(
+                binding=1,
+                visibility=wgpu.ShaderStage.FRAGMENT,
+                texture=standard_texture_binding_layout,
+            ),
         ]
 
         bf, bo = wgpu.BlendFactor, wgpu.BlendOperation
         targets = [
-            {
-                "format": self._texture_info["color"]["format"],
-                "blend": {
-                    "alpha": blend_dict(bf.one, bf.one_minus_src_alpha, bo.add),
-                    "color": blend_dict(bf.one, bf.one_minus_src_alpha, bo.add),
-                },
-            },
+            wgpu.ColorTargetState(
+                format=self._texture_info["color"]["format"],
+                blend=wgpu.BlendState(
+                    color=blend_component(bf.one, bf.one_minus_src_alpha, bo.add),
+                    alpha=blend_component(bf.one, bf.one_minus_src_alpha, bo.add),
+                ),
+            )
         ]
 
         wgsl = """
@@ -693,19 +692,20 @@ class Blender:
     def _create_combination_bind_group(self, bind_group_layout):
         # This must match the binding_layout above
         bind_group_entries = [
-            {
-                "binding": 0,
-                "resource": self.get_texture_view(
+            wgpu.BindGroupEntry(
+                binding=0,
+                resource=self.get_texture_view(
                     "accum", wgpu.TextureUsage.TEXTURE_BINDING
                 ),
-            },
-            {
-                "binding": 1,
-                "resource": self.get_texture_view(
+            ),
+            wgpu.BindGroupEntry(
+                binding=1,
+                resource=self.get_texture_view(
                     "reveal", wgpu.TextureUsage.TEXTURE_BINDING
                 ),
-            },
+            ),
         ]
+
         return self.device.create_bind_group(
             layout=bind_group_layout, entries=bind_group_entries
         )

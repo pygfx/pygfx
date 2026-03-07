@@ -1,5 +1,5 @@
 """
-_version.py v1.4
+_version.py v1.6
 
 Simple version string management, using a hard-coded version string
 for simplicity and compatibility, while adding git info at runtime.
@@ -22,7 +22,7 @@ from pathlib import Path
 
 # This is the base version number, to be bumped before each release.
 # The build system detects this definition when building a distribution.
-__version__ = "0.15.3"
+__version__ = "0.16.0"
 
 # Set this to your library name
 project_name = "pygfx"
@@ -38,54 +38,70 @@ repo_dir = repo_dir if repo_dir.joinpath(".git").exists() else None
 
 def get_version() -> str:
     """Get the version string."""
-    if repo_dir:
-        return get_extended_version()
-    return __version__
+    try:
+        if repo_dir:
+            release, post, tag, dirty = get_version_info_from_git()
+            result = get_extended_version(release, post, tag, dirty)
+
+            # Warn if release does not match base_version.
+            # Can happen between bumping and tagging. And also when merging a
+            # version bump into a working branch, because we use --first-parent.
+            if release and release != base_version:
+                release2, _post, _tag, _dirty = get_version_info_from_git(
+                    first_parent=False
+                )
+                if release2 != base_version:
+                    warning(
+                        f"{project_name} version from git ({release})"
+                        f" and __version__ ({base_version}) don't match."
+                    )
+
+            return result
+
+    except Exception as err:
+        # Failsafe.
+        warning(f"Error getting refined version: {err}")
+
+    return base_version
 
 
-def get_extended_version() -> str:
+def get_extended_version(release: str, post: str, tag: str, dirty: str) -> str:
     """Get an extended version string with information from git."""
-    release, post, labels = get_version_info_from_git()
+    # Start version string (__version__ string is leading).
+    version = base_version
+    labels = []
 
-    # Sample first 3 parts of __version__
-    base_release = ".".join(__version__.split(".")[:3])
-
-    # Start version string (__version__ string is leading)
-    version = base_release
-    tag_prefix = "#"
-
-    if release and release != base_release:
-        # Can happen between bumping and tagging. And also when merging a
-        # version bump into a working branch, because we use --first-parent.
-        release2, _post, _labels = get_version_info_from_git(first_parent=False)
-        if release2 != base_release:
-            warning(
-                f"{project_name} version from git ({release})"
-                f" and __version__ ({base_release}) don't match."
-            )
-        version += "+from_tag_" + release.replace(".", "_")
-        tag_prefix = "."
-
-    # Add git info
-    if post and post != "0":
+    if release and release != base_version:
+        pre_label = "from_tag_" + release.replace(".", "_")
+        labels = [pre_label, f"post{post}", tag, dirty]
+    elif post and post != "0":
         version += f".post{post}"
-        if labels:
-            version += tag_prefix + ".".join(labels)
-    elif labels and labels[-1] == "dirty":
-        version += tag_prefix + ".".join(labels)
+        labels = [tag, dirty]
+    elif dirty:
+        labels = [tag, dirty]
+    else:
+        # If not post and not dirty, show 'clean' version without git tag.
+        pass
 
+    # Compose final version (remove empty labels, e.g. when not dirty).
+    # Everything after the '+' is not sortable (does not get in version_info).
+    label_str = ".".join(label for label in labels if label)
+    if label_str:
+        version += "+" + label_str
     return version
 
 
-def get_version_info_from_git(*, first_parent: bool = True) -> str:
+def get_version_info_from_git(
+    *, first_parent: bool = True
+) -> tuple[str, str, str, str]:
     """
-    Get (release, post, labels) from Git.
+    Get (release, post, tag, dirty) from Git.
 
     With `release` the version number from the latest tag, `post` the
-    number of commits since that tag, and `labels` a tuple with the
-    git-hash and optionally a dirty flag.
+    number of commits since that tag, `tag` the git hash, and `dirty` a string
+    that is either empty or says 'dirty'.
     """
-    # Call out to Git
+    # Call out to Git.
     command = ["git", "describe", "--long", "--always", "--tags", "--dirty"]
     if first_parent:
         command.append("--first-parent")
@@ -95,9 +111,9 @@ def get_version_info_from_git(*, first_parent: bool = True) -> str:
         warning(f"Could not get {project_name} version: {e}")
         p = None
 
-    # Parse the result into parts
+    # Parse the result into parts.
     if p is None:
-        parts = (None, None, "unknown")
+        parts = ("", "", "unknown")
     else:
         output = p.stdout.decode(errors="ignore")
         if p.returncode:
@@ -108,38 +124,50 @@ def get_version_info_from_git(*, first_parent: bool = True) -> str:
                 + "\n\nstderr: "
                 + stderr
             )
-            parts = (None, None, "unknown")
+            parts = ("", "", "unknown")
         else:
             parts = output.strip().lstrip("v").split("-")
             if len(parts) <= 2:
                 # No tags (and thus no post). Only git hash and maybe 'dirty'.
-                parts = (None, None, *parts)
+                parts = ("", "", *parts)
 
-    # Return unpacked parts
-    release, post, *labels = parts
-    return release, post, labels
+    # Return unpacked parts.
+    release = parts[0]
+    post = parts[1]
+    tag = parts[2]
+    dirty = "dirty" if len(parts) > 3 else ""
+    return release, post, tag, dirty
 
 
 def version_to_tuple(v: str) -> tuple:
-    v = __version__.split("+")[0]  # remove hash
-    return tuple(int(i) if i.isnumeric() else i for i in v.split("."))
-
-
-def prnt(m: str) -> None:
-    sys.stdout.write(m + "\n")
+    parts = []
+    for part in v.split("+", maxsplit=1)[0].split("."):
+        if not part:
+            pass
+        elif part.startswith("post"):
+            try:
+                parts.extend(["post", int(part[4:])])
+            except ValueError:
+                parts.append(part)
+        else:
+            try:
+                parts.append(int(part))
+            except ValueError:
+                parts.append(part)
+    return tuple(parts)
 
 
 def warning(m: str) -> None:
     logger.warning(m)
 
 
-# Apply the versioning
+# Apply the versioning.
 base_version = __version__
 __version__ = get_version()
 version_info = version_to_tuple(__version__)
 
 
-# The CLI part
+# The CLI part.
 
 CLI_USAGE = """
 _version.py
@@ -154,6 +182,10 @@ update          - Self-update the _version.py module by downloading the
 if __name__ == "__main__":
     import sys
     import urllib.request
+
+    def prnt(m: str) -> None:
+        sys.stdout.write(m + "\n")
+        sys.stdout.flush()
 
     _, *args = sys.argv
     this_file = Path(__file__)
@@ -192,3 +224,4 @@ if __name__ == "__main__":
     else:
         prnt(f"Unknown command for _version.py: {args[0]!r}")
         prnt("Use ``python _version.py help`` to see a list of options.")
+        sys.exit(1)
