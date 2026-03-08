@@ -30,11 +30,11 @@ import pygfx
 
 # from here: https://github.com/harfbuzz/uharfbuzz/pull/275 placed in /dist
 uharfbuzz_wheel = "uharfbuzz-0.1.dev1+ga19185453-cp310-abi3-pyodide_2025_0_wasm32.whl"
-# wgpu_wheel = "https://wgpu-py--753.org.readthedocs.build/en/753/_static/wgpu-0.29.0-py3-none-any.whl" # very hacky way to serve this but it does work...
-wgpu_wheel = "wgpu-0.29.0-py3-none-any.whl"
+# wgpu_wheel = "https://wgpu-py--753.org.readthedocs.build/en/753/_static/wgpu-0.31.0-py3-none-any.whl" # very hacky way to serve this but it does work...
+wgpu_wheel = "wgpu-0.31.0-py3-none-any.whl"
 
 # the pygfx wheel will be listed after this. it might be possible to still get deps from pyproject.toml
-pygfx_deps = [wgpu_wheel, uharfbuzz_wheel, "hsluv", "pylinalg", "jinja2", "httpx", "trimesh", "gltflib"]
+pygfx_deps = [wgpu_wheel, uharfbuzz_wheel, "hsluv", "pylinalg", "jinja2", "httpx", "trimesh", "gltflib", "imageio"]
 
 root = Path(__file__).parent.parent.absolute()
 
