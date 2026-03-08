@@ -14,7 +14,11 @@ import json
 import time
 import secrets
 
-import freetype
+if sys.platform == "emscripten":
+    from js import FontFace, ArrayBuffer
+    from pyodide.ffi import run_sync
+else:
+    import freetype
 
 from .. import logger, get_resources_dir, get_cache_dir
 
@@ -63,6 +67,8 @@ class FontFile:
         self._weight = None
         self._style = None
         self._codepoints = codepoints
+        if sys.platform == "emscripten":
+            self._get_face() # load it early so the direct access to freetype attributes is skipped... feels janky.
 
     def __repr__(self):
         return f"<FontFile {self.name} at 0x{hex(id(self))}>"
@@ -72,7 +78,38 @@ class FontFile:
 
     def _get_face(self):
         # This was factored out so it can be overloaded in tests
-        return freetype.Face(self._filename)
+        if not hasattr(self, "_face"):
+            if sys.platform == "emscripten":
+                with open(self._filename, "rb") as f:
+                    data = f.read()
+                js_buf = ArrayBuffer.new(len(data))
+                js_buf.assign(data)
+                # copied the code form above becasue we need the family name before we can load the js Font Face
+                # but we can't call the method insie this method because recursion.
+                name = os.path.basename(self._filename).split(".")[0]
+                family, _, _ = name.partition("-")
+                # add spaces before uppercase letters, as that seems to match freetype
+                family = "".join((" " + c if c.isupper() else c for c in family)).strip()
+                self._family = family or "Unknown"
+                face = FontFace.new(self._family, js_buf)
+                run_sync(face.load())
+
+                # We could also att attributes to self._face that look like the freetype attributes
+                # so the code below for lazy init can work and get expected defaults?
+                self._family = face.family # redundant?
+                self._variant = {"normal": "Regular"}.get(face.variant, "Regular")
+                self._weight = face.weight or 400
+                self._style = face.style or "normal"
+                # https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/At-rules/@font-face/unicode-range
+                start, _, stop = face.unicodeRange.partition("-")
+                start = int(start.removeprefix("U+"), 16) if start else 0
+                stop = int(stop, 16) if stop else start
+                self._codepoints = {k:k for k in range(start, stop + 1)} # turns out we don't get access to the glyph index :/
+
+                self._face = face
+            else:
+                self._face = freetype.Face(self._filename)
+        return self._face
 
     @property
     def filename(self):
@@ -365,6 +402,8 @@ def get_system_font_directories():
         return get_windows_font_directories()
     elif sys.platform.startswith("darwin"):
         return get_osx_font_directories()
+    elif sys.platform == "emscripten":
+        return set() # not sure what browsers would do here... tbd
     else:
         return get_unix_font_directories()
 

@@ -5,7 +5,7 @@
 
 fn sample_vol(texcoord: vec3<f32>, sizef: vec3<f32>) -> vec4<f32> {
     $$ if img_format == 'f32'
-        return textureSample(t_img, s_img, texcoord.xyz);
+        return textureSampleLevel(t_img, s_img, texcoord.xyz, 0.0);
     $$ else
         let texcoords_u = vec3<i32>(texcoord.xyz * sizef);
         return vec4<f32>(textureLoad(t_img, texcoords_u, 0));

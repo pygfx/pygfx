@@ -234,7 +234,7 @@ class VaryingResolver:
             # Build struct
             struct_lines = ["struct Varyings {"]
             for slotnr, name in enumerate(used_slots):
-                struct_lines.append(f"    @location({slotnr}) {name} : {types[name]},")
+                struct_lines.append(f"    @location({slotnr}){' @interpolate(flat, either) ' if 'u' in types[name] or 'i' in types[name] else ''} {name} : {types[name]},")
             for name in sorted(used_builtins):
                 struct_lines.append(f"    @builtin({name}) {name} : {types[name]},")
             struct_lines.append("};\n")

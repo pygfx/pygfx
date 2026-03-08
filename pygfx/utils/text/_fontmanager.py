@@ -1,5 +1,6 @@
 import os
 import json
+import sys
 
 from .. import logger, get_resources_dir
 from ._fontfinder import FontFile, get_all_fonts, weight_dict, style_dict
