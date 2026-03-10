@@ -155,16 +155,11 @@ if sys.platform != "emscripten":
         minimum_items=20,
     )
 else:
-    from ._fontfinder import FontFile
-    def get_js_face(font_filename):
-        font_file = FontFile(font_filename)
-        return font_file._get_face() # should return the js object
-
-    CACHE_FT = TemporalCache(
-        lifetime=10,
-        getter=get_js_face,
-        minimum_items=20,
-    )
+    # this just avoids importing errors... but I don't think that cache is actually needed?
+    # perhaps because the font manager lazy loads all the freetype faces?
+    # or it's a copy and paste for the harfbuzz blobs? (why doesn't the font manager lazily load and cache that?)
+    # IO and memory is slow, but often 500x math is faster than getting something memorized from ram. But I read the benchmark discussion in the PRs.
+    CACHE_FT = {}
 
 
 def shape_text_hb(text, font_filename, direction=None):

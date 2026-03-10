@@ -5,16 +5,20 @@ import numpy as np
 from ._atlas import glyph_atlas
 from ._shaper import CACHE_FT, REF_GLYPH_SIZE
 
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from ._fontfinder import FontFile
+
 # A little cache so we can assign numbers to fonts
 fontname_cache = {}
 
 
-def generate_glyph(glyph_indices, font_filename):
+def generate_glyph(glyph_indices, font_file: "FontFile"):
     """Generate a glyph for the given glyph indices.
 
     Parameters:
         glyph_indices (list): the indices in the font to render a glyph for.
-        font_filename (str): the font to use.
+        font_file (FontFile): the font file to use.
 
     This generates SDF glyphs and puts them in the atlas. The indices
     of where the glyphs are in the atlas are returned. Glyphs already
@@ -29,6 +33,8 @@ def generate_glyph(glyph_indices, font_filename):
     # the above points is stored in the per-glyph buffer of the atlas.
 
     # Get font index (so we can make it part of the glyph hash)
+
+    font_filename = font_file.filename # access the file, so freetype can load it - but the font manager lazily loads it anyway and could act as a chache?
     try:
         font_index = fontname_cache[font_filename]
     except KeyError:
@@ -97,14 +103,15 @@ def _generate_sdf(face, glyph_index):
 
 
 # in the browser, we can use the canas api to generate our atlast of SDFs...
-def generate_glyph_browser(glyph_indices, font_filename):
+def generate_glyph_browser(glyph_indices, font_file: "FontFile"):
     """Generate a glyph for the given glyph indices.
 
     Parameters:
         glyph_indices (list): the indices in the font to render a glyph for.
-        font_filename (str): the font to use.
+        font_file (FontFile): the font file to use.
     """
     # Get font index (so we can make it part of the glyph hash)
+    font_filename = font_file.filename
     try:
         font_index = fontname_cache[font_filename]
     except KeyError:
@@ -112,7 +119,7 @@ def generate_glyph_browser(glyph_indices, font_filename):
         fontname_cache[font_filename] = font_index
 
     # I think we can almost use the same function as above now?
-    face = CACHE_FT[font_filename]
+    face = font_file._get_face() # should return the js object, alternatviely document.fonts.load(vanity name).then(return?)
 
     atlas_indices = np.empty((len(glyph_indices),), "u4")
     for i in range(len(glyph_indices)):
@@ -132,7 +139,6 @@ def _generate_sdf_browser(face, glyph_index):
     # this canvas could also be cached and cleaned up?
     font_canvas = OffscreenCanvas.new(REF_GLYPH_SIZE, REF_GLYPH_SIZE)
     ctx = font_canvas.getContext("2d")
-    document.fonts.add(face)
     ctx.font = f"{REF_GLYPH_SIZE}px {face.family}" # might not load the correct one based on "family" here since it'S badly set earlier
 
     ctx.fillStyle = "rgba(255.0, 0.0, 0.0, 1.0)"

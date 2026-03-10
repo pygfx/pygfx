@@ -121,6 +121,7 @@ pyodide_compute_template = """
     </dialog>
 <body>
     <a href="/">Back to list</a><br><br>
+    <!-- TODO: can we get a rebuild and rerun this example button? like go to /build with a redirect or something? -->
     <p>
     {docstring}
     </p>

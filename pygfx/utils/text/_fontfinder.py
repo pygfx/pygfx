@@ -15,7 +15,7 @@ import time
 import secrets
 
 if sys.platform == "emscripten":
-    from js import FontFace, ArrayBuffer
+    from js import FontFace, ArrayBuffer, document
     from pyodide.ffi import run_sync
 else:
     import freetype
@@ -92,7 +92,7 @@ class FontFile:
                 family = "".join((" " + c if c.isupper() else c for c in family)).strip()
                 self._family = family or "Unknown"
                 face = FontFace.new(self._family, js_buf)
-                run_sync(face.load())
+                run_sync(face.load().then(lambda _: document.fonts.add(face), lambda err: print(err)))
 
                 # We could also att attributes to self._face that look like the freetype attributes
                 # so the code below for lazy init can work and get expected defaults?

@@ -43,8 +43,9 @@
                 await micropip.install(['hsluv', 'pylinalg', 'jinja2', 'httpx', 'trimesh', 'gltflib', 'imageio']); // pygfx deps and some for the examples... don't seem to load correctly from a local wheel
                 await micropip.install("pygfx") // this one should be replaced by the wheel during docs build.
                 await pyodide.loadPackagesFromImports(pythonCode); // additional non pypi packages from the examples... like imageio (not patched...)
-                pyodide.setDebug(true);
+                pyodide.setDebug(false);
                 let ret = await pyodide.runPythonAsync(pythonCode);
+                // maybe we can trigger a resize event from the js side to get the canvas to fit the iframe when it's in the docs?
                 console.log("Example finished:", ret);
                 loading.close();
             } catch (err) {
