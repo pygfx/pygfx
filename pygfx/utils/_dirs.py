@@ -53,6 +53,8 @@ def _get_data_dir(xdg_name):
         path1 = os.getenv(f"XDG_{xdg_name.upper()}_HOME")
         path2 = os.path.join(HOME, "." + xdg_name.lower())
         base_dir = path1 or path2
+    elif sys.platform == "emscripten":
+        base_dir = user_dir  # not really applicable, but we need something
 
     # Fall back to user dir
     if not (base_dir and os.path.isdir(base_dir)):

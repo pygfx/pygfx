@@ -397,7 +397,7 @@ class Texture(Resource):
         if self._force_contiguous:
             check_data_is_clean_for_performance("texture", view)
         if view.nbytes != self._view.nbytes:
-            raise ValueError("texture.set_data() nbytes does not match.")
+            raise ValueError(f"texture.set_data() nbytes does not match: expected {self._view.nbytes}, got {view.nbytes}")
         if view.dtype != self._view.dtype:
             raise ValueError("texture.set_data() format does not match.")
         # Make sure the shape is ok.

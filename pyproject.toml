@@ -44,6 +44,8 @@ examples = [
     "httpx",
 ]
 docs = [
+    "build",
+    "flit",
     "sphinx>7.2",
     "sphinx_rtd_theme",
     "sphinx-gallery",
