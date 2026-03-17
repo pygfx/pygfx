@@ -84,7 +84,13 @@ def animate1():
     renderer1.render(scene1, camera1)
 
 
-@canvas.request_draw
+# so in the current situation with run_sync and rendercanvas (2.6.2) having the two draw functions (which in turn call sync_waited promises somewhere) causes a problem with Pyodide.
+# my suspicion is that only a single loop exist and the innermost run_sync doesn't even block anymore. I will try to recreate this behaviour in pure renderdoc(no pygfx, no wgpu-py) to maybe understand it better.
+# calling this function once instead of adding it to the loop does work... but this means the loop doesn't actually do anything and can be ommited.
+# In short: the outer canvas draw function includes calls to ofscreen_canvas.draw, and if called as as a request_draw from the loop, breaks
+
+
+# @canvas.request_draw # don't register in the loop
 def animate2():
     camera1.set_view_offset(800, 600, 0, 0, 400, 300)
     im = offscreen_canvas.draw()
@@ -110,4 +116,6 @@ renderer = renderer2  # for the screenshot code
 
 if __name__ == "__main__":
     print(__doc__)
-    loop.run()
+    # call once instead of a loop
+    animate2()
+    # loop.run()

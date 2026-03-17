@@ -168,4 +168,6 @@ def animate():
 canvas.request_draw(animate)
 
 if __name__ == "__main__":
-    loop.run()
+    # also see comment in validate_view_offset.py (and see the draw errors when you interact with the canvas)
+    # loop.run()
+    canvas.force_draw()

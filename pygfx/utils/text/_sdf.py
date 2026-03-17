@@ -132,7 +132,11 @@ def generate_glyph_browser(glyph_indices, font_file: "FontFile"):
         atlas_indices[i] = index
     return atlas_indices
 
-# handy for testing a few values quickly
+# TODO: maybe we should skip freetype and draw the glyphs directly using compute shaders.
+# we could use harfbuzz to parse the bezier curves, mock these functions to extract the values: https://harfbuzz.github.io/harfbuzz-hb-draw.html#hb-draw-funcs-t
+# and finally draw them from a buffer into a texture (or buffer), so we end up with a sdf.
+
+# as of today the Slug library Patent got lifted, so that is likely a good reference to use/reimplement: https://github.com/EricLengyel/Slug
 
 # replace all the freetype logic by canvas logic? https://tchayen.com/drawing-text-in-webgpu-using-just-the-font-file
 def _generate_sdf_browser(face, glyph_index):

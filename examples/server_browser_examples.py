@@ -77,7 +77,7 @@ pyscript_graphics_template = """
 <head>
     <meta name="viewport" content="width=device-width,initial-scale=1.0">
     <title>{example_script} via PyScript</title>
-    <script type="module" src="https://pyscript.net/releases/2025.11.2/core.js"></script>
+    <script type="module" src="https://pyscript.net/releases/2026.3.1/core.js"></script>
 </head>
 
 <body>
@@ -152,7 +152,8 @@ pyodide_compute_template = """
                 const micropip = pyodide.pyimport("micropip");
                 {dependencies}
                 await pyodide.loadPackagesFromImports(pythonCode);
-                pyodide.setDebug(true);
+                // I feel like some errors around stack switching are worse now -.-
+                pyodide.setDebug(false);
                 let ret = await pyodide.runPythonAsync(pythonCode);
                 console.log("Example finished:", ret);
                 loading.close();
@@ -257,7 +258,7 @@ class MyHandler(BaseHTTPRequestHandler):
             except Exception as err:
                 self.respond(500, str(err), "text/plain")
             else:
-                html = f"Wheel build: {wheel_name}<br><br><a href='/'>Back to list</a>"
+                html = f"<br>Wheel build: {wheel_name}<br><br><a href='/'>Back to list</a>"
                 self.respond(200, html, "text/html")
         elif self.path.endswith(".whl"):
             requested_path = Path(self.path)
