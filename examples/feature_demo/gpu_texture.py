@@ -10,6 +10,8 @@ which might get drawn to from a different app.
 # sphinx_gallery_pygfx_test = 'off'
 
 from rendercanvas.auto import RenderCanvas, loop
+from rendercanvas.offscreen import RenderCanvas as OffscreenRenderCanvas
+import wgpu
 import pygfx as gfx
 import pylinalg as la
 from wgpu_shadertoy import Shadertoy
@@ -24,16 +26,25 @@ void mainImage(out vec4 O, vec2 u) {
     O = .6 + .4* cos( floor(fract(a/T)*L) + vec4(0,23,21,0) )
         - max(0., 9.* max( cos(T*l), cos(a*L) ) - 8. ); }
 """
-# it's important to use the same device!
-# also the texture needs to support the usage TEXTURE_BINDING for the later use case - this isn't default behaviour. you can set that in canvas.configure()
+
+# setup the inner texture to include the TEXTURE_BINDING usage, so it can be sampled in the pygfx renderer
+inner_canvas = OffscreenRenderCanvas(size=(512, 512))
+inner_context = inner_canvas.get_wgpu_context()
+# this will get reconfigured again, but can be recover with context.get_configuration() first... maybe these should be a kwarg kept by the canvas?
+inner_context.configure(
+    device=wgpu.utils.get_default_device(),
+    usage=wgpu.TextureUsage.RENDER_ATTACHMENT | wgpu.TextureUsage.TEXTURE_BINDING | wgpu.TextureUsage.COPY_SRC,
+    format=wgpu.TextureFormat.rgba8unorm
+)
+
 shadertoy = Shadertoy(
     shader_code,
     resolution=(512, 512),
     offscreen=True,
-    device=gfx.renderers.wgpu.get_shared().device,
+    canvas=inner_canvas,
 )
+
 gpu_texture = shadertoy._present_context.get_current_texture()  # now this might change between different texture objects with the rendercanvas offscreen context
-# perhaps we only get a new texture every other frame or so?... needs investigation
 texture1 = gfx.Texture.from_gpu(gpu_texture)  # use this new class method
 
 # Then create the actual scene, in the visible canvas
@@ -57,7 +68,9 @@ def animate():
     rot = la.quat_from_euler((0.005, 0.01), order="xy")
     cube2.local.rotation = la.quat_mul(rot, cube2.local.rotation)
 
-    shadertoy._draw_frame()  # draw the external app... (can also be done in a different shedule etc)
+    # update the inner canvas by calling a draw there
+    shadertoy._update() # offscreen shadertoys usually skip the uniform update for controlability
+    shadertoy._draw_frame()
 
     renderer2.render(scene2, camera2)
 
@@ -65,5 +78,7 @@ def animate():
 
 
 if __name__ == "__main__":
+    # alternatively, you can also call the draw function just once
+    # shadertoy._draw_frame() # draw only once
     renderer2.request_draw(animate)
     loop.run()
