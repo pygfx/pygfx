@@ -104,12 +104,12 @@ def generate_mipmaps(texture, base_array_layer):
         )
         pass_encoder = command_encoder.begin_render_pass(
             color_attachments=[
-                {
-                    "view": prev_view,
-                    "load_op": wgpu.LoadOp.clear,
-                    "store_op": wgpu.StoreOp.store,
-                    "clear_value": [0, 0, 0, 0],
-                }
+                wgpu.RenderPassColorAttachment(
+                    view=prev_view,
+                    load_op="clear",
+                    store_op="store",
+                    clear_value=(0, 0, 0, 0),
+                )
             ]
         )
 
@@ -156,8 +156,8 @@ def get_bind_group(
         bind_group = device.create_bind_group(
             layout=bind_group_layout,
             entries=[
-                {"binding": 0, "resource": mipmap_sampler},
-                {"binding": 1, "resource": src_view},
+                wgpu.BindGroupEntry(binding=0, resource=mipmap_sampler),
+                wgpu.BindGroupEntry(binding=1, resource=src_view),
             ],
         )
         setattr(texture, key, bind_group)
@@ -176,19 +176,19 @@ def get_mipmap_pipeline(device, texture):
 
         pipeline = device.create_render_pipeline(
             layout="auto",
-            vertex={
-                "module": vertex_module,
-                "entry_point": "main",
-            },
-            fragment={
-                "module": frag_module,
-                "entry_point": "main",
-                "targets": [{"format": format}],
-            },
-            primitive={
-                "topology": "triangle-strip",
-                "strip_index_format": "uint32",
-            },
+            vertex=wgpu.VertexState(
+                module=vertex_module,
+                entry_point="main",
+            ),
+            fragment=wgpu.FragmentState(
+                module=frag_module,
+                entry_point="main",
+                targets=[wgpu.ColorTargetState(format=format)],
+            ),
+            primitive=wgpu.PrimitiveState(
+                topology="triangle-strip",
+                strip_index_format="uint32",
+            ),
         )
 
         MIPMAP_CACHE.set(format, pipeline)

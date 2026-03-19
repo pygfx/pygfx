@@ -33,11 +33,13 @@ fn vs_main(in: VertexInput) -> Varyings {
     //  6----3          5: 3641      +----+
 
     let plane = u_material.plane.xyzw;  // ax + by + cz + d
-    let n = plane.xyz;
+
+    // Determine if the plane is exactly axis-aligned
+    let plane_is_axis_aligned: bool = (i32(plane.x != 0.0) + i32(plane.y != 0.0) + i32(plane.z != 0.0)) == 1;
 
     // TODO: the shader has a lot of arrays, which add up to register usage. I
     // count 156 registers just for the arrays already, which is more than
-    // avalable on most hardware. So this shader is likely much slower than it
+    // available on most hardware. So this shader is likely much slower than it
     // could be!
 
     // Define edges (using vertex indices), and their matching plane
@@ -82,11 +84,28 @@ fn vs_main(in: VertexInput) -> Varyings {
         let tc1 = geo.texcoords[ edge[0] ];
         let tc2 = geo.texcoords[ edge[1] ];
         let u = p2 - p1;
-        let t = -(plane.x * p1.x + plane.y * p1.y + plane.z * p1.z + plane.w) / dot(n, u);
+        let t = -(plane.x * p1.x + plane.y * p1.y + plane.z * p1.z + plane.w) / dot(plane.xyz, u);
+
         let intersects:bool = t > 0.0 && t < 1.0;
+        var position = mix(p1, p2, vec3<f32>(t, t, t));
+        var texcoord = mix(tc1, tc2, vec3<f32>(t, t, t));
+
+        // If both the plane and the volume (in world space) are axis aligned,
+        // we will add a wee bit of offset to the texcoord in the out-of-plane
+        // dimension. This will prevent flickering when the plane is exactly in
+        // between two voxel layers. In theory the plane can be offset with the
+        // exact same value, causing the flicker to appear, but this case would
+        // be *much* more rare then setting the plane to 'normal' values.
+        let volume_is_axis_aligned: bool = ( i32(u.x != 0.0) + i32(u.y != 0.0) + i32(u.z != 0.0) ) == 1;
+        if (intersects && plane_is_axis_aligned  && volume_is_axis_aligned) {
+            let index = i32(tc1.y != tc2.y) + i32(tc1.z != tc2.z) * 2;
+            texcoord[index] = texcoord[index] + 1e-6;
+            // position[index] = position[index] + 0.2;  // debug
+        }
+
         intersect_flags[i] = select(0, 1, intersects);
-        intersect_positions[i] = mix(p1, p2, vec3<f32>(t, t, t));
-        intersect_texcoords[i] = mix(tc1, tc2, vec3<f32>(t, t, t));
+        intersect_positions[i] = position;
+        intersect_texcoords[i] = texcoord;
     }
 
     // Init six vertices

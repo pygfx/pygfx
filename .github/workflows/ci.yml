@@ -42,6 +42,7 @@ jobs:
 
   docs-build:
     name: Docs
+    timeout-minutes: 10
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
@@ -64,6 +65,7 @@ jobs:
 
   test-builds:
     name: ${{ matrix.name }}
+    timeout-minutes: 5
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -81,6 +83,9 @@ jobs:
           - name: Test py313
             os: ubuntu-latest
             pyversion: '3.13'
+          - name: Test py314
+            os: ubuntu-latest
+            pyversion: '3.14'
     steps:
     - uses: actions/checkout@v4
     - name: Set up Python ${{ matrix.pyversion }}
@@ -101,8 +106,10 @@ jobs:
       run: |
         pytest -v tests
 
+
   test-pyinstaller-build:
     name: Test pyinstaller
+    timeout-minutes: 10
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
@@ -122,6 +129,7 @@ jobs:
 
   test-examples-build:
     name: Test examples ${{ matrix.pyversion }}
+    timeout-minutes: 10
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false

@@ -54,37 +54,40 @@ def _get_dependency_version_ranges():
     limits_per_dependency = {}
     for name_verlimits in dependencies:
         name, _, verlimits = name_verlimits.partition(" ")
-        if name in ("wgpu", "pylinalg"):
-            min_ver = max_ver = 0
-            for lim in verlimits.split(","):
-                if lim.startswith(">="):
-                    min_ver = tuple(map(int, lim[2:].split(".")))
-                elif lim.startswith("<"):
-                    max_ver = tuple(map(int, lim[1:].split(".")))
-            if min_ver and max_ver:
-                limits_per_dependency[name] = min_ver, max_ver
+        min_ver = max_ver = 0
+        for lim in verlimits.split(","):
+            if lim.startswith(">="):
+                min_ver = tuple(map(int, lim[2:].split(".")))
+            elif lim.startswith("<"):
+                max_ver = tuple(map(int, lim[1:].split(".")))
+        if min_ver:
+            limits_per_dependency[name] = min_ver, max_ver or None
     return limits_per_dependency
 
 
-def _check_lib_version(libname, pipname):
+def _check_lib_version(libname, pipname=None):
     import importlib
 
     if libname not in _dependency_version_ranges:
         return
     lib = importlib.import_module(libname)
     min_ver, max_ver = _dependency_version_ranges[libname]
-    detected = f"Detected {lib.__version__}, need >={min_ver}, <{max_ver}."
+    detected = f"Detected {lib.__version__}, need >={min_ver}"
+    if max_ver:
+        detected += f", <{max_ver}"
     if lib.version_info < min_ver:
+        pipname = pipname or libname
         logger.error(
             f"Incompatible version of {libname}:\n    {detected}\n    To update, use e.g. `pip install -U {pipname}`."
         )
-    elif lib.version_info >= max_ver:
+    elif max_ver and lib.version_info >= max_ver:
         logger.warning(f"Possible incompatible version of {libname}:\n    {detected}")
 
 
 _dependency_version_ranges = _get_dependency_version_ranges()
-_check_lib_version("wgpu", "wgpu")
-_check_lib_version("pylinalg", "pylinalg")
+_check_lib_version("rendercanvas")
+_check_lib_version("wgpu")
+_check_lib_version("pylinalg")
 
 
 def _get_sg_image_scraper():

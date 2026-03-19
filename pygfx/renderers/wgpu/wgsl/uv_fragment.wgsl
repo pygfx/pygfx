@@ -58,3 +58,11 @@ $$ if use_anisotropy_map is defined
     let anisotropy_map_uv = (u_anisotropy_map.transform * vec3<f32>(varyings.texcoord{{anisotropy_map_uv or ''}}, 1.0)).xy;
 $$ endif
 
+$$ if use_sheen_color_map is defined
+    let sheen_color_map_uv = (u_sheen_color_map.transform * vec3<f32>(varyings.texcoord{{sheen_color_map_uv or ''}}, 1.0)).xy;
+$$ endif
+
+$$ if use_sheen_roughness_map is defined
+    let sheen_roughness_map_uv = (u_sheen_roughness_map.transform * vec3<f32>(varyings.texcoord{{sheen_roughness_map_uv or ''}}, 1.0)).xy;
+$$ endif
+

@@ -17,8 +17,8 @@ class AxesHelper(Line):
 
     Generates three arrows starting at the local origin and pointing into the
     direction of the local x, y, and z-axis respectively. Each arrow is colored
-    to represent the respective axis. In particular, the x-axis arrow is blue,
-    the y-axis arrow is green, and the z-axis arrow is red.
+    to represent the respective axis. In particular, the x-axis arrow is red,
+    the y-axis arrow is green, and the z-axis arrow is blue.
 
     Parameters
     ----------
