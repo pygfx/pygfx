@@ -23,7 +23,7 @@
 const PI = 3.141592653589793;
 const RECIPROCAL_PI = 0.3183098861837907;
 const SQRT_2 = 1.4142135623730951;
-
+const INVLOG10 = 1.0 / log(10.0);
 const ALPHA_COMPARE_EPSILON : f32 = 1e-6;
 const EPSILON = 1e-6;
 
@@ -51,6 +51,43 @@ fn ndc_to_world_pos(ndc_pos: vec4<f32>) -> vec3<f32> {
 
 fn is_orthographic() -> bool {
     return u_stdinfo.projection_transform[2][3] == 0.0;
+}
+
+
+fn nonlinear_transform(pos: vec4f) -> vec4f {
+    // Apply the camera's nonlinear transform. The numbers here refer to the nonlinear_type in _perspective.py
+    // TODO: allow objects (materials?) to opt-out of this transform, e.g. objects attached to the camera.
+
+    switch u_stdinfo.nonlinear_type {
+        case 0: {
+            return pos;
+        }
+        case default: {
+            return pos;
+        }
+        case 1: {  // xlog10
+            let x = log(pos.x) * INVLOG10;
+            return vec4f(x, pos.y, pos.z, pos.w);
+        }
+        case 2 {  // ylog10
+            let y = log(pos.y) * INVLOG10;
+            return vec4f(pos.x, y, pos.z, pos.w);
+        }
+        case 3 {  // xylog10
+           let x = log(pos.x) * INVLOG10;
+           let y = log(pos.y) * INVLOG10;
+           return vec4f(x, y, pos.z, pos.w);
+        }
+        case 4 {  // polar
+            let radius = length(pos.xy);
+            let theta = atan2(pos.y, pos.x);    // in radians
+            return vec4f(theta, radius, pos.z, pos.w);
+        }
+        case 1024 {  // xdouble
+            let x = pos.x * 2.0;
+            return vec4f(x, pos.y, pos.z, pos.w);
+        }
+    }
 }
 
 // ----- Bindings

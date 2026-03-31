@@ -42,6 +42,7 @@ class OrthographicCamera(PerspectiveCamera):
         maintain_aspect=True,
         depth=None,
         depth_range=None,
+        nonlinear=None,
     ):
         super().__init__(
             0,
@@ -52,4 +53,5 @@ class OrthographicCamera(PerspectiveCamera):
             maintain_aspect=maintain_aspect,
             depth=depth,
             depth_range=depth_range,
+            nonlinear=nonlinear,
         )

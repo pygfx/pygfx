@@ -933,6 +933,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         stdinfo_data["projection_transform"] = camera.projection_matrix.T
         stdinfo_data["projection_transform_inv"] = camera.projection_matrix_inverse.T
         # stdinfo_data["ndc_to_world"].flat = la.mat_inverse(stdinfo_data["cam_transform"] @ stdinfo_data["projection_transform"])
+        stdinfo_data["nonlinear_type"] = camera._nonlinear_type
         stdinfo_data["ndc_offset"] = ndc_offset
         stdinfo_data["physical_size"] = physical_size
         stdinfo_data["logical_size"] = logical_size

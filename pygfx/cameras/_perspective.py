@@ -24,6 +24,78 @@ from ._base import Camera
 # time-series plots. And avoids the scene clipping away (becoming invisible) of you zoom out too much.
 
 
+# todo: in the unit tests, check that this class has forward and inverse method for each transform.
+class NonlinearTransforms:
+    @classmethod
+    def linear(cls, pp):
+        return pp
+
+    @classmethod
+    def linear_inv(cls, pp):
+        return pp
+
+    @classmethod
+    def xlog10(cls, pp):
+        pp2 = pp.copy()
+        pp2[:, 0] = np.log10(pp[:, 0].clip(1e-6))
+        return pp2
+
+    @classmethod
+    def xlog10_inv(cls, pp):
+        pp2 = pp.copy()
+        pp2[:, 0] = np.pow(10, pp[:, 0])
+        return pp2
+
+    @classmethod
+    def ylog10(cls, pp):
+        pp2 = pp.copy()
+        pp2[:, 1] = np.log10(pp[:, 1].clip(1e-6))
+        return pp2
+
+    @classmethod
+    def ylog10_inv(cls, pp):
+        pp2 = pp.copy()
+        pp2[:, 1] = np.pow(10, pp[:, 1])
+        return pp2
+
+    @classmethod
+    def xylog10(cls, pp):
+        pp2 = pp.copy()
+        pp2[:, 0] = np.log10(pp[:, 0].clip(1e-6))
+        pp2[:, 1] = np.log10(pp[:, 1].clip(1e-6))
+        return pp2
+
+    @classmethod
+    def xylog10_inv(cls, pp):
+        pp2 = pp.copy()
+        pp2[:, 0] = np.pow(10, pp[:, 0])
+        pp2[:, 1] = np.pow(10, pp[:, 1])
+        return pp2
+
+    @classmethod
+    def polar(cls, pp):
+        return pp
+        # pp2 = pp.copy()
+        # pp2[0] =
+        # pp2[1] = np.log10(pp[1])
+        # return pp2
+
+    xdouble_index = 1024
+    # todo: suffixes trans/inv/index
+
+    @classmethod
+    def xdouble(cls, pp):
+        pp2 = pp.copy()
+        pp2[:, 0] = pp[:, 0] * 2
+        return pp2
+
+    @classmethod
+    def xdouble_inv(cls, pp):
+        pp2 = pp.copy()
+        pp2[:, 0] = pp[:, 0] / 2
+        return pp2
+
+
 class PerspectiveCamera(Camera):
     """A generic 3D camera with a configurable field of view (fov).
 
@@ -82,11 +154,12 @@ class PerspectiveCamera(Camera):
         maintain_aspect=True,
         depth=None,
         depth_range=None,
+        nonlinear=None,
     ):
         super().__init__()
 
         self.fov = fov
-
+        self.nonlinear = nonlinear
         # Set width and height. Note that if both width and height are given, it overrides aspect
         aspect = aspect or 1
         if width is None and height is None:
@@ -120,6 +193,36 @@ class PerspectiveCamera(Camera):
         fov = fov_limit(fov)  # Constraint to numerically stable values
         self._fov = fov
         self.flag_update()
+
+    @property
+    def nonlinear(self):
+        """The nonlinear projection of the data.
+
+        This projection is applied to the vertices of all rendered objects. The resulting space is a linear space in which the camera can pan and zoom.
+        """
+        return self._nonlinear
+
+    @nonlinear.setter
+    def nonlinear(self, value):
+        if value is None:
+            value = ""
+        if not isinstance(value, str):
+            raise TypeError(f"camera.nonlinear must be str, got {value!r}")
+        elif value not in ("", "xlog10", "ylog10", "xylog10", "polar", "xdouble"):
+            raise ValueError(f"camera.nonlinear {value!r} is an unknown projection.")
+        # TODO: use an enum
+        self._nonlinear = value
+
+    @property
+    def _nonlinear_type(self):
+        return {
+            "": 0,
+            "xlog10": 1,
+            "ylog10": 2,
+            "xylog10": 3,
+            "polar": 4,
+            "xdouble": 1024,
+        }[self._nonlinear]
 
     @property
     def width(self):
@@ -512,6 +615,31 @@ class PerspectiveCamera(Camera):
             raise TypeError(
                 "show_object target must be a WorldObject, or a (x, y, z, radius) tuple."
             )
+
+        # Transform the bounding area with the nonlinear transform.
+        # After this, we are in the 'linear space'.
+        if self._nonlinear:
+            trans = getattr(NonlinearTransforms, self._nonlinear)
+            if bsphere is not None:
+                # TODO: this transform of the bsphere does not work for xlog10, maybe remove, or are there transforms where its strongly preferred?
+                bsphere = np.array(bsphere)
+                positions = np.array(
+                    [
+                        (bsphere[:3] - (bsphere[3], 0, 0)),
+                        (bsphere[:3] + (bsphere[3], 0, 0)),
+                        (bsphere[:3] - (0, bsphere[3], 0)),
+                        (bsphere[:3] + (0, bsphere[3], 0)),
+                        (bsphere[:3] - (0, 0, bsphere[3])),
+                        (bsphere[:3] + (0, 0, bsphere[3])),
+                    ]
+                )
+                positions = trans(positions)
+                xyz = positions.mean(axis=0)
+                r = np.linalg.norm(positions - xyz, axis=1).max()
+                bsphere = float(xyz[0]), float(xyz[1]), float(xyz[2]), float(r)
+            if bbox is not None:
+                bbox = trans(bbox)
+            bsphere = la.aabb_to_sphere(bbox)
 
         # Obtain view direction
         if view_dir is None:

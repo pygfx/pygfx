@@ -2,6 +2,7 @@ from math import floor, ceil, log10
 from typing import Literal, Callable
 
 import numpy as np
+import pylinalg as la
 
 from ._base import WorldObject
 from ._more import Line, Points
@@ -9,6 +10,7 @@ from ._text import MultiText
 from ..resources import Buffer
 from ..materials import LineMaterial, PointsMarkerMaterial, TextMaterial
 from ..utils.compgeo import get_visible_part_of_line_ndc
+from ..cameras._perspective import NonlinearTransforms
 
 
 class Ruler(WorldObject):
@@ -371,7 +373,7 @@ class Ruler(WorldObject):
 
         # Get the dict with visible ticks
         tick_auto_step = self._calculate_tick_step()
-        visible_ticks = self._get_ticks_dict(tick_auto_step)
+        visible_ticks = self._get_ticks_dict(tick_auto_step, camera)
 
         # Update objects to show these ticks
         self._update_sub_objects(visible_ticks, tick_auto_step)
@@ -382,44 +384,64 @@ class Ruler(WorldObject):
             "tick_values": list(visible_ticks.keys()),
         }
 
+
     def _configure_for_screen(self, camera, canvas_size):
         """Make the ruler aware of the camera and viewport size."""
 
         half_canvas_size = 0.5 * np.array(canvas_size, np.float64).reshape(1, 2)
 
+        linear_to_ndc = camera.camera_matrix @ self.world.matrix
+        ndc_to_linear = la.mat_inverse(linear_to_ndc, raise_err=False)
+
         # Get ndc coords for begin and end pos. Use numpy broadcasting for performance and compactness.
-        positions = np.column_stack(
-            [
-                np.vstack([self._start_pos, self._end_pos]),
-                np.ones((2, 1), np.float64),
-            ]
+        world1 = np.column_stack(
+            [np.vstack([self._start_pos, self._end_pos]), np.ones((2, 1), np.float64)]
         )
-        ndc_full = (
-            camera.camera_matrix @ self.world.matrix @ positions[..., None]
-        ).reshape(-1, 4)
-        screen_full = (ndc_full[:, :2] / ndc_full[:, 3:4]) * half_canvas_size
+        linear1 = world1
+        if camera.nonlinear:
+            trans = getattr(NonlinearTransforms, camera.nonlinear)
+            linear1 = trans(world1)
+
+        ndc1 = (linear_to_ndc @ linear1[..., None]).reshape(-1, 4)
+
+        screen1 = (ndc1[:, :2] / ndc1[:, 3:4]) * half_canvas_size
 
         # Get what part of the line is visible
-        t1, t2 = get_visible_part_of_line_ndc(ndc_full[0], ndc_full[1])
+        t1, t2 = get_visible_part_of_line_ndc(ndc1[0], ndc1[1])
 
-        # Get screen coords for visible selection.
-        ndc_sel = np.array(
-            [
-                ndc_full[0] * (1 - t1) + ndc_full[1] * t1,
-                ndc_full[0] * (1 - t2) + ndc_full[1] * t2,
-            ]
+       # But the t1 and t2 are in screen-space
+
+        ndc2 = np.vstack(
+            [(1 - t1) * ndc1[0] + t1 * ndc1[1], (1 - t2) * ndc1[0] + t2 * ndc1[1]]
         )
-        screen_sel = (ndc_sel[:, :2] / ndc_sel[:, 3:4]) * half_canvas_size
+        screen2 = (ndc2[:, :2] / ndc2[:, 3:4]) * half_canvas_size
+        linear2 = (ndc_to_linear @ ndc2[..., None]).reshape(-1, 4)
+        world2 = linear2
+        if camera.nonlinear:
+            trans = getattr(NonlinearTransforms, camera.nonlinear + "_inv")
+            world2 = trans(linear2)
+
+        # Recalculate t1 and t2
+        full_length = np.linalg.norm(world1[0, :3] - world1[1, :3])
+        t1 = np.linalg.norm(world1[0, :3] - world2[0, :3]) / full_length
+        t2 = np.linalg.norm(world1[0, :3] - world2[1, :3]) / full_length
+
+        # TODO: do this or not?
+        t1, t2 = min(max(t1, 0.0), 1.0), min(max(t2, 0.0), 1.0)
+
+        # print(world1)
+        # print(world2)
+        # self._old_configure_for_screen(camera, canvas_size)
 
         # Store values
-        self._screen_vec = screen_full[1] - screen_full[0]
+        self._screen_vec = screen1[1] - screen1[0]
         start_value, end_value = self._start_value, self.end_value
         self._visible_part_coords = t1, t2
         self._visible_part_values = (
             start_value * (1.0 - t1) + end_value * t1,
             start_value * (1.0 - t2) + end_value * t2,
         )
-        self._visible_part_screen_vec = screen_sel[1] - screen_sel[0]
+        self._visible_part_screen_vec = screen2[1] - screen2[0]
 
     def _calculate_text_anchor(self, angle):
         """Calculate the best place to anchor the text labels.
@@ -453,7 +475,7 @@ class Ruler(WorldObject):
                 self._text_anchor = "middle-left"
                 self._text_anchor_offset = 10
 
-    def _get_ticks_dict(self, tick_auto_step):
+    def _get_ticks_dict(self, tick_auto_step, camera=None):
         """Get a tick-dict, derived from the user-given tick value,
         and constrained to the visual part of the ruler.
         """
@@ -467,7 +489,7 @@ class Ruler(WorldObject):
             else:
                 return format(val, tick_format)
 
-        # Select funtion to format the tick values
+        # Select function to format the tick values
         if tick_format == "km":
             tick_format_func = kmg_tick_format_func
         elif isinstance(tick_format, str):
@@ -482,7 +504,20 @@ class Ruler(WorldObject):
         ticks = self._ticks
         if ticks is None:
             # Auto-ticks
-            tick_values = self._get_ticks_uniform(min_value, max_value, tick_auto_step)
+            tick_values = self._get_ticks_uniform(
+                min_value, max_value, tick_auto_step
+            )
+            if camera.nonlinear:
+                vec = self._end_pos - self._start_pos
+                vec_len = np.linalg.norm(vec)
+                if (camera.nonlinear == 'xylog10' or
+                (camera.nonlinear == 'xlog10' and vec[0] > 0.5 * vec_len)
+                or (camera.nonlinear == 'ylog10' and vec[1] > 0.5 * vec_len)
+                ):
+                    tick_values = self._get_ticks_log10(
+                        min_value, max_value, tick_auto_step
+                    )
+
             return {t: tick_format_func(t, min_value, max_value) for t in tick_values}
 
         elif isinstance(ticks, list):
@@ -511,8 +546,8 @@ class Ruler(WorldObject):
         min_tick_dist = self._min_tick_dist
 
         # Determine distances for visible selection
-        world_dist = self._visible_part_values[1] - self._visible_part_values[0]
         screen_dist = float(np.linalg.norm(self._visible_part_screen_vec))
+        world_dist = self._visible_part_values[1] - self._visible_part_values[0]
 
         # Fall back to full size if selection is zero. This way, the
         # value of step still makes sense, even when the ruler itself
@@ -552,6 +587,54 @@ class Ruler(WorldObject):
             t += step
 
         return ticks
+
+    def _get_ticks_log10(self, min_value, max_value, step):
+
+        # Determine distances for visible selection
+        log_dist = log10(max(self._visible_part_values[1], 1e-6)) - log10(max(self._visible_part_values[0], 1e-6))
+        screen_dist = float(np.linalg.norm(self._visible_part_screen_vec))
+        nticks = floor(screen_dist / self._min_tick_dist)
+        nticks = max(1, nticks)
+
+        first_factor_10 = floor(log10(max(min_value, 1e-6)))
+        last_factor_10 = ceil(log10(max(max_value, 1e-6)))
+
+        # Get initial ticks, but expressed in 'log-space'
+        log_ticks = list(range(first_factor_10, last_factor_10+1))
+
+        tick_count_factor = nticks / len(log_ticks)
+        tick_count_factor *= (last_factor_10 - first_factor_10) / max(1, log_dist)
+
+        # Decimate
+        if tick_count_factor < 1:
+            decimation_factor = round(1/tick_count_factor)
+            if decimation_factor > 1:
+                log_ticks = log_ticks[::decimation_factor]
+
+        # Add values, but in world space
+        tick_factors = [1.0]
+        if tick_count_factor > 1.2:
+            if tick_count_factor > 7.5:
+                tick_factors = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+            elif tick_count_factor > 4.5:
+                tick_factors = [1, 2, 4, 6, 8]
+            elif tick_count_factor > 2.5:
+                tick_factors = [1, 2.5, 5, 7.5]
+            else:
+                tick_factors = [1, 5]
+
+        # Go to normal scale
+        ticks = []
+        for log_tick in log_ticks:
+            tick = 10 ** log_tick
+            for f in tick_factors:
+                t = tick * f
+                if min_value <= t <= max_value:
+                    ticks.append(tick * f)
+
+        return ticks
+
+
 
     def _update_sub_objects(self, ticks, tick_auto_step):
         """Update the sub-objects to show the given ticks."""
@@ -623,6 +706,7 @@ class Ruler(WorldObject):
             text_blocks[index].set_text("")
 
         # Hide the ticks close to the ends?
+        # TODO: don't use tick_auto_step here, but solve this problem earlier?
         if self._ticks_at_end_points and ticks:
             tick_values = list(ticks.keys())
             if abs(tick_values[0] - start_value) < 0.5 * tick_auto_step:

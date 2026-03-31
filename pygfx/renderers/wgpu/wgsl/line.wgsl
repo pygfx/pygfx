@@ -202,6 +202,14 @@ fn vs_main(in: VertexInput) -> Varyings {
     var pos_w_prev = world_transform * vec4<f32>(pos_m_prev.xyz, 1.0);
     var pos_w_node = world_transform * vec4<f32>(pos_m_node.xyz, 1.0);
     var pos_w_next = world_transform * vec4<f32>(pos_m_next.xyz, 1.0);
+    // Convert to linear
+    pos_w_prev = nonlinear_transform(pos_w_prev);
+    pos_w_node = nonlinear_transform(pos_w_node);
+    pos_w_next = nonlinear_transform(pos_w_next);
+
+    // TODO: the cam_transform is now expressed in the linear space, not the world space, is that what we want?
+    // If not, we should transform its relative position too. I guess its ok if the camera 'lives' in linear space, since it only applies to nonlinear cases, and these are kinda special anyway?
+
     // Convert to camera view
     var pos_c_prev = u_stdinfo.cam_transform * pos_w_prev;
     var pos_c_node = u_stdinfo.cam_transform * pos_w_node;

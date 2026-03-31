@@ -103,7 +103,8 @@ fn vs_main(in: VertexInput) -> Varyings {
             let vertex_pos = block_pos.xy + glyph_vertex_pos;
         $$ endif
 
-        let world_pos = u_wobject.world_transform * vec4<f32>(model_pos, 1.0);
+        var world_pos = u_wobject.world_transform * vec4<f32>(model_pos, 1.0);
+        world_pos = nonlinear_transform(world_pos);
         let ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos;
         let vertex_pos_rotated_and_scaled = u_wobject.rot_scale_transform * vec2<f32>(vertex_pos);
         let delta_ndc = vertex_pos_rotated_and_scaled.xy / screen_factor;
@@ -118,7 +119,8 @@ fn vs_main(in: VertexInput) -> Varyings {
         let model_pos = block_pos + vec3<f32>(glyph_vertex_pos, 0.0);
         let vertex_pos = model_pos.xy;
 
-        let world_pos = u_wobject.world_transform * vec4<f32>(model_pos, 1.0);
+        var world_pos = u_wobject.world_transform * vec4<f32>(model_pos, 1.0);
+        world_pos = nonlinear_transform(world_pos);
         let ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos;
         let delta_ndc = vec2<f32>(0.0, 0.0);
 
