@@ -74,14 +74,37 @@ class NonlinearTransforms:
 
     @classmethod
     def polar(cls, pp):
-        return pp
-        # pp2 = pp.copy()
-        # pp2[0] =
-        # pp2[1] = np.log10(pp[1])
-        # return pp2
+        theta = pp[:, 0]
+        radius = pp[:, 1]
+        pp2 = pp.copy()
+        pp2[:, 0] = radius * np.cos(theta)
+        pp2[:, 1] = radius * np.sin(theta)
+        return pp2
+
+    @classmethod
+    def polar_inv(cls, pp):
+        radius = np.linalg.norm(pp[:, :2], axis=1)
+        theta = np.atan2(pp[:, 1], pp[:, 0])
+        pp2 = pp.copy()
+        pp2[:, 0] = theta
+        pp2[:, 1] = radius
+        return pp2
 
     xdouble_index = 1024
     # todo: suffixes trans/inv/index
+
+    @classmethod
+    def ll2sphere(cls, pp):
+        lon = pp[:, 0] * np.pi / 180
+        lat = pp[:, 1] * np.pi / 180
+        elevation = pp[:, 2]
+        clat = np.cos(lat)
+        radius = 40_000_000 + elevation
+        pp2 = pp.copy()
+        pp2[:, 0] = radius * clat * np.cos(lon)
+        pp2[:, 1] = radius * clat * np.sin(lon)
+        pp2[:, 2] = radius * np.sin(lat)
+        return pp2
 
     @classmethod
     def xdouble(cls, pp):
@@ -208,7 +231,15 @@ class PerspectiveCamera(Camera):
             value = ""
         if not isinstance(value, str):
             raise TypeError(f"camera.nonlinear must be str, got {value!r}")
-        elif value not in ("", "xlog10", "ylog10", "xylog10", "polar", "xdouble"):
+        elif value not in (
+            "",
+            "xlog10",
+            "ylog10",
+            "xylog10",
+            "polar",
+            "ll2sphere",
+            "xdouble",
+        ):
             raise ValueError(f"camera.nonlinear {value!r} is an unknown projection.")
         # TODO: use an enum
         self._nonlinear = value
@@ -222,6 +253,7 @@ class PerspectiveCamera(Camera):
             "xylog10": 3,
             "polar": 4,
             "xdouble": 1024,
+            "ll2sphere": 100,
         }[self._nonlinear]
 
     @property
@@ -621,25 +653,26 @@ class PerspectiveCamera(Camera):
         if self._nonlinear:
             trans = getattr(NonlinearTransforms, self._nonlinear)
             if bsphere is not None:
+                pass
                 # TODO: this transform of the bsphere does not work for xlog10, maybe remove, or are there transforms where its strongly preferred?
-                bsphere = np.array(bsphere)
-                positions = np.array(
-                    [
-                        (bsphere[:3] - (bsphere[3], 0, 0)),
-                        (bsphere[:3] + (bsphere[3], 0, 0)),
-                        (bsphere[:3] - (0, bsphere[3], 0)),
-                        (bsphere[:3] + (0, bsphere[3], 0)),
-                        (bsphere[:3] - (0, 0, bsphere[3])),
-                        (bsphere[:3] + (0, 0, bsphere[3])),
-                    ]
-                )
-                positions = trans(positions)
-                xyz = positions.mean(axis=0)
-                r = np.linalg.norm(positions - xyz, axis=1).max()
-                bsphere = float(xyz[0]), float(xyz[1]), float(xyz[2]), float(r)
+                # bsphere = np.array(bsphere)
+                # positions = np.array(
+                #     [
+                #         (bsphere[:3] - (bsphere[3], 0, 0)),
+                #         (bsphere[:3] + (bsphere[3], 0, 0)),
+                #         (bsphere[:3] - (0, bsphere[3], 0)),
+                #         (bsphere[:3] + (0, bsphere[3], 0)),
+                #         (bsphere[:3] - (0, 0, bsphere[3])),
+                #         (bsphere[:3] + (0, 0, bsphere[3])),
+                #     ]
+                # )
+                # positions = trans(positions)
+                # xyz = positions.mean(axis=0)
+                # r = np.linalg.norm(positions - xyz, axis=1).max()
+                # bsphere = float(xyz[0]), float(xyz[1]), float(xyz[2]), float(r)
             if bbox is not None:
                 bbox = trans(bbox)
-            bsphere = la.aabb_to_sphere(bbox)
+                bsphere = la.aabb_to_sphere(bbox)
 
         # Obtain view direction
         if view_dir is None:

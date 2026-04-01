@@ -79,14 +79,32 @@ fn nonlinear_transform(pos: vec4f) -> vec4f {
            return vec4f(x, y, pos.z, pos.w);
         }
         case 4 {  // polar
-            let radius = length(pos.xy);
-            let theta = atan2(pos.y, pos.x);    // in radians
-            return vec4f(theta, radius, pos.z, pos.w);
+            let theta = pos.x;
+            let radius = pos.y;
+            let x = radius * cos(theta);
+            let y = radius * sin(theta);
+            return vec4f(x, y, pos.z, pos.w);
+        }
+        case 100 { // ll2sphere
+            // Assumes a sphere, expressed in meters
+            let lon = pos.x * PI / 180;
+            let lat = pos.y * PI / 180;
+            let elevation = pos.z;
+            let clat = cos(lat);
+            let radius = 6367444.0 + elevation;
+            return vec4f(
+                radius * clat * cos(lon),
+                radius * clat * sin(lon),
+                radius * sin(lat),
+                pos.w,
+            );
+
         }
         case 1024 {  // xdouble
             let x = pos.x * 2.0;
             return vec4f(x, pos.y, pos.z, pos.w);
         }
+
     }
 }
 
