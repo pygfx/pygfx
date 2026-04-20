@@ -4,7 +4,9 @@ Wobbly Mesh
 
 Example showing a Torus knot, with a wobble effect by making use
 of a nonlinear transform that applies an time-dependent offset to the
-vertex positions.
+vertex positions. The Mesh is subclassed in order to add the uniform
+values used by the wobble effect.
+
 """
 
 # sphinx_gallery_pygfx_docs = 'screenshot'
@@ -25,14 +27,21 @@ class WobblyMesh(gfx.Mesh):
         t = "f4"
     )
 
+    _nonlinear_wgsl = """
+        fn nonlinear_transform(pos: vec3f) -> vec3f {
+            let a = u_wobject.amplitude;
+            let t = u_wobject.t;
+            return vec3f(
+                pos.x + a * sin(pos.x * 3.1 + t * 1.3),
+                pos.y + a * sin(pos.y * 7.2 + t * 2.1),
+                pos.z + a * sin(pos.z * 8.7 + t * 2.4)
+            );
+        }
+    """
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.nonlinear_transform = """vec3f(
-            pos.x + u_wobject.amplitude * sin(pos.x * 3.1 + u_wobject.t * 1.3),
-            pos.y + u_wobject.amplitude * sin(pos.y * 7.2 + u_wobject.t * 2.1),
-            pos.z + u_wobject.amplitude * sin(pos.z * 8.7 + u_wobject.t * 2.4)
-            )"""
-
+        self.nonlinear_transform = self._nonlinear_wgsl
         self.uniform_buffer.data["amplitude"] = 0.05
 
     def _update_object(self):
