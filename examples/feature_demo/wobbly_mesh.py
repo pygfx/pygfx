@@ -20,11 +20,10 @@ import pygfx as gfx
 
 
 class WobblyMesh(gfx.Mesh):
-
     uniform_type = dict(
         gfx.Mesh.uniform_type,
         amplitude="f4",
-        t = "f4"
+        t="f4",
     )
 
     _nonlinear_wgsl = """
@@ -50,7 +49,7 @@ class WobblyMesh(gfx.Mesh):
         self.uniform_buffer.update_full()
 
 
-canvas = RenderCanvas(update_mode='continuous')
+canvas = RenderCanvas(update_mode="continuous")
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
@@ -58,7 +57,7 @@ im = iio.imread("imageio:bricks.jpg")
 
 mesh = WobblyMesh(
     gfx.torus_knot_geometry(1, 0.3, 128, 32),
-    gfx.MeshPhongMaterial(map=gfx.Texture(im, dim=2))
+    gfx.MeshPhongMaterial(map=gfx.Texture(im, dim=2)),
 )
 mesh.geometry.texcoords.data[:, 0] *= 10  # stretch the texture
 scene.add(mesh)
