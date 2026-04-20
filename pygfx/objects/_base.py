@@ -363,10 +363,10 @@ class WorldObject(EventTarget, Trackable):
     def nonlinear_transform(self) -> str | None:
         """An optional nonlinear transform, expressed as WGSL shader code, applied to the raw vertex positions.
 
-        The WGSL must define a function ``fn nonlinear_transform(pos: vec3f) -> vec3f``.
-        Alternatively, the given WGSL can be a single expression without ';',
+        The WGSL must define a function ``fn nonlinear_transform(pos: vec3f) -> vec3f { ... }``.
+        Alternatively, the given WGSL can be a single expression (without ';')
         using ``pos`` (a vec3f) as an existing variable, in which case the code is
-        wrapped in a function. E.g. "vec3f(pos.x, pos.y*1.5, pos.z)".
+        wrapped in a function. E.g. ``vec3f(pos.x, pos.y*1.5, pos.z)``.
 
         Note that the transform is applied to the raw geometry's vertex
         positions of this object, and does not affect child objects.

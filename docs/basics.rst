@@ -462,6 +462,15 @@ create a small simulation of a falling and rotating cube.
         print(f"Feels like: {total_g:.3} g")
 
 
+Nonlinear transformations
+-------------------------
+
+PyGfx's transform system is based on linear transformations (scale, rotation, translation), but there are places where a nonlinear transformation can be introduced:
+
+* At the very beginning of the transform, using :func:`ob.nonlinear_transform <pygfx.objects.WorldObject.nonlinear_transform>`, which transforms the raw vertex positions in the shader.
+* At the very end, in a post-processing pass, see :mod:`~pygfx.renderers.wgpu.engine.effectpasses`
+
+
 Colors
 ------
 
