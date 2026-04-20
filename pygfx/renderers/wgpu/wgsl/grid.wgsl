@@ -118,6 +118,8 @@ fn vs_main(in: VertexInput) -> Varyings {
         // Construct position using only the grid's rotation. Scale and offset are overridden.
         let pos = cam_pos_on_grid + coord1 * v1 + coord2 * v2;
 
+        // Note: the nonlinear_transform is currently ignored for the grid. It does not have geometry defined vertex positions so it does not make a lot of sense, it seems.
+
     $$ else
 
         // Grid coordinates to form a quad

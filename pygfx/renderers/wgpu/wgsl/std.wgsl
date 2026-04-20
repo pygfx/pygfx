@@ -53,6 +53,9 @@ fn is_orthographic() -> bool {
     return u_stdinfo.projection_transform[2][3] == 0.0;
 }
 
+// Nonlinear transform from WorldObject.nonlinear_transform.
+{{ nonlinear_transform or 'fn nonlinear_transform(pos: vec3f) -> vec3f { return pos; }' }}
+
 // ----- Bindings
 
 // Defines all bindings and functions to load from (storage) buffers

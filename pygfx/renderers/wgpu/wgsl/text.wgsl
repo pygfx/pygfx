@@ -52,7 +52,7 @@ fn vs_main(in: VertexInput) -> Varyings {
     let font_size = f32(glyph_data.s);
 
     // Get position of the current block
-    let block_pos: vec3<f32> = load_s_positions(block_index);
+    let block_pos: vec3<f32> = nonlinear_transform(load_s_positions(block_index));
 
     // Extract actual glyph index and the encoded font props
     let weight_0_15 = (format_bitmask & 0xF000u) >> 12u;  // 4 bits encode -250 .. 500 in steps of 50
