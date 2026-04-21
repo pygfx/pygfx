@@ -11,10 +11,6 @@ The cool thing is that you can express all your data in lat/lon, and it will
 be nicely projected together.
 """
 
-# sphinx_gallery_pygfx_docs = 'screenshot'
-# sphinx_gallery_pygfx_test = 'run'
-
-
 ################################################################################
 # .. note::
 #
@@ -35,6 +31,9 @@ except NameError:
 
 
 ################################################################################
+
+# sphinx_gallery_pygfx_docs = 'screenshot'
+# sphinx_gallery_pygfx_test = 'run'
 
 import time
 

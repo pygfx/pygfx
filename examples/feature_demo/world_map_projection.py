@@ -10,10 +10,6 @@ to a rectangular map. Code is shown for both the "Mercator" and the
 
 """
 
-# sphinx_gallery_pygfx_docs = 'screenshot'
-# sphinx_gallery_pygfx_test = 'run'
-
-
 ################################################################################
 # .. note::
 #
@@ -34,6 +30,9 @@ except NameError:
 
 
 ################################################################################
+
+# sphinx_gallery_pygfx_docs = 'screenshot'
+# sphinx_gallery_pygfx_test = 'run'
 
 import numpy as np
 from rendercanvas.auto import RenderCanvas, loop
