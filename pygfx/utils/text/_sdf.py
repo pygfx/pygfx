@@ -1,9 +1,10 @@
 import sys
 
 import numpy as np
+import uharfbuzz as hb
 
 from ._atlas import glyph_atlas
-from ._shaper import CACHE_FT, REF_GLYPH_SIZE
+from ._shaper import CACHE_FT, REF_GLYPH_SIZE, CACHE_HB
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
@@ -101,8 +102,46 @@ def _generate_sdf(face, glyph_index):
     return glyph, offset
 
 
+# not an actual SDF, but might work as a substitute for not using freetype (and hopefully works in pyodide).
+def generate_glyph_hb(glyph_indices, font_file: "FontFile"):
+    # copied from above but adjusted to using harfbuzz
+    font_filename = font_file.filename
+    try:
+        font_index = fontname_cache[font_filename]
+    except KeyError:
+        font_index = len(fontname_cache) + 1
+        fontname_cache[font_filename] = font_index
 
-# in the browser, we can use the canas api to generate our atlast of SDFs...
+    blob, face, font = CACHE_HB[font_filename]
+
+    atlas_indices = np.empty((len(glyph_indices),), "u4")
+    for i in range(len(glyph_indices)):
+        glyph_index = int(glyph_indices[i])
+        glyph_hash = (font_index, glyph_index)
+        index = glyph_atlas.get_index_from_hash(glyph_hash)
+        if index is None:
+            glyph, offset = _raster_hb(font, glyph_index)
+            index = glyph_atlas.store_region_with_hash(glyph_hash, glyph, offset)
+        atlas_indices[i] = index
+
+    return atlas_indices
+
+
+def _raster_hb(font: "hb.Font", glyph_index: int) -> tuple[np.ndarray, tuple[int, int]]:
+    """
+    uses the new harfbuzz-raster bindings in uharfbuzz to produce a bitmap... not an sdf but might work
+    """
+    # assume font is already scaled correctly etc? and shaping is aswell?
+    hb_draw = hb.RasterDraw() # if we refactor the above like here https://harfbuzz-world.cc/?preset=english#raster it could be in the loop above?
+    hb_draw.draw_glyph(font, glyph_index)
+    raster_img = hb_draw.render()
+    bitmap = np.frombuffer(raster_img.buffer, dtype=np.uint8).reshape((raster_img.extents.height, raster_img.extents.stride))
+    bitmap = bitmap[::-1, :] # needs a yflip I guess
+    offset = (raster_img.extents.x_origin, raster_img.extents.y_origin + raster_img.extents.height) # these look correct!
+
+    return bitmap, offset
+
+# in the browser, we can use the canvas api to generate our atlast of SDFs...
 def generate_glyph_browser(glyph_indices, font_file: "FontFile"):
     """Generate a glyph for the given glyph indices.
 
@@ -172,5 +211,7 @@ def _generate_sdf_browser(face, glyph_index):
 if sys.platform == "emscripten":
     from js import document, OffscreenCanvas
     generate_glyph = generate_glyph_browser
+    generate_glyph = generate_glyph_hb # see if this works too!
 else:
-    import freetype
+    # import freetype
+    generate_glyph = generate_glyph_hb

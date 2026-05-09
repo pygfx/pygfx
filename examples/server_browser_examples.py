@@ -29,7 +29,10 @@ import pygfx
 
 
 # from here: https://github.com/harfbuzz/uharfbuzz/pull/275 placed in /dist
-uharfbuzz_wheel = "uharfbuzz-0.1.dev1+ga19185453-cp310-abi3-pyodide_2025_0_wasm32.whl"
+# uharfbuzz_wheel = "uharfbuzz-0.1.dev1+ga19185453-cp310-abi3-pyodide_2025_0_wasm32.whl" # old kept as a fallback...
+# uharfbuzz_wheel = "https://github.com/harfbuzz/uharfbuzz/releases/download/v0.54.1/uharfbuzz-0.54.1-cp310-abi3-pyodide_2025_0_wasm32.whl" # try to get it from the github release, so we don't need to include it... 
+# might also be a CORS problem. pypi now supports pyemscripten, so this could work in a few weeks once cibuildwheel updates!
+uharfbuzz_wheel = "uharfbuzz-0.54.1-cp310-abi3-pyodide_2025_0_wasm32.whl"
 # wgpu_wheel = "https://wgpu-py--753.org.readthedocs.build/en/753/_static/wgpu-0.31.0-py3-none-any.whl" # very hacky way to serve this but it does work...
 wgpu_wheel = "wgpu-0.31.0-py3-none-any.whl"
 
@@ -137,7 +140,7 @@ pyodide_compute_template = """
                 let example_name = {example_script!r};
                 pythonCode = await (await fetch(example_name)).text();
                 // this env var is really only used for the pygfx examples - so maybe we make a script for that gallery instead?
-                let pyodide = await loadPyodide();
+                pyodide = await loadPyodide();
                 pyodide.setStdout({{
                     batched: (s) => {{
                         // TODO: newline, scrollable, echo to console?
@@ -153,7 +156,7 @@ pyodide_compute_template = """
                 {dependencies}
                 await pyodide.loadPackagesFromImports(pythonCode);
                 // I feel like some errors around stack switching are worse now -.-
-                pyodide.setDebug(false);
+                pyodide.setDebug(true);
                 let ret = await pyodide.runPythonAsync(pythonCode);
                 console.log("Example finished:", ret);
                 loading.close();
@@ -163,6 +166,7 @@ pyodide_compute_template = """
                 console.error(err); // so we have it here too
             }}
         }}
+        let pyodide; // make it global for the console -> pyodide.globals.get("py_var").toJs()
         main();
     </script>
 </body>
