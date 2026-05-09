@@ -14,12 +14,12 @@ if TYPE_CHECKING:
 fontname_cache = {}
 
 
-def generate_glyph(glyph_indices, font_file: "FontFile"):
+def generate_glyph(glyph_indices, font_filename: str):
     """Generate a glyph for the given glyph indices.
 
     Parameters:
         glyph_indices (list): the indices in the font to render a glyph for.
-        font_file (FontFile): the font file to use.
+        font_filename (str):: the font file to use.
 
     This generates SDF glyphs and puts them in the atlas. The indices
     of where the glyphs are in the atlas are returned. Glyphs already
@@ -35,7 +35,6 @@ def generate_glyph(glyph_indices, font_file: "FontFile"):
 
     # Get font index (so we can make it part of the glyph hash)
 
-    font_filename = font_file.filename # access the file, so freetype can load it - but the font manager lazily loads it anyway and could act as a chache?
     try:
         font_index = fontname_cache[font_filename]
     except KeyError:
@@ -103,9 +102,8 @@ def _generate_sdf(face, glyph_index):
 
 
 # not an actual SDF, but might work as a substitute for not using freetype (and hopefully works in pyodide).
-def generate_glyph_hb(glyph_indices, font_file: "FontFile"):
+def generate_glyph_hb(glyph_indices, font_filename: str):
     # copied from above but adjusted to using harfbuzz
-    font_filename = font_file.filename
     try:
         font_index = fontname_cache[font_filename]
     except KeyError:

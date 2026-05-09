@@ -1253,7 +1253,7 @@ class TextItem:
                     text, font.filename, direction
                 )
                 atlas_indices = textengine.generate_glyph(
-                    unicode_indices, font
+                    unicode_indices, font.filename
                 )
                 n = atlas_indices.shape[0]
                 if rsize != 1.0:
