@@ -141,77 +141,8 @@ def _raster_hb(font: "hb.Font", glyph_index: int) -> tuple[np.ndarray, tuple[int
 
     return bitmap, offset
 
-# in the browser, we can use the canvas api to generate our atlast of SDFs...
-def generate_glyph_browser(glyph_indices, font_file: "FontFile"):
-    """Generate a glyph for the given glyph indices.
-
-    Parameters:
-        glyph_indices (list): the indices in the font to render a glyph for.
-        font_file (FontFile): the font file to use.
-    """
-    # Get font index (so we can make it part of the glyph hash)
-    font_filename = font_file.filename
-    try:
-        font_index = fontname_cache[font_filename]
-    except KeyError:
-        font_index = len(fontname_cache) + 1
-        fontname_cache[font_filename] = font_index
-
-    # I think we can almost use the same function as above now?
-    face = font_file._get_face() # should return the js object, alternatviely document.fonts.load(vanity name).then(return?)
-
-    atlas_indices = np.empty((len(glyph_indices),), "u4")
-    for i in range(len(glyph_indices)):
-        glyph_index = int(glyph_indices[i])
-        glyph_hash = (font_index, glyph_index)
-        index = glyph_atlas.get_index_from_hash(glyph_hash)
-        if index is None:
-            glyphs, offset = _generate_sdf_browser(face, glyph_index)
-            index = glyph_atlas.store_region_with_hash(glyph_hash, glyphs, offset)
-        atlas_indices[i] = index
-    return atlas_indices
-
-# TODO: maybe we should skip freetype and draw the glyphs directly using compute shaders.
-# we could use harfbuzz to parse the bezier curves, mock these functions to extract the values: https://harfbuzz.github.io/harfbuzz-hb-draw.html#hb-draw-funcs-t
-# and finally draw them from a buffer into a texture (or buffer), so we end up with a sdf.
-
-# as of today the Slug library Patent got lifted, so that is likely a good reference to use/reimplement: https://github.com/EricLengyel/Slug
-
-# replace all the freetype logic by canvas logic? https://tchayen.com/drawing-text-in-webgpu-using-just-the-font-file
-def _generate_sdf_browser(face, glyph_index):
-    # this canvas could also be cached and cleaned up?
-    font_canvas = OffscreenCanvas.new(REF_GLYPH_SIZE, REF_GLYPH_SIZE)
-    ctx = font_canvas.getContext("2d")
-    ctx.font = f"{REF_GLYPH_SIZE}px {face.family}" # might not load the correct one based on "family" here since it'S badly set earlier
-
-    ctx.fillStyle = "rgba(255.0, 0.0, 0.0, 1.0)"
-    # the glyph index is not the same as the unicode code point, so we actually need the have the font file loaded.
-    glyph_str = chr(glyph_index)
-    ctx.textBaseline = "top"
-    ctx.fillText(glyph_str, 0, 0, REF_GLYPH_SIZE)
-    # TODO: needs jump flood algorithm to get the SDF. Alternatively we could do a compute shader based font renderer too.
-    # https://developer.mozilla.org/en-US/docs/Web/API/TextMetrics
-    text_metrics = ctx.measureText(glyph_str)
-    left = int(text_metrics.actualBoundingBoxLeft)
-    right = int(text_metrics.actualBoundingBoxRight)
-    top = int(text_metrics.actualBoundingBoxAscent)
-    bot = int(text_metrics.actualBoundingBoxDescent)
-    # I don't think the math is very correct here.
-    # print(left, right, top, bot)
-    width = int(text_metrics.width + 1) # how come this is ever 0?
-    height = bot-top
-
-    # does this sorta match freetype?
-    data = ctx.getImageData(left, top, width, height).data
-    glyph = np.array(data, np.uint8).reshape(height, width, 4)[:, :, 0] # just one channel...
-    offset = (left, top)
-
-    return glyph, offset
-
-if sys.platform == "emscripten":
-    from js import document, OffscreenCanvas
-    generate_glyph = generate_glyph_browser
-    generate_glyph = generate_glyph_hb # see if this works too!
-else:
-    # import freetype
+if sys.platform == "emscripten": # or "freetype" not in sys.modules: # maybe have a fallback and make freetype optional?
     generate_glyph = generate_glyph_hb
+else:
+    import freetype
+    # generate_glyph = generate_glyph_hb # uncomment for testing

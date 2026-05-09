@@ -124,7 +124,7 @@ def add_pyodide_to_examples(app):
             rst = iframe_placeholder_rst.replace("example.py", fname)
             # we likely don't want append here?
             with open(fname_rst, "ab") as f:
-                # skip if it already ends with the placeholder? otherwise the append will keep on appending (we have to hook this into the gen_rst to skip if possible?)
+                # TODO: skip if it already ends with the placeholder? otherwise the append will keep on appending (we have to hook this into the gen_rst to skip if possible?)
                 f.write(rst.encode())
             python_files[py_file.relative_to(gallery_dir)] = py
 

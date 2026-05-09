@@ -79,6 +79,8 @@ class FontFile:
     def _get_face(self):
         # This was factored out so it can be overloaded in tests
         if not hasattr(self, "_face"):
+
+            # I really don't like this... maybe we can just use harfbuzz and avoid any of the js stuff?
             if sys.platform == "emscripten":
                 with open(self._filename, "rb") as f:
                     data = f.read()
