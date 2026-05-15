@@ -356,7 +356,7 @@ $$ elif mode == 'iso'
         var normal : vec3<f32>;
         var positive_value : vec4<f32>;
         var negative_value : vec4<f32>;
-        let gradient_coord = 1.5 * step_coord;
+        let gradient_coord = 1.0 / sizef;
 
         negative_value = sample_vol(the_coord + vec3<f32>(-gradient_coord[0],0.0,0.0), sizef);
         positive_value = sample_vol(the_coord + vec3<f32>(gradient_coord[0],0.0,0.0), sizef);
