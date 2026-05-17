@@ -3,7 +3,6 @@
  // This implementation uses hard-coded lights, ignoring the renderstate's lights.
 
  fn lighting_phong(
-    is_front: bool,
     normal: vec3<f32>,
     view_dir: vec3<f32>,
     albeido: vec3<f32>,
@@ -19,18 +18,17 @@
     // Base vectors
     let view = normalize(view_dir);
     let light = view;
-    var reoriented_normal = select(-normal, normal, is_front);  // See pygfx/issues/#105 for details
 
     // Ambient
     let ambient_color = light_color * ambient_factor;
 
     // Diffuse (blinn-phong reflection model)
-    let lambert_term = saturate(dot(light, reoriented_normal));
+    let lambert_term = saturate(dot(light, normal));
     let diffuse_color = diffuse_factor * light_color * lambert_term;
 
     // Specular
     let halfway = normalize(light + view);  // halfway vector
-    var specular_term = pow(saturate(dot(halfway,  reoriented_normal)), shininess);
+    var specular_term = pow(saturate(dot(halfway,  normal)), shininess);
     specular_term = select(0.0, specular_term, shininess > 0.0);
     let specular_color = specular_factor * specular_term * light_color;
 

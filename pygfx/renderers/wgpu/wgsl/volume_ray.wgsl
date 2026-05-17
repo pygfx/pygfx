@@ -5,15 +5,72 @@
 $$ if colormap_dim
     {$ include 'pygfx.colormap.wgsl' $}
 $$ endif
-$$ if mode == 'iso'
-    {$ include 'pygfx.light_phong_simple.wgsl' $}
-$$ endif
 {$ include 'pygfx.volume_common.wgsl' $}
 
 
 struct VertexInput {
     @builtin(vertex_index) vertex_index : u32,
 };
+
+
+struct RenderOutput {
+    color: vec4<f32>,  // The final color for the current ray
+    coord: vec3<f32>,  // The texture coord (for picking info) for the current ray
+    depth: f32,  // The depth to write for the current ray
+};
+
+
+$$ if mode in ['iso']
+    // This mode uses lights
+
+    $$ if num_point_lights > 0 or num_spot_lights > 0 or num_dir_lights > 0
+        {$ include 'pygfx.light_phong.wgsl' $}
+
+        struct ReflectedLight {
+            direct_diffuse: vec3<f32>,
+            direct_specular: vec3<f32>,
+            indirect_diffuse: vec3<f32>,
+            indirect_specular: vec3<f32>,
+        };
+
+        fn calculate_light(physical_albeido: vec3f, world_pos: vec3f, surface_normal: vec3f, view_dir: vec3f) -> vec3f {
+
+            // Apply lighting
+            var reflected_light: ReflectedLight = ReflectedLight(vec3<f32>(0.0), vec3<f32>(0.0), vec3<f32>(0.0), vec3<f32>(0.0));
+            var geometry: GeometricContext;
+            geometry.position = world_pos;
+            geometry.normal = surface_normal;
+            geometry.view_dir = view_dir;
+
+            // The below lines are a copy of 'pygfx.light_phong_fragment.wgsl', but tweaked for volume materials
+            var material: BlinnPhongMaterial;
+            material.diffuse_color = physical_albeido;
+            material.specular_color = srgb2physical(vec3f(0.2863));  // #111, matching default MeshPhongMaterial.specular, and default in ThreeJS
+            material.specular_shininess = u_material.shininess;
+            material.specular_strength = 1.0;
+
+            // Apply RE_Direct, to populate the reflected_light struct
+            {$ include 'pygfx.light_punctual.wgsl' $}
+
+            let ambient_color = u_ambient_light.color.rgb;  // already physical
+            let irradiance = ambient_color;
+            RE_IndirectDiffuse( irradiance, geometry, material, &reflected_light );
+
+            var physical_color = reflected_light.direct_diffuse + reflected_light.direct_specular + reflected_light.indirect_diffuse + reflected_light.indirect_specular;
+            physical_color += srgb2physical(u_material.emissive_color.rgb);
+
+            return physical_color;
+        }
+    $$ else
+        // Previously, the iso render used hardcoded lights, so code that used it likely did not create gfx.DirectionalLight etc. For backwards compatibility
+        // we therefore fall back to builtin lights when no (non-ambient) lights are present.
+        {$ include 'pygfx.light_phong_simple.wgsl' $}
+        fn calculate_light(physical_albeido: vec3f, world_pos: vec3f, surface_normal: vec3f, view_dir: vec3f) -> vec3f {
+            return lighting_phong(surface_normal, view_dir, physical_albeido);
+        }
+    $$ endif
+
+$$endif
 
 
 @vertex
@@ -113,19 +170,14 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     let step_coord = ((back_pos - front_pos) / sizef) / f32(nsteps);
 
     // Render
-    let render_out = raycast(sizef, nsteps, start_coord, step_coord);
-
-    // Get world and ndc pos from the calculatex texture coordinate
-    let data_pos = render_out.coord * sizef - vec3<f32>(0.5, 0.5, 0.5);
-    let world_pos = u_wobject.world_transform * vec4<f32>(data_pos, 1.0);
-    let ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos;
+    let render_out: RenderOutput = raycast(sizef, nsteps, start_coord, step_coord);
 
     do_alpha_test(render_out.color.a);
 
     // Create fragment output.
     var out: FragmentOutput;
     out.color = render_out.color;
-    out.depth = ndc_pos.z / ndc_pos.w;
+    out.depth = render_out.depth;
 
     $$ if write_pick
     // The wobject-id must be 20 bits. In total it must not exceed 64 bits.
@@ -141,12 +193,6 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
 
 
 // ---- The different supported render modes ----
-
-
-struct RenderOutput {
-    color: vec4<f32>,
-    coord: vec3<f32>,
-};
 
 $$ if mode == 'mip'
     // raycasting function for MIP rendering.
@@ -207,13 +253,20 @@ $$ if mode == 'mip'
         $$ else
             let physical_color = color.rgb;
         $$ endif
+
         let opacity = color.a * u_material.opacity;
         let out_color = vec4<f32>(physical_color, opacity);
+
+        // Get world and ndc pos from the calculated texture coordinate
+        let data_pos = the_coord * sizef - vec3<f32>(0.5, 0.5, 0.5);
+        let world_pos = u_wobject.world_transform * vec4<f32>(data_pos, 1.0);
+        let ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos;
 
         // Produce result
         var out: RenderOutput;
         out.color = out_color;
         out.coord = the_coord;
+        out.depth = ndc_pos.z / ndc_pos.w;
         return out;
     }
 
@@ -276,13 +329,20 @@ $$ elif mode == 'minip'
         $$ else
             let physical_color = color.rgb;
         $$ endif
+
         let opacity = color.a * u_material.opacity;
         let out_color = vec4<f32>(physical_color, opacity);
+
+        // Get world and ndc pos from the calculated texture coordinate
+        let data_pos = the_coord * sizef - vec3<f32>(0.5, 0.5, 0.5);
+        let world_pos = u_wobject.world_transform * vec4<f32>(data_pos, 1.0);
+        let ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos;
 
         // Produce result
         var out: RenderOutput;
         out.color = out_color;
         out.coord = the_coord;
+        out.depth = ndc_pos.z / ndc_pos.w;
         return out;
     }
 
@@ -342,17 +402,16 @@ $$ elif mode == 'iso'
             discard;
         }
 
-
         // Colormapping
         let color = sampled_value_to_color(the_value);
         // Move to physical colorspace (linear photon count) so we can do math
         $$ if colorspace == 'srgb'
-            let physical_color = srgb2physical(color.rgb);
+            let physical_albeido = srgb2physical(color.rgb);
         $$ else
-            let physical_color = color.rgb;
+            let physical_albeido = color.rgb;
         $$ endif
 
-        // Compute the normal
+        // Compute the surface normal
         var normal : vec3<f32>;
         var positive_value : vec4<f32>;
         var negative_value : vec4<f32>;
@@ -371,18 +430,33 @@ $$ elif mode == 'iso'
         normal[2] = positive_value.r - negative_value.r;
         normal = normalize(normal);
 
-        // Do the lighting
-        let view_direction = normalize(step_coord);
-        let is_front = dot(normal, view_direction) > 0.0;
-        let lighted_color = lighting_phong(is_front, normal, view_direction, physical_color);
+        // Get world and ndc pos from the calculated texture coordinate
+        let data_pos = the_coord * sizef - vec3<f32>(0.5, 0.5, 0.5);
+        let world_pos = u_wobject.world_transform * vec4<f32>(data_pos, 1.0);
+        let ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos;
 
+        // Do the lighting. view_dir is in world space, not in voxel space like step_coord
+        let view_dir = select(
+            normalize(u_stdinfo.cam_transform_inv[3].xyz - world_pos.xyz),
+            ( u_stdinfo.cam_transform_inv * vec4<f32>(0.0, 0.0, 1.0, 0.0) ).xyz,
+            is_orthographic()
+        );
+
+        //let view_dir = normalize(step_coord);
+        let is_front = dot(normal, view_dir) > 0.0;
+        var reoriented_normal = select(-normal, normal, is_front);  // See pygfx/issues/#105 for details
+
+        ///let lighted_color = lighting_phong(is_front, normal, view_dir, physical_color);
+
+        let physical_color = calculate_light(physical_albeido, world_pos.xyz, reoriented_normal, view_dir);
         let opacity = color.a * u_material.opacity;
-        let out_color = vec4<f32>(lighted_color, opacity);
+        let out_color = vec4<f32>(physical_color, opacity);
 
         // Produce result
         var out: RenderOutput;
         out.color = out_color;
         out.coord = the_coord;
+        out.depth = ndc_pos.z / ndc_pos.w;
         return out;
     }
 

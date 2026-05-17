@@ -30,6 +30,9 @@ camera = gfx.PerspectiveCamera(70, 16 / 9)
 camera.show_object(scene, view_dir=(-1, -1, -1), up=(0, 0, 1))
 controller = gfx.OrbitController(camera, register_events=renderer)
 
+scene.add(gfx.AmbientLight())
+scene.add(camera.add(gfx.DirectionalLight()))
+
 
 def animate():
     renderer.render(scene, camera)
