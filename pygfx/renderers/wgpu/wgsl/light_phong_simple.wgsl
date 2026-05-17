@@ -5,7 +5,7 @@
  fn lighting_phong(
     normal: vec3<f32>,
     view_dir: vec3<f32>,
-    albeido: vec3<f32>,
+    albedo: vec3<f32>,
 ) -> vec3<f32> {
     let light_color = srgb2physical(vec3<f32>(1.0, 1.0, 1.0));
 
@@ -36,5 +36,5 @@
     let emissive_color = srgb2physical(u_material.emissive_color.rgb);
 
     // Put together
-    return albeido * (ambient_color + diffuse_color) + specular_color + emissive_color;
+    return albedo * (ambient_color + diffuse_color) + specular_color + emissive_color;
 }

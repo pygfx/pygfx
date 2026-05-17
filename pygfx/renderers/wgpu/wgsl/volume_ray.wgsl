@@ -33,7 +33,7 @@ $$ if mode in ['iso']
             indirect_specular: vec3<f32>,
         };
 
-        fn calculate_light(physical_albeido: vec3f, world_pos: vec3f, surface_normal: vec3f, view_dir: vec3f) -> vec3f {
+        fn calculate_light(physical_albedo: vec3f, world_pos: vec3f, surface_normal: vec3f, view_dir: vec3f) -> vec3f {
 
             // Apply lighting
             var reflected_light: ReflectedLight = ReflectedLight(vec3<f32>(0.0), vec3<f32>(0.0), vec3<f32>(0.0), vec3<f32>(0.0));
@@ -44,7 +44,7 @@ $$ if mode in ['iso']
 
             // The below lines are a copy of 'pygfx.light_phong_fragment.wgsl', but tweaked for volume materials
             var material: BlinnPhongMaterial;
-            material.diffuse_color = physical_albeido;
+            material.diffuse_color = physical_albedo;
             material.specular_color = srgb2physical(vec3f(0.2863));  // #111, matching default MeshPhongMaterial.specular, and default in ThreeJS
             material.specular_shininess = u_material.shininess;
             material.specular_strength = 1.0;
@@ -65,8 +65,8 @@ $$ if mode in ['iso']
         // Previously, the iso render used hardcoded lights, so code that used it likely did not create gfx.DirectionalLight etc. For backwards compatibility
         // we therefore fall back to builtin lights when no (non-ambient) lights are present.
         {$ include 'pygfx.light_phong_simple.wgsl' $}
-        fn calculate_light(physical_albeido: vec3f, world_pos: vec3f, surface_normal: vec3f, view_dir: vec3f) -> vec3f {
-            return lighting_phong(surface_normal, view_dir, physical_albeido);
+        fn calculate_light(physical_albedo: vec3f, world_pos: vec3f, surface_normal: vec3f, view_dir: vec3f) -> vec3f {
+            return lighting_phong(surface_normal, view_dir, physical_albedo);
         }
     $$ endif
 
@@ -406,9 +406,9 @@ $$ elif mode == 'iso'
         let color = sampled_value_to_color(the_value);
         // Move to physical colorspace (linear photon count) so we can do math
         $$ if colorspace == 'srgb'
-            let physical_albeido = srgb2physical(color.rgb);
+            let physical_albedo = srgb2physical(color.rgb);
         $$ else
-            let physical_albeido = color.rgb;
+            let physical_albedo = color.rgb;
         $$ endif
 
         // Compute the surface normal
@@ -448,7 +448,7 @@ $$ elif mode == 'iso'
 
         ///let lighted_color = lighting_phong(is_front, normal, view_dir, physical_color);
 
-        let physical_color = calculate_light(physical_albeido, world_pos.xyz, reoriented_normal, view_dir);
+        let physical_color = calculate_light(physical_albedo, world_pos.xyz, reoriented_normal, view_dir);
         let opacity = color.a * u_material.opacity;
         let out_color = vec4<f32>(physical_color, opacity);
 
