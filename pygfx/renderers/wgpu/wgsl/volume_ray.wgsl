@@ -430,13 +430,14 @@ $$ elif mode == 'iso'
         normal[2] = positive_value.r - negative_value.r;
 
         // Project normal to world space
-        let normal_proj0 =  u_wobject.world_transform * vec4f(0.0, 0.0, 0.0, 1.0);
-        let normal_proj1 =  u_wobject.world_transform * vec4f(normal, 1.0);
-        normal = normalize(normal_proj1.xyz - normal_proj0.xyz);
+        let world_matrix = mat3x3<f32>(u_wobject.world_transform[0].xyz, u_wobject.world_transform[1].xyz, u_wobject.world_transform[2].xyz);
+        let normal_proj0 =  world_matrix * vec3f(0.0, 0.0, 0.0);
+        let normal_proj1 =  world_matrix * normal;
+        normal = normalize(normal_proj1 - normal_proj0);
 
         // Project step direction to world space
-        let normal_proj2 =  u_wobject.world_transform * vec4f(-step_coord, 1.0);
-        let view_dir = normalize(normal_proj2.xyz - normal_proj0.xyz);
+        let normal_proj2 =  world_matrix * (-step_coord);
+        let view_dir = normalize(normal_proj2 - normal_proj0);
 
         // Flip normal, if needed, see pygfx/issues/#105 for details
         let is_front = dot(normal, view_dir) > 0.0;
@@ -444,8 +445,8 @@ $$ elif mode == 'iso'
 
         // Get world and ndc pos from the calculated texture coordinate
         let data_pos = the_coord * sizef - vec3<f32>(0.5, 0.5, 0.5);
-        let world_pos = u_wobject.world_transform * vec4<f32>(data_pos, 1.0);
-        let ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos;
+        let world_pos = world_matrix * data_pos;
+        let ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * vec4(world_pos, 1.0);
 
         let physical_color = calculate_light(physical_albedo, world_pos.xyz, reoriented_normal, view_dir);
         let opacity = color.a * u_material.opacity;
