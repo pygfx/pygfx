@@ -83,8 +83,10 @@ fn vs_main(in: VertexInput) -> Varyings {
     let index = i32(in.vertex_index);
     let i0 = geo.indices[index];
 
+    // Note: for a nonlinear transform to work well for an image, we'd want a much denser grid of vertices. Leaving that for another day.
+
     // Sample position, and convert to world pos, and then to ndc
-    let data_pos = vec4<f32>(geo.positions[i0], 1.0);
+    let data_pos = vec4<f32>(nonlinear_transform(geo.positions[i0]), 1.0);
     let world_pos = u_wobject.world_transform * data_pos;
     let ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos;
 

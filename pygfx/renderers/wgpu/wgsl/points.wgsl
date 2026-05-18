@@ -57,7 +57,7 @@ fn vs_main(in: VertexInput) -> Varyings {
     let vertex_index = index % 6;
 
     // Sample the current node/point.
-    let pos_m = load_s_positions(node_index);
+    let pos_m = nonlinear_transform(load_s_positions(node_index));
     // Convert to world
     let pos_w = u_wobject.world_transform * vec4<f32>(pos_m.xyz, 1.0);
     // Convert to camera view
@@ -71,13 +71,13 @@ fn vs_main(in: VertexInput) -> Varyings {
         let node_index_prev = max(node_index - 1, 0);
         var node_index_next = min(u_renderer.last_i, node_index + 1);
 
-        let pos_m_prev = load_s_positions(node_index_prev);
+        let pos_m_prev = nonlinear_transform(load_s_positions(node_index_prev));
         let pos_w_prev = u_wobject.world_transform * vec4<f32>(pos_m_prev.xyz, 1.0);
         let pos_c_prev = u_stdinfo.cam_transform * pos_w_prev;
         let pos_n_prev = u_stdinfo.projection_transform * pos_c_prev;
         let pos_s_prev = (pos_n_prev.xy / pos_n_prev.w + 1.0) * screen_factor;
 
-        let pos_m_next = load_s_positions(node_index_next);
+        let pos_m_next = nonlinear_transform(load_s_positions(node_index_next));
         let pos_w_next = u_wobject.world_transform * vec4<f32>(pos_m_next.xyz, 1.0);
         let pos_c_next = u_stdinfo.cam_transform * pos_w_next;
         let pos_n_next = u_stdinfo.projection_transform * pos_c_next;

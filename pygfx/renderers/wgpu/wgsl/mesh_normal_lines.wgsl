@@ -16,7 +16,7 @@ fn vs_main(in: VertexInput) -> Varyings {
     let i0 = index / 2;
 
     // Get regular position
-    let raw_pos = load_s_positions(i0);
+    let raw_pos = nonlinear_transform(load_s_positions(i0));
     var world_pos = u_wobject.world_transform * vec4<f32>(raw_pos, 1.0);
 
     // Get the normal, expressed in world coords. Use the normal-matrix

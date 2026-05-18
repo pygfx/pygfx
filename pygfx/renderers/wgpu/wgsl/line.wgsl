@@ -195,9 +195,9 @@ fn vs_main(in: VertexInput) -> Varyings {
 
     // Sample the current node and it's two neighbours. Model coords.
     // Note that if we sample out of bounds, this affects the shader in mysterious ways (21-12-2021).
-    var pos_m_prev = load_s_positions(node_index_prev);
-    var pos_m_node = load_s_positions(node_index);
-    var pos_m_next = load_s_positions(node_index_next);
+    var pos_m_prev = nonlinear_transform(load_s_positions(node_index_prev));
+    var pos_m_node = nonlinear_transform(load_s_positions(node_index));
+    var pos_m_next = nonlinear_transform(load_s_positions(node_index_next));
     // Convert to world
     var pos_w_prev = world_transform * vec4<f32>(pos_m_prev.xyz, 1.0);
     var pos_w_node = world_transform * vec4<f32>(pos_m_node.xyz, 1.0);

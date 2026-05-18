@@ -75,8 +75,8 @@ fn vs_main(in: VertexInput) -> Varyings {
     // Intersect the 12 edges
     for (var i:i32=0; i<12; i=i+1) {
         let edge = edges[i];
-        let p1_raw = geo.positions[ edge[0] ];
-        let p2_raw = geo.positions[ edge[1] ];
+        let p1_raw = nonlinear_transform(geo.positions[ edge[0] ]);
+        let p2_raw = nonlinear_transform(geo.positions[ edge[1] ]);
         let p1_p = u_wobject.world_transform * vec4<f32>(p1_raw, 1.0);
         let p2_p = u_wobject.world_transform * vec4<f32>(p2_raw, 1.0);
         let p1 = p1_p.xyz / p1_p.w;

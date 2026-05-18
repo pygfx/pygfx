@@ -30,9 +30,9 @@ fn vs_main(in: VertexInput) -> Varyings {
     let vii = vec3<i32>(load_s_indices(face_index));
 
     // Vertex positions of this face, in local object coordinates
-    let pos1a = load_s_positions(vii[0]);
-    let pos2a = load_s_positions(vii[1]);
-    let pos3a = load_s_positions(vii[2]);
+    let pos1a = nonlinear_transform(load_s_positions(vii[0]));
+    let pos2a = nonlinear_transform(load_s_positions(vii[1]));
+    let pos3a = nonlinear_transform(load_s_positions(vii[2]));
     let pos1b = u_wobject.world_transform * vec4<f32>(pos1a, 1.0);
     let pos2b = u_wobject.world_transform * vec4<f32>(pos2a, 1.0);
     let pos3b = u_wobject.world_transform * vec4<f32>(pos3a, 1.0);
