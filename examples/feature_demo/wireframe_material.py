@@ -95,7 +95,7 @@ class WireframeShader(BaseShader):
 
             let index = i32(in.vertex_index);
 
-            let position_xyz = load_s_positions(index);
+            let position_xyz = nonlinear_transform(load_s_positions(index));
             let u_mvp = u_stdinfo.projection_transform * u_stdinfo.cam_transform * u_wobject.world_transform;
             let position = u_mvp * vec4<f32>( position_xyz, 1.0 );
 

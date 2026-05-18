@@ -110,6 +110,7 @@ class BaseShader(ShaderInterface):
             self["clipping_mode"] = wobject.material.clipping_mode
             self["use_alpha_test"] = wobject.material._gfx_use_alpha_test
             self["alpha_compare"] = wobject.material.alpha_compare
+            self["nonlinear_transform"] = wobject.nonlinear_transform
 
         # Init other common variables so we don't need jinja2's defined()
         self["colormap_dim"] = None

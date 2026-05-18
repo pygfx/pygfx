@@ -118,7 +118,7 @@ fn vs_main(in: VertexInput) -> Varyings {
     let i0 = i32(vii[sub_index]);
 
     // Get raw vertex position and normal
-    var raw_pos = load_s_positions(i0);
+    var raw_pos = nonlinear_transform(load_s_positions(i0));
     var raw_normal = load_s_normals(i0);
 
     $$ if use_tangent is defined
@@ -187,7 +187,7 @@ fn vs_main(in: VertexInput) -> Varyings {
     // For the wireframe we also need the ndc_pos of the other vertices of this face
     $$ if wireframe
         $$ for i in ((1, 2, 3) if indexer == 3 else (1, 2, 3, 4))
-            let raw_pos{{ i }} = load_s_positions(i32(vii[{{ i - 1 }}]));
+            let raw_pos{{ i }} = nonlinear_transform(load_s_positions(i32(vii[{{ i - 1 }}])));
             let world_pos{{ i }} = world_transform * vec4<f32>(raw_pos{{ i }}, 1.0);
             let ndc_pos{{ i }} = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos{{ i }};
         $$ endfor
@@ -446,7 +446,7 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
                 var tbn = mat3x3f(varyings.v_tangent, varyings.v_bitangent, surface_normal);
             $$ else
                 $$ if use_normal_map is defined
-                    let n_uv = normal_map_uv; 
+                    let n_uv = normal_map_uv;
                 $$ elif use_clearcoat_normal_map is defined
                     let n_uv = clearcoat_normal_map_uv;
                 $$ elif map_uv is defined
