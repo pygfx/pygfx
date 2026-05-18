@@ -428,25 +428,24 @@ $$ elif mode == 'iso'
         negative_value = sample_vol(the_coord + vec3(0.0,0.0,-gradient_coord[2]), sizef);
         positive_value = sample_vol(the_coord + vec3(0.0,0.0,gradient_coord[2]), sizef);
         normal[2] = positive_value.r - negative_value.r;
-        normal = normalize(normal);
+
+        // Project normal to world space
+        let normal_proj0 =  u_wobject.world_transform * vec4f(0.0, 0.0, 0.0, 1.0);
+        let normal_proj1 =  u_wobject.world_transform * vec4f(normal, 1.0);
+        normal = normalize(normal_proj1.xyz - normal_proj0.xyz);
+
+        // Project step direction to world space
+        let normal_proj2 =  u_wobject.world_transform * vec4f(-step_coord, 1.0);
+        let view_dir = normalize(normal_proj2.xyz - normal_proj0.xyz);
+
+        // Flip normal, if needed, see pygfx/issues/#105 for details
+        let is_front = dot(normal, view_dir) > 0.0;
+        var reoriented_normal = select(-normal, normal, is_front);
 
         // Get world and ndc pos from the calculated texture coordinate
         let data_pos = the_coord * sizef - vec3<f32>(0.5, 0.5, 0.5);
         let world_pos = u_wobject.world_transform * vec4<f32>(data_pos, 1.0);
         let ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos;
-
-        // Do the lighting. view_dir is in world space, not in voxel space like step_coord
-        let view_dir = select(
-            normalize(u_stdinfo.cam_transform_inv[3].xyz - world_pos.xyz),
-            ( u_stdinfo.cam_transform_inv * vec4<f32>(0.0, 0.0, 1.0, 0.0) ).xyz,
-            is_orthographic()
-        );
-
-        //let view_dir = normalize(step_coord);
-        let is_front = dot(normal, view_dir) > 0.0;
-        var reoriented_normal = select(-normal, normal, is_front);  // See pygfx/issues/#105 for details
-
-        ///let lighted_color = lighting_phong(is_front, normal, view_dir, physical_color);
 
         let physical_color = calculate_light(physical_albedo, world_pos.xyz, reoriented_normal, view_dir);
         let opacity = color.a * u_material.opacity;
