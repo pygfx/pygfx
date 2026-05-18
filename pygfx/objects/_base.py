@@ -216,11 +216,17 @@ class WorldObject(EventTarget, Trackable):
 
     def _update_world_transform(self):
         """This gets called right before being drawn, when the world transform has changed."""
-        orig_err_setting = np.seterr(under="ignore")
-        self.uniform_buffer.data["world_transform"] = self.world.matrix.T
-        self.uniform_buffer.data["world_transform_inv"] = self.world.inverse_matrix.T
+        np.copyto(
+            self.uniform_buffer.data["world_transform"],
+            self.world.matrix.T,
+            casting="unsafe",
+        )
+        np.copyto(
+            self.uniform_buffer.data["world_transform_inv"],
+            self.world.inverse_matrix.T,
+            casting="unsafe",
+        )
         self.uniform_buffer.update_full()
-        np.seterr(**orig_err_setting)
 
     def __repr__(self):
         return f"<pygfx.{self.__class__.__name__} {self.name} at {hex(id(self))}>"

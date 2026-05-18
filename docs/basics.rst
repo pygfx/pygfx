@@ -40,7 +40,7 @@ more complex rendering setups: (1) `Scenes`, (2) `Canvases`, and (3)
 
 **Scenes**
 
-Starting off with the most important building bock, a `Scene` is the world or
+Starting off with the most important building block, a `Scene` is the world or
 scenario to render. It has at least three components: an `object` with some
 visual properties, a `Light` source, and a `Camera` to view the scene. Once we
 defined those three things, we can position them within our scene and render it.
@@ -190,8 +190,8 @@ These low-level objects are attached to geometries and materials (discussed belo
 A :class:`~pygfx.resources.Buffer` represents a one dimensional array and is used to contain e.g. positions and per-point colors.
 A :class:`~pygfx.resources.Texture` represents a 1D, 2D or 3D array and is used to contain e.g. image data and colormaps.
 
-The data of a buffer or tetxure can be updated and re-synced with the GPU, making it possible
-to change the visualization in real time, for eample in animations and user interactions.
+The data of a buffer or texture can be updated and re-synced with the GPU, making it possible
+to change the visualization in real time, for example in animations and user interactions.
 
 
 World objects
