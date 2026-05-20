@@ -1,2 +1,2 @@
 var material: ToonMaterial;
-material.diffuse_color = physical_albeido;
+material.diffuse_color = physical_albedo;

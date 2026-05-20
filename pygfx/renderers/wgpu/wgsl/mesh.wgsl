@@ -426,7 +426,7 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
 
     do_alpha_test(diffuse_color.a);
 
-    let physical_albeido = diffuse_color.rgb;
+    let physical_albedo = diffuse_color.rgb;
 
     // Get normal used to calculate lighting or reflection
     $$ if lighting or use_env_map is defined
@@ -561,7 +561,7 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
             reflected_light.indirect_diffuse += vec3<f32>(1.0);
         $$ endif
 
-        reflected_light.indirect_diffuse *= physical_albeido;
+        reflected_light.indirect_diffuse *= physical_albedo;
     $$ endif
 
     // Ambient occlusion

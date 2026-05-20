@@ -14,7 +14,7 @@ $$ endif
 // Define material
 var material: PhysicalMaterial;
 
-material.diffuse_color = physical_albeido * ( 1.0 - metalness_factor );
+material.diffuse_color = physical_albedo * ( 1.0 - metalness_factor );
 
 let dxy = max( abs( dpdx( surface_normal ) ), abs( dpdy( surface_normal ) ) );
 let geometry_roughness = max( max( dxy.x, dxy.y ), dxy.z );
@@ -30,7 +30,7 @@ $$ if USE_IOR is defined
     $$ if USE_SPECULAR
         var specular_intensity = u_material.specular_intensity;
         var specular_color = srgb2physical(u_material.specular_color.rgb);
-        
+
         $$ if use_specular_map is defined
             specular_color *= srgb2physical(textureSample( t_specular_map, s_specular_map, specular_map_uv ).rgb);
         $$ endif
@@ -40,7 +40,7 @@ $$ if USE_IOR is defined
         $$ endif
 
         material.specular_f90 = mix( specular_intensity, 1.0, metalness_factor );
-    
+
     $$ else
         let specular_intensity = 1.0;
         let specular_color = vec3f( 1.0 );
@@ -48,11 +48,11 @@ $$ if USE_IOR is defined
 
     $$ endif
 
-    material.specular_color = mix( min( pow2( ( material.ior - 1.0 ) / ( material.ior + 1.0 ) ) * specular_color, vec3f( 1.0 ) ) * specular_intensity, physical_albeido, metalness_factor );
+    material.specular_color = mix( min( pow2( ( material.ior - 1.0 ) / ( material.ior + 1.0 ) ) * specular_color, vec3f( 1.0 ) ) * specular_intensity, physical_albedo, metalness_factor );
 
 $$ else
 
-    material.specular_color = mix( vec3<f32>( 0.04 ), physical_albeido.rgb, metalness_factor );
+    material.specular_color = mix( vec3<f32>( 0.04 ), physical_albedo.rgb, metalness_factor );
     material.specular_f90 = 1.0;
 
 $$ endif
