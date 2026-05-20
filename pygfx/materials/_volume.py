@@ -169,6 +169,11 @@ class VolumeMinipMaterial(VolumeRayMaterial):
 class VolumeIsoMaterial(VolumeRayMaterial):
     """A material rendering a volume using isosurface rendering.
 
+    This material is lit using the lights present in the scene, similar to how
+    mesh objects are lit, using the Phong light model. When the scene has no
+    lights other than an ambient light, the volume's surface is lit using a
+    simple builtin light model.
+
     Parameters
     ----------
     threshold : float

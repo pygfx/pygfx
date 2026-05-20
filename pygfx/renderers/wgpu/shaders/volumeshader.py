@@ -45,6 +45,9 @@ class BaseVolumeShader(BaseShader):
         else:
             self["img_format"] = "i32"
 
+        # For now, volume objects don't receive nor cats shadows. It should not be too hard to enable that though ...
+        self["receive_shadow"] = False
+
         # Set gamma
         self["gamma"] = material.gamma
 

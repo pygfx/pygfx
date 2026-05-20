@@ -214,19 +214,19 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
 
     $$ if color_mode == 'vertex' or color_mode == 'face'
         let color_value = varyings.color;
-        let albeido = color_value.rgb;
+        let albedo = color_value.rgb;
     $$ elif color_mode == 'vertex_map' or color_mode == 'face_map'
         let color_value = sample_colormap(varyings.texcoord);
-        let albeido = color_value.rgb;  // no more colormap
+        let albedo = color_value.rgb;  // no more colormap
     $$ else
         let color_value = u_material.color;
-        let albeido = color_value.rgb;
+        let albedo = color_value.rgb;
     $$ endif
 
     // No aa. This is something we need to decide on. See line renderer.
     let alpha = 1.0;
     // Set color
-    let physical_color = srgb2physical(albeido);
+    let physical_color = srgb2physical(albedo);
     let opacity = min(1.0, color_value.a) * alpha;
     let out_color = vec4<f32>(physical_color, opacity);
 
