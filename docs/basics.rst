@@ -468,7 +468,13 @@ Nonlinear transformations
 PyGfx's transform system is based on linear transformations (scale, rotation, translation), but there are places where a nonlinear transformation can be introduced:
 
 * At the very beginning of the transform, using :func:`ob.nonlinear_transform <pygfx.objects.WorldObject.nonlinear_transform>`, which transforms the raw vertex positions in the shader.
-* At the very end, in a post-processing pass, see :mod:`~pygfx.renderers.wgpu.engine.effectpasses`
+* At the very end, in a post-processing pass, see :mod:`~pygfx.renderers.wgpu.engine.effectpasses`.
+
+In PyGfx we have chosen to not include any predefined nonlinear transforms. Examples that demonstrate nonlinear transformations include:
+
+* `wobbly_mesh.py <_gallery/feature_demo/wobbly_mesh.html>`_
+* `world_map_projection.py <_gallery/feature_demo/world_map_projection.html>`_
+* `world_map_projections.py <_gallery/feature_demo/world_map_projection.html>`_
 
 
 Colors
