@@ -115,7 +115,7 @@ pyodide_compute_template = """
 <head>
     <meta name="viewport" content="width=device-width,initial-scale=1.0">
     <title>{example_script} via Pyodide</title>
-    <script src="https://cdn.jsdelivr.net/pyodide/v0.29.3/full/pyodide.js"></script>
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.29.4/full/pyodide.js"></script>
 </head>
 <base href="/">
 
@@ -153,7 +153,7 @@ pyodide_compute_template = """
 
                 await pyodide.loadPackage("micropip");
                 const micropip = pyodide.pyimport("micropip");
-                {dependencies}
+                await micropip.install({dependencies});
                 await pyodide.loadPackagesFromImports(pythonCode);
                 // I feel like some errors around stack switching are worse now -.-
                 pyodide.setDebug(true);
@@ -283,9 +283,7 @@ class MyHandler(BaseHTTPRequestHandler):
                     docstring=doc,
                     example_script=pyname,
                     # todo: refactor this to a list and maybe get other deps from pyodide.loadPackagesFromImports
-                    dependencies="\n".join(
-                        [f"await micropip.install({dep!r});" for dep in deps]
-                    ),
+                    dependencies=repr(deps),
                 )
                 self.respond(200, html, "text/html")
             except Exception as err:
