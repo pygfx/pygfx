@@ -28,7 +28,7 @@ data = np.array(
 ).reshape(1, 4, 4)
 
 
-for dy, dtype in enumerate(["float32", "uint16"]):
+for dy, dtype in enumerate(["float32", "uint32"]):
     typed_data = data.astype(dtype)
 
     for dx, interpolation in enumerate(["nearest", "linear", "cubic"]):
