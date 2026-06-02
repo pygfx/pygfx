@@ -93,7 +93,7 @@ class ImageShader(BaseShader):
         tex_view = GfxTextureView(geometry.grid)
         bindings.append(Binding("t_img", "texture/auto", tex_view, vertex_and_fragment))
         if self["interpolation"] == "via-sampler":
-            sampler = GfxSampler(interpolation, "clamp")
+            sampler = GfxSampler(material.interpolation, "clamp")
             bindings.append(Binding("s_img", "sampler/filtering", sampler, "FRAGMENT"))
 
         if self["three_grid_yuv"]:

@@ -252,6 +252,14 @@ class TextAnchor(Enum):
     bottom_right = "bottom-right"
 
 
+class InterpolationFilter(Enum):
+    """The type of interpolation for rendering images and volumes."""
+
+    nearest = "nearest"  # nearest-neighbour interpolation.
+    linear = "linear"  # linear interpolation.
+    cubic = "cubic"  # cubic interpolation using a Mitchel-Netravali filter.
+
+
 # TODO: I experimented with using a Literal[] here, an idea discussed in https://github.com/pygfx/wgpu-py/issues/720.
 # We should eventually use the same approach to all enums (either an Enum class, or Literal type aliases).
 
