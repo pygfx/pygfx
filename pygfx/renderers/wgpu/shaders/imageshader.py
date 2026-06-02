@@ -53,6 +53,11 @@ class ImageShader(BaseShader):
         else:
             self["img_format"] = "i32"
 
+        if self["img_format"] == "f32":
+            self["interpolation"] = "via-sampler"
+        else:
+            self["interpolation"] = material.interpolation
+
         # Set gamma
         self["gamma"] = material.gamma
 
