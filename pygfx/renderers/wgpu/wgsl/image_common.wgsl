@@ -7,19 +7,6 @@ fn bilinear_weights(t: vec2f) -> f32 {
     return max(0.0, f32(1.0 - abs(t.x))) * max(0.0, f32(1.0 - abs(t.y)));
 }
 
-fn cubic_weights(t1: f32, B: f32, C: f32) -> f32 {
-    // Generic parametrized Cubic kernel.
-    let t = abs(t1);
-    var w = 0.0;
-    let t2 = t * t;
-    let t3 = t * t * t;
-    if t < 1.0 {
-        w = (12.0 - 9.0 * B - 6.0 * C) * t3 + (-18.0 + 12.0 * B + 6.0 * C) * t2 + (6.0 - 2.0 * B);
-    } else if t <= 2.0 {
-        w = (-B - 6.0 * C) * t3 + (6.0 * B + 30.0 * C) * t2 + (-12.0 * B - 48.0 * C) * t + (8.0 * B + 24.0 * C);
-    }
-    return w / 6.0;
-}
 
 fn bicubic_weights(t: vec2f) -> f32 {
     // The Mitchell cubic spline is designed to offer a good balance between frequency response,
@@ -113,7 +100,8 @@ fn sample_im(texcoord: vec2<f32>, sizef: vec2<f32>) -> vec4<f32> {
 
         let posf = texcoord.xy * sizef.xy - 0.5;    // offset 0.5 to align with center of pixels
         let posi = vec2i(posf);                     // the pixel directly 'left' of the coord
-        let maxCoord = vec2i(sizef) - 1;
+        let min_coord = vec2i(0);
+        let max_coord = vec2i(sizef) - 1;
         var value = vec4f(0.0);
         var weight = 0.0;
         var w: f32;
@@ -125,25 +113,26 @@ fn sample_im(texcoord: vec2<f32>, sizef: vec2<f32>) -> vec4<f32> {
                 p = posi + vec2i({{dx}}, {{dy}});
                 w = bicubic_weights(posf - vec2f(p));
                 weight += w;
-                value += w * vec4f(textureLoad(t_img, clamp(p, vec2i(0), maxCoord), 0));
-            $$endfor
-            $$endfor
+                value += w * vec4f(textureLoad(t_img, clamp(p, min_coord, max_coord), 0));
+            $$ endfor
+            $$ endfor
         $$ elif interpolation == 'linear'
             $$ for dy in [0, 1]
             $$ for dx in [0, 1]
                 p = posi + vec2i({{dx}}, {{dy}});
                 w = bilinear_weights(posf - vec2f(p));
                 weight += w;
-                value += w * vec4f(textureLoad(t_img, clamp(p, vec2i(0), maxCoord), 0));
-            $$endfor
-            $$endfor
+                value += w * vec4f(textureLoad(t_img, clamp(p, min_coord, max_coord), 0));
+            $$ endfor
+            $$ endfor
         $$ else
-            let p = vec2<i32>(texcoord.xy * sizef.xy);
+            p = vec2<i32>(texcoord.xy * sizef.xy);
             weight = 1.0;
             value = vec4<f32>(textureLoad(t_img, p, 0));
         $$ endif
 
         return value / weight;
+
     $$ endif
 }
 

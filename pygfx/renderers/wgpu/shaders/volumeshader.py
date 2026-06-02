@@ -45,6 +45,12 @@ class BaseVolumeShader(BaseShader):
         else:
             self["img_format"] = "i32"
 
+        interpolation = material.interpolation
+        if self["img_format"] == "f32" and interpolation in ("nearest", "linear"):
+            self["interpolation"] = "via-sampler"
+        else:
+            self["interpolation"] = interpolation
+
         # For now, volume objects don't receive nor cats shadows. It should not be too hard to enable that though ...
         self["receive_shadow"] = False
 
@@ -70,9 +76,10 @@ class BaseVolumeShader(BaseShader):
         ]
 
         tex_view = GfxTextureView(geometry.grid)
-        sampler = GfxSampler(material.interpolation, "clamp")
-        bindings.append(Binding("s_img", "sampler/filtering", sampler, "FRAGMENT"))
         bindings.append(Binding("t_img", "texture/auto", tex_view, vertex_and_fragment))
+        if self["interpolation"] == "via-sampler":
+            sampler = GfxSampler(material.interpolation, "clamp")
+            bindings.append(Binding("s_img", "sampler/filtering", sampler, "FRAGMENT"))
 
         if material.map is not None:
             bindings.extend(self.define_img_colormap(material.map))
