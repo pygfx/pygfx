@@ -112,5 +112,5 @@ class ImageBasicMaterial(Material):
 
     @interpolation.setter
     def interpolation(self, value):
-        assert value in ("nearest", "linear")
+        assert value in ("nearest", "linear", "cubic")
         self._store.interpolation = value

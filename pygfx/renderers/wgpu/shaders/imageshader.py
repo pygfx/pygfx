@@ -53,10 +53,11 @@ class ImageShader(BaseShader):
         else:
             self["img_format"] = "i32"
 
-        if self["img_format"] == "f32":
+        interpolation = material.interpolation
+        if self["img_format"] == "f32" and interpolation in ("nearest", "linear"):
             self["interpolation"] = "via-sampler"
         else:
-            self["interpolation"] = material.interpolation
+            self["interpolation"] = interpolation
 
         # Set gamma
         self["gamma"] = material.gamma
@@ -90,9 +91,10 @@ class ImageShader(BaseShader):
         ]
 
         tex_view = GfxTextureView(geometry.grid)
-        sampler = GfxSampler(material.interpolation, "clamp")
-        bindings.append(Binding("s_img", "sampler/filtering", sampler, "FRAGMENT"))
         bindings.append(Binding("t_img", "texture/auto", tex_view, vertex_and_fragment))
+        if self["interpolation"] == "via-sampler":
+            sampler = GfxSampler(material.interpolation, "clamp")
+            bindings.append(Binding("s_img", "sampler/filtering", sampler, "FRAGMENT"))
 
         if self["three_grid_yuv"]:
             u_tex_view = GfxTextureView(geometry.grid_u)
