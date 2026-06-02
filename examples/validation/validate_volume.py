@@ -34,12 +34,7 @@ geo = gfx.Geometry(grid=gfx.Texture(voldata, dim=3))
 # Prepare two 3x3x3 boxes to indicate the proper position
 box1 = gfx.Mesh(
     gfx.box_geometry(3.1, 3.1, 3.1),
-    gfx.MeshBasicMaterial(
-        color=(1, 0, 0, 1),
-        wireframe=True,
-        wireframe_thickness=1,
-        interpolation="nearest",
-    ),
+    gfx.MeshBasicMaterial(color=(1, 0, 0, 1), wireframe=True, wireframe_thickness=1),
 )
 box2 = gfx.Mesh(
     gfx.box_geometry(3.1, 3.1, 3.1),
@@ -47,21 +42,37 @@ box2 = gfx.Mesh(
         color=(0, 1, 0, 1),
         wireframe=True,
         wireframe_thickness=1,
-        interpolation="nearest",
     ),
 )
 
 # In scene1 we show a raycasted volume
 scene1 = gfx.Scene()
-vol = gfx.Volume(geo, gfx.VolumeMipMaterial(clim=(0, 2000)))
+vol = gfx.Volume(geo, gfx.VolumeMipMaterial(clim=(0, 2000), interpolation="nearest"))
 vol.local.position = (-1, -1, -1)
 scene1.add(vol, box1)
 
 # In scene2 we show volume slices
 scene2 = gfx.Scene()
-slice1 = gfx.Volume(geo, gfx.VolumeSliceMaterial(clim=(0, 1000), plane=(0, 0, 1, 0)))
-slice2 = gfx.Volume(geo, gfx.VolumeSliceMaterial(clim=(0, 1000), plane=(0, 1, 0, 0)))
-slice3 = gfx.Volume(geo, gfx.VolumeSliceMaterial(clim=(0, 1000), plane=(1, 0, 0, 0)))
+slice1 = gfx.Volume(
+    geo,
+    gfx.VolumeSliceMaterial(
+        clim=(0, 1000), plane=(0, 0, 1, 0), interpolation="nearest"
+    ),
+)
+slice2 = gfx.Volume(
+    geo,
+    gfx.VolumeSliceMaterial(
+        clim=(0, 1000), plane=(0, 1, 0, 0), interpolation="nearest"
+    ),
+)
+slice3 = gfx.Volume(
+    geo,
+    gfx.VolumeSliceMaterial(
+        clim=(0, 1000),
+        plane=(1, 0, 0, 0),
+        interpolation="nearest",
+    ),
+)
 for slice in (slice1, slice2, slice3):
     slice.local.position = (-1, -1, -1)
 scene2.add(slice1, slice2, slice3, box2)

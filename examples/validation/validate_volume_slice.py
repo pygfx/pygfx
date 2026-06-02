@@ -1,16 +1,8 @@
 """
-Validate image 2
-================
+Validate volume slice
+=====================
 
-Show an image displayed the correct way.
-
-* The green dots should be at the corners that are darker/brighter.
-* The green dots should be in the center of these pixels.
-* The darker corner is in the bottom left.
-
-This shows the same image for different interpolation methods,
-and is repeated for integer and float data types, because these
-result in different shaders (integers other than uint8 cannot use a sampler).
+Same as validate_image2.py, but for volume slices.
 """
 
 # sphinx_gallery_pygfx_docs = 'screenshot'
@@ -33,20 +25,21 @@ data = np.array(
         [1, 1, 1, 2],
     ],
     np.uint8,
-)
+).reshape(1, 4, 4)
+
 
 for dy, dtype in enumerate(["float32", "uint16"]):
     typed_data = data.astype(dtype)
 
     for dx, interpolation in enumerate(["nearest", "linear", "cubic"]):
-        image = gfx.Image(
-            gfx.Geometry(grid=gfx.Texture(typed_data, dim=2)),
-            gfx.ImageBasicMaterial(clim=(0, 2), interpolation=interpolation),
+        volume = gfx.Volume(
+            gfx.Geometry(grid=gfx.Texture(typed_data, dim=3)),
+            gfx.VolumeSliceMaterial(clim=(0, 2), interpolation=interpolation),
         )
-        image.local.position = dx * 5, dy * 5, 0
-        scene.add(image)
+        volume.local.position = dx * 5, dy * 5, 0
+        scene.add(volume)
 
-# Points go on the first (float / nearest-neighbour interpolated) image
+# Points go on the first (float / nearest-neighbour interpolated) slice
 points = gfx.Points(
     gfx.Geometry(positions=[[0, 0, 1], [3, 3, 1]]),
     gfx.PointsMaterial(color=(0, 1, 0, 1), size=20, aa=True),
