@@ -31,12 +31,13 @@ data = np.array(
 #
 # float -> r32float, sampler
 # uint8 -> r8unorm, sampler
+# int16 -> r16sint, no sampler | later maybe r16snorm with sampler
 # uin32 -> r32uint, no sampler
 
-for dy, dtype in enumerate(["float32", "uint8", "uint32"]):
+for dx, dtype in enumerate(["float32", "uint8", "int16", "uint32"]):
     typed_data = data.astype(dtype)
 
-    for dx, interpolation in enumerate(["nearest", "linear", "cubic"]):
+    for dy, interpolation in enumerate(["nearest", "linear", "cubic"]):
         volume = gfx.Volume(
             gfx.Geometry(grid=gfx.Texture(typed_data, dim=3)),
             gfx.VolumeSliceMaterial(clim=(0, 2), interpolation=interpolation),
@@ -52,7 +53,7 @@ points = gfx.Points(
 scene.add(points)
 
 camera = gfx.OrthographicCamera()
-camera.show_rect(-1, 14, -1, 14)
+camera.show_rect(-1, 19, -1, 14)
 
 canvas.request_draw(lambda: renderer.render(scene, camera))
 
