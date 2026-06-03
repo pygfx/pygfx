@@ -38,11 +38,7 @@ box1 = gfx.Mesh(
 )
 box2 = gfx.Mesh(
     gfx.box_geometry(3.1, 3.1, 3.1),
-    gfx.MeshBasicMaterial(
-        color=(0, 1, 0, 1),
-        wireframe=True,
-        wireframe_thickness=1,
-    ),
+    gfx.MeshBasicMaterial(color=(0, 1, 0, 1), wireframe=True, wireframe_thickness=1),
 )
 
 # In scene1 we show a raycasted volume
@@ -68,9 +64,7 @@ slice2 = gfx.Volume(
 slice3 = gfx.Volume(
     geo,
     gfx.VolumeSliceMaterial(
-        clim=(0, 1000),
-        plane=(1, 0, 0, 0),
-        interpolation="nearest",
+        clim=(0, 1000), plane=(1, 0, 0, 0), interpolation="nearest"
     ),
 )
 for slice in (slice1, slice2, slice3):

@@ -35,11 +35,15 @@ class BaseVolumeShader(BaseShader):
         self["climcorrection"] = ""
         fmt = to_texture_format(geometry.grid.format)
         if "norm" in fmt or "float" in fmt:
+            fmt_colorless = fmt.lstrip("rgba")
+            map = {
+                "8unorm": " * 255.0",
+                "8snorm": " * 127.0",
+                "16unorm": " * 65536.0",
+                "16snorm": " * 32767.0",
+            }
             self["img_format"] = "f32"
-            if "unorm" in fmt:
-                self["climcorrection"] = " * 255.0"
-            elif "snorm" in fmt:
-                self["climcorrection"] = " * 255.0 - 128.0"
+            self["climcorrection"] = map.get(fmt_colorless, "")
         elif "uint" in fmt:
             self["img_format"] = "u32"
         else:
