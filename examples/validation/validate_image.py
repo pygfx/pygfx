@@ -1,6 +1,6 @@
 """
-Validate image 2
-================
+Validate image
+==============
 
 Show an image displayed the correct way.
 
@@ -8,9 +8,9 @@ Show an image displayed the correct way.
 * The green dots should be in the center of these pixels.
 * The darker corner is in the bottom left.
 
-This shows the same image for different interpolation methods,
-and is repeated for integer and float data types, because these
-result in different shaders (integers other than uint8 cannot use a sampler).
+This shows the same image for different interpolation methods, and is
+repeated for different dtypes, which lead to different WGSL for the
+sampling and use different clim-corrections.
 """
 
 # sphinx_gallery_pygfx_docs = 'screenshot'
@@ -35,7 +35,13 @@ data = np.array(
     np.uint8,
 )
 
-for dy, dtype in enumerate(["float32", "uint32"]):
+# Using different dtypes:
+#
+# float -> r32float, sampler
+# uint8 -> r8unorm, sampler
+# uin32 -> r32uint, no sampler
+
+for dy, dtype in enumerate(["float32", "uint8", "uint32"]):
     typed_data = data.astype(dtype)
 
     for dx, interpolation in enumerate(["nearest", "linear", "cubic"]):
@@ -54,7 +60,7 @@ points = gfx.Points(
 scene.add(points)
 
 camera = gfx.OrthographicCamera()
-camera.show_rect(-1, 14, -1, 10)
+camera.show_rect(-1, 14, -1, 14)
 
 canvas.request_draw(lambda: renderer.render(scene, camera))
 

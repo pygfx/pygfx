@@ -27,8 +27,13 @@ data = np.array(
     np.uint8,
 ).reshape(1, 4, 4)
 
+# Using different dtypes:
+#
+# float -> r32float, sampler
+# uint8 -> r8unorm, sampler
+# uin32 -> r32uint, no sampler
 
-for dy, dtype in enumerate(["float32", "uint32"]):
+for dy, dtype in enumerate(["float32", "uint8", "uint32"]):
     typed_data = data.astype(dtype)
 
     for dx, interpolation in enumerate(["nearest", "linear", "cubic"]):
@@ -47,7 +52,7 @@ points = gfx.Points(
 scene.add(points)
 
 camera = gfx.OrthographicCamera()
-camera.show_rect(-1, 14, -1, 10)
+camera.show_rect(-1, 14, -1, 14)
 
 canvas.request_draw(lambda: renderer.render(scene, camera))
 
