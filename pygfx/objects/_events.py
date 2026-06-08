@@ -1,8 +1,9 @@
+import inspect
 from collections import defaultdict
 from enum import Enum
 from time import perf_counter
 from typing import Union, Optional
-from weakref import ref
+from weakref import ref, WeakMethod
 
 from rendercanvas.base import log_exception
 
@@ -324,13 +325,19 @@ class EventTarget:
         super().__init__(*args, **kwargs)
         self._event_handlers = defaultdict(set)
 
-    def add_event_handler(self, *args):
+    def add_event_handler(self, *args, weak=False):
         """Register an event handler.
 
         Arguments:
             callback (callable): The event handler. Must accept a
                 single event argument.
             *types (list of strings): A list of event types.
+            weak (bool): If True, the handler is stored using a weak
+                reference, so that registering it does not keep the
+                callback alive. For a bound method this means the object
+                the method is bound to is not kept alive either. Once the
+                callback is garbage collected the handler is skipped and
+                pruned automatically. Defaults to False.
 
         For the available event types, see
         https://jupyter-rfb.readthedocs.io/en/stable/events.html
@@ -353,6 +360,19 @@ class EventTarget:
             @obj.add_event_handler("pointer_up", "pointer_down")
             def my_handler(event):
                 print(event)
+
+        Storing the handler weakly lets the registering object be garbage
+        collected by reference counting (without waiting for the cyclic
+        collector) even when it registers one of its own bound methods on
+        an object it owns:
+
+        .. code-block:: py
+
+            obj.add_event_handler(self._on_pointer_down, "pointer_down", weak=True)
+
+        Note that with ``weak=True`` the caller is responsible for keeping
+        a reference to the callback alive; a handler whose only remaining
+        reference is this registration will be collected and never fire.
         """
 
         decorating = not callable(args[0])
@@ -365,13 +385,34 @@ class EventTarget:
             raise TypeError("All types must be string.")
 
         def decorator(_callback):
+            handler = self._wrap_weak_handler(_callback) if weak else _callback
             for type in types:
-                self._event_handlers[type].add(_callback)
+                self._event_handlers[type].add(handler)
             return _callback
 
         if decorating:
             return decorator
         return decorator(callback)
+
+    def _wrap_weak_handler(self, callback):
+        # Wrap a callback in a weak reference so that storing it as a handler
+        # does not keep it (or, for a bound method, its instance) alive. The
+        # finalizer prunes the dead wrapper from every type it was registered
+        # for. It only holds a weak reference to self, so it does not turn the
+        # registration into a reference cycle of its own.
+        selfref = ref(self)
+
+        def prune(dead_ref, selfref=selfref):
+            target = selfref()
+            if target is not None:
+                for handlers in target._event_handlers.values():
+                    handlers.discard(dead_ref)
+
+        if inspect.ismethod(callback):
+            # A plain weakref to a bound method dies immediately, because the
+            # bound method object is recreated on every attribute access.
+            return WeakMethod(callback, prune)
+        return ref(callback, prune)
 
     def remove_event_handler(self, callback, *types):
         """Unregister an event handler.
@@ -381,7 +422,36 @@ class EventTarget:
             *types (list of strings): A list of event types.
         """
         for type in types:
-            self._event_handlers[type].remove(callback)
+            handlers = self._event_handlers[type]
+            if callback in handlers:
+                # Registered strongly (the common case).
+                handlers.discard(callback)
+                continue
+            # The handler may have been registered weakly; find the wrapper
+            # whose referent is the given callback and remove that.
+            for handler in handlers:
+                if isinstance(handler, ref) and handler() == callback:
+                    handlers.discard(handler)
+                    break
+            else:
+                raise KeyError(callback)
+
+    def clear_event_handlers(self, *types):
+        """Unregister all event handlers.
+
+        Arguments:
+            *types (list of strings): The event types to clear. If no types
+                are given, the handlers for all event types are removed.
+
+        This is useful to deterministically detach an object before
+        discarding it, so that it does not linger as part of a reference
+        cycle through the objects it registered handlers on.
+        """
+        if types:
+            for type in types:
+                self._event_handlers[type].clear()
+        else:
+            self._event_handlers.clear()
 
     def handle_event(self, event: Event):
         """Handle an incoming event.
@@ -390,9 +460,18 @@ class EventTarget:
             event: The event to handle
         """
         event_type = event.type
-        for callback in self._event_handlers[event_type].copy():
+        handlers = self._event_handlers[event_type]
+        for handler in handlers.copy():
             if event.cancelled:
                 break
+            if isinstance(handler, ref):
+                callback = handler()
+                if callback is None:
+                    # Weakly-referenced handler was collected; prune it.
+                    handlers.discard(handler)
+                    continue
+            else:
+                callback = handler
             with log_exception(f"Error during handling {event_type} event"):
                 callback(event)
 
