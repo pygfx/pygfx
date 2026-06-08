@@ -324,6 +324,9 @@ class EventTarget:
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._event_handlers = defaultdict(set)
+        # Finalizer shared by all weakly-stored handlers (see add_event_handler
+        # with weak=True). Created lazily, since most objects never use it.
+        self._weak_handler_remover = None
 
     def add_event_handler(self, *args, weak=False):
         """Register an event handler.
@@ -393,7 +396,16 @@ class EventTarget:
             raise TypeError("All types must be string.")
 
         def decorator(_callback):
-            handler = self._wrap_weak_handler(_callback) if weak else _callback
+            if weak:
+                remover = self._get_weak_handler_remover()
+                if inspect.ismethod(_callback):
+                    # A plain weakref to a bound method dies immediately,
+                    # because the bound method is recreated on each access.
+                    handler = WeakMethod(_callback, remover)
+                else:
+                    handler = ref(_callback, remover)
+            else:
+                handler = _callback
             for type in types:
                 self._event_handlers[type].add(handler)
             return _callback
@@ -402,25 +414,23 @@ class EventTarget:
             return decorator
         return decorator(callback)
 
-    def _wrap_weak_handler(self, callback):
-        # Wrap a callback in a weak reference so that storing it as a handler
-        # does not keep it (or, for a bound method, its instance) alive. The
-        # finalizer prunes the dead wrapper from every type it was registered
-        # for. It only holds a weak reference to self, so it does not turn the
+    def _get_weak_handler_remover(self):
+        # The finalizer for weakly-stored handlers. It receives the dead
+        # weakref and discards it from every event type, so dead handlers do
+        # not pile up. Following pygfx.utils.weak, it captures only a weak
+        # reference to self (via the default argument), so it does not turn the
         # registration into a reference cycle of its own.
-        selfref = ref(self)
+        remover = self._weak_handler_remover
+        if remover is None:
 
-        def prune(dead_ref, selfref=selfref):
-            target = selfref()
-            if target is not None:
-                for handlers in target._event_handlers.values():
-                    handlers.discard(dead_ref)
+            def remove(dead_ref, selfref=ref(self)):  # noqa: B008
+                self = selfref()
+                if self is not None:
+                    for handlers in self._event_handlers.values():
+                        handlers.discard(dead_ref)
 
-        if inspect.ismethod(callback):
-            # A plain weakref to a bound method dies immediately, because the
-            # bound method object is recreated on every attribute access.
-            return WeakMethod(callback, prune)
-        return ref(callback, prune)
+            remover = self._weak_handler_remover = remove
+        return remover
 
     def remove_event_handler(self, callback, *types):
         """Unregister an event handler.
