@@ -370,9 +370,17 @@ class EventTarget:
 
             obj.add_event_handler(self._on_pointer_down, "pointer_down", weak=True)
 
-        Note that with ``weak=True`` the caller is responsible for keeping
-        a reference to the callback alive; a handler whose only remaining
-        reference is this registration will be collected and never fire.
+        .. warning::
+
+            With ``weak=True`` the registration does not keep the callback
+            alive, so the caller must keep a reference to it. A handler whose
+            only remaining reference is this registration is collected and
+            never fires. This is safe for the common case above (a bound
+            method registered on an object the instance owns, since the
+            instance keeps the method's owner -- itself -- alive), but a
+            standalone function, a ``lambda``, or a bound method of an object
+            you do not otherwise hold on to will silently disappear. Use the
+            default ``weak=False`` for those.
         """
 
         decorating = not callable(args[0])
