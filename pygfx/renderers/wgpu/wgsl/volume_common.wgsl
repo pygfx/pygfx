@@ -21,7 +21,7 @@ fn sample_vol(texcoord: vec3<f32>, sizef: vec3<f32>) -> vec4<f32> {
     $$ if interpolation == 'via-sampler'
         // Using a sampler with either linear or nearest interpolation.
         // This path means that interpolation can be changed by only swapping the sampler.
-        return textureSample(t_img, s_img, texcoord.xyz);
+        return textureSample(t_img, s_vol, texcoord.xyz);
 
     $$ else
         // Hard-coded interpolation using textureLoad
