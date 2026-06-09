@@ -1,6 +1,7 @@
 from ..resources import Texture, TextureMap
 from ._base import Material
 from ..utils import Color, assert_type
+from ..utils.enums import InterpolationFilter
 
 
 class VolumeBasicMaterial(Material):
@@ -17,7 +18,7 @@ class VolumeBasicMaterial(Material):
     gamma : float
         The gamma correction to apply to the image data. Default 1.
     interpolation : str
-        The method to interpolate the image data. Either 'nearest' or 'linear'. Default 'linear'.
+        The method to interpolate the image data. Can be 'nearest', 'linear' or 'cubic'. Default 'linear'.
     kwargs : Any
         Additional kwargs will be passed to the :class:`material base class
         <pygfx.Material>`.
@@ -36,7 +37,7 @@ class VolumeBasicMaterial(Material):
         clim=None,
         map=None,
         gamma=1.0,
-        interpolation="linear",
+        interpolation: InterpolationFilter = "linear",
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -45,7 +46,7 @@ class VolumeBasicMaterial(Material):
         self.gamma = gamma
         # Note: the default volume interpolation is 'linear' while it's nearest
         # for images. The ability to spot the individual voxels simply results in
-        # poor visual quality.
+        # poor visual quality in raycasting.
         self.interpolation = interpolation
 
     @property
@@ -107,14 +108,23 @@ class VolumeBasicMaterial(Material):
         self.uniform_buffer.update_full()
 
     @property
-    def interpolation(self):
-        """The method to interpolate the image data. Either 'nearest' or 'linear'."""
+    def interpolation(self) -> InterpolationFilter:
+        """The method to interpolate the volume data.
+
+        Can be 'nearest', 'linear', or 'cubic', see :obj:`pygfx.utils.enums.InterpolationFilter`:.
+
+        For volume raycasting, 'linear' is recommended to avoid blocky pixels. The 'cubic' mode is
+        not recommended in general for volumes, because with 64 texture fetches per sample it is quite heavy.
+        """
         return self._store.interpolation
 
     @interpolation.setter
-    def interpolation(self, value):
-        assert value in ("nearest", "linear")
-        self._store.interpolation = value
+    def interpolation(self, value: InterpolationFilter):
+        if value not in InterpolationFilter:
+            raise ValueError(
+                f"ImageBasicMaterial.interpolation must be a string in {InterpolationFilter}, not {value!r}"
+            )
+        self._store.interpolation = str(value)
 
 
 class VolumeSliceMaterial(VolumeBasicMaterial):

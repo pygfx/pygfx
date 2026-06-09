@@ -56,6 +56,22 @@ fn is_orthographic() -> bool {
 // Nonlinear transform from WorldObject.nonlinear_transform.
 {{ nonlinear_transform or 'fn nonlinear_transform(pos: vec3f) -> vec3f { return pos; }' }}
 
+// ----- Interpolation
+
+fn cubic_weights(t1: f32, B: f32, C: f32) -> f32 {
+    // Generic parametrized Cubic kernel. Can be used to create B-splines, Cardinal splines, Mitchell filter, etc.
+    let t = abs(t1);
+    var w = 0.0;
+    let t2 = t * t;
+    let t3 = t * t * t;
+    if t < 1.0 {
+        w = (12.0 - 9.0 * B - 6.0 * C) * t3 + (-18.0 + 12.0 * B + 6.0 * C) * t2 + (6.0 - 2.0 * B);
+    } else if t <= 2.0 {
+        w = (-B - 6.0 * C) * t3 + (6.0 * B + 30.0 * C) * t2 + (-12.0 * B - 48.0 * C) * t + (8.0 * B + 24.0 * C);
+    }
+    return w / 6.0;
+}
+
 // ----- Bindings
 
 // Defines all bindings and functions to load from (storage) buffers

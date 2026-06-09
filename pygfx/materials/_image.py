@@ -1,6 +1,7 @@
 from ..resources import Texture, TextureMap
 from ._base import Material
 from ..utils import assert_type
+from ..utils.enums import InterpolationFilter
 
 
 class ImageBasicMaterial(Material):
@@ -17,7 +18,7 @@ class ImageBasicMaterial(Material):
     gamma : float
         The gamma correction to apply to the image data. Default 1.
     interpolation : str
-        The method to interpolate the image data. Either 'nearest' or 'linear'. Default 'nearest'.
+        The method to interpolate the image data. Can be 'nearest', 'linear', or 'cubic'. Default 'nearest'.
     kwargs : Any
         Additional kwargs will be passed to the :class:`material base class
         <pygfx.Material>`.
@@ -36,7 +37,7 @@ class ImageBasicMaterial(Material):
         clim=None,
         map=None,
         gamma=1.0,
-        interpolation="nearest",
+        interpolation: InterpolationFilter = "nearest",
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -106,11 +107,16 @@ class ImageBasicMaterial(Material):
         self.uniform_buffer.update_full()
 
     @property
-    def interpolation(self):
-        """The method to interpolate the image data. Either 'nearest' or 'linear'."""
+    def interpolation(self) -> InterpolationFilter:
+        """The method to interpolate the image data.
+
+        Can be 'nearest', 'linear', or 'cubic', see :obj:`pygfx.utils.enums.InterpolationFilter`:."""
         return self._store.interpolation
 
     @interpolation.setter
-    def interpolation(self, value):
-        assert value in ("nearest", "linear")
-        self._store.interpolation = value
+    def interpolation(self, value: InterpolationFilter):
+        if value not in InterpolationFilter:
+            raise ValueError(
+                f"ImageBasicMaterial.interpolation must be a string in {InterpolationFilter}, not {value!r}"
+            )
+        self._store.interpolation = str(value)
