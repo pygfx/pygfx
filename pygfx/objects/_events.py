@@ -428,8 +428,8 @@ class EventTarget:
                     for handlers in self._event_handlers.values():
                         handlers.discard(dead_ref)
 
-            remover = self._weak_handler_remover = remove
-        return remover
+            self._weak_handler_remover = remove
+        return self._weak_handler_remover
 
     def remove_event_handler(self, callback, *types):
         """Unregister an event handler.
