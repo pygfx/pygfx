@@ -93,7 +93,7 @@ an object registers one of its own bound methods on an object it owns (e.g. a
 controller registering ``self._on_pointer_down`` on a scene it holds), this
 forms a reference cycle::
 
-    owner -> child -> _event_handlers -> bound method -> owner
+    owner -> child -> owner._event_handlers -> bound method -> owner
 
 Reference counting cannot break a cycle, so dropping your last reference to the
 owner frees nothing until the *cyclic* garbage collector runs. That collector
