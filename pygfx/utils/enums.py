@@ -12,6 +12,7 @@ The enums used in pygfx. The enums are all available from the root ``pygfx`` nam
     CoordSpace
     EdgeMode
     ElementFormat
+    InterpolationFilter
     MarkerInt
     MarkerMode
     MarkerShape
@@ -33,6 +34,7 @@ __all__ = [
     "CoordSpace",
     "EdgeMode",
     "ElementFormat",
+    "InterpolationFilter",
     "MarkerInt",
     "MarkerMode",
     "MarkerShape",

@@ -2,7 +2,7 @@
 Validate volume slice
 =====================
 
-Same as validate_image2.py, but for volume slices.
+Same as validate_image.py, but for volume slices.
 """
 
 # sphinx_gallery_pygfx_docs = 'screenshot'

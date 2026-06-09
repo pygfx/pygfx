@@ -37,7 +37,7 @@ class VolumeBasicMaterial(Material):
         clim=None,
         map=None,
         gamma=1.0,
-        interpolation="linear",
+        interpolation: InterpolationFilter = "linear",
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -108,7 +108,7 @@ class VolumeBasicMaterial(Material):
         self.uniform_buffer.update_full()
 
     @property
-    def interpolation(self):
+    def interpolation(self) -> InterpolationFilter:
         """The method to interpolate the volume data.
 
         Can be 'nearest', 'linear', or 'cubic', see :obj:`pygfx.utils.enums.InterpolationFilter`:.
@@ -119,7 +119,7 @@ class VolumeBasicMaterial(Material):
         return self._store.interpolation
 
     @interpolation.setter
-    def interpolation(self, value):
+    def interpolation(self, value: InterpolationFilter):
         if value not in InterpolationFilter:
             raise ValueError(
                 f"ImageBasicMaterial.interpolation must be a string in {InterpolationFilter}, not {value!r}"

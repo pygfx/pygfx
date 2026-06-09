@@ -20,8 +20,7 @@ import pygfx as gfx
 canvas = RenderCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 
-# Prepare a very small data volume. The data is integer and not uint8,
-# so its not interpolated (a wgpu restriction). In this case this is intended.
+# Prepare a very small data volume.
 voldata = np.ones((3, 3, 3), np.int16) * 200
 voldata[1:-1, :, :] = 600
 voldata[:, 1:-1, :] = 600

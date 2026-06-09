@@ -37,7 +37,7 @@ class ImageBasicMaterial(Material):
         clim=None,
         map=None,
         gamma=1.0,
-        interpolation="nearest",
+        interpolation: InterpolationFilter = "nearest",
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -107,14 +107,14 @@ class ImageBasicMaterial(Material):
         self.uniform_buffer.update_full()
 
     @property
-    def interpolation(self):
+    def interpolation(self) -> InterpolationFilter:
         """The method to interpolate the image data.
 
         Can be 'nearest', 'linear', or 'cubic', see :obj:`pygfx.utils.enums.InterpolationFilter`:."""
         return self._store.interpolation
 
     @interpolation.setter
-    def interpolation(self, value):
+    def interpolation(self, value: InterpolationFilter):
         if value not in InterpolationFilter:
             raise ValueError(
                 f"ImageBasicMaterial.interpolation must be a string in {InterpolationFilter}, not {value!r}"
