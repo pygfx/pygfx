@@ -37,7 +37,7 @@ class ImageShader(BaseShader):
         elif not isinstance(geometry.grid, Texture):
             raise TypeError("Image.geometry.grid must be a Texture.")
         elif geometry.grid.dim != 2:
-            raise TypeError("Image.geometry.grid must a 2D texture")
+            raise TypeError("Image.geometry.grid must be a 2D texture")
 
         # Set img_format and climcorrection
         self["climcorrection"] = ""
