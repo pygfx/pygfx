@@ -420,8 +420,7 @@ class EventTarget:
         # not pile up. Following pygfx.utils.weak, it captures only a weak
         # reference to self (via the default argument), so it does not turn the
         # registration into a reference cycle of its own.
-        remover = self._weak_handler_remover
-        if remover is None:
+        if self._weak_handler_remover is None:
 
             def remove(dead_ref, selfref=ref(self)):  # noqa: B008
                 self = selfref()
