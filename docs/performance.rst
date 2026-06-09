@@ -91,7 +91,7 @@ Event handlers and memory
 By default ``add_event_handler`` keeps a *strong* reference to the handler. If
 an object registers one of its own bound methods on an object it owns (e.g. a
 controller registering ``self._on_pointer_down`` on a scene it holds), this
-forms a reference cycle::
+may form a reference cycle if the event handler is a class::
 
     owner -> child -> owner._event_handlers -> bound method -> owner
 
