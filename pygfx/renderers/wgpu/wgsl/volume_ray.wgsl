@@ -108,7 +108,7 @@ fn vs_main(in: VertexInput) -> Varyings {
     varyings.data_back_pos = vec4<f32>(data_pos);
 
     // Take care to take into account of the camera flipping any axii
-    let cam_sign = sign(u_stdinfo.cam_transform[0][0] * u_stdinfo.cam_transform[1][1] * u_stdinfo.cam_transform[2][2]);
+    let cam_sign = sign(determinant(u_stdinfo.cam_transform));
 
     // We calculate the NDC positions for the near and front clipping planes,
     // and transform these back to data coordinates. From these positions
