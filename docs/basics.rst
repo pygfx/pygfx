@@ -40,7 +40,7 @@ more complex rendering setups: (1) `Scenes`, (2) `Canvases`, and (3)
 
 **Scenes**
 
-Starting off with the most important building bock, a `Scene` is the world or
+Starting off with the most important building block, a `Scene` is the world or
 scenario to render. It has at least three components: an `object` with some
 visual properties, a `Light` source, and a `Camera` to view the scene. Once we
 defined those three things, we can position them within our scene and render it.
@@ -190,8 +190,8 @@ These low-level objects are attached to geometries and materials (discussed belo
 A :class:`~pygfx.resources.Buffer` represents a one dimensional array and is used to contain e.g. positions and per-point colors.
 A :class:`~pygfx.resources.Texture` represents a 1D, 2D or 3D array and is used to contain e.g. image data and colormaps.
 
-The data of a buffer or tetxure can be updated and re-synced with the GPU, making it possible
-to change the visualization in real time, for eample in animations and user interactions.
+The data of a buffer or texture can be updated and re-synced with the GPU, making it possible
+to change the visualization in real time, for example in animations and user interactions.
 
 
 World objects
@@ -460,6 +460,21 @@ create a small simulation of a falling and rotating cube.
 
         total_g = np.linalg.norm(observed_acceleration) / 9.81
         print(f"Feels like: {total_g:.3} g")
+
+
+Nonlinear transformations
+-------------------------
+
+PyGfx's transform system is based on linear transformations (scale, rotation, translation), but there are places where a nonlinear transformation can be introduced:
+
+* At the very beginning of the transform, using :func:`ob.nonlinear_transform <pygfx.objects.WorldObject.nonlinear_transform>`, which transforms the raw vertex positions in the shader.
+* At the very end, in a post-processing pass, see :mod:`~pygfx.renderers.wgpu.engine.effectpasses`.
+
+In PyGfx we have chosen to not include any predefined nonlinear transforms. Examples that demonstrate nonlinear transformations include:
+
+* `wobbly_mesh.py <_gallery/feature_demo/wobbly_mesh.html>`_
+* `world_map_projection.py <_gallery/feature_demo/world_map_projection.html>`_
+* `world_map_projections.py <_gallery/feature_demo/world_map_projection.html>`_
 
 
 Colors

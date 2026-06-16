@@ -3,12 +3,68 @@
 {$ include 'pygfx.image_sample.wgsl' $}
 
 
+fn trilinear_weights(t: vec3f) -> f32 {
+    return max(0.0, f32(1.0 - abs(t.x))) * max(0.0, f32(1.0 - abs(t.y))) * max(0.0, f32(1.0 - abs(t.z)));
+}
+
+
+fn tricubic_weights(t: vec3f) -> f32 {
+    // Pretty heavy. Ok for slices, but not recommended for raycasting.
+    const b = 1.0 / 3.0;
+    const c = 1.0 / 3.0;
+    return cubic_weights(t.x, b, c) * cubic_weights(t.y, b, c) * cubic_weights(t.z, b, c);
+}
+
+
 fn sample_vol(texcoord: vec3<f32>, sizef: vec3<f32>) -> vec4<f32> {
-    $$ if img_format == 'f32'
-        return textureSampleLevel(t_img, s_img, texcoord.xyz, 0.0);
+
+    $$ if interpolation == 'via-sampler'
+        // Using a sampler with either linear or nearest interpolation.
+        // This path means that interpolation can be changed by only swapping the sampler.
+        return textureSampleLevel(t_img, s_vol, texcoord.xyz, 0.0);
+
     $$ else
-        let texcoords_u = vec3<i32>(texcoord.xyz * sizef);
-        return vec4<f32>(textureLoad(t_img, texcoords_u, 0));
+        // Hard-coded interpolation using textureLoad
+
+        let posf = texcoord.xyz * sizef.xyz - 0.5;    // offset 0.5 to align with center of pixels
+        let posi = vec3i(posf);                      // the pixel directly 'left' of the coord
+        let min_coord = vec3i(0);
+        let max_coord = vec3i(sizef) - 1;
+        var value = vec4f(0.0);
+        var weight = 0.0;
+        var w: f32;
+        var p: vec3i;
+
+        $$ if interpolation == 'cubic'
+            $$ for dz in [-1, 0, 1, 2]
+            $$ for dy in [-1, 0, 1, 2]
+            $$ for dx in [-1, 0, 1, 2]
+                p = posi + vec3i({{dx}}, {{dy}}, {{dz}});
+                w = tricubic_weights(posf - vec3f(p));
+                weight += w;
+                value += w * vec4f(textureLoad(t_img, clamp(p, min_coord, max_coord), 0));
+            $$ endfor
+            $$ endfor
+            $$ endfor
+        $$ elif interpolation == 'linear'
+            $$ for dz in [0, 1]
+            $$ for dy in [0, 1]
+            $$ for dx in [0, 1]
+                p = posi + vec3i({{dx}}, {{dy}}, {{dz}});
+                w = trilinear_weights(posf - vec3f(p));
+                weight += w;
+                value += w * vec4f(textureLoad(t_img, clamp(p, min_coord, max_coord), 0));
+            $$ endfor
+            $$ endfor
+            $$ endfor
+        $$ else
+            p = vec3<i32>(texcoord.xyz * sizef.xyz);
+            weight = 1.0;
+            value = vec4<f32>(textureLoad(t_img, p, 0));
+        $$ endif
+
+        return value / weight;
+
     $$ endif
 }
 

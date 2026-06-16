@@ -10,7 +10,7 @@ class Bounds:
     the box's corners.
 
     When the radius is None, or near-equal to half the diagonal of the aabb,
-    the bounds respresents a box. The radius is at least the
+    the bounds represents a box. The radius is at least the
     max(width,height,depth) of the aabb, i.e. only cutting off its corners.
     """
 

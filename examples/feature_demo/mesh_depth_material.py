@@ -74,7 +74,7 @@ class DepthShader(MeshShader):
             let ii = load_s_indices(face_index);
             let i0 = i32(ii[sub_index]);
 
-            let position = load_s_positions(i0);
+            let position = nonlinear_transform(load_s_positions(i0));
             let u_mvp = u_stdinfo.projection_transform * u_stdinfo.cam_transform * u_wobject.world_transform;
             let pos = u_mvp * vec4<f32>(position, 1.0);
 

@@ -436,7 +436,7 @@ class ThinLineShader(LineShader):
 
             let i0 = i32(in.index);
 
-            let raw_pos = load_s_positions(i0);
+            let raw_pos = nonlinear_transform(load_s_positions(i0));
             let wpos = u_wobject.world_transform * vec4<f32>(raw_pos.xyz, 1.0);
             let npos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * wpos;
 

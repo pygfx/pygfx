@@ -143,6 +143,9 @@ class WorldObject(EventTarget, Trackable):
         visible: bool = True,
         render_order: float = 0,
         name: str = "",
+        cast_shadow: bool = False,
+        receive_shadow: bool = False,
+        nonlinear_transform: str | None = None,
     ) -> None:
         super().__init__()
         self._parent: weakref.ReferenceType[WorldObject] | None = None
@@ -189,8 +192,9 @@ class WorldObject(EventTarget, Trackable):
         # Init visibility and render props
         self.visible = visible
         self.render_order = render_order
-        self.cast_shadow = False
-        self.receive_shadow = False
+        self.cast_shadow = cast_shadow
+        self.receive_shadow = receive_shadow
+        self.nonlinear_transform = nonlinear_transform
 
         self.name = name
 
@@ -212,11 +216,17 @@ class WorldObject(EventTarget, Trackable):
 
     def _update_world_transform(self):
         """This gets called right before being drawn, when the world transform has changed."""
-        orig_err_setting = np.seterr(under="ignore")
-        self.uniform_buffer.data["world_transform"] = self.world.matrix.T
-        self.uniform_buffer.data["world_transform_inv"] = self.world.inverse_matrix.T
+        np.copyto(
+            self.uniform_buffer.data["world_transform"],
+            self.world.matrix.T,
+            casting="unsafe",
+        )
+        np.copyto(
+            self.uniform_buffer.data["world_transform_inv"],
+            self.world.inverse_matrix.T,
+            casting="unsafe",
+        )
         self.uniform_buffer.update_full()
-        np.seterr(**orig_err_setting)
 
     def __repr__(self):
         return f"<pygfx.{self.__class__.__name__} {self.name} at {hex(id(self))}>"
@@ -356,6 +366,33 @@ class WorldObject(EventTarget, Trackable):
         self._store.receive_shadow = bool(value)
 
     @property
+    def nonlinear_transform(self) -> str | None:
+        """An optional nonlinear transform, expressed as WGSL shader code, applied to the raw vertex positions.
+
+        The WGSL must define a function ``fn nonlinear_transform(pos: vec3f) -> vec3f { ... }``.
+        Alternatively, the given WGSL can be a single expression (without ';')
+        using ``pos`` (a vec3f) as an existing variable, in which case the code is
+        wrapped in a function. E.g. ``vec3f(pos.x, pos.y*1.5, pos.z)``.
+
+        Note that the transform is applied to the raw geometry's vertex
+        positions of this object, and does not affect child objects.
+
+        Note that the transform is not taken into account in the calculation of
+        bounding boxes.
+        """
+        return self._store.nonlinear_transform
+
+    @nonlinear_transform.setter
+    def nonlinear_transform(self, value: str | None):
+        if not (value is None or isinstance(value, str)):
+            raise TypeError("nonlinear_transform must be str or None")
+        if value is not None:
+            value = value.strip() or None
+        if value is not None and not any(x in value for x in ("fn n", "return ", ";")):
+            value = f"fn nonlinear_transform(pos: vec3f) -> vec3f {{ return {value}; }}"
+        self._store.nonlinear_transform = value
+
+    @property
     def parent(self) -> WorldObject | None:
         """Object's parent in the scene graph (read-only).
         An object can have at most one parent.
@@ -490,6 +527,8 @@ class WorldObject(EventTarget, Trackable):
     def _get_bounds_from_geometry(self):
         geometry = self.geometry
         if geometry is None:
+            # Note: would be good to have a way to disable the geometry-from-bounds, e.g. when using an extreme nonlinear transform.
+            # Once we have the new bounds logic a user could fo e.g. ``ob.set_local_bounds(None, None)``, see https://github.com/pygfx/pygfx/pull/1049
             self._bounds_geometry = None
         elif isinstance(positions_buf := getattr(geometry, "positions", None), Buffer):
             if self._bounds_geometry_rev == positions_buf.rev:

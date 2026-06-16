@@ -36,14 +36,22 @@ class BaseVolumeShader(BaseShader):
         fmt = to_texture_format(geometry.grid.format)
         if "norm" in fmt or "float" in fmt:
             self["img_format"] = "f32"
-            if "unorm" in fmt:
-                self["climcorrection"] = " * 255.0"
-            elif "snorm" in fmt:
-                self["climcorrection"] = " * 255.0 - 128.0"
+            map = {"8unorm": 255, "8snorm": 127, "16unorm": 65536, "16snorm": 32767}
+            fmt_colorless = fmt.lstrip("rgba").split("-")[0]
+            self["climcorrection"] = " * " + str(float(map.get(fmt_colorless, 1)))
         elif "uint" in fmt:
             self["img_format"] = "u32"
         else:
             self["img_format"] = "i32"
+
+        interpolation = material.interpolation
+        if self["img_format"] == "f32" and interpolation in ("nearest", "linear"):
+            self["interpolation"] = "via-sampler"
+        else:
+            self["interpolation"] = interpolation
+
+        # For now, volume objects don't receive nor cats shadows. It should not be too hard to enable that though ...
+        self["receive_shadow"] = False
 
         # Set gamma
         self["gamma"] = material.gamma
@@ -67,9 +75,10 @@ class BaseVolumeShader(BaseShader):
         ]
 
         tex_view = GfxTextureView(geometry.grid)
-        sampler = GfxSampler(material.interpolation, "clamp")
-        bindings.append(Binding("s_img", "sampler/filtering", sampler, "FRAGMENT"))
         bindings.append(Binding("t_img", "texture/auto", tex_view, vertex_and_fragment))
+        if self["interpolation"] == "via-sampler":
+            sampler = GfxSampler(material.interpolation, "clamp")
+            bindings.append(Binding("s_vol", "sampler/filtering", sampler, "FRAGMENT"))
 
         if material.map is not None:
             bindings.extend(self.define_img_colormap(material.map))

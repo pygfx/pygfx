@@ -12,6 +12,7 @@ The enums used in pygfx. The enums are all available from the root ``pygfx`` nam
     CoordSpace
     EdgeMode
     ElementFormat
+    InterpolationFilter
     MarkerInt
     MarkerMode
     MarkerShape
@@ -33,6 +34,7 @@ __all__ = [
     "CoordSpace",
     "EdgeMode",
     "ElementFormat",
+    "InterpolationFilter",
     "MarkerInt",
     "MarkerMode",
     "MarkerShape",
@@ -250,6 +252,14 @@ class TextAnchor(Enum):
     bottom_left = "bottom-left"
     bottom_center = "bottom-center"
     bottom_right = "bottom-right"
+
+
+class InterpolationFilter(Enum):
+    """The type of interpolation for rendering images and volumes."""
+
+    nearest = "nearest"  # nearest-neighbour interpolation.
+    linear = "linear"  # linear interpolation.
+    cubic = "cubic"  # cubic interpolation using a Mitchel-Netravali filter.
 
 
 # TODO: I experimented with using a Literal[] here, an idea discussed in https://github.com/pygfx/wgpu-py/issues/720.

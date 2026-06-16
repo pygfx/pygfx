@@ -2,6 +2,21 @@
 
 {$ include 'pygfx.image_sample.wgsl' $}
 
+
+fn bilinear_weights(t: vec2f) -> f32 {
+    return max(0.0, f32(1.0 - abs(t.x))) * max(0.0, f32(1.0 - abs(t.y)));
+}
+
+
+fn bicubic_weights(t: vec2f) -> f32 {
+    // The Mitchell cubic spline is designed to offer a good balance between frequency response,
+    // blurring, and artifacts, in the context of image interpolation and reconstruction.
+    const b = 1.0 / 3.0;
+    const c = 1.0 / 3.0;
+    return cubic_weights(t.x, b, c) * cubic_weights(t.y, b, c);
+}
+
+
 // See https://ffmpeg.org/doxygen/7.0/pixfmt_8h_source.html#l00609
 // for some helpful definitions of color spaces and color ranges
 fn yuv_limited_to_rgb(y: f32, u: f32, v: f32) -> vec4<f32> {
@@ -30,8 +45,12 @@ fn yuv_full_to_rgb(y: f32, u: f32, v: f32) -> vec4<f32> {
 }
 
 fn sample_im(texcoord: vec2<f32>, sizef: vec2<f32>) -> vec4<f32> {
-    $$ if img_format == 'f32'
-        $$ if colorspace == 'yuv420p'
+    $$ if colorspace.startswith('yuv')
+        // YUV colorspace
+
+        $$ if interpolation != 'via-sampler'
+            invalid texture sampling  // yuv textures are only supported when sampling via a sampler
+        $$ elif colorspace == 'yuv420p'
             $$ if three_grid_yuv
             let y = textureSample(t_img, s_img, texcoord.xy).x;
             let u = textureSample(t_u_img, s_img, texcoord.xy).x;
@@ -68,11 +87,52 @@ fn sample_im(texcoord: vec2<f32>, sizef: vec2<f32>) -> vec4<f32> {
             return yuv_full_to_rgb(y, u, v);
             $$ endif
         $$ else
-            return textureSample(t_img, s_img, texcoord.xy);
+            unexpected colorspace '{{ colorspace }}'
         $$ endif
+
+    $$ elif interpolation == 'via-sampler'
+        // Using a sampler with either linear or nearest interpolation.
+        // This path means that interpolation can be changed by only swapping the sampler.
+        return textureSample(t_img, s_img, texcoord.xy);
+
     $$ else
-        let texcoords_u = vec2<i32>(texcoord.xy * sizef.xy);
-        return vec4<f32>(textureLoad(t_img, texcoords_u, 0));
+        // Hard-coded interpolation using textureLoad
+
+        let posf = texcoord.xy * sizef.xy - 0.5;    // offset 0.5 to align with center of pixels
+        let posi = vec2i(posf);                     // the pixel directly 'left' of the coord
+        let min_coord = vec2i(0);
+        let max_coord = vec2i(sizef) - 1;
+        var value = vec4f(0.0);
+        var weight = 0.0;
+        var w: f32;
+        var p: vec2i;
+
+        $$ if interpolation == 'cubic'
+            $$ for dy in [-1, 0, 1, 2]
+            $$ for dx in [-1, 0, 1, 2]
+                p = posi + vec2i({{dx}}, {{dy}});
+                w = bicubic_weights(posf - vec2f(p));
+                weight += w;
+                value += w * vec4f(textureLoad(t_img, clamp(p, min_coord, max_coord), 0));
+            $$ endfor
+            $$ endfor
+        $$ elif interpolation == 'linear'
+            $$ for dy in [0, 1]
+            $$ for dx in [0, 1]
+                p = posi + vec2i({{dx}}, {{dy}});
+                w = bilinear_weights(posf - vec2f(p));
+                weight += w;
+                value += w * vec4f(textureLoad(t_img, clamp(p, min_coord, max_coord), 0));
+            $$ endfor
+            $$ endfor
+        $$ else
+            p = vec2<i32>(texcoord.xy * sizef.xy);
+            weight = 1.0;
+            value = vec4<f32>(textureLoad(t_img, p, 0));
+        $$ endif
+
+        return value / weight;
+
     $$ endif
 }
 

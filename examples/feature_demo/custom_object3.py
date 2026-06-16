@@ -111,7 +111,7 @@ class TriangleShader(BaseShader):
             let sub_index = i32(index) % 3;
 
             // Transform object positition into NDC coords
-            let model_pos = load_s_positions(vertex_index);  // vec3
+            let model_pos = nonlinear_transform(load_s_positions(vertex_index));  // vec3
             let world_pos = u_wobject.world_transform * vec4<f32>(model_pos, 1.0);
             let ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos;
 

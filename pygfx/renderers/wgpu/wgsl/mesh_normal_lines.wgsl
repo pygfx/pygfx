@@ -16,7 +16,7 @@ fn vs_main(in: VertexInput) -> Varyings {
     let i0 = index / 2;
 
     // Get regular position
-    let raw_pos = load_s_positions(i0);
+    let raw_pos = nonlinear_transform(load_s_positions(i0));
     var world_pos = u_wobject.world_transform * vec4<f32>(raw_pos, 1.0);
 
     // Get the normal, expressed in world coords. Use the normal-matrix
@@ -57,17 +57,17 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
     {$ include 'pygfx.clipping_planes.wgsl' $}
 
     let color_value = u_material.color;
-    let albeido = color_value.rgb;
+    let albedo = color_value.rgb;
 
     // Move to physical colorspace (linear photon count) so we can do math
     $$ if colorspace == 'srgb'
-        let physical_albeido = srgb2physical(albeido);
+        let physical_albedo = srgb2physical(albedo);
     $$ else
-        let physical_albeido = albeido;
+        let physical_albedo = albedo;
     $$ endif
     let opacity = color_value.a * u_material.opacity;
 
-    var physical_color = physical_albeido;
+    var physical_color = physical_albedo;
     let out_color = vec4<f32>(physical_color, opacity);
 
     do_alpha_test(opacity);

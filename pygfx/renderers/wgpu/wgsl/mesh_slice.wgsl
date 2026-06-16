@@ -30,9 +30,9 @@ fn vs_main(in: VertexInput) -> Varyings {
     let vii = vec3<i32>(load_s_indices(face_index));
 
     // Vertex positions of this face, in local object coordinates
-    let pos1a = load_s_positions(vii[0]);
-    let pos2a = load_s_positions(vii[1]);
-    let pos3a = load_s_positions(vii[2]);
+    let pos1a = nonlinear_transform(load_s_positions(vii[0]));
+    let pos2a = nonlinear_transform(load_s_positions(vii[1]));
+    let pos3a = nonlinear_transform(load_s_positions(vii[2]));
     let pos1b = u_wobject.world_transform * vec4<f32>(pos1a, 1.0);
     let pos2b = u_wobject.world_transform * vec4<f32>(pos2a, 1.0);
     let pos3b = u_wobject.world_transform * vec4<f32>(pos3a, 1.0);
@@ -214,19 +214,19 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
 
     $$ if color_mode == 'vertex' or color_mode == 'face'
         let color_value = varyings.color;
-        let albeido = color_value.rgb;
+        let albedo = color_value.rgb;
     $$ elif color_mode == 'vertex_map' or color_mode == 'face_map'
         let color_value = sample_colormap(varyings.texcoord);
-        let albeido = color_value.rgb;  // no more colormap
+        let albedo = color_value.rgb;  // no more colormap
     $$ else
         let color_value = u_material.color;
-        let albeido = color_value.rgb;
+        let albedo = color_value.rgb;
     $$ endif
 
     // No aa. This is something we need to decide on. See line renderer.
     let alpha = 1.0;
     // Set color
-    let physical_color = srgb2physical(albeido);
+    let physical_color = srgb2physical(albedo);
     let opacity = min(1.0, color_value.a) * alpha;
     let out_color = vec4<f32>(physical_color, opacity);
 
