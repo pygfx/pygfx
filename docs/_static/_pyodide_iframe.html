@@ -4,7 +4,7 @@
 <head>
     <meta name="viewport" content="width=device-width,initial-scale=1.0">
     <title>Rendercanvas example.py in Pyodide</title>
-    <script src="https://cdn.jsdelivr.net/pyodide/v0.29.3/full/pyodide.js"></script>
+    <script src="https://cdn.jsdelivr.net/pyodide/v314.0.0/full/pyodide.js"></script>
 </head>
 
 <body>
@@ -39,8 +39,7 @@
                 await pyodide.loadPackage("micropip");
                 const micropip = pyodide.pyimport("micropip");
                 await micropip.install('https://wgpu-py--753.org.readthedocs.build/en/753/_static/wgpu-0.31.0-py3-none-any.whl'); // wgpu preview from that docs build
-                await micropip.install('../_static/uharfbuzz-0.54.1-cp310-abi3-pyodide_2025_0_wasm32.whl'); // https://github.com/harfbuzz/uharfbuzz/releases/download/v0.54.1/uharfbuzz-0.54.1-cp310-abi3-pyodide_2025_0_wasm32.whl but CORS means we can't use micropip to install from a github release artifact.
-                await micropip.install(['hsluv', 'pylinalg', 'jinja2', 'httpx', 'trimesh', 'gltflib', 'imageio']); // pygfx deps and some for the examples... don't seem to load correctly from a local wheel
+                await micropip.install.callKwargs(['uharfbuzz', 'hsluv', 'pylinalg', 'jinja2', 'httpx', 'trimesh', 'gltflib', 'imageio'], {pre: true}); // pygfx deps and some for the examples... don't seem to load correctly from a local wheel
                 await micropip.install("pygfx") // this one should be replaced by the wheel during docs build.
                 await pyodide.loadPackagesFromImports(pythonCode); // additional non pypi packages from the examples... like imageio (not patched...)
                 pyodide.setDebug(false);

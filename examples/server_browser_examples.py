@@ -29,15 +29,12 @@ import pygfx
 
 
 # from here: https://github.com/harfbuzz/uharfbuzz/pull/275 placed in /dist
-# uharfbuzz_wheel = "uharfbuzz-0.1.dev1+ga19185453-cp310-abi3-pyodide_2025_0_wasm32.whl" # old kept as a fallback...
-# uharfbuzz_wheel = "https://github.com/harfbuzz/uharfbuzz/releases/download/v0.54.1/uharfbuzz-0.54.1-cp310-abi3-pyodide_2025_0_wasm32.whl" # try to get it from the github release, so we don't need to include it... 
 # might also be a CORS problem. pypi now supports pyemscripten, so this could work in a few weeks once cibuildwheel updates!
-uharfbuzz_wheel = "uharfbuzz-0.54.1-cp310-abi3-pyodide_2025_0_wasm32.whl"
 # wgpu_wheel = "https://wgpu-py--753.org.readthedocs.build/en/753/_static/wgpu-0.31.0-py3-none-any.whl" # very hacky way to serve this but it does work...
 wgpu_wheel = "wgpu-0.31.0-py3-none-any.whl"
 
 # the pygfx wheel will be listed after this. it might be possible to still get deps from pyproject.toml
-pygfx_deps = [wgpu_wheel, uharfbuzz_wheel, "hsluv", "pylinalg", "jinja2", "httpx", "trimesh", "gltflib", "imageio"]
+pygfx_deps = [wgpu_wheel, "uharfbuzz", "hsluv", "pylinalg", "jinja2", "httpx", "trimesh", "gltflib", "imageio"]
 
 root = Path(__file__).parent.parent.absolute()
 
@@ -115,7 +112,7 @@ pyodide_compute_template = """
 <head>
     <meta name="viewport" content="width=device-width,initial-scale=1.0">
     <title>{example_script} via Pyodide</title>
-    <script src="https://cdn.jsdelivr.net/pyodide/v0.29.4/full/pyodide.js"></script>
+    <script src="https://cdn.jsdelivr.net/pyodide/v314.0.0/full/pyodide.js"></script>
 </head>
 <base href="/">
 
@@ -153,7 +150,7 @@ pyodide_compute_template = """
 
                 await pyodide.loadPackage("micropip");
                 const micropip = pyodide.pyimport("micropip");
-                await micropip.install({dependencies});
+                await micropip.install.callKwargs({dependencies}, {{pre: true}});
                 await pyodide.loadPackagesFromImports(pythonCode);
                 // I feel like some errors around stack switching are worse now -.-
                 pyodide.setDebug(true);
