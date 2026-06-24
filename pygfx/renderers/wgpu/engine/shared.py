@@ -36,7 +36,9 @@ def _preconfigure_wgpu_device():
     # code. I think we can probably get away with requiring only a few features that
     # are available on the main target platforms.
     wgpu.preconfigure_default_device(
-        "pygfx", required_features={"float32-filterable", "texture-format16bit-norm"}
+        "pygfx",
+        required_features={"float32-filterable"},
+        preferred_features={"texture-formats-tier1", "texture-format16bit-norm"},
     )
 
     if adapter_name := os.environ.get("PYGFX_WGPU_ADAPTER_NAME"):
@@ -74,6 +76,13 @@ class Shared(Trackable):
         # Select device
         self._device = wgpu.get_default_device()
         self._adapter = self._device.adapter
+
+        # We could do a graceful fallback, of fail hard. For now we do the latter.
+        if not (
+            "texture-formats-tier1" in self._device.features
+            or "texture-format16bit-norm" in self._device.features
+        ):
+            raise RuntimeError("16bit norm textures not supported on this device.")
 
         self._create_diagnostics()
 
