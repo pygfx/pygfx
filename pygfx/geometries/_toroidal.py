@@ -198,15 +198,15 @@ def torus_knot_geometry(
     cy = +tube * np.sin(v)
     # Prepare shapes, so we can do numpy broadcast
     pos = pos1.reshape(-1, 1, 3)
-    cx.shape = 1, -1, 1
-    cy.shape = 1, -1, 1
-    vec3.shape = -1, 1, 3
-    vec4.shape = -1, 1, 3
+    cx = np.reshape(cx, (1, -1, 1))
+    cy = np.reshape(cy, (1, -1, 1))
+    vec3 = np.reshape(vec3, (-1, 1, 3))
+    vec4 = np.reshape(vec4, (-1, 1, 3))
     # Broadcast!
     positions = pos + cx * vec4 + cy * vec3
     normals = positions - pos
-    positions.shape = -1, 3
-    normals.shape = -1, 3
+    positions = np.reshape(positions, (-1, 3))
+    normals = np.reshape(normals, (-1, 3))
     normals *= 1 / np.linalg.norm(normals, axis=1).reshape(-1, 1)
 
     # Create texcords
