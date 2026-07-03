@@ -284,9 +284,9 @@ def test_chunk_size_dim3_align():
 def make_mask_3d(mask):
     mask = np.array(mask, bool)
     if mask.ndim == 1:
-        mask = np.reshape(mask, (1, 1, mask.shape[0]))
+        mask = mask.reshape(1, 1, mask.shape[0])
     elif mask.ndim == 2:
-        mask = np.reshape(mask, (1, mask.shape[0], mask.shape[1]))
+        mask = mask.reshape(1, mask.shape[0], mask.shape[1])
     return mask
 
 
