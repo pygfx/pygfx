@@ -135,7 +135,7 @@ class Texture(Resource):
             # Store data and view, and do some basic checks.
             # The view is a numpy array, but we go via memoryview to ensure data follows the buffer protocol.
             self._data = data
-            self._view = view = np.asarray(memoryview(data))
+            view = np.asarray(memoryview(data))
             if self._force_contiguous:
                 check_data_is_clean_for_performance("texture", view)
             the_nbytes = view.nbytes
@@ -144,14 +144,14 @@ class Texture(Resource):
                 the_size = size
             else:
                 the_size = size_from_array(view, dim)
-            reshape_array(view, the_size)
+            self._view = reshape_array(view, the_size)
             # Establish format
-            element_format = get_element_format_from_numpy_array(view)
+            element_format = get_element_format_from_numpy_array(self._view)
             if element_format is None:
                 raise ValueError(
-                    f"Unsupported dtype/format for texture data: {view.dtype}"
+                    f"Unsupported dtype/format for texture data: {self._view.dtype}"
                 )
-            nchannels = int(np.prod(view.shape[3:], initial=1))
+            nchannels = int(np.prod(self._view.shape[3:], initial=1))
             if not (1 <= nchannels <= 4):
                 raise ValueError(
                     f"Expected 1-4 texture color channels, got {nchannels}."
@@ -401,7 +401,7 @@ class Texture(Resource):
         if view.dtype != self._view.dtype:
             raise ValueError("texture.set_data() format does not match.")
         # Make sure the shape is ok.
-        reshape_array(view, self.size)
+        view = reshape_array(view, self.size)
         # Ok
         self._data = data
         self._view = view
@@ -606,4 +606,5 @@ def reshape_array(view, size):
     expected_shape = tuple(reversed(size))
     if expected_shape != view.shape[:3]:
         # This can fail if the data is not contiguous and strides don't work out.
-        view.shape = (*expected_shape, -1)
+        view = view.reshape(*expected_shape, -1)
+    return view

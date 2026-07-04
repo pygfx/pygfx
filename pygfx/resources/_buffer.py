@@ -90,7 +90,7 @@ class Buffer(Resource):
             # Store data and view, and do some basic checks.
             # The view is a numpy array, but we go via memoryview to ensure data follows the buffer protocol.
             self._data = data
-            self._view = view = np.asarray(memoryview(data))
+            view = np.asarray(memoryview(data))
             if self._force_contiguous:
                 check_data_is_clean_for_performance("buffer", view)
             the_nbytes = view.nbytes
@@ -103,12 +103,12 @@ class Buffer(Resource):
                 the_nitems = view.shape[0]
             else:
                 the_nitems = 1  # A scalar, e.g. a uniform struct
-            reshape_array(view, the_nitems)
+            self._view = reshape_array(view, the_nitems)
             # Establish format
             detected_format = None
-            element_format = get_element_format_from_numpy_array(view)
+            element_format = get_element_format_from_numpy_array(self._view)
             if element_format:
-                elements_per_item = int(np.prod(view.shape[1:], initial=1))
+                elements_per_item = int(np.prod(self._view.shape[1:], initial=1))
                 detected_format = (f"{elements_per_item}x" + element_format).lstrip(
                     "1x"
                 )
@@ -328,7 +328,7 @@ class Buffer(Resource):
         if view.dtype != self._view.dtype:
             raise ValueError("buffer.set_data() format does not match.")
         # Make sure the shape is ok. We only care about the first dimension.
-        reshape_array(view, self.nitems)
+        view = reshape_array(view, self.nitems)
         # Ok
         self._data = data
         self._view = view
@@ -459,4 +459,5 @@ def reshape_array(view, n):
         if n == 0:
             elements_per_item = int(np.prod([max(i, 1) for i in view.shape], initial=1))
         # This can fail if the data is not contiguous and strides don't work out.
-        view.shape = (n, elements_per_item)
+        view = view.reshape(n, elements_per_item)
+    return view
