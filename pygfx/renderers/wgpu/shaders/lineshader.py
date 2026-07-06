@@ -314,11 +314,11 @@ class LineShader(BaseShader):
     def get_render_info(self, wobject, shared):
         # Determine how many vertices are needed
         offset, size = self._get_n(wobject.geometry.positions)
-        n_instances = 1
+        inst_offset, inst_size = 0, 1
         if self["instanced"]:
-            n_instances = wobject.instance_buffer.nitems
+            inst_offset, inst_size = wobject.instance_buffer.draw_range
         return {
-            "indices": (size, n_instances, offset, 0),
+            "indices": (size, inst_size, offset, inst_offset),
         }
 
     def get_code(self):
