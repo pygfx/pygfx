@@ -459,5 +459,5 @@ def reshape_array(view, n):
         if n == 0:
             elements_per_item = int(np.prod([max(i, 1) for i in view.shape], initial=1))
         # This can fail if the data is not contiguous and strides don't work out.
-        view = view.reshape(n, elements_per_item)
+        view = view.reshape(n, elements_per_item, copy=False)
     return view
