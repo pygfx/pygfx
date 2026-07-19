@@ -30,11 +30,11 @@ import pygfx
 
 # from here: https://github.com/harfbuzz/uharfbuzz/pull/275 placed in /dist
 # might also be a CORS problem. pypi now supports pyemscripten, so this could work in a few weeks once cibuildwheel updates!
-# wgpu_wheel = "https://wgpu-py--753.org.readthedocs.build/en/753/_static/wgpu-0.31.0-py3-none-any.whl" # very hacky way to serve this but it does work...
-wgpu_wheel = "wgpu-0.31.0-py3-none-any.whl"
+# wgpu_wheel = "https://wgpu-py--753.org.readthedocs.build/en/753/_static/wgpu-0.32.0-py3-none-any.whl" # very hacky way to serve this but it does work...
+wgpu_wheel = "wgpu-0.32.0-py3-none-any.whl"
 
 # the pygfx wheel will be listed after this. it might be possible to still get deps from pyproject.toml
-pygfx_deps = [wgpu_wheel, "uharfbuzz", "hsluv", "pylinalg", "jinja2", "httpx", "trimesh", "gltflib", "imageio"]
+pygfx_deps = [wgpu_wheel, "imgui-bundle", "uharfbuzz", "hsluv", "pylinalg", "jinja2", "httpx", "trimesh", "gltflib", "imageio"]
 
 root = Path(__file__).parent.parent.absolute()
 
@@ -53,7 +53,7 @@ def get_html_index():
     <head>
         <meta name="viewport" content="width=device-width,initial-scale=1.0">
         <title>pygfx browser examples</title>
-        <script type="module" src="https://pyscript.net/releases/2025.11.2/core.js"></script>
+        <script type="module" src="https://pyscript.net/releases/2026.7.2/core.js"></script>
     </head>
     <body>
 
@@ -77,7 +77,7 @@ pyscript_graphics_template = """
 <head>
     <meta name="viewport" content="width=device-width,initial-scale=1.0">
     <title>{example_script} via PyScript</title>
-    <script type="module" src="https://pyscript.net/releases/2026.3.1/core.js"></script>
+    <script type="module" src="https://pyscript.net/releases/2026.7.2/core.js"></script>
 </head>
 
 <body>
@@ -112,31 +112,28 @@ pyodide_compute_template = """
 <head>
     <meta name="viewport" content="width=device-width,initial-scale=1.0">
     <title>{example_script} via Pyodide</title>
-    <script src="https://cdn.jsdelivr.net/pyodide/v314.0.0/full/pyodide.js"></script>
+    <script src="https://cdn.jsdelivr.net/pyodide/v314.0.2/full/pyodide.js"></script>
 </head>
 <base href="/">
 
-<dialog id="loading" style='outline: none; border: none; background: transparent;'>
-        <h1>Loading...</h1>
-    </dialog>
 <body>
     <a href="/">Back to list</a><br><br>
     <!-- TODO: can we get a rebuild and rerun this example button? like go to /build with a redirect or something? -->
     <p>
     {docstring}
     </p>
-    <canvas id='canvas' style='width:calc(90% - 40px); height:640px; background-color: #ddd;'></canvas>
+    <div id="canvas" class='renderview-wrapper is-resizable has-titlebar' style="width: 80%; height: 480px;">
+        <p id="loading"; style='width:100%; height:100%; background:#aaa; display: flex; justify-content: center; align-items: center; font-size:150%'>Loading ...</p>
+    </div>
     <div id="output" style="white-space: per-line; overflow-y: auto; height:300px; background:#eee; padding:4px; margin:4px; border:1px solid #ccc;">
         <p>Output:</p>
     </div>
     <script type="text/javascript">
         async function main() {{
             let loading = document.getElementById('loading');
-            loading.showModal();
             try {{
                 let example_name = {example_script!r};
                 pythonCode = await (await fetch(example_name)).text();
-                // this env var is really only used for the pygfx examples - so maybe we make a script for that gallery instead?
                 pyodide = await loadPyodide();
                 pyodide.setStdout({{
                     batched: (s) => {{
@@ -147,16 +144,14 @@ pyodide_compute_template = """
                         console.log(s); // so we also have it formatted
                     }}
                 }});
-
                 await pyodide.loadPackage("micropip");
                 const micropip = pyodide.pyimport("micropip");
                 await micropip.install.callKwargs({dependencies}, {{pre: true}});
-                await pyodide.loadPackagesFromImports(pythonCode);
+                await pyodide.loadPackagesFromImports(pythonCode); // only for pyodide packaged wheels... so not that useful anymore.
                 // I feel like some errors around stack switching are worse now -.-
                 pyodide.setDebug(true);
                 let ret = await pyodide.runPythonAsync(pythonCode);
                 console.log("Example finished:", ret);
-                loading.close();
             }} catch (err) {{
                 // TODO: this could be formatted better as this overlaps and is unreadable...
                 loading.innerHTML = "Failed to load: " + err;
