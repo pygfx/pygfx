@@ -3,8 +3,8 @@
 ## Introduction
 
 This code of conduct applies to all spaces managed by the Pygfx project,
-including all public and private mailing lists, issue trackers, wikis, blogs,
-Twitter, and any other communication channel used by our community, including
+including all code repositories under the Pygfx organization, as well as wikis, blogs,
+social media, and any other communication channel used by our community, including
 any in-person events, whether directly organized by Pygfx developers
 or associated people.
 

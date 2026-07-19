@@ -465,12 +465,12 @@ class MeshShader(BaseShader):
         offset, size = geometry.indices.draw_range
         offset, size = mul * offset, mul * size
 
-        n_instances = 1
+        inst_offset, inst_size = 0, 1
         if self["instanced"]:
-            n_instances = wobject.instance_buffer.nitems
+            inst_offset, inst_size = wobject.instance_buffer.draw_range
 
         return {
-            "indices": (size, n_instances, offset, 0),
+            "indices": (size, inst_size, offset, inst_offset),
         }
 
     def _check_texture(self, t, geometry, view_dim):
