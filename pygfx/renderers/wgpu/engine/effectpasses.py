@@ -92,6 +92,7 @@ def create_full_quad_pipeline(targets, binding_layout, fragment_code):
         shader_module = device.create_shader_module(code=wgsl)
 
         pipeline_layout = device.create_pipeline_layout(
+            label=f"effect pass pipeline layout {key2}",
             bind_group_layouts=[bind_group_layout]
         )
 

@@ -24,7 +24,7 @@ class Controller:
     enabled: bool
         Whether the controller is enabled (i.e. responds to events).
     damping: float
-        The amount of motion damping. Zero is no damping, 10 a lot. Default 4.
+        The amount of motion damping. Zero is no damping, 10 a lot. Default 1.
     auto_update: bool
         When True (default), the controller is pretty much plug-and-play.
         For more control, it can be set to False. The controller will
@@ -55,7 +55,7 @@ class Controller:
         camera=None,
         *,
         enabled=True,
-        damping=4,
+        damping=1,
         auto_update=True,
         register_events=None,
     ):

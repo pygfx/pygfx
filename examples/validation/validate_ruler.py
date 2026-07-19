@@ -86,7 +86,6 @@ camera = gfx.OrthographicCamera(maintain_aspect=False)
 camera.show_rect(-100, 1100, -12, 6)
 controller = gfx.PanZoomController(camera, register_events=renderer)
 
-
 def animate():
     for ob in scene.children:
         if isinstance(ob, gfx.Ruler):
