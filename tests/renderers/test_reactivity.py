@@ -241,7 +241,7 @@ def test_change_blending_mode():
 
     cube = gfx.Mesh(
         geometry,
-        gfx.MeshPhongMaterial(map=gfx.cm.plasma),
+        gfx.MeshPhongMaterial(map=gfx.cm.plasma, force_single_pass=True),
     )
 
     # Render once

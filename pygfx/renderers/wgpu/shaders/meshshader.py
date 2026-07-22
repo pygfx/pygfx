@@ -64,6 +64,12 @@ class MeshShader(BaseShader):
         # Per-vertex color, colormap, or a plane color?
         self["colorspace"] = "srgb"
 
+        if (
+            material.render_queue <= 2500
+            and material.alpha_config["method"] == "opaque"
+        ):
+            self["OPAQUE"] = True
+
         color_mode = str(material.color_mode).split(".")[-1]
 
         self["color_mode"] = color_mode
@@ -133,7 +139,7 @@ class MeshShader(BaseShader):
 
         return bindings
 
-    def get_bindings(self, wobject, shared, scene):
+    def get_bindings(self, wobject, shared, scene, renderer):
         geometry = wobject.geometry
         material = wobject.material
 
@@ -527,8 +533,8 @@ class MeshToonShader(MeshShader):
         super().__init__(wobject)
         self["lighting"] = "toon"
 
-    def get_bindings(self, wobject, shared, scene):
-        result = super().get_bindings(wobject, shared, scene)
+    def get_bindings(self, wobject, shared, scene, renderer):
+        result = super().get_bindings(wobject, shared, scene, renderer)
 
         geometry = wobject.geometry
         material = wobject.material
@@ -558,8 +564,8 @@ class MeshStandardShader(MeshShader):
         super().__init__(wobject)
         self["lighting"] = "pbr"
 
-    def get_bindings(self, wobject, shared, scene):
-        result = super().get_bindings(wobject, shared, scene)
+    def get_bindings(self, wobject, shared, scene, renderer):
+        result = super().get_bindings(wobject, shared, scene, renderer)
 
         geometry = wobject.geometry
         material = wobject.material
@@ -625,8 +631,8 @@ class MeshPhysicalShader(MeshStandardShader):
         self["USE_IOR"] = True
         self["USE_SPECULAR"] = True
 
-    def get_bindings(self, wobject, shared, scene):
-        result = super().get_bindings(wobject, shared, scene)
+    def get_bindings(self, wobject, shared, scene, renderer):
+        result = super().get_bindings(wobject, shared, scene, renderer)
 
         geometry = wobject.geometry
         material = wobject.material
@@ -666,7 +672,9 @@ class MeshPhysicalShader(MeshStandardShader):
             if material.clearcoat_normal_map is not None:
                 bindings.extend(
                     self._define_texture_map(
-                        geometry, material.clearcoat_normal_map, "clearcoat_normal_map"
+                        geometry,
+                        material.clearcoat_normal_map,
+                        "clearcoat_normal_map",
                     )
                 )
                 self["use_clearcoat_normal_map"] = True
@@ -724,6 +732,50 @@ class MeshPhysicalShader(MeshStandardShader):
                     )
                 )
                 self["use_anisotropy_map"] = True
+
+        # transmission
+        if material.transmission:
+            self["USE_TRANSMISSION"] = True
+
+            if material.transmission_map is not None:
+                bindings.extend(
+                    self._define_texture_map(
+                        geometry, material.transmission_map, "transmission_map"
+                    )
+                )
+                self["use_transmission_map"] = True
+
+            if material.thickness_map is not None:
+                bindings.extend(
+                    self._define_texture_map(
+                        geometry, material.thickness_map, "thickness_map"
+                    )
+                )
+                self["use_thickness_map"] = True
+
+            if material.dispersion:
+                self["USE_DISPERSION"] = True
+
+            transmission_framebuffer = renderer._transmission_framebuffer
+            if transmission_framebuffer is not None:
+                bindings.append(
+                    Binding(
+                        "t_transmission_framebuffer",
+                        "texture/auto",
+                        GfxTextureView(transmission_framebuffer, view_dim="2d"),
+                        "FRAGMENT",
+                    )
+                )
+
+                transmission_framebuffer_sampler = GfxSampler("linear", "clamp")
+                bindings.append(
+                    Binding(
+                        "s_transmission_framebuffer",
+                        "sampler/filtering",
+                        transmission_framebuffer_sampler,
+                        "FRAGMENT",
+                    ),
+                )
 
         # Define shader code for binding
         bindings = {i: binding for i, binding in enumerate(bindings)}
@@ -806,7 +858,7 @@ class MeshSliceShader(BaseShader):
         else:
             raise RuntimeError(f"Unknown color_mode: '{color_mode}'")
 
-    def get_bindings(self, wobject, shared, scene):
+    def get_bindings(self, wobject, shared, scene, renderer):
         # It would technically be possible to implement colormapping or
         # per-vertex colors, but its a tricky dance to get the per-vertex
         # data (e.g. texcoords) into a varying. And because the visual
