@@ -85,6 +85,34 @@ Doing a lot of work on certain events can affect performance. Especially events 
 Some seemingly hamless things, like using ``print()`` on every draw, are more expensive than you might think.
 
 
+Event handlers and memory
+-------------------------
+
+By default ``add_event_handler`` keeps a *strong* reference to the handler. If
+an object registers one of its own bound methods on an object it owns (e.g. a
+controller registering ``self._on_pointer_down`` on a scene it holds), this
+may form a reference cycle if the event handler is a class::
+
+    owner -> child -> owner._event_handlers -> bound method -> owner
+
+Reference counting cannot break a cycle, so dropping your last reference to the
+owner frees nothing until the *cyclic* garbage collector runs. That collector
+is scheduled by allocation thresholds that count Python objects and are unaware
+of GPU memory, so any textures and buffers the owner keeps alive can linger far
+longer than expected -- long enough to exhaust VRAM in workflows that create
+and discard many scenes.
+
+Two tools help reclaim such resources promptly:
+
+* Pass ``weak=True`` to ``add_event_handler``. The handler is then stored via a
+  weak reference, so the registration no longer keeps the callback (or, for a
+  bound method, its instance) alive, and the owner is reclaimed by reference
+  counting alone. Keep a reference to the callback yourself, otherwise it is
+  collected and never fires (see :meth:`~pygfx.objects.EventTarget.add_event_handler`).
+* Call :meth:`~pygfx.objects.EventTarget.clear_event_handlers` to deterministically
+  detach all handlers from an object before discarding it.
+
+
 Probably more
 -------------
 
