@@ -72,7 +72,7 @@ markers = np.tile(markers, ncolors)
 positions = np.zeros((ncolors, nmarkers, 3), np.float32)
 positions[:, :, 0].flat = np.arange(ncolors).repeat(nmarkers) * 2
 positions[:, :, 1] = -np.arange(1, nmarkers + 1) * 2
-positions.shape = -1, 3
+positions = positions.reshape((-1, 3), copy=False)
 
 geometry = gfx.Geometry(
     positions=positions,

@@ -33,7 +33,7 @@ scene = gfx.Scene()
 
 env_img = iio.imread("imageio:meadow_cube.jpg")
 cube_size = env_img.shape[1]
-env_img.shape = 6, cube_size, cube_size, env_img.shape[-1]
+env_img = env_img.reshape((6, cube_size, cube_size, env_img.shape[-1]), copy=False)
 
 env_static = gfx.Texture(
     env_img, dim=2, size=(cube_size, cube_size, 6), generate_mipmaps=True

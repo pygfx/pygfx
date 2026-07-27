@@ -35,7 +35,7 @@ point_light.add(gfx.PointLightHelper(4))
 # Read cube image and turn it into a 3D image (a 4d array)
 env_img = iio.imread("imageio:meadow_cube.jpg")
 cube_size = env_img.shape[1]
-env_img.shape = 6, cube_size, cube_size, env_img.shape[-1]
+env_img = env_img.reshape((6, cube_size, cube_size, env_img.shape[-1]), copy=False)
 
 # Create environment map
 env_tex = gfx.Texture(

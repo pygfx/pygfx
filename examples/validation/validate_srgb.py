@@ -21,7 +21,7 @@ import pygfx as gfx
 renderer = gfx.renderers.WgpuRenderer(RenderCanvas(size=(600, 600)))
 
 rgba = np.repeat(np.linspace(0, 255, 6).reshape(1, -1), 2, 0).astype(np.uint8)
-rgba.shape = (*rgba.shape, 1)
+rgba = rgba.reshape((*rgba.shape, 1), copy=False)
 rgba = np.repeat(rgba, 4, 2)
 rgba[:, :, 3] = 255
 rgb = rgba[:, :, :3].copy()

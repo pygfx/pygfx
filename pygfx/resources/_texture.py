@@ -371,8 +371,7 @@ class Texture(Resource):
         ):
             raise ValueError("The data with this offset does not fit.")
         # Create chunk
-        data = np.asarray(data).view()
-        data.shape = shape
+        data = np.asarray(data).reshape(shape, copy=False)
         if not data.flags.c_contiguous:
             if self._force_contiguous:
                 raise ValueError(

@@ -20,7 +20,7 @@ im = iio.imread("imageio:meadow_cube.jpg")
 
 # Turn it into a 3D image (a 4d nd array)
 width = height = im.shape[1]
-im.shape = -1, width, height, 3
+im = im.reshape((-1, width, height, 3), copy=False)
 
 canvas = RenderCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
