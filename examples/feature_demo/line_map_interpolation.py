@@ -19,18 +19,18 @@ import cmap
 from rendercanvas.auto import RenderCanvas, loop
 import pygfx as gfx
 
-
-canvas = RenderCanvas(size=(1000, 500))
+canvas = RenderCanvas()
 renderer = gfx.WgpuRenderer(canvas)
 
-# A line whose points carry categorical labels, e.g. cluster ids.
-x = np.linspace(0, 4 * np.pi, 50)
+# A line that represents categorical data, e.g. cluster labels
+x = np.linspace(0, 4 * np.pi, 10)
 y = np.sin(x)
-labels = np.repeat([0, 2, 4, 6, 8], 10)  # five of the ten tab10 colors
+positions = np.column_stack([x, y, np.zeros(10)]).astype(np.float32)
 
-positions = np.array([x * 100, y * 100, np.zeros_like(x)], np.float32).T.copy()
+labels = np.repeat([0, 2, 4, 6, 8], 2).astype(np.float32)
 # Place each label at the center of its texel in the 10-color map.
-texcoords = ((labels + 0.5) / 10).astype(np.float32)
+texcoords = ((labels + 0.5)).astype(np.float32)
+
 geometry = gfx.Geometry(positions=positions, texcoords=texcoords)
 
 tab10 = cmap.Colormap("tab10").to_pygfx()
@@ -38,14 +38,20 @@ tab10 = cmap.Colormap("tab10").to_pygfx()
 line_flat = gfx.Line(
     geometry,
     gfx.LineMaterial(
-        thickness=20, color_mode="vertex_map", map=tab10, map_interpolation="flat"
+        thickness=20,
+        color_mode="vertex_map",
+        map=tab10,
+        map_interpolation="flat",
+        maprange=(0, 10),  # the range of tab10 is [0, 10)
     ),
 )
 line_perspective = gfx.Line(
     geometry,
-    gfx.LineMaterial(thickness=20, color_mode="vertex_map", map=tab10),
+    gfx.LineMaterial(
+        thickness=20, color_mode="vertex_map", map=tab10, maprange=(0, 10)
+    ),
 )
-line_perspective.local.y = -300
+line_perspective.local.y = -2
 
 scene = gfx.Scene()
 scene.add(line_flat, line_perspective)
