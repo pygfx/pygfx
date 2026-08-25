@@ -731,9 +731,8 @@ fn vs_main(in: VertexInput) -> Varyings {
             varyings.texcoord_vert = vec3<f32>(texcoord_vert);
         $$ endif
         $$ if map_interpolation == 'flat'
-            // Do not interpolate the texcoords across the primitive.
+            // Do not interpolate the node texcoord across the primitive.
             // flatvarying texcoord_node
-            // flatvarying texcoord_vert
         $$ endif
     $$ endif
 
@@ -968,12 +967,18 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
     $$ elif color_mode == 'face'
         let color = varyings.color_vert;
     $$ elif color_mode == 'vertex_map'
+        $$ if map_interpolation == 'flat'
+        // Sample the node's own texcoord. Unlike texcoord_vert it has no screen-space
+        // term, so the color does not drift towards a neighbour node when zooming.
+        let color = sample_colormap(varyings.texcoord_node);
+        $$ else
         var texcoord = varyings.texcoord_vert;
         if (is_join) {
             let texcoord_segment = varyings.texcoord_node - (varyings.texcoord_node - varyings.texcoord_vert) / (1.0 - abs(join_coord_lin));
             texcoord = mix(texcoord_segment, varyings.texcoord_node, abs(join_coord_fan));
         }
         let color = sample_colormap(texcoord);
+        $$ endif
     $$ elif color_mode == 'face_map'
         let color = sample_colormap(varyings.texcoord_vert);
     $$ else
