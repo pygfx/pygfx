@@ -730,6 +730,11 @@ fn vs_main(in: VertexInput) -> Varyings {
             varyings.texcoord_node = vec3<f32>(texcoord_node);
             varyings.texcoord_vert = vec3<f32>(texcoord_vert);
         $$ endif
+        $$ if map_interpolation == 'flat'
+            // Do not interpolate the texcoords across the primitive.
+            // flatvarying texcoord_node
+            // flatvarying texcoord_vert
+        $$ endif
     $$ endif
 
     return varyings;

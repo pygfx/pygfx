@@ -231,10 +231,21 @@ class VaryingResolver:
             used_builtins = used_varyings.intersection(builtin_varyings)
             used_slots = used_varyings.difference(used_builtins)
             used_slots = list(sorted(used_slots))
+            # Varyings tagged with a `// flatvarying <name>` directive are declared
+            # with @interpolate(flat), so they are not interpolated across the primitive.
+            flat_prefix = "// flatvarying "
+            flat_varyings = {
+                line.strip()[len(flat_prefix) :].split("//")[0].strip()
+                for line in lines
+                if line.strip().startswith(flat_prefix)
+            }
             # Build struct
             struct_lines = ["struct Varyings {"]
             for slotnr, name in enumerate(used_slots):
-                struct_lines.append(f"    @location({slotnr}) {name} : {types[name]},")
+                interpolation = "@interpolate(flat) " if name in flat_varyings else ""
+                struct_lines.append(
+                    f"    @location({slotnr}) {interpolation}{name} : {types[name]},"
+                )
             for name in sorted(used_builtins):
                 struct_lines.append(f"    @builtin({name}) {name} : {types[name]},")
             struct_lines.append("};\n")
