@@ -38,6 +38,15 @@ struct PhysicalMaterial {
         anisotropy_t: vec3<f32>,
         anisotropy_b: vec3<f32>,
     $$ endif
+
+    $$ if USE_TRANSMISSION is defined
+        transmission: f32,
+        transmission_alpha: f32,
+        thickness: f32,
+        attenuation_distance: f32,
+        attenuation_color: vec3<f32>,
+        dispersion: f32,
+    $$ endif
 };
 
 var<private> clearcoat_specular_direct: vec3f = vec3f(0.0);

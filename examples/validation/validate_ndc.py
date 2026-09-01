@@ -32,7 +32,7 @@ class SquareMaterial(gfx.Material):
 
 @register_wgpu_render_function(Square, SquareMaterial)
 class SquareShader(BaseShader):
-    def get_bindings(self, wobject, shared, scene):
+    def get_bindings(self, wobject, shared, scene, renderer):
         binding = Binding("u_stdinfo", "buffer/uniform", shared.uniform_buffer)
         self.define_binding(0, 0, binding)
         return {

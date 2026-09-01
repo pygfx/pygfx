@@ -109,6 +109,7 @@ class LineMaterial(Material):
     @aa.setter
     def aa(self, aa):
         self._store.aa = bool(aa)
+        self._derive_render_queue()
 
     @property
     def _gfx_effective_aa(self):
