@@ -1,12 +1,12 @@
 from contextlib import contextmanager
-from typing import Tuple, Union
 from time import perf_counter
+from typing import Tuple, Union
 
 import numpy as np
 import pylinalg as la
 
 from ..cameras import Camera, PerspectiveCamera
-from ..cameras._perspective import fov_limit, fov_distance_factor
+from ..cameras._perspective import fov_distance_factor, fov_limit
 from ..renderers import Renderer
 from ..utils.viewport import Viewport
 
@@ -700,7 +700,7 @@ class Controls(dict):
         modifiers = sorted([m.lower() for m in modifiers])
         button = button.lower()
         for m in modifiers:
-            if m not in ("shift", "control", "alt"):
+            if m not in ("shift", "control", "alt", "meta"):
                 raise ValueError(f"Invalid key modifier '{m}'")
         if len(button) == 1:
             pass  # a key
