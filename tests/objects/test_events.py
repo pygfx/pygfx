@@ -1,3 +1,6 @@
+import gc
+import weakref
+
 from pygfx import Scene, WorldObject
 from pygfx.objects._events import EventTarget, Event, PointerEvent, RootEventHandler
 
@@ -37,6 +40,79 @@ def test_event_target():
     c.handle_event(event_with_val(type="spam", value=9))
 
     assert events == [1, 2, 5]
+
+
+def test_weak_event_handler_fires_and_can_be_removed():
+    c = EventTarget()
+    events = []
+
+    class Listener:
+        def on_event(self, event):
+            events.append(event.value)
+
+    listener = Listener()
+
+    def event_with_val(type, value):
+        ev = Event(type)
+        ev.value = value
+        return ev
+
+    c.add_event_handler(listener.on_event, "foo", weak=True)
+    c.handle_event(event_with_val("foo", 1))
+    assert events == [1]
+
+    # A weakly stored bound method can still be removed explicitly.
+    c.remove_event_handler(listener.on_event, "foo")
+    c.handle_event(event_with_val("foo", 2))
+    assert events == [1]
+
+
+def test_weak_event_handler_does_not_keep_owner_alive():
+    # The whole point: a weak handler must not keep its owner alive, so the
+    # owner can be reclaimed by reference counting alone (cyclic gc disabled).
+    c = EventTarget()
+
+    class Listener:
+        def on_event(self, event):
+            pass
+
+    gc.disable()
+    try:
+        listener = Listener()
+        wr = weakref.ref(listener)
+        c.add_event_handler(listener.on_event, "foo", weak=True)
+
+        del listener
+        # No cyclic collector involved; refcounting alone must reclaim it.
+        assert wr() is None
+
+        # The dead handler is pruned on dispatch and does not raise.
+        c.handle_event(Event("foo"))
+        assert c._event_handlers["foo"] == set()
+    finally:
+        gc.enable()
+
+
+def test_strong_event_handler_keeps_owner_alive():
+    # By default (weak=False) the handler keeps the owner alive, which is the
+    # pre-existing behaviour and the reason a reference cycle can form.
+    c = EventTarget()
+
+    class Listener:
+        def on_event(self, event):
+            pass
+
+    gc.disable()
+    try:
+        listener = Listener()
+        wr = weakref.ref(listener)
+        c.add_event_handler(listener.on_event, "foo")
+
+        del listener
+        # Strong reference from the handler keeps it alive.
+        assert wr() is not None
+    finally:
+        gc.enable()
 
 
 def test_event_bubbling():
