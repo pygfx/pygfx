@@ -16,7 +16,7 @@ keywords = [
     "webgpu",
     "wgpu",
 ]
-requires-python = ">= 3.10"
+requires-python = ">= 3.11"
 dependencies = [
     # Packages under the PyGfx umbrella.
     # For some of these we set an upper bound because (for now) they regularly break their API.
