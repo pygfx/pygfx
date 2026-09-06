@@ -742,7 +742,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         flat.collect_pipelines_container_groups(renderstate)
 
         # Enable pipelines to update data on the CPU.
-        flat.call_bake_functions(camera, logical_size)
+        flat.call_bake_functions(camera, scene_lsize)
 
         # Update *all* buffers and textures that have changed
         for resource in resource_update_registry.get_syncable_resources(flush=True):
