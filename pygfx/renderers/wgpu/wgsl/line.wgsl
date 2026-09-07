@@ -366,11 +366,11 @@ fn vs_main(in: VertexInput) -> Varyings {
             var cumdist_other = 0.0;
         $$ else
             let cumdist_before = 0.0;
-            $$ if thickness_space == 'screen'
+            $$ if cumdist_space == 'screen'
             let cumdist_after = length(pos_s_node.xy - select(pos_s_prev.xy, pos_s_next.xy, node_index_is_even));
-            $$ elif thickness_space == 'world'
+            $$ elif cumdist_space == 'world'
             let cumdist_after = length(pos_w_node.xyz - select(pos_w_prev.xyz, pos_w_next.xyz, node_index_is_even));
-            $$ elif thickness_space == 'model'
+            $$ elif cumdist_space == 'model'
             let cumdist_after = length(pos_m_node.xyz - select(pos_m_prev.xyz, pos_m_next.xyz, node_index_is_even));
             $$ endif
             let cumdist_node = select(cumdist_before, cumdist_after, !node_index_is_even);
@@ -702,9 +702,12 @@ fn vs_main(in: VertexInput) -> Varyings {
     $$ if dashing
         // Set two varyings, so that we can correctly interpolate the cumdist in the joins.
         // If the thickness is in screen space, we need to correct for perspective division
-        varyings.cumdist_node = f32(cumdist_node)  {{ '* w' if thickness_space == 'screen' else '' }};
-        varyings.cumdist_vertex = f32(cumdist_vertex)  {{ '* w' if thickness_space == 'screen' else '' }};
-        varyings.cumdist_per_pixel = f32( abs(cumdist_node - cumdist_other) / length(pos_s_node - pos_s_other) / l2p )  {{ '' if thickness_space == 'screen' else '* (pos_n_node.w / pos_n_other.w) / w' }};
+        $$ if dash_fit == 'spread'
+        varyings.gap_scale = f32(load_s_gapscale(cumdist_index));
+        $$ endif
+        varyings.cumdist_node = f32(cumdist_node)  {{ '* w' if cumdist_space == 'screen' else '' }};
+        varyings.cumdist_vertex = f32(cumdist_vertex)  {{ '* w' if cumdist_space == 'screen' else '' }};
+        varyings.cumdist_per_pixel = f32( abs(cumdist_node - cumdist_other) / length(pos_s_node - pos_s_other) / l2p )  {{ '' if cumdist_space == 'screen' else '* (pos_n_node.w / pos_n_other.w) / w' }};
     $$ endif
 
     // Picking
@@ -837,7 +840,7 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
             // In a segment everything is straight.
             cumdist_continuous = varyings.cumdist_vertex;
         }
-        $$ if thickness_space == 'screen'
+        $$ if cumdist_space == 'screen'
             cumdist_continuous = cumdist_continuous / varyings.w;
             cumdist_per_pixel = varyings.cumdist_per_pixel;
         $$ else
@@ -850,7 +853,11 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
         var gap_sizes = array<f32,dash_count>{{dash_pattern[1::2]}};
         for (var i=0; i<dash_count; i+=1) {
             stroke_sizes[i] = stroke_sizes[i];
-            gap_sizes[i] = gap_sizes[i];
+            $$ if dash_fit == 'spread'
+            // Widening only the gaps is what lets a pattern be fitted to a
+            // piece without the strokes changing size.
+            gap_sizes[i] = gap_sizes[i] * varyings.gap_scale;
+            $$ endif
         }
 
         // Calculate the total dash size, and the size of the last gap. The dash_count is a const
@@ -864,7 +871,14 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
 
         // Calculate dash_progress, a number 0..dash_size, indicating the fase of the dash.
         // Except that we shift it, so that half of the final gap gets in front (as a negative number).
-        let cumdist_corrected = cumdist_continuous / u_material.thickness + u_material.dash_offset % dash_size;
+        $$ if dash_scaling == 'quantized'
+            // The baked cumdist is already in dash units. The offset is in whole
+            // periods, because only a whole number of periods leaves the dashes
+            // in place when the period changes.
+            let cumdist_corrected = cumdist_continuous + (u_material.dash_offset % 1.0) * dash_size;
+        $$ else
+            let cumdist_corrected = cumdist_continuous / u_material.thickness + u_material.dash_offset % dash_size;
+        $$ endif
         let dash_progress = (cumdist_corrected + 0.5 * last_gap) % dash_size - 0.5 * last_gap;
 
         // Its looks a bit like this. Now we select the nearest stroke, and calculate the
@@ -900,7 +914,11 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
         let dist_to_dash = max(0.0, max(dist_to_begin, dist_to_end));
 
         // Convert to (physical) pixel units
-        let dashdist_to_physical = u_material.thickness / cumdist_per_pixel;
+        $$ if dash_scaling == 'quantized'
+            let dashdist_to_physical = 1.0 / cumdist_per_pixel;
+        $$ else
+            let dashdist_to_physical = u_material.thickness / cumdist_per_pixel;
+        $$ endif
         let dist_to_begin_p = dist_to_begin * dashdist_to_physical;
         let dist_to_end_p = dist_to_end * dashdist_to_physical;
         let dist_to_dash_p = dist_to_dash * dashdist_to_physical;
