@@ -21,6 +21,8 @@ class LineMaterial(Material):
         The texture map specifying the color for each texture coordinate. Optional.
     maprange : tuple
         The range of the ``geometry.texcoords`` that is projected onto the (color) map. Default (0, 1).
+    map_interpolation : str
+        How the map's texcoords are interpolated across the line, 'perspective' or 'flat'. Default 'perspective'.
     dash_pattern : tuple
         The pattern of the dash, e.g. `[2, 3]`. See `dash_pattern` docs for details. Defaults to an empty tuple, i.e. no dashing.
     dash_offset : float
@@ -50,6 +52,7 @@ class LineMaterial(Material):
         color_mode="auto",
         map=None,
         maprange=None,
+        map_interpolation="perspective",
         dash_pattern=(),
         dash_offset=0,
         loop=False,
@@ -64,6 +67,7 @@ class LineMaterial(Material):
         self.color_mode = color_mode
         self.map = map
         self.maprange = maprange
+        self.map_interpolation = map_interpolation
         self.dash_pattern = dash_pattern
         self.dash_offset = dash_offset
         self.loop = loop
@@ -208,6 +212,24 @@ class LineMaterial(Material):
         # Update uniform data
         self.uniform_buffer.data["maprange"] = maprange
         self.uniform_buffer.update_full()
+
+    @property
+    def map_interpolation(self):
+        """How the map's texcoords are interpolated across the line.
+
+        Either 'perspective' (the default) or 'flat' (no interpolation; each
+        fragment uses a single vertex's texcoord).
+        """
+        return self._store.map_interpolation
+
+    @map_interpolation.setter
+    def map_interpolation(self, value):
+        value = value or "perspective"
+        if value not in ("perspective", "flat"):
+            raise ValueError(
+                f"LineMaterial.map_interpolation must be 'perspective' or 'flat', not {value!r}"
+            )
+        self._store.map_interpolation = value
 
     @property
     def dash_pattern(self):

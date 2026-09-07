@@ -85,6 +85,9 @@ class LineShader(BaseShader):
         else:
             raise RuntimeError(f"Unknown color_mode: '{color_mode}'")
 
+        # How the map's texcoords are interpolated across the primitive
+        self["map_interpolation"] = material.map_interpolation
+
         # Optimization: when the line is opaque, has a uniform color, and no dashing,
         # it can be rendered pretty safely without joins. I *think* this is faster,
         # because a lot of logic related joins becomes simpler. However, the miters
