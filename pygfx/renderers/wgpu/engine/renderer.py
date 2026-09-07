@@ -12,6 +12,7 @@ import numpy as np
 import wgpu
 import pylinalg as la
 from rendercanvas import BaseRenderCanvas
+from wgpu import GPUCanvasContext
 
 from ....objects._base import id_provider
 from ....objects import (
@@ -255,7 +256,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
             self.blend_mode = blend_mode
 
         # Check and normalize inputs
-        if not isinstance(target, (Texture, GfxTextureView, BaseRenderCanvas)):
+        if not isinstance(target, (Texture, GfxTextureView, BaseRenderCanvas, GPUCanvasContext)):
             raise TypeError(
                 f"Render target must be a Canvas or Texture, not a {target.__class__.__name__}"
             )
@@ -283,8 +284,11 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # Get target format
         self.gamma_correction = gamma_correction
         self._gamma_correction_srgb = 1.0
-        if isinstance(target, BaseRenderCanvas):
-            self._canvas_context = self._target.get_context("wgpu")
+        if isinstance(self._target, (BaseRenderCanvas, GPUCanvasContext)):
+            if hasattr(self._target, "get_context"):
+                self._canvas_context = self._target.get_context("wgpu")
+            else:
+                self._canvas_context = self._target
             # Select output format. We currently don't have a way of knowing
             # what formats are available, so if not srgb, we gamma-correct in shader.
             target_format = self._canvas_context.get_preferred_format(
@@ -517,6 +521,9 @@ class WgpuRenderer(RootEventHandler, Renderer):
             return target.get_logical_size()
         elif isinstance(target, Texture):
             return target.size[:2]  # assuming pixel-ratio 1
+        elif isinstance(target, GPUCanvasContext):
+            # TEMP: assume pixel-ratio 1
+            return self._canvas_context.get_current_texture().size[:2]
         else:
             raise TypeError(f"Unexpected render target {target.__class__.__name__}")
 
@@ -524,13 +531,28 @@ class WgpuRenderer(RootEventHandler, Renderer):
     def physical_size(self):
         """The physical size of the internal render texture."""
         target = self._target
-        if isinstance(self._target, BaseRenderCanvas):
-            target_physical_size = self._target.get_physical_size()
+        if isinstance(target, BaseRenderCanvas):
+            target_physical_size = target.get_physical_size()
+        elif isinstance(target, GPUCanvasContext):
+            target_physical_size = self._canvas_context.get_current_texture().size[:2]
         else:
             target_physical_size = target.size[:2]
         w, h = target_physical_size
         pixel_scale = self.pixel_scale
         return max(1, int(w * pixel_scale)), max(1, int(h * pixel_scale))
+
+    @physical_size.setter
+    def physical_size(self, size: tuple[int, int]) -> None:
+        """Set the physical size of the internal render texture."""
+        width, height = size
+        if width < 1 or height < 1:
+            raise ValueError("Renderer physical size must be at least 1x1 pixels.")
+        if isinstance(self._target, GPUCanvasContext):
+            self._canvas_context.set_physical_size(width, height)
+        else:
+            raise RuntimeError(
+                "Cannot set physical size when the target is not a GPUCanvasContext."
+            )
 
     @property
     def blend_mode(self):
@@ -792,7 +814,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
             target = self._target
 
         # Get the target texture view.
-        if isinstance(target, BaseRenderCanvas):
+        if isinstance(target, (BaseRenderCanvas, GPUCanvasContext)):
             target_tex = self._canvas_context.get_current_texture().create_view()
         elif isinstance(target, Texture):
             need_mipmaps = target.generate_mipmaps
