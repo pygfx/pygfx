@@ -32,7 +32,18 @@ examples_to_run = [ex[0] for ex in examples_info if ex[2] == "run"]
 examples_to_compare = [ex[0] for ex in examples_info if ex[2] == "compare"]
 
 
-CUSTOM_TOLERANCES = {"validate_text_md": 2}
+# The maximum difference allowed for any single value.
+#
+# Rendering is deterministic on a given machine, but it is not bit-identical
+# across machines. Llvmpipe JITs its shaders for the host CPU, and some of the
+# instructions it leans on (the approximate reciprocals in particular) are only
+# specified to about 12 bits, so their low bits are implementation defined. On
+# CI that shows up as a few hundred values, out of millions, moving by 2 or 3
+# levels on the examples that have a steep colormap or a lot of antialiased
+# edges: the exact same commit renders one way on every AMD runner and another
+# way on an Intel one. See #1318.
+# https://github.com/pygfx/pygfx/pull/1318
+ATOL = 3
 
 
 class LogHandler(logging.Handler):
@@ -151,9 +162,8 @@ def test_examples_compare(filename, pytestconfig, prep_environment, mock_time):
     stored_img = iio.imread(screenshot_path)
 
     # assert similarity
-    atol = CUSTOM_TOLERANCES.get(module_name, 1)
     try:
-        np.testing.assert_allclose(img, stored_img, atol=atol)
+        np.testing.assert_allclose(img, stored_img, atol=ATOL)
         is_similar = True
     except Exception as e:
         is_similar = False
@@ -164,7 +174,7 @@ def test_examples_compare(filename, pytestconfig, prep_environment, mock_time):
             " CI build artifacts as well)"
         ) from e
     finally:
-        update_diffs(module_name, is_similar, img, stored_img, atol=atol)
+        update_diffs(module_name, is_similar, img, stored_img)
 
 
 def import_from_path(module_name, filename):
@@ -181,7 +191,7 @@ def import_from_path(module_name, filename):
     return module
 
 
-def update_diffs(module, is_similar, img, stored_img, *, atol):
+def update_diffs(module, is_similar, img, stored_img):
     diffs_dir.mkdir(exist_ok=True)
 
     if is_similar:
@@ -202,7 +212,7 @@ def update_diffs(module, is_similar, img, stored_img, *, atol):
     diffs_rgba = np.abs(stored_img.astype("f4") - img)
 
     diffs_rgba_above_atol = diffs_rgba.copy()
-    diffs_rgba_above_atol[diffs_rgba <= atol] = 0
+    diffs_rgba_above_atol[diffs_rgba <= ATOL] = 0
 
     # magnify small values, making it easier to spot small errors
     diffs_rgba = ((diffs_rgba / 255) ** 0.25) * 255
