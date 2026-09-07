@@ -10,6 +10,8 @@ The enums used in pygfx. The enums are all available from the root ``pygfx`` nam
     BindMode
     ColorMode
     CoordSpace
+    DashFit
+    DashScaling
     EdgeMode
     ElementFormat
     InterpolationFilter
@@ -32,6 +34,8 @@ __all__ = [
     "BindMode",
     "ColorMode",
     "CoordSpace",
+    "DashFit",
+    "DashScaling",
     "EdgeMode",
     "ElementFormat",
     "InterpolationFilter",
@@ -129,6 +133,21 @@ class CoordSpace(Enum):
     model = None  #: The space relative to the object. When the object (or a parent) is e.g. scaled with ``wobject.local.scale = 2`` the thing becomes bigger.
     world = None  #: The space of the scene (the root object). Scaling or rotating of objects does not affect the thing's size or orientation.
     screen = None  #: The screen space (in logical pixels). The thing's size is not affected by zooming or scaling.
+
+
+class DashFit(Enum):
+    """The DashFit enum specifies whether a line's dash pattern is adjusted to fit its line pieces."""
+
+    exact = None  #: The dashes have exactly the size that ``dash_pattern`` asks for. Where a line piece is not a whole number of periods long -- which is almost always -- the pattern is cut off mid-period at the end, and on a closed piece the two ends of the pattern do not meet.
+    stretch = None  #: The pattern is scaled, per line piece, by the small factor that makes a whole number of periods span the piece. A closed piece then joins up seamlessly, and an open one begins and ends with a full stroke. The dash size is no longer exactly the one asked for, and differs between pieces of different lengths.
+    spread = None  #: As 'stretch', but only the gaps give: the strokes keep exactly the size ``dash_pattern`` asks for, and the space between them is widened until a whole number of periods spans the piece. The pattern is therefore a floor -- nothing is ever drawn smaller or closer together than asked -- and a piece that has grown enough to take another stroke gets one, which returns the gaps to their minimum.
+
+
+class DashScaling(Enum):
+    """The DashScaling enum specifies how a line's dash pattern behaves when the view scale changes."""
+
+    continuous = None  #: The dash pattern keeps the size given by ``dash_pattern`` and ``thickness_space``. When ``thickness_space`` is 'screen', the on-screen dash size is constant, but the dashes slide along the line as you zoom, increasingly so with the distance from the start of the line.
+    quantized = None  #: The dash pattern is anchored to the object, and its period is snapped to a power of two so that its on-screen size stays close to the size that ``dash_pattern`` asks for. The dashes do not move when you zoom: each time the view scale doubles, every dash splits in two.
 
 
 class MarkerShape(Enum):
