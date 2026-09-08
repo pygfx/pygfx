@@ -30,6 +30,13 @@ buffer.
 number of shapes are uploaded once, and the slider only moves
 ``geometry.positions.draw_range``. Ranges snap outward to whole shapes.
 
+**nan probability** scatters nans through the packed layout. A nan there is a
+hole in a ring, not a separator: the shape breaks open at that corner and the
+two ends get caps, while the closing segment survives as long as the first and
+last node do. That is different from what a nan means under **nan loop**, where
+it parts the buffer into pieces and each surviving run of three or more nodes
+becomes a loop of its own.
+
 **dash_pattern** puts the shapes on a dashed line. Each shape restarts its
 pattern from zero and its closing segment measures its own length, so the dashes
 run round a shape and meet themselves rather than arriving mid-period.
@@ -82,6 +89,7 @@ PANEL_WIDTH = 340
 LABEL_WIDTH = -150
 
 SEED = 7
+NAN_SEED = 11  # separate, so that poking nans does not re-roll the shapes
 MAX_OBJECTS = 4000
 MIN_CORNERS, MAX_CORNERS = 3, 16
 FIELD = 1000.0  # half-width of the field of shapes
@@ -156,22 +164,45 @@ def with_nans(positions, corners):
 
 
 _geometries = {}
+_clean_positions = {}
 
 
 def get_geometry(corners, nan):
     """The geometry for this corner count, in either layout, built once.
 
     Only the current corner count is kept; both layouts of it are built together
-    so that toggling `nan loop` does not rebuild anything.
+    so that toggling `nan loop` does not rebuild anything. A pristine copy of the
+    packed positions is kept alongside, because `poke_nans` writes over them.
     """
     if (corners, nan) not in _geometries:
         _geometries.clear()
+        _clean_positions.clear()
         positions = make_positions(corners)
+        _clean_positions[corners] = positions.copy()
         _geometries[corners, False] = gfx.Geometry(positions=positions)
         _geometries[corners, True] = gfx.Geometry(
             positions=with_nans(positions, corners)
         )
     return _geometries[corners, nan]
+
+
+def poke_nans(corners, probability):
+    """Make each corner of the packed layout a nan with the given probability.
+
+    Only the packed layout: under `nan loop` a nan already means something else,
+    namely the end of a piece. Here it is simply a node the shader cannot draw,
+    so the ring breaks open at that corner and the neighbours get caps.
+
+    Fixed seed, so the same corners are missing frame after frame rather than
+    flickering, and rewritten from the clean copy each time so that lowering the
+    slider brings the shapes back.
+    """
+    positions = _geometries[corners, False].positions
+    positions.data[:] = _clean_positions[corners]
+    if probability > 0:
+        rng = np.random.default_rng(NAN_SEED)
+        positions.data[rng.random(positions.nitems) < probability] = np.nan
+    positions.update_full()
 
 
 canvas = RenderCanvas(size=CANVAS_SIZE, title=TITLE)
@@ -270,6 +301,7 @@ state = {
     "loop_length": 4,
     "n_objects": 400,
     "nan_loop": False,
+    "nan_probability": 0.0,
     "stream": False,
     "dash_pattern": 0,
     "dash_offset": 0.0,
@@ -286,6 +318,10 @@ def apply_state():
         return
     corners = state["loop_length"]
     nan = state["nan_loop"]
+    repoke = (corners, state["nan_probability"]) != (
+        applied.get("loop_length"),
+        applied.get("nan_probability"),
+    )
     applied.clear()
     applied.update(state)
     # The timing below is a rolling mean, so it has to start over whenever a
@@ -297,6 +333,8 @@ def apply_state():
     geometry = get_geometry(corners, nan)
     if line.geometry is not geometry:
         line.geometry = geometry
+    if repoke:
+        poke_nans(corners, state["nan_probability"])
 
     # The object count is only a draw range: the positions for MAX_OBJECTS are
     # already on the GPU, and nothing is copied, re-baked or re-uploaded.
@@ -370,6 +408,24 @@ def draw_imgui():
             "and a scan of the positions to find the nans whenever they change\n"
             "-- which is what the bake time below measures."
         )
+        imgui.begin_disabled(state["nan_loop"])
+        _, state["nan_probability"] = imgui.slider_float(
+            "nan probability", state["nan_probability"], 0.0, 0.3
+        )
+        imgui.set_item_tooltip(
+            "Make each corner a nan with this probability, in the packed\n"
+            "layout.\n\n"
+            "A nan there is a hole in a ring rather than a separator: the shape\n"
+            "opens at that corner and both ends get caps, and the segment that\n"
+            "closes the ring still draws as long as the first and last node are\n"
+            "both finite. Nothing validates or scans -- the shader's ordinary\n"
+            "cap-on-a-non-finite-neighbour rule does all of it.\n\n"
+            "Under 'nan loop' a nan means the end of a piece instead, so this\n"
+            "is disabled there."
+        )
+        imgui.end_disabled()
+        if state["nan_loop"] and state["nan_probability"] > 0:
+            imgui.text_wrapped("Ignored: nans part the pieces in this layout.")
 
         imgui.separator_text("Dashing")
         _, state["dash_pattern"] = imgui.combo(
