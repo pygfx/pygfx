@@ -1,20 +1,25 @@
+import sys
+
 import numpy as np
-import freetype
+import uharfbuzz as hb
 
 from ._atlas import glyph_atlas
-from ._shaper import CACHE_FT
+from ._shaper import CACHE_FT, REF_GLYPH_SIZE, CACHE_HB
 
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from ._fontfinder import FontFile
 
 # A little cache so we can assign numbers to fonts
 fontname_cache = {}
 
 
-def generate_glyph(glyph_indices, font_filename):
+def generate_glyph(glyph_indices, font_filename: str):
     """Generate a glyph for the given glyph indices.
 
     Parameters:
         glyph_indices (list): the indices in the font to render a glyph for.
-        font_filename (str): the font to use.
+        font_filename (str):: the font file to use.
 
     This generates SDF glyphs and puts them in the atlas. The indices
     of where the glyphs are in the atlas are returned. Glyphs already
@@ -29,6 +34,7 @@ def generate_glyph(glyph_indices, font_filename):
     # the above points is stored in the per-glyph buffer of the atlas.
 
     # Get font index (so we can make it part of the glyph hash)
+
     try:
         font_index = fontname_cache[font_filename]
     except KeyError:
@@ -93,3 +99,48 @@ def _generate_sdf(face, glyph_index):
     offset = face.glyph.bitmap_left, face.glyph.bitmap_top
 
     return glyph, offset
+
+
+# not an actual SDF, but might work as a substitute for not using freetype (and hopefully works in pyodide).
+def generate_glyph_hb(glyph_indices, font_filename: str):
+    # copied from above but adjusted to using harfbuzz
+    try:
+        font_index = fontname_cache[font_filename]
+    except KeyError:
+        font_index = len(fontname_cache) + 1
+        fontname_cache[font_filename] = font_index
+
+    blob, face, font = CACHE_HB[font_filename]
+
+    atlas_indices = np.empty((len(glyph_indices),), "u4")
+    for i in range(len(glyph_indices)):
+        glyph_index = int(glyph_indices[i])
+        glyph_hash = (font_index, glyph_index)
+        index = glyph_atlas.get_index_from_hash(glyph_hash)
+        if index is None:
+            glyph, offset = _raster_hb(font, glyph_index)
+            index = glyph_atlas.store_region_with_hash(glyph_hash, glyph, offset)
+        atlas_indices[i] = index
+
+    return atlas_indices
+
+
+def _raster_hb(font: "hb.Font", glyph_index: int) -> tuple[np.ndarray, tuple[int, int]]:
+    """
+    uses the new harfbuzz-raster bindings in uharfbuzz to produce a bitmap... not an sdf but might work
+    """
+    # assume font is already scaled correctly etc? and shaping is aswell?
+    hb_draw = hb.RasterDraw() # if we refactor the above like here https://harfbuzz-world.cc/?preset=english#raster it could be in the loop above?
+    hb_draw.draw_glyph(font, glyph_index)
+    raster_img = hb_draw.render()
+    bitmap = np.frombuffer(raster_img.buffer, dtype=np.uint8).reshape((raster_img.extents.height, raster_img.extents.stride))
+    bitmap = bitmap[::-1, :] # needs a yflip I guess
+    offset = (raster_img.extents.x_origin, raster_img.extents.y_origin + raster_img.extents.height) # these look correct!
+
+    return bitmap, offset
+
+if sys.platform == "emscripten": # or "freetype" not in sys.modules: # maybe have a fallback and make freetype optional?
+    generate_glyph = generate_glyph_hb
+else:
+    import freetype
+    # generate_glyph = generate_glyph_hb # uncomment for testing

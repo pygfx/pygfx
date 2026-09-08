@@ -93,28 +93,26 @@ fn rgb2luma(rgb: vec3f) -> f32 {
 @fragment
 fn fs_main(varyings: Varyings) -> @location(0) vec4<f32> {
 
-    let tex: texture_2d<f32> = colorTex;
-    let smp: sampler = texSampler;
     let texCoord: vec2f = varyings.texCoord;
 
-    let resolution = vec2f(textureDimensions(tex));
+    let resolution = vec2f(textureDimensions(colorTex));
     let pixelStep = 1.0 / resolution.xy;
 
     // Sample the center pixel
-    let centerSample = textureSampleLevel(tex, smp, texCoord, 0.0);
+    let centerSample = textureSampleLevel(colorTex, texSampler, texCoord, 0.0);
     let lumaCenter = rgb2luma(centerSample.rgb);
 
     // Luma at the four direct neighbors of the current fragment.
-    let lumaN = rgb2luma(textureSampleLevel(tex, smp, texCoord, 0.0, vec2i(0, 1)).rgb);
-    let lumaE = rgb2luma(textureSampleLevel(tex, smp, texCoord, 0.0, vec2i(1, 0)).rgb);
-    let lumaS = rgb2luma(textureSampleLevel(tex, smp, texCoord, 0.0, vec2i(0, -1)).rgb);
-    let lumaW = rgb2luma(textureSampleLevel(tex, smp, texCoord, 0.0, vec2i(-1, 0)).rgb);
+    let lumaN = rgb2luma(textureSampleLevel(colorTex, texSampler, texCoord, 0.0, vec2i(0, 1)).rgb);
+    let lumaE = rgb2luma(textureSampleLevel(colorTex, texSampler, texCoord, 0.0, vec2i(1, 0)).rgb);
+    let lumaS = rgb2luma(textureSampleLevel(colorTex, texSampler, texCoord, 0.0, vec2i(0, -1)).rgb);
+    let lumaW = rgb2luma(textureSampleLevel(colorTex, texSampler, texCoord, 0.0, vec2i(-1, 0)).rgb);
 
     // Query the 4 remaining corners lumas.
-    let lumaNW = rgb2luma(textureSampleLevel(tex, smp, texCoord, 0.0, vec2i(-1, 1)).rgb);
-    let lumaNE = rgb2luma(textureSampleLevel(tex, smp, texCoord, 0.0, vec2i(1, 1)).rgb);
-    let lumaSW = rgb2luma(textureSampleLevel(tex, smp, texCoord, 0.0, vec2i(-1, -1)).rgb);
-    let lumaSE = rgb2luma(textureSampleLevel(tex, smp, texCoord, 0.0, vec2i(1, -1)).rgb);
+    let lumaNW = rgb2luma(textureSampleLevel(colorTex, texSampler, texCoord, 0.0, vec2i(-1, 1)).rgb);
+    let lumaNE = rgb2luma(textureSampleLevel(colorTex, texSampler, texCoord, 0.0, vec2i(1, 1)).rgb);
+    let lumaSW = rgb2luma(textureSampleLevel(colorTex, texSampler, texCoord, 0.0, vec2i(-1, -1)).rgb);
+    let lumaSE = rgb2luma(textureSampleLevel(colorTex, texSampler, texCoord, 0.0, vec2i(1, -1)).rgb);
 
     // Compute the range
     let lumaMin = min(lumaCenter, min(min(lumaS, lumaN), min(lumaW, lumaE)));
@@ -229,19 +227,19 @@ fn fs_main(varyings: Varyings) -> @location(0) vec4<f32> {
             lumaEnd_0 = 0.5 * (lumaW + select(lumaSW, lumaNW, gradient2IsHigher)) - lumaLocalAverage;
             lumaEnd_{{ns.edgeSteps}} = 0.5 * (lumaE + select(lumaSE, lumaNE, gradient2IsHigher)) - lumaLocalAverage;
             $$ for si in range(1, ns.edgeSteps)
-            lumaEnd_{{ si }} = rgb2luma(textureSampleLevel(tex, smp, currentUv, 0.0, -vec2i({{ si + 1 }}, 0)).rgb) - lumaLocalAverage;
+            lumaEnd_{{ si }} = rgb2luma(textureSampleLevel(colorTex, texSampler, currentUv, 0.0, -vec2i({{ si + 1 }}, 0)).rgb) - lumaLocalAverage;
             $$ endfor
             $$ for si in range(1+ns.edgeSteps, ns.edgeSteps*2)
-            lumaEnd_{{ si }} = rgb2luma(textureSampleLevel(tex, smp, currentUv, 0.0, vec2i({{ si - ns.edgeSteps + 1 }}, 0)).rgb) - lumaLocalAverage;
+            lumaEnd_{{ si }} = rgb2luma(textureSampleLevel(colorTex, texSampler, currentUv, 0.0, vec2i({{ si - ns.edgeSteps + 1 }}, 0)).rgb) - lumaLocalAverage;
             $$ endfor
         } else {
             lumaEnd_0 = 0.5 * (lumaS + select(lumaSW, lumaSE, gradient2IsHigher)) - lumaLocalAverage;
             lumaEnd_{{ns.edgeSteps}} = 0.5 * (lumaN + select(lumaNW, lumaNE, gradient2IsHigher)) - lumaLocalAverage;
             $$ for si in range(1, ns.edgeSteps)
-            lumaEnd_{{ si }} = rgb2luma(textureSampleLevel(tex, smp, currentUv, 0.0, -vec2i(0, {{ si + 1 }})).rgb) - lumaLocalAverage;
+            lumaEnd_{{ si }} = rgb2luma(textureSampleLevel(colorTex, texSampler, currentUv, 0.0, -vec2i(0, {{ si + 1 }})).rgb) - lumaLocalAverage;
             $$ endfor
             $$ for si in range(1+ns.edgeSteps, ns.edgeSteps*2)
-            lumaEnd_{{ si }} = rgb2luma(textureSampleLevel(tex, smp, currentUv, 0.0, vec2i(0, {{ si - ns.edgeSteps + 1 }})).rgb) - lumaLocalAverage;
+            lumaEnd_{{ si }} = rgb2luma(textureSampleLevel(colorTex, texSampler, currentUv, 0.0, vec2i(0, {{ si - ns.edgeSteps + 1 }})).rgb) - lumaLocalAverage;
             $$ endfor
         }
 
@@ -272,12 +270,12 @@ fn fs_main(varyings: Varyings) -> @location(0) vec4<f32> {
             if isHorizontal {
                 let currentUv1 = currentUv - vec2f({{ ns.stepOffset + ns.edgeSteps//2 + 1 }}.0, 0.0) * pixelStep;
                 $$ for si in range(ns.edgeSteps)
-                lumaEnd_{{si}} = rgb2luma(textureSampleLevel(tex, smp, currentUv1, 0.0, -vec2i( {{si-ns.edgeSteps//2}}, 0)).rgb) - lumaLocalAverage;
+                lumaEnd_{{si}} = rgb2luma(textureSampleLevel(colorTex, texSampler, currentUv1, 0.0, -vec2i( {{si-ns.edgeSteps//2}}, 0)).rgb) - lumaLocalAverage;
                 $$ endfor
             } else {
                 let currentUv1 = currentUv - vec2f(0.0, {{ ns.stepOffset + ns.edgeSteps//2 +1 }}.0) * pixelStep;
                 $$ for si in range(ns.edgeSteps)
-                lumaEnd_{{si}} = rgb2luma(textureSampleLevel(tex, smp, currentUv1, 0.0, -vec2i(0, {{si-ns.edgeSteps//2}} )).rgb) - lumaLocalAverage;
+                lumaEnd_{{si}} = rgb2luma(textureSampleLevel(colorTex, texSampler, currentUv1, 0.0, -vec2i(0, {{si-ns.edgeSteps//2}} )).rgb) - lumaLocalAverage;
                 $$ endfor
             }
             lumaEnd1 = lumaEnd_{{ns.edgeSteps-1}};
@@ -289,12 +287,12 @@ fn fs_main(varyings: Varyings) -> @location(0) vec4<f32> {
             if isHorizontal {
                 let currentUv2 = currentUv + vec2f({{ ns.stepOffset + ns.edgeSteps//2 + 1}}.0, 0.0) * pixelStep;
                 $$ for si in range(ns.edgeSteps)
-                lumaEnd_{{si}} = rgb2luma(textureSampleLevel(tex, smp, currentUv2, 0.0, vec2i( {{si-ns.edgeSteps//2}}, 0)).rgb) - lumaLocalAverage;
+                lumaEnd_{{si}} = rgb2luma(textureSampleLevel(colorTex, texSampler, currentUv2, 0.0, vec2i( {{si-ns.edgeSteps//2}}, 0)).rgb) - lumaLocalAverage;
                 $$ endfor
             } else {
                 let currentUv2 = currentUv + vec2f(0.0, {{ ns.stepOffset + ns.edgeSteps//2 + 1 }}.0) * pixelStep;
                 $$ for si in range(ns.edgeSteps)
-                lumaEnd_{{si}} = rgb2luma(textureSampleLevel(tex, smp, currentUv2, 0.0, vec2i(0, {{si-ns.edgeSteps//2}} )).rgb) - lumaLocalAverage;
+                lumaEnd_{{si}} = rgb2luma(textureSampleLevel(colorTex, texSampler, currentUv2, 0.0, vec2i(0, {{si-ns.edgeSteps//2}} )).rgb) - lumaLocalAverage;
                 $$ endfor
             }
             lumaEnd2 = lumaEnd_{{ns.edgeSteps-1}};
@@ -353,8 +351,8 @@ fn fs_main(varyings: Varyings) -> @location(0) vec4<f32> {
 
     // Sample the final color
     var finalColor = vec3f(0.0);
-    finalColor += 0.5 * textureSampleLevel(tex, smp, texCoord1, 0.0).rgb;
-    finalColor += 0.5 * textureSampleLevel(tex, smp, texCoord2, 0.0).rgb;
+    finalColor += 0.5 * textureSampleLevel(colorTex, texSampler, texCoord1, 0.0).rgb;
+    finalColor += 0.5 * textureSampleLevel(colorTex, texSampler, texCoord2, 0.0).rgb;
 
     return vec4f(finalColor, centerSample.a);
 

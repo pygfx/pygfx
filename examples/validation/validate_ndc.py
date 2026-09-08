@@ -42,7 +42,7 @@ class SquareShader(BaseShader):
     def get_pipeline_info(self, wobject, shared):
         return {
             "primitive_topology": "triangle-strip",
-            "cull_mode": 0,
+            "cull_mode": "none",
         }
 
     def get_render_info(self, wobject, shared):

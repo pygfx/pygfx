@@ -7,10 +7,13 @@ Relevant links:
 
 """
 
+import sys
 import time
-import freetype
 import uharfbuzz
 import numpy as np
+
+if sys.platform != "emscripten":
+    import freetype
 
 
 # Determine reference size. This affects the size of the SDF bitmap.
@@ -144,12 +147,19 @@ def get_ft_face(font_filename):
 
     return face
 
-
-CACHE_FT = TemporalCache(
-    lifetime=10,
-    getter=get_ft_face,
-    minimum_items=20,
-)
+if sys.platform != "emscripten":
+    # TODO: could rename this to cache FontFace maybe?
+    CACHE_FT = TemporalCache(
+        lifetime=10,
+        getter=get_ft_face,
+        minimum_items=20,
+    )
+else:
+    # this just avoids importing errors... but I don't think that cache is actually needed?
+    # perhaps because the font manager lazy loads all the freetype faces?
+    # or it's a copy and paste for the harfbuzz blobs? (why doesn't the font manager lazily load and cache that?)
+    # IO and memory is slow, but often 500x math is faster than getting something memorized from ram. But I read the benchmark discussion in the PRs.
+    CACHE_FT = {}
 
 
 def shape_text_hb(text, font_filename, direction=None):

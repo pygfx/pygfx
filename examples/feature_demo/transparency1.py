@@ -7,7 +7,7 @@ The normal blending can produce correct results by sorting
 the objects in z.
 
 Press space to toggle the order of the planes.
-Press 1-4 to select the blending mode.
+Press 1-7 to select the blending mode.
 """
 
 # sphinx_gallery_pygfx_docs = 'screenshot'

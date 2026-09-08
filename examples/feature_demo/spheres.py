@@ -2,7 +2,7 @@
 Sphere Geometry
 ===============
 
-Example showing different types of geometric cylinders.
+Example showing different types of geometric spheres.
 """
 
 # sphinx_gallery_pygfx_docs = 'screenshot'

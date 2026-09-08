@@ -131,3 +131,6 @@ reactive_rendering_state.pkl
 
 # jetbrains idea
 .idea/
+
+# pyodide docs preview
+docs/_static/pygfx*.whl
