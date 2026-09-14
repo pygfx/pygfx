@@ -43,7 +43,7 @@ class WireframeMaterial(gfx.Material):
 class WireframeShader(BaseShader):
     type = "render"
 
-    def get_bindings(self, wobject, shared, scene):
+    def get_bindings(self, wobject, shared, scene, renderer):
         geometry = wobject.geometry
         material = wobject.material
 

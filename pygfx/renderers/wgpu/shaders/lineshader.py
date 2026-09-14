@@ -293,7 +293,7 @@ class LineShader(BaseShader):
         # Mark that the data has changed
         self.line_distance_buffer.update_range(r_offset, r_size)
 
-    def get_bindings(self, wobject, shared, scene):
+    def get_bindings(self, wobject, shared, scene, renderer):
         material = wobject.material
         geometry = wobject.geometry
 
@@ -447,7 +447,7 @@ class ThinLineShader(LineShader):
         if self["color_mode"] in ("face", "face_map"):
             raise RuntimeError("Face coloring not supported for thin lines.")
 
-    def get_bindings(self, wobject, shared, scene):
+    def get_bindings(self, wobject, shared, scene, renderer):
         material = wobject.material
         geometry = wobject.geometry
 

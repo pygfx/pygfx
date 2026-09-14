@@ -64,7 +64,7 @@ def get_mip_level_count(texture):
     return int(np.floor(np.log2(max(width, height))) + 1)
 
 
-def generate_texture_mipmaps(target):
+def generate_texture_mipmaps(target, current_encoder=None):
     """Generate mipmaps for the given target. The target can be a
     Texture or GfxTextureView and can be a 2D texture as well as a cube
     texture.
@@ -73,7 +73,9 @@ def generate_texture_mipmaps(target):
     # If this looks like a cube or stack, generate mipmaps for each individual layer
     if isinstance(target, Texture) and target.dim == 2 and target.size[2] > 1:
         for i in range(target.size[2]):
-            generate_texture_mipmaps(GfxTextureView(target, layer_range=(i, i + 1)))
+            generate_texture_mipmaps(
+                GfxTextureView(target, layer_range=(i, i + 1)), current_encoder
+            )
         return
 
     if isinstance(target, Texture):
@@ -83,15 +85,19 @@ def generate_texture_mipmaps(target):
         view, texture = target, target.texture
         layer = view.layer_range[0]
 
-    generate_mipmaps(texture, layer)
+    generate_mipmaps(texture, layer, current_encoder)
 
 
-def generate_mipmaps(texture, base_array_layer):
+def generate_mipmaps(texture, base_array_layer, current_encoder):
     device = get_shared().device
 
     pipeline = get_mipmap_pipeline(device, texture)
 
-    command_encoder: "wgpu.GPUCommandEncoder" = device.create_command_encoder()
+    if current_encoder is None:
+        command_encoder: "wgpu.GPUCommandEncoder" = device.create_command_encoder()
+    else:
+        command_encoder = current_encoder
+
     bind_group_layout = pipeline.get_bind_group_layout(0)
 
     dst_size = texture.size[:2]
@@ -118,7 +124,8 @@ def generate_mipmaps(texture, base_array_layer):
         pass_encoder.draw(4, 1, 0, 0)
         pass_encoder.end()
 
-    device.queue.submit([command_encoder.finish()])
+    if current_encoder is None:
+        device.queue.submit([command_encoder.finish()])
 
 
 def get_bind_group(
