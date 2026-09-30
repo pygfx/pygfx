@@ -52,7 +52,7 @@ def get_cached_pipeline_layout(device, *args):
     result = LAYOUT_CACHE.get(key)
     if result is None:
         (bind_group_layouts,) = args
-        result = device.create_pipeline_layout(bind_group_layouts=bind_group_layouts)
+        result = device.create_pipeline_layout(label=f"pygfx layout: {key}", bind_group_layouts=bind_group_layouts)
 
         LAYOUT_CACHE.set(key, result)
 
@@ -571,7 +571,7 @@ class RenderPipelineContainer(PipelineContainer):
             return
         # Set strip_index_format
         index_format = wgpu.IndexFormat.uint32
-        strip_index_format = 0
+        strip_index_format = None
         if "strip" in self.pipeline_info["primitive_topology"]:
             strip_index_format = index_format
         # Trigger a pipeline rebuild?

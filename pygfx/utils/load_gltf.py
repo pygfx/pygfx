@@ -8,6 +8,8 @@ https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html
 Experimental, not yet fully implemented.
 """
 
+import sys
+
 import pygfx as gfx
 import numpy as np
 import pylinalg as la
@@ -309,6 +311,14 @@ class _GLTF:
                         gfx.utils.logger.warning(f"download failed: {e} - {res_path}")
                     except Exception as e:
                         gfx.utils.logger.warning(f"download failed: {e} - {res_path}")
+
+        elif sys.platform == "emscripten" and "/data/" in str(path):
+        # hack to get some of the model files working in the pyodide samples
+            _, _, post = str(path).partition("/data/")
+            repo_path = f"https://raw.githubusercontent.com/pygfx/pygfx/main/examples/data/{post}"
+            if not quiet:
+                gfx.utils.logger.info(f"Running in Emscripten, the {path=} is modified to {repo_path=}")
+            return self.__inner_load(repo_path, quiet, remote_ok=True)
 
         else:  # local file
             self._gltf = gltflib.GLTF.load(path, load_file_resources=True)

@@ -162,7 +162,7 @@ class LightRenderState(BaseRenderState):
                 format="depth32float",
             )
             self.directional_lights_shadow_texture_views = [
-                self.directional_lights_shadow_texture.create_view(base_array_layer=i)
+                self.directional_lights_shadow_texture.create_view(base_array_layer=i, array_layer_count=1)
                 for i in range(self.dir_lights_count)
             ]
             self.bindings.append(
@@ -203,7 +203,7 @@ class LightRenderState(BaseRenderState):
                 format="depth32float",
             )
             self.point_lights_shadow_texture_views = [
-                self.point_lights_shadow_texture.create_view(base_array_layer=i)
+                self.point_lights_shadow_texture.create_view(base_array_layer=i, array_layer_count=1)
                 for i in range(self.point_lights_count * 6)
             ]
             self.bindings.append(
@@ -244,7 +244,7 @@ class LightRenderState(BaseRenderState):
                 format="depth32float",
             )
             self.spot_lights_shadow_texture_views = [
-                self.spot_lights_shadow_texture.create_view(base_array_layer=i)
+                self.spot_lights_shadow_texture.create_view(label=f"spot_light_{i}", base_array_layer=i, array_layer_count=1)
                 for i in range(self.spot_lights_count)
             ]
             self.bindings.append(

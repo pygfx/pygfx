@@ -8,7 +8,7 @@ the same position, plus they intersect, so sorting has no effect.
 In cases like this, the dither blending is king.
 
 Press space to toggle the order of the planes.
-Press 1-4 to select the blending mode.
+Press 1-7 to select the blending mode.
 """
 
 # sphinx_gallery_pygfx_docs = 'screenshot'

@@ -324,7 +324,7 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
         if (min(sprite_coord.x, sprite_coord.y) < 0.0 || max(sprite_coord.x, sprite_coord.y) > 1.0) {
             face_color = vec4<f32>(face_color.rgb, 0.0);  // out of sprite range
         } else {
-            let sprite_value = textureSample(t_sprite, s_sprite, sprite_coord);
+            let sprite_value = textureSampleLevel(t_sprite, s_sprite, sprite_coord, 0.0);
             $$ if sprite_nchannels == 1
                 face_color = vec4<f32>(face_color.rgb * sprite_value.r, face_color.a);
             $$ elif sprite_nchannels == 2

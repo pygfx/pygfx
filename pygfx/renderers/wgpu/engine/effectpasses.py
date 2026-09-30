@@ -92,6 +92,7 @@ def create_full_quad_pipeline(targets, binding_layout, fragment_code):
         shader_module = device.create_shader_module(code=wgsl)
 
         pipeline_layout = device.create_pipeline_layout(
+            label=f"effect pass pipeline layout {key2}",
             bind_group_layouts=[bind_group_layout]
         )
 
@@ -160,6 +161,7 @@ class FullQuadPass:
 
         self._uniform_data = array_from_shadertype(self.uniform_type)
         self._wgpu_buffer = self._device.create_buffer(
+            label="pygfx FullQuadPass buffer",
             size=self._uniform_data.nbytes,
             usage=wgpu.BufferUsage.UNIFORM | wgpu.BufferUsage.COPY_DST,
         )

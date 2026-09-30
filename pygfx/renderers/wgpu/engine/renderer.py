@@ -318,6 +318,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # Initialize a small buffer to read pixel info into
         # Make it 256 bytes just in case (for bytes_per_row)
         self._pixel_info_buffer = self._device.create_buffer(
+            label="pygfx _pixel_info_buffer",
             size=16,
             usage=wgpu.BufferUsage.COPY_DST | wgpu.BufferUsage.MAP_READ,
         )
