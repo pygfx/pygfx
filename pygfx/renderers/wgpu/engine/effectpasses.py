@@ -161,6 +161,7 @@ class FullQuadPass:
 
         self._uniform_data = array_from_shadertype(self.uniform_type)
         self._wgpu_buffer = self._device.create_buffer(
+            label="pygfx FullQuadPass buffer",
             size=self._uniform_data.nbytes,
             usage=wgpu.BufferUsage.UNIFORM | wgpu.BufferUsage.COPY_DST,
         )

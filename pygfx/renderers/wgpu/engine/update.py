@@ -137,6 +137,7 @@ def ensure_wgpu_object(resource):
         if resource.data is not None:
             resource._wgpu_usage |= wgpu.BufferUsage.COPY_DST
         resource._wgpu_object = device.create_buffer(
+            label=f"pygfx buffer Resource {resource._rev=}",
             size=resource.nbytes, usage=resource._wgpu_usage
         )
         # Mark the resource for sync at the registry (but only if it has pending updates)
