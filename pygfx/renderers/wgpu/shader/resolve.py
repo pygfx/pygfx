@@ -234,7 +234,14 @@ class VaryingResolver:
             # Build struct
             struct_lines = ["struct Varyings {"]
             for slotnr, name in enumerate(used_slots):
-                struct_lines.append(f"    @location({slotnr}) {name} : {types[name]},")
+                # WGSL requires integral user-defined vertex outputs to use flat interpolation
+                type = types[name]
+                interpolate = (
+                    " @interpolate(flat)" if "i32" in type or "u32" in type else ""
+                )
+                struct_lines.append(
+                    f"    @location({slotnr}){interpolate} {name} : {type},"
+                )
             for name in sorted(used_builtins):
                 struct_lines.append(f"    @builtin({name}) {name} : {types[name]},")
             struct_lines.append("};\n")

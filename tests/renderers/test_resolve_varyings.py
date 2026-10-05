@@ -396,6 +396,55 @@ def test_varyings_struct1():
     assert code3.strip() == code2.strip()
 
 
+def test_varyings_struct_integral_flat():
+    # Integral varyings must use flat interpolation, floats keep the default
+
+    code1 = """
+    @vertex
+    fn vs_main() -> Varyings {
+        var varyings : Varyings;
+        varyings.a = f32(something1);
+        varyings.b = i32(something2);
+        varyings.c = u32(something3);
+        varyings.d = vec4<i32>(something4);
+        varyings.e = vec2<u32>(something5);
+        return varyings;
+    }
+
+    fn fs_main(varyings : Varyings) {
+        use(varyings.a, varyings.b, varyings.c, varyings.d, varyings.e);
+    }
+    """
+
+    code2 = """
+    struct Varyings {
+        @location(0) a : f32,
+        @location(1) @interpolate(flat) b : i32,
+        @location(2) @interpolate(flat) c : u32,
+        @location(3) @interpolate(flat) d : vec4<i32>,
+        @location(4) @interpolate(flat) e : vec2<u32>,
+    };
+
+    @vertex
+    fn vs_main() -> Varyings {
+        var varyings : Varyings;
+        varyings.a = f32(something1);
+        varyings.b = i32(something2);
+        varyings.c = u32(something3);
+        varyings.d = vec4<i32>(something4);
+        varyings.e = vec2<u32>(something5);
+        return varyings;
+    }
+
+    fn fs_main(varyings : Varyings) {
+        use(varyings.a, varyings.b, varyings.c, varyings.d, varyings.e);
+    }
+    """
+
+    code3 = resolve_varyings(code1)
+    assert code3.strip() == code2.strip()
+
+
 def test_varyings_attr1():
     # Can set varying attribute
 

@@ -87,7 +87,7 @@ fn blueNoise2(xy: vec2u) -> f32 {
         y = y >> 1u;
         a = 1u & (a ^ _xmix(x, y));
         b = 1u & (b ^ _ymix(x, y));
-        v = (v << 2u) | (a + (b << 1u) + 1u) % 4u;
+        v = (v << 2u) | ((a + (b << 1u) + 1u) % 4u);
     }
     return f32(v) / f32(1u << (s << 1u));
     }
@@ -104,7 +104,7 @@ fn bayerPattern(xy: vec2u) -> f32 {
     var y = xy.y;
     var v = 0u;
     for (var i = 0u; i < 8; i+=1) {
-        v = (v << 2u) | ((x & 1u) + ((y & 1u) << 1u) + 1u) % 4u;
+        v = (v << 2u) | (((x & 1u) + ((y & 1u) << 1u) + 1u) % 4u);
         x >>= 1u;
         y >>= 1u;
     }
