@@ -379,7 +379,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
             return pixel_scale
 
     @pixel_scale.setter
-    def pixel_scale(self, pixel_scale: None | int | float):
+    def pixel_scale(self, pixel_scale: int | float | None):
         self._pixel_scale = None
         self._pixel_ratio = None
         if pixel_scale is not None:
@@ -410,7 +410,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         return self.pixel_scale * target_pixel_ratio
 
     @pixel_ratio.setter
-    def pixel_ratio(self, pixel_ratio: None | float):
+    def pixel_ratio(self, pixel_ratio: float | None):
         self._pixel_scale = None
         self._pixel_ratio = None
         if pixel_ratio is not None:
@@ -743,7 +743,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         flat.collect_pipelines_container_groups(renderstate)
 
         # Enable pipelines to update data on the CPU.
-        flat.call_bake_functions(camera, logical_size)
+        flat.call_bake_functions(camera, scene_lsize)
 
         # Update *all* buffers and textures that have changed
         for resource in resource_update_registry.get_syncable_resources(flush=True):

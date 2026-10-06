@@ -99,12 +99,14 @@ class LineShader(BaseShader):
         #     # self["line_type"] = "quickline"
 
         # Handle looping. The line_loop_buffer is one larger to enable looping the last point.
+        self._loop_ranges_hash = None
+        self._loop_ranges = []
+        self._baked_loop_ranges = None
         if material.loop:
             self["loop"] = True
             self.line_loop_buffer = Buffer(
                 np.zeros((geometry.positions.nitems + 1,), np.uint32)
             )
-            self._loop_hash = None
             self.needs_bake_function = True
 
         # Handle dashing
@@ -118,8 +120,13 @@ class LineShader(BaseShader):
             if not isinstance(material, LineSegmentMaterial):
                 self.needs_bake_function = True
                 self._cumdist_hash = None
+                # Like the loop buffer, this buffer is one larger when looping, so
+                # that the node that closes a loop can store the cumulative distance
+                # of the full loop (see _bake_line_distance).
                 self.line_distance_buffer = Buffer(
-                    np.zeros((geometry.positions.nitems,), np.float32)
+                    np.zeros(
+                        (geometry.positions.nitems + int(self["loop"]),), np.float32
+                    )
                 )
 
     def bake_function(self, wobject, camera, logical_size):
@@ -128,51 +135,68 @@ class LineShader(BaseShader):
         if hasattr(self, "line_distance_buffer"):
             self._bake_line_distance(wobject, camera, logical_size)
 
-    def _bake_line_loops(self, wobject):
-        # Early exit?
-        positions_buffer = wobject.geometry.positions
-        loop_hash = (id(positions_buffer), positions_buffer.rev)
-        if loop_hash == self._loop_hash:
-            return
-        self._loop_hash = loop_hash
+    def _get_loop_ranges(self, positions_buffer):
+        """Get the loops that the positions (in the current draw range) represent.
 
-        # Get arrays
-        loop_buffer = self.line_loop_buffer
+        Returns a list of ``(i_first, i_last, i_connector)`` tuples, with absolute
+        node indices. The connector is the node that closes the loop; it is the nan
+        node that follows the loop, or the (virtual) node just past the draw range.
+        """
+        # Early exit?
+        loop_hash = (id(positions_buffer), positions_buffer.rev)
+        if loop_hash == self._loop_ranges_hash:
+            return self._loop_ranges
+        self._loop_ranges_hash = loop_hash
+
         r_offset, r_size = positions_buffer.draw_range
         positions_array = positions_buffer.data
-        loop_array = loop_buffer.data
 
         # Get indices of points that are nan
         (nan_indices,) = np.where(
             np.isnan(positions_array[r_offset : r_offset + r_size]).any(axis=1)
         )
 
+        # Each stretch of at least 3 non-nan nodes is a loop. Note that the last
+        # stretch ends at the end of the draw range, and that the comparison with
+        # n_nodes makes sure that a trailing nan node does not produce a loop.
+        loop_ranges = []
+        i1 = r_offset - 1
+        for i2 in [*(nan_indices + r_offset), r_offset + r_size]:
+            n_nodes = i2 - i1 - 1
+            if n_nodes >= 3:
+                loop_ranges.append((i1 + 1, i2 - 1, i2))
+            i1 = i2
+
+        self._loop_ranges = loop_ranges
+        return loop_ranges
+
+    def _bake_line_loops(self, wobject):
+        # Early exit? Note that _get_loop_ranges returns the same list object
+        # for as long as the positions have not changed.
+        positions_buffer = wobject.geometry.positions
+        loop_ranges = self._get_loop_ranges(positions_buffer)
+        if loop_ranges is self._baked_loop_ranges:
+            return
+        self._baked_loop_ranges = loop_ranges
+
+        # Get arrays
+        loop_buffer = self.line_loop_buffer
+        r_offset, r_size = positions_buffer.draw_range
+        loop_array = loop_buffer.data
+
         is_first = 0x10000000
         is_last = 0x20000000
         is_connector = 0x30000000
 
-        # Mark these indices in the loop array
-        loop_array[r_offset : r_offset + r_size] = 0.0
-        i1 = r_offset - 1
-        i2 = -1
-        for i2 in nan_indices:
-            n_nodes = i2 - i1 - 1
-            if n_nodes >= 3:
-                loop_array[i1 + 1] = is_first + n_nodes
-                loop_array[i2 - 1] = is_last + n_nodes
-                loop_array[i2] = is_connector + n_nodes
-            i1 = i2
+        # Mark the loop nodes in the loop array
+        loop_array[r_offset : r_offset + r_size + 1] = 0
+        for i_first, i_last, i_connector in loop_ranges:
+            n_nodes = i_last - i_first + 1
+            loop_array[i_first] = is_first + n_nodes
+            loop_array[i_last] = is_last + n_nodes
+            loop_array[i_connector] = is_connector + n_nodes
 
-        # Connect final node to last loop-start. Note that the comparison with i1 and
-        # n_nodes makes sure that if the last node is already nan, this step is skipped.
-        i2 = r_offset + r_size
-        n_nodes = i2 - i1 - 1
-        if n_nodes >= 3:
-            loop_array[i1 + 1] = is_first + n_nodes
-            loop_array[i2 - 1] = is_last + n_nodes
-            loop_array[i2] = is_connector + n_nodes
-
-        loop_buffer.update_range(r_offset, r_size)
+        loop_buffer.update_range(r_offset, r_size + 1)
 
     def _bake_line_distance(self, wobject, camera, logical_size):
         # Prepare
@@ -182,6 +206,9 @@ class LineShader(BaseShader):
         # Prepare arrays
         positions_array = positions_buffer.data[r_offset : r_offset + r_size]
         distance_array = self.line_distance_buffer.data[r_offset : r_offset + r_size]
+
+        finites = np.isfinite(positions_array).all(axis=1)
+        has_non_finites = not finites.all()
 
         # Get vertices in the appropriate coordinate frame
         if wobject.material.thickness_space == "model":
@@ -193,8 +220,6 @@ class LineShader(BaseShader):
             vertex_array = positions_array
         else:
             # Prep
-            finites = np.isfinite(positions_array).all(axis=1)
-            has_non_finites = not finites.all()
             if has_non_finites:
                 positions_array_sub = positions_array[finites, :]
             else:
@@ -209,9 +234,14 @@ class LineShader(BaseShader):
                     positions_array_sub, camera.camera_matrix @ wobject.world.matrix
                 )
                 vertex_array_sub = xyz[:, :2] * (0.5 * np.array(logical_size))
-            # Fix up
+            # Fix up. Note that the transformed array is 2D for screen space and 3D
+            # for world space, hence taking the number of columns from the result.
             if has_non_finites:
-                vertex_array = np.full((len(positions_array), 2), np.nan, np.float32)
+                vertex_array = np.full(
+                    (len(positions_array), vertex_array_sub.shape[1]),
+                    np.nan,
+                    np.float32,
+                )
                 vertex_array[finites] = vertex_array_sub
             else:
                 vertex_array = vertex_array_sub
@@ -221,7 +251,44 @@ class LineShader(BaseShader):
         distances[~np.isfinite(distances)] = 0.0
 
         # Store cumulatives
+        distance_array[0] = 0.0
         np.cumsum(distances, out=distance_array[1:])
+
+        # Restart the cumulative distance at the beginning of each line piece, so
+        # that a piece does not inherit the accumulated distance of the pieces
+        # before it. Otherwise the dash phase of each successive piece is offset by
+        # the total length of all preceding pieces, which makes the dashes of the
+        # later pieces race ahead as soon as anything (e.g. the zoom level) changes
+        # that length. This matches how SVG restarts its dashes at each subpath.
+        if has_non_finites:
+            # A node starts a piece if it is finite and the node before it is not.
+            piece_starts = np.empty(len(distance_array), bool)
+            piece_starts[0] = True
+            np.logical_and(finites[1:], ~finites[:-1], out=piece_starts[1:])
+            # The cumdist is non-decreasing, so a running maximum of the cumdist at
+            # the piece starts (and zero elsewhere) gives, for each node, the cumdist
+            # at the start of its piece.
+            piece_offsets = np.where(piece_starts, distance_array, 0.0)
+            np.maximum.accumulate(piece_offsets, out=piece_offsets)
+            distance_array -= piece_offsets
+
+        # For looping lines, the connecting node (the one that closes the loop)
+        # stores the cumulative distance of the *closed* loop. Without this, the
+        # shader would derive the length of the closing segment from the cumdist
+        # of the first node, i.e. it would measure that one segment as if it spans
+        # the whole loop, making its dashes much denser. See gh-1103.
+        if self["loop"]:
+            full_distance_array = self.line_distance_buffer.data
+            for i_first, i_last, i_connector in self._get_loop_ranges(positions_buffer):
+                closing_distance = np.linalg.norm(
+                    vertex_array[i_last - r_offset] - vertex_array[i_first - r_offset]
+                )
+                if not np.isfinite(closing_distance):
+                    closing_distance = 0.0
+                full_distance_array[i_connector] = (
+                    full_distance_array[i_last] + closing_distance
+                )
+            r_size += 1  # the connector of the last loop can sit just past the range
 
         # Mark that the data has changed
         self.line_distance_buffer.update_range(r_offset, r_size)

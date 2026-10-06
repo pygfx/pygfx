@@ -170,6 +170,15 @@ fn vs_main(in: VertexInput) -> Varyings {
     var node_index_prev = max(0, node_index - 1);
     var node_index_next = min(u_renderer.last_i, node_index + 1);
 
+    // The cumulative distance is sampled with its own indices. They match the node
+    // indices, except in loops, where the node that closes the loop needs the cumdist
+    // of the full loop, rather than the cumdist of the node it coincides with.
+    $$ if dashing and line_type == 'line'
+    var cumdist_index = node_index;
+    var cumdist_index_prev = node_index_prev;
+    var cumdist_index_next = node_index_next;
+    $$ endif
+
     $$ if loop
     var is_first_node_in_loop = false;
     var is_connecting_node_in_loop = false;
@@ -181,15 +190,31 @@ fn vs_main(in: VertexInput) -> Varyings {
         if (loop_node_kind == 1u) { // first node
             is_first_node_in_loop = true;
             node_index_prev = node_index + (loop_node_count - 1);
+            // The first node of a loop is both the start and the end of the line.
+            // Vertex 1-3 face the closing segment, so they use the cumdist stored at
+            // the connecting node; vertex 4-6 face the first segment and start at zero.
+            // The join is made up of two triangles (1,2,3) and (4,5,6), so the two
+            // cumdist values never mix within a triangle.
+            $$ if dashing and line_type == 'line'
+            cumdist_index = select(node_index, node_index + loop_node_count, vertex_num <= 3);
+            $$ endif
         } else if (loop_node_kind == 2u) { // last node
             node_index_next = node_index - (loop_node_count - 1);
+            $$ if dashing and line_type == 'line'
+            cumdist_index_next = node_index + 1;  // i.e. the connecting node
+            $$ endif
         } else { // if (loop_node_kind == 3u) { // connecting node
+            // Note that cumdist_index (and cumdist_index_prev) are already correct,
+            // because they were set before node_index was moved to the loop's start.
             node_index = node_index - loop_node_count;
             node_index_next = node_index + 1;
             is_connecting_node_in_loop = true;
         }
     } else {
         node_index = min(u_renderer.last_i, node_index);
+        $$ if dashing and line_type == 'line'
+        cumdist_index = node_index;
+        $$ endif
     }
     $$ endif
 
@@ -337,7 +362,7 @@ fn vs_main(in: VertexInput) -> Varyings {
 
     $$ if dashing
         $$ if line_type == 'line'
-            let cumdist_node = f32(load_s_cumdist(node_index));
+            let cumdist_node = f32(load_s_cumdist(cumdist_index));
             var cumdist_other = 0.0;
         $$ else
             let cumdist_before = 0.0;
@@ -428,7 +453,7 @@ fn vs_main(in: VertexInput) -> Varyings {
         pos_s_other = pos_s_next;
         pos_n_other = pos_n_next;
         $$ if dashing and line_type == 'line'
-        cumdist_other = f32(load_s_cumdist(node_index_next));
+        cumdist_other = f32(load_s_cumdist(cumdist_index_next));
         $$ endif
 
     } else if (right_is_cap)  {
@@ -451,7 +476,7 @@ fn vs_main(in: VertexInput) -> Varyings {
         pos_s_other = pos_s_prev;
         pos_n_other = pos_n_prev;
         $$ if dashing and line_type == 'line'
-        cumdist_other = f32(load_s_cumdist(node_index_prev));
+        cumdist_other = f32(load_s_cumdist(cumdist_index_prev));
         $$ endif
 
     } else {
@@ -460,7 +485,7 @@ fn vs_main(in: VertexInput) -> Varyings {
         pos_s_other = select(pos_s_prev, pos_s_next, vertex_num >= 4);
         pos_n_other = select(pos_n_prev, pos_n_next, vertex_num >= 4);
         $$ if dashing and line_type == 'line'
-        cumdist_other = load_s_cumdist(select(node_index_prev, node_index_next, vertex_num >= 4));
+        cumdist_other = load_s_cumdist(select(cumdist_index_prev, cumdist_index_next, vertex_num >= 4));
         $$ endif
         $$ if color_mode == 'vertex'
         color_other = load_s_colors(select(node_index_prev, node_index_next, vertex_num >= 4));
