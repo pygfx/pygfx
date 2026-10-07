@@ -46,6 +46,7 @@ class LineShader(BaseShader):
         self["thickness_space"] = material.thickness_space
         self["aa"] = material._gfx_effective_aa
         self["loop"] = False
+        self["loop_size"] = 0
         self["debug"] = False
 
         # Handle color
@@ -98,11 +99,19 @@ class LineShader(BaseShader):
         # ):
         #     # self["line_type"] = "quickline"
 
-        # Handle looping. The line_loop_buffer is one larger to enable looping the last point.
+        # Handle looping.
         self._loop_ranges_hash = None
         self._loop_ranges = []
         self._baked_loop_ranges = None
-        if material.loop:
+        if material.loop is not True and material.loop:
+            # Fixed-size loops: the positions are a series of closed shapes of
+            # material.loop nodes each. The shader renders one extra (virtual)
+            # node per shape to close it, so all it takes is index arithmetic.
+            self["loop"] = True
+            self["loop_size"] = int(material.loop)
+        elif material.loop:
+            # Nan-separated loops. The line_loop_buffer is one larger to enable
+            # looping the last point.
             self["loop"] = True
             self.line_loop_buffer = Buffer(
                 np.zeros((geometry.positions.nitems + 1,), np.uint32)
@@ -120,14 +129,21 @@ class LineShader(BaseShader):
             if not isinstance(material, LineSegmentMaterial):
                 self.needs_bake_function = True
                 self._cumdist_hash = None
-                # Like the loop buffer, this buffer is one larger when looping, so
-                # that the node that closes a loop can store the cumulative distance
-                # of the full loop (see _bake_line_distance).
+                # This buffer has room for the nodes that close the loops; they
+                # store the cumulative distance of the full loop (see
+                # _bake_line_distance). For nan-separated loops that's one extra
+                # slot in total; for fixed-size loops it's one per shape, since
+                # the buffer is then indexed in virtual node space.
                 self.line_distance_buffer = Buffer(
-                    np.zeros(
-                        (geometry.positions.nitems + int(self["loop"]),), np.float32
-                    )
+                    np.zeros((self._get_n_cumdist(geometry.positions),), np.float32)
                 )
+
+    def _get_n_cumdist(self, positions):
+        """The number of slots that the cumdist buffer needs."""
+        if self["loop_size"]:
+            n = self["loop_size"]
+            return max(1, (positions.nitems // n) * (n + 1))
+        return positions.nitems + int(self["loop"])
 
     def bake_function(self, wobject, camera, logical_size):
         if hasattr(self, "line_loop_buffer"):
@@ -203,6 +219,12 @@ class LineShader(BaseShader):
         positions_buffer = wobject.geometry.positions
         r_offset, r_size = positions_buffer.draw_range
 
+        if self["loop_size"]:
+            # Snap the range to whole shapes; incomplete shapes are not drawn.
+            n = self["loop_size"]
+            first_loop, n_loops = self._get_loop_slice(positions_buffer)
+            r_offset, r_size = first_loop * n, n_loops * n
+
         # Prepare arrays
         positions_array = positions_buffer.data[r_offset : r_offset + r_size]
         distance_array = self.line_distance_buffer.data[r_offset : r_offset + r_size]
@@ -245,6 +267,9 @@ class LineShader(BaseShader):
                 vertex_array[finites] = vertex_array_sub
             else:
                 vertex_array = vertex_array_sub
+
+        if self["loop_size"]:
+            return self._bake_line_distance_fixed_loops(vertex_array, r_offset)
 
         # Calculate distances
         distances = np.linalg.norm(vertex_array[1:] - vertex_array[:-1], axis=1)
@@ -292,6 +317,31 @@ class LineShader(BaseShader):
 
         # Mark that the data has changed
         self.line_distance_buffer.update_range(r_offset, r_size)
+
+    def _bake_line_distance_fixed_loops(self, vertex_array, r_offset):
+        """Bake the cumulative distance for fixed-size loops.
+
+        The cumdist buffer is indexed in *virtual* node space: each shape of n
+        nodes occupies n + 1 slots, the last of which holds the length of the
+        full (closed) shape. That is exactly how the shader indexes it, and it
+        makes the closing segment measure its own length rather than the whole
+        loop (see gh-1103).
+        """
+        n = self["loop_size"]
+        nodes = vertex_array.reshape(-1, n, vertex_array.shape[1])
+        # The n segments of each shape, the last one closing it
+        distances = np.linalg.norm(np.roll(nodes, -1, axis=1) - nodes, axis=2)
+        distances[~np.isfinite(distances)] = 0.0
+        # Cumulative, with a leading zero, so each shape has n + 1 values
+        cumdist = np.zeros((len(nodes), n + 1), np.float32)
+        cumdist[:, 1:] = np.cumsum(distances, axis=1)
+        # Store, in virtual node space
+        v_offset = (r_offset // n) * (n + 1)
+        v_size = cumdist.size
+        self.line_distance_buffer.data[v_offset : v_offset + v_size] = cumdist.reshape(
+            -1
+        )
+        self.line_distance_buffer.update_range(v_offset, v_size)
 
     def get_bindings(self, wobject, shared, scene):
         material = wobject.material
@@ -372,7 +422,19 @@ class LineShader(BaseShader):
             "cull_mode": wgpu.CullMode.none,
         }
 
+    def _get_loop_slice(self, positions):
+        """The index of the first shape to draw, and the number of shapes, for fixed-size loops."""
+        n = self["loop_size"]
+        offset, size = positions.draw_range
+        first_loop = offset // n
+        return first_loop, max(0, (offset + size) // n - first_loop)
+
     def _get_n(self, positions):
+        if self["loop_size"]:
+            # Each shape of n nodes is drawn as n + 1 (virtual) nodes.
+            stride = self["loop_size"] + 1
+            first_loop, n_loops = self._get_loop_slice(positions)
+            return first_loop * stride * 6, n_loops * stride * 6
         offset, size = positions.draw_range
         if self["loop"]:
             size += 1

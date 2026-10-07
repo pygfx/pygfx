@@ -182,7 +182,56 @@ fn vs_main(in: VertexInput) -> Varyings {
     $$ if loop
     var is_first_node_in_loop = false;
     var is_connecting_node_in_loop = false;
+    $$ endif
 
+    $$ if loop_size
+    // Fixed-size loops. The positions represent a series of closed shapes of
+    // {{ loop_size }} nodes each, without nan-separators. We render one extra
+    // (virtual) node per shape: the connecting node that closes the loop. So
+    // the node_index obtained from the vertex index above is a *virtual* index,
+    // that we map onto the actual position index here. The virtual index is
+    // also the index into the cumdist buffer (which is baked in virtual space),
+    // so the cumdist logic below is the same as for nan-separated loops.
+    {
+        let loop_node_count = {{ loop_size }};
+        let index_in_loop = node_index % (loop_node_count + 1);
+        let loop_first = (node_index / (loop_node_count + 1)) * loop_node_count;
+        face_index = loop_first + index_in_loop;
+        node_index = face_index;
+        node_index_prev = node_index - 1;
+        node_index_next = node_index + 1;
+        $$ if dashing and line_type == 'line'
+        // Undo the clamping that was applied in virtual index space.
+        cumdist_index_prev = cumdist_index - 1;
+        cumdist_index_next = cumdist_index + 1;
+        $$ endif
+        if (index_in_loop == 0) { // first node
+            is_first_node_in_loop = true;
+            node_index_prev = loop_first + (loop_node_count - 1);
+            // The first node of a loop is both the start and the end of the line.
+            // Vertex 1-3 face the closing segment, so they use the cumdist stored at
+            // the connecting node; vertex 4-6 face the first segment and start at zero.
+            // The join is made up of two triangles (1,2,3) and (4,5,6), so the two
+            // cumdist values never mix within a triangle.
+            $$ if dashing and line_type == 'line'
+            cumdist_index = select(cumdist_index, cumdist_index + loop_node_count, vertex_num <= 3);
+            $$ endif
+        } else if (index_in_loop == loop_node_count - 1) { // last node
+            node_index_next = loop_first;
+            $$ if dashing and line_type == 'line'
+            cumdist_index_next = cumdist_index + 1;  // i.e. the connecting node
+            $$ endif
+        } else if (index_in_loop == loop_node_count) { // connecting node
+            // Note that cumdist_index (and cumdist_index_prev) are already correct,
+            // because they are in virtual index space.
+            node_index = loop_first;
+            node_index_prev = loop_first + (loop_node_count - 1);
+            node_index_next = loop_first + 1;
+            is_connecting_node_in_loop = true;
+        }
+    }
+
+    $$ elif loop
     let loop_state: u32 = load_s_loop(node_index);
     if (loop_state > 0x0fffffffu) {
         let loop_node_kind = loop_state >> 28;

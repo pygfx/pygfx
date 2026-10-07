@@ -123,6 +123,63 @@ def test_cumdist_honors_the_draw_range():
     assert np.allclose(cumdist[2 : 2 + n + 1], side * np.arange(n + 1))
 
 
+def test_cumdist_of_fixed_size_loops():
+    """With loop=n, the cumdist buffer is indexed in virtual node space.
+
+    Each shape of n nodes gets n + 1 slots, the last of which holds the length
+    of the closed shape, exactly like the nan-node does for loop=True.
+    """
+    n, r, n_shapes = 4, 10.0, 3
+    side = polygon_side_length(n, r)
+    positions = np.vstack(
+        [regular_polygon(n, x=30.0 * i, r=r) for i in range(n_shapes)]
+    ).astype(np.float32)
+    cumdist = bake(positions, loop=n)
+
+    assert len(cumdist) == n_shapes * (n + 1)
+    for i in range(n_shapes):
+        assert np.allclose(
+            cumdist[i * (n + 1) : (i + 1) * (n + 1)], side * np.arange(n + 1)
+        )
+
+
+def test_cumdist_of_fixed_size_loops_matches_nan_separated_loops():
+    """loop=n and loop=True describe the same shapes, so the cumdist matches."""
+    n, r, n_shapes = 5, 7.0, 3
+    shapes = [regular_polygon(n, x=30.0 * i, r=r) for i in range(n_shapes)]
+    cumdist_int = bake(np.vstack(shapes).astype(np.float32), loop=n)
+    cumdist_nan = bake(
+        np.vstack([x for s in shapes for x in (s, NAN)]).astype(np.float32), loop=True
+    )
+    # The nan-version has one trailing slot that the int-version does not need
+    assert np.allclose(cumdist_int, cumdist_nan[: len(cumdist_int)])
+
+
+def test_cumdist_of_fixed_size_loops_honors_the_draw_range():
+    """The draw range snaps to whole shapes; other shapes are left alone."""
+    n, r, n_shapes = 4, 10.0, 4
+    side = polygon_side_length(n, r)
+    positions = np.vstack(
+        [regular_polygon(n, x=30.0 * i, r=r) for i in range(n_shapes)]
+    ).astype(np.float32)
+    line = gfx.Line(
+        gfx.Geometry(positions=positions),
+        gfx.LineMaterial(
+            thickness=1, dash_pattern=[2, 2], loop=n, thickness_space="model"
+        ),
+    )
+    line.geometry.positions.draw_range = n, 2 * n  # the 2nd and 3rd shape
+    camera = gfx.OrthographicCamera(100, 100)
+    shader = LineShader(line)
+    shader.bake_function(line, camera, (100, 100))
+
+    cumdist = shader.line_distance_buffer.data
+    assert np.all(cumdist[: n + 1] == 0)  # untouched
+    assert np.allclose(cumdist[n + 1 : 2 * (n + 1)], side * np.arange(n + 1))
+    assert np.allclose(cumdist[2 * (n + 1) : 3 * (n + 1)], side * np.arange(n + 1))
+    assert np.all(cumdist[3 * (n + 1) :] == 0)  # untouched
+
+
 def test_cumdist_with_nonfinites_in_other_thickness_spaces():
     """Nans must not trip up the transform to world/screen space."""
     positions = np.vstack([regular_polygon(4, r=10.0), NAN]).astype(np.float32)

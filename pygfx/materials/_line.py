@@ -1,3 +1,5 @@
+import numbers
+
 from ._base import Material
 from ..resources import Texture, TextureMap
 from ..utils import unpack_bitfield, Color, assert_type
@@ -25,8 +27,9 @@ class LineMaterial(Material):
         The pattern of the dash, e.g. `[2, 3]`. See `dash_pattern` docs for details. Defaults to an empty tuple, i.e. no dashing.
     dash_offset : float
         The offset into the dash phase. Default 0.0.
-    loop : bool
-        Whether the line's end should be connected. Default False.
+    loop : bool | int
+        Whether the line's end should be connected. Can also be an int to draw a
+        series of closed shapes with that many nodes each. Default False.
     aa : bool
         Whether the line is anti-aliased in the shader. Default False.
     kwargs : Any
@@ -247,19 +250,33 @@ class LineMaterial(Material):
         self.uniform_buffer.update_full()
 
     @property
-    def loop(self) -> bool:
+    def loop(self) -> bool | int:
         """Whether the line's ends should be connected.
 
         If set to True, the end of the line is connected to its beginning, in
         such a way there is no overlap (which would otherwise be visible for
         semi-transparent lines). When the line consists of multiple pieces
         separated by nan-positions, each line-piece is considered a loop.
+
+        Can also be set to an int ``n`` (>= 3), meaning that the positions
+        represent a series of closed shapes of ``n`` nodes each: nodes 0..n-1
+        form the first shape, nodes n..2n-1 the second, etc. No nan-separators
+        (nor repeated end-points) are needed; e.g. a buffer of ``4 * m``
+        positions draws ``m`` quadrilaterals with ``loop=4``. Positions that do
+        not fill a complete shape (at the end of the draw range) are ignored.
+
+        Since a loop needs at least 3 nodes, smaller values cannot denote a
+        shape, and are interpreted as a bool (as they were before shape-sizes
+        were a thing).
         """
         return self._store.loop
 
     @loop.setter
-    def loop(self, loop: bool):
-        self._store.loop = bool(loop)
+    def loop(self, loop: bool | int):
+        if isinstance(loop, numbers.Integral) and not isinstance(loop, bool):
+            self._store.loop = int(loop) if loop >= 3 else bool(loop)
+        else:
+            self._store.loop = bool(loop)
 
 
 class LineDebugMaterial(LineMaterial):
