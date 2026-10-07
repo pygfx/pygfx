@@ -117,9 +117,8 @@ def to_texture_format(format):
         "u1": "8unorm",
         "i2": "16sint",
         "u2": "16uint",
-        # TODO: once wgpu supports 16unorm and 16snorm, probably needs extension
-        # "i2": "16snorm",
-        # "u2": "16unorm",
+        "i2": "16snorm",
+        "u2": "16unorm",
         "i4": "32sint",
         "u4": "32uint",
         "f2": "16float",

@@ -27,10 +27,10 @@ scene = gfx.Scene()
 
 data = np.array(
     [
-        [0, 1, 1, 1],
-        [1, 1, 1, 1],
-        [1, 1, 1, 1],
-        [1, 1, 1, 2],
+        [0, 100, 100, 100],
+        [100, 100, 100, 100],
+        [100, 100, 100, 100],
+        [100, 100, 100, 200],
     ],
     np.uint8,
 )
@@ -39,7 +39,7 @@ data = np.array(
 #
 # float -> r32float, sampler
 # uint8 -> r8unorm, sampler
-# int16 -> r16sint, no sampler | later maybe r16snorm with sampler
+# int16 -> r16snorm, sampler
 # uin32 -> r32uint, no sampler
 
 for dx, dtype in enumerate(["float32", "uint8", "int16", "uint32"]):
@@ -48,7 +48,7 @@ for dx, dtype in enumerate(["float32", "uint8", "int16", "uint32"]):
     for dy, interpolation in enumerate(["nearest", "linear", "cubic"]):
         image = gfx.Image(
             gfx.Geometry(grid=gfx.Texture(typed_data, dim=2)),
-            gfx.ImageBasicMaterial(clim=(0, 2), interpolation=interpolation),
+            gfx.ImageBasicMaterial(clim=(0, 200), interpolation=interpolation),
         )
         image.local.position = dx * 5, dy * 5, 0
         scene.add(image)
