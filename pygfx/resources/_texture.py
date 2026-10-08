@@ -1,6 +1,7 @@
 from math import floor, ceil
 
 import numpy as np
+import wgpu
 
 from ._base import Resource
 from ._utils import (
@@ -561,6 +562,49 @@ class Texture(Resource):
             chunk = np.ascontiguousarray(chunk)
 
         return chunk
+
+    @classmethod
+    def from_gpu(
+        cls, texture_or_view: wgpu.GPUTexture | wgpu.GPUTextureView
+    ) -> "Texture":
+        """Create a pygfx Texture from an existing wgpu GPUTexture(or view).
+        Most likely doesn't have the local data or most of that functionality
+        """
+        # TODO: download data on demand if it's used by user code... might work already?
+        if isinstance(texture_or_view, wgpu.GPUTextureView):
+            gpu_texture = texture_or_view.texture
+        else:
+            gpu_texture = texture_or_view
+
+        obj = cls.__new__(cls)  # avoid __init__
+
+        # still init the Resource part
+        super().__init__(obj)
+        Resource._rev += 1
+        obj._rev = Resource._rev
+
+        obj._wgpu_object = gpu_texture
+        obj._wgpu_usage = gpu_texture.usage
+        obj._wgpu_mip_level_count = gpu_texture.mip_level_count
+        obj._wgpu_emulate_rgb = (
+            False  # usually don't expect this, but maybe in special cases...
+        )
+        obj._data = None  # as it only exists on the GPU
+        obj._view = None
+        obj._nbytes = gpu_texture._nbytes
+        obj._store.dim = int(gpu_texture.dimension[0])
+        obj._colorrange = "limited"  # don't know better
+        obj._colorspace = "srgb"  # maybe take the format suffix??
+        obj._generate_mipmaps = False  # assume they already exist? otherwise could be useful to generate them if possible?
+        obj._store.nbytes = gpu_texture._nbytes
+        obj._store.format = str(gpu_texture.format)
+        obj._store.size = (
+            gpu_texture.width,
+            gpu_texture.height,
+            gpu_texture.depth_or_array_layers,
+        )
+
+        return obj
 
 
 def nchannels_from_format(format):
