@@ -725,12 +725,15 @@ class MeshPhysicalShader(MeshStandardShader):
                 )
                 self["use_anisotropy_map"] = True
 
-        # Define shader code for binding
-        bindings = {i: binding for i, binding in enumerate(bindings)}
-        self.define_bindings(3, bindings)
+        # Define shader code for binding. These go in the bind group of the
+        # standard material, after its bindings: with a group of their own the
+        # pipeline would need 5 bind groups, and WebGPU only guarantees 4.
+        offset = len(result[2])
+        bindings = {offset + i: binding for i, binding in enumerate(bindings)}
+        self.define_bindings(2, bindings)
 
         # Update result
-        result[3] = bindings
+        result[2] = {**result[2], **bindings}
         return result
 
 
