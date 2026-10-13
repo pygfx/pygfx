@@ -170,9 +170,14 @@ class ComputeShader:
                 bindings.append(
                     {
                         "binding": index,
-                        "resource": wgpu_object.create_view(
-                            usage=wgpu.TextureUsage.STORAGE_BINDING
-                        ),
+                        # A view with all the usages of the texture, not only
+                        # STORAGE_BINDING: the usage that is needed depends on how the
+                        # shader declares the binding. A texture_storage_2d needs
+                        # STORAGE_BINDING, but a texture_2d that the shader reads with
+                        # textureLoad needs TEXTURE_BINDING. The image_histogram example
+                        # does the latter: its texture has both usages, but a view
+                        # with only STORAGE_BINDING makes its bind group invalid.
+                        "resource": wgpu_object.create_view(),
                     }
                 )
             else:

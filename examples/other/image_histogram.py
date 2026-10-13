@@ -235,7 +235,9 @@ fn write_histogram(
 
     // Write a nan value between line pieces.
     if (i == 0u && channel > 0u) {
-        let nan = bitcast<f32>(0x7fc00000u);  // nan;
+        // A runtime value, because a nan from a const-expression is a shader-creation error in WGSL
+        var nan_bits = 0x7fc00000u;
+        let nan = bitcast<f32>(nan_bits);
         s_positions[vertex_index-3] = nan;
         s_positions[vertex_index-2] = nan;
         s_positions[vertex_index-1] = nan;
