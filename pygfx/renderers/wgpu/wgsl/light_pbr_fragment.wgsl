@@ -80,6 +80,26 @@ $$ if USE_CLEARCOAT is defined
 
 $$ endif
 
+$$ if USE_TRANSMISSION is defined
+    material.transmission = u_material.transmission;
+    material.transmission_alpha = 1.0;
+    material.thickness = u_material.thickness;
+    material.attenuation_distance = u_material.attenuation_distance;
+    material.attenuation_color = u_material.attenuation_color.rgb;
+
+    $$ if USE_DISPERSION is defined
+        material.dispersion = u_material.dispersion;
+    $$ endif
+
+    $$ if use_transmission_map is defined
+        material.transmission *= textureSample(t_transmission_map, s_transmission_map, varyings.texcoord{{transmission_map_uv or ''}}).r;
+    $$ endif
+
+    $$ if use_thickness_map is defined
+        material.thickness *= textureSample(t_thickness_map, s_thickness_map, varyings.texcoord{{thickness_map_uv or ''}}).g;
+    $$ endif
+
+$$ endif
 
 $$ if USE_IRIDESCENCE is defined
     material.iridescence = u_material.iridescence;
