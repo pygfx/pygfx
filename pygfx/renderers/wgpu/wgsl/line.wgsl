@@ -674,7 +674,9 @@ fn vs_main(in: VertexInput) -> Varyings {
     } else if (is_connecting_node_in_loop) {
         valid_array[vertex_index] = 0.0;
         if (vertex_index > 1) {
-            the_pos_n = vec4<f32>(bitcast<f32>(0x7fc00000u));  // nan
+            // A runtime value, because a nan from a const-expression is a shader-creation error in WGSL
+            var nan_bits = 0x7fc00000u;
+            the_pos_n = vec4<f32>(bitcast<f32>(nan_bits));  // nan
         }
     }
     $$ endif
