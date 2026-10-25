@@ -25,7 +25,9 @@ class SkeletonHelper(Line):
         super().__init__(
             Geometry(positions=positions, colors=colors),
             LineSegmentMaterial(
-                thickness=thickness, color_mode="vertex", depth_test=False
+                thickness=thickness,
+                color_mode="vertex",
+                depth_test=False,
             ),
         )
 

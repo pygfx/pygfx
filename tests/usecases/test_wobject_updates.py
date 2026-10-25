@@ -43,7 +43,7 @@ class PipelineSnapshotter:
         # the equivalent what happens during a call. This means we don't need to
         # perform an actual draw.
         pipeline_container_group = get_pipeline_container_group(
-            self.world_object, self.scene, self.env
+            self.world_object, self.scene, self.renderer, self.env
         )
         pipeline_container = pipeline_container_group.render_containers[0]
 
