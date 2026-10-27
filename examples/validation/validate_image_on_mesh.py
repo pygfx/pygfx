@@ -1,6 +1,6 @@
 """
-Image on Plane Geometry 1
-=========================
+Image on Plane Geometry
+=======================
 
 Show an image using a plane geometry. For historic reasons, image
 data (usually) has the first rows representing the top of the image.

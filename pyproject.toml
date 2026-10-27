@@ -16,7 +16,7 @@ keywords = [
     "webgpu",
     "wgpu",
 ]
-requires-python = ">= 3.10"
+requires-python = ">= 3.11"
 dependencies = [
     # Packages under the PyGfx umbrella.
     # For some of these we set an upper bound because (for now) they regularly break their API.
@@ -25,7 +25,7 @@ dependencies = [
     "wgpu >= 0.30.1",
     "pylinalg >=0.6.8,<0.7.0",
     # External dependencies
-    "numpy",
+    "numpy>=2.1", # Introduces np.reshape's copy kwarg
     "freetype-py",
     "uharfbuzz",
     "jinja2",
@@ -72,7 +72,7 @@ Repository = "https://github.com/pygfx/pygfx"
 
 # Flit is great solution for simple pure-Python projects.
 [build-system]
-requires = ["flit_core >=3.2,<4"]
+requires = ["flit_core >=3.2,<5"]
 build-backend = "flit_core.buildapi"
 
 # ===== Tooling

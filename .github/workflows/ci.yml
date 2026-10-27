@@ -24,7 +24,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: 3.12
+        python-version: 3.13
     - name: Install dependencies
       run: |
           python -m pip install --upgrade pip
@@ -49,7 +49,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: 3.12
+        python-version: 3.13
     - name: Install llvmpipe and lavapipe for offscreen canvas
       run: |
         sudo apt-get update -y -qq
@@ -71,9 +71,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: Test py310
-            os: ubuntu-latest
-            pyversion: '3.10'
           - name: Test py311
             os: ubuntu-latest
             pyversion: '3.11'
@@ -116,7 +113,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: 3.12
+        python-version: 3.13
     - name: Install package and dev dependencies
       run: |
         python -m pip install --upgrade pip
@@ -136,15 +133,15 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            pyversion: '3.10'
+            pyversion: '3.11'
           - os: ubuntu-latest
-            pyversion: '3.13'
+            pyversion: '3.14'
     steps:
     - uses: actions/checkout@v4
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: 3.12
+        python-version: ${{ matrix.pyversion }}
     - name: Install llvmpipe and lavapipe for offscreen canvas
       run: |
         sudo apt-get update -y -qq
@@ -176,7 +173,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: 3.12
+          python-version: 3.13
       - name: Install dev dependencies
         run: |
           python -m pip install --upgrade pip

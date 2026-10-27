@@ -119,17 +119,17 @@ class PanZoomController(Controller):
             return self._update_cameras()
 
     def _update_zoom_to_point(self, delta, *, screen_pos, rect):
-        if isinstance(delta, tuple) and len(delta) == 2:
-            delta = delta[1]
-        assert isinstance(delta, (int, float))
+        if isinstance(delta, (int, float)):
+            delta = (delta, delta)
+        assert isinstance(delta, tuple) and len(delta) == 2
 
-        # Actually only zoom in one direction
-        fy = 2**delta
+        fx = 2 ** delta[0]
+        fy = 2 ** delta[1]
 
-        new_cam_state = self._zoom(fy, fy, self._get_camera_state())
+        new_cam_state = self._zoom(fx, fy, self._get_camera_state())
         self._set_camera_state(new_cam_state)
 
-        pan_delta = self._get_panning_to_compensate_zoom(fy, screen_pos, rect)
+        pan_delta = self._get_panning_to_compensate_zoom((fx, fy), screen_pos, rect)
         vecx, vecy = self._get_camera_vecs(rect)
         self._update_pan(pan_delta, vecx=vecx, vecy=vecy)
 
@@ -164,6 +164,9 @@ class PanZoomController(Controller):
     def _get_panning_to_compensate_zoom(self, multiplier, screen_pos, rect):
         # Get viewport info
         x, y, w, h = rect
+
+        # A scalar multiplier applies to both dimensions, a 2-tuple to each
+        multiplier = np.array(multiplier, dtype=float)
 
         # Distance from the center of the rect
         delta_screen_x = screen_pos[0] - x - w / 2

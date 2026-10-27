@@ -19,6 +19,8 @@ ALTTEXFORMAT = {
     "rgb8unorm": ("rgba8unorm", 255, 1),
     "rgb8sint": ("rgba8sint", 127, 1),
     "rgb8uint": ("rgba8uint", 255, 1),
+    "rgb16snorm": ("rgba16snorm", 32767, 2),
+    "rgb16unorm": ("rgba16unorm", 65535, 2),
     "rgb16sint": ("rgba16sint", 32767, 2),
     "rgb16uint": ("rgba16uint", 65535, 2),
     "rgb32sint": ("rgba32sint", 2147483647, 4),

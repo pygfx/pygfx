@@ -69,12 +69,13 @@ cube = gfx.Mesh(
 
 rot = la.quat_from_euler((0, 0.01), order="XY")
 
+
 def animate():
     cube.local.rotation = la.quat_mul(rot, cube.local.rotation)
 
+
 if __name__ == "__main__":
     gfx.show(cube, before_render=animate)
-
 ```
 <img src="./docs/_static/guide_rotating_cube.gif" alt="drawing" width="400"/>
 

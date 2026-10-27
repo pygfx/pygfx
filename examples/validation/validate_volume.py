@@ -20,8 +20,7 @@ import pygfx as gfx
 canvas = RenderCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 
-# Prepare a very small data volume. The data is integer and not uint8,
-# so its not interpolated (a wgpu restriction). In this case this is intended.
+# Prepare a very small data volume.
 voldata = np.ones((3, 3, 3), np.int16) * 200
 voldata[1:-1, :, :] = 600
 voldata[:, 1:-1, :] = 600
@@ -43,15 +42,30 @@ box2 = gfx.Mesh(
 
 # In scene1 we show a raycasted volume
 scene1 = gfx.Scene()
-vol = gfx.Volume(geo, gfx.VolumeMipMaterial(clim=(0, 2000)))
+vol = gfx.Volume(geo, gfx.VolumeMipMaterial(clim=(0, 2000), interpolation="nearest"))
 vol.local.position = (-1, -1, -1)
 scene1.add(vol, box1)
 
 # In scene2 we show volume slices
 scene2 = gfx.Scene()
-slice1 = gfx.Volume(geo, gfx.VolumeSliceMaterial(clim=(0, 1000), plane=(0, 0, 1, 0)))
-slice2 = gfx.Volume(geo, gfx.VolumeSliceMaterial(clim=(0, 1000), plane=(0, 1, 0, 0)))
-slice3 = gfx.Volume(geo, gfx.VolumeSliceMaterial(clim=(0, 1000), plane=(1, 0, 0, 0)))
+slice1 = gfx.Volume(
+    geo,
+    gfx.VolumeSliceMaterial(
+        clim=(0, 1000), plane=(0, 0, 1, 0), interpolation="nearest"
+    ),
+)
+slice2 = gfx.Volume(
+    geo,
+    gfx.VolumeSliceMaterial(
+        clim=(0, 1000), plane=(0, 1, 0, 0), interpolation="nearest"
+    ),
+)
+slice3 = gfx.Volume(
+    geo,
+    gfx.VolumeSliceMaterial(
+        clim=(0, 1000), plane=(1, 0, 0, 0), interpolation="nearest"
+    ),
+)
 for slice in (slice1, slice2, slice3):
     slice.local.position = (-1, -1, -1)
 scene2.add(slice1, slice2, slice3, box2)
