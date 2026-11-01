@@ -1,3 +1,5 @@
+import numpy as np
+import pylinalg as la
 import pytest
 
 from rendercanvas.offscreen import RenderCanvas
@@ -64,6 +66,22 @@ def make_panzoom():
     camera = gfx.OrthographicCamera(width=200, height=100, maintain_aspect=False)
     controller = gfx.PanZoomController(camera, register_events=renderer)
     return camera, controller
+
+
+def test_orbit_with_target_keeps_looking_at_target():
+    target = np.array([1.0, 2.0, -0.5])
+    camera = gfx.PerspectiveCamera(50)
+    camera.local.position = (4, 3, 6)
+    controller = gfx.OrbitController(camera, target=target)
+    distance = np.linalg.norm(camera.local.position - target)
+
+    # drags that change azimuth and elevation at once
+    for delta in [(0.3, 0.2), (-0.2, 0.4), (0.5, -0.3), (-0.4, -0.25)]:
+        controller.rotate(delta, (0, 0, 200, 100))
+        forward = la.vec_transform_quat((0, 0, -1), camera.local.rotation)
+        to_target = (target - camera.local.position) / distance
+        assert np.dot(forward, to_target) == pytest.approx(1, abs=1e-6)
+        assert np.linalg.norm(camera.local.position - target) == pytest.approx(distance)
 
 
 def test_zoom_to_point_scalar_equals_uniform_tuple():
