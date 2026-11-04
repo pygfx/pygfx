@@ -44,7 +44,7 @@ class TriangleShader(BaseShader):
     # Mark as render-shader (as opposed to compute-shader)
     type = "render"
 
-    def get_bindings(self, wobject, shared, scene):
+    def get_bindings(self, wobject, shared, scene, renderer):
         # Our only binding is a uniform buffer
         bindings = {
             0: Binding("u_stdinfo", "buffer/uniform", shared.uniform_buffer),

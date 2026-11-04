@@ -44,9 +44,10 @@ canvas, averaging neighbouring fragments for anti-aliasing.
 """
 
 # ruff: noqa: F401, E402
+from ..utils.trackable import Trackable
 
 
-class Renderer:
+class Renderer(Trackable):
     """Base (abstract) renderer class that all renderers inherit from."""
 
     def render(self, scene, camera):
