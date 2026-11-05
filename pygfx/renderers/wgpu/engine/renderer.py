@@ -229,6 +229,10 @@ class WgpuRenderer(RootEventHandler, Renderer):
     ppaa : str, optional
         The post-processing anti-aliasing to apply: "default", "none", "fxaa", "ddaa".
         By default it resolves to "ddaa".
+    enable_depth : bool
+        Whether a depth buffer is employed (as part of the depth-stencil buffer). Default True.
+    enable_stencil : bool
+        Whether a stencil buffer is employed (as part of the depth-stencil buffer). Default False.
     """
 
     def __init__(
