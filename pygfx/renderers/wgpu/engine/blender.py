@@ -337,14 +337,20 @@ class Blender:
         if "depth_stencil" not in self._texture_info:
             return None
 
-        depth_write = bool(depth_write)
-        if depth_test:
-            wgpu_depth_compare = DEPTH_MAP[depth_compare]
-        else:
-            wgpu_depth_compare = wgpu.CompareFunction.always
-
         texinfo = self._texture_info["depth_stencil"]
         texinfo["is_used"] = True
+
+        if "depth" in texinfo["format"]:
+            depth_write = bool(depth_write)
+            if depth_test:
+                wgpu_depth_compare = DEPTH_MAP[depth_compare]
+            else:
+                wgpu_depth_compare = wgpu.CompareFunction.always
+        else:
+            # The format has no depth aspect (e.g. stencil8), so the depth
+            # test/write must be disabled
+            depth_write = False
+            wgpu_depth_compare = wgpu.CompareFunction.always
 
         return wgpu.DepthStencilState(
             format=texinfo["format"],
