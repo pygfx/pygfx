@@ -146,12 +146,13 @@ class OrbitController(PanZoomController):
             target_pos = self._custom_target
             pos1_to_target = target_pos - pos1
 
-            pos1_to_target_rotated = la.vec_transform_quat(pos1_to_target, r_azimuth)
-
+            # Turn this vector exactly like rot2 turns the camera: elevation
+            # about the camera's right axis first, then azimuth about up.
+            # Any other order makes the camera drift away from the target.
             right = la.vec_transform_quat((1, 0, 0), rot1)
             r_elevation_world = la.quat_from_axis_angle(right, -delta_elevation)
             pos1_to_target_final = la.vec_transform_quat(
-                pos1_to_target_rotated, r_elevation_world
+                pos1_to_target, la.quat_mul(r_azimuth, r_elevation_world)
             )
 
             pos2 = target_pos - pos1_to_target_final
