@@ -24,6 +24,7 @@ stdinfo_uniform_type = dict(
     projection_transform_inv="4x4xf4",
     ndc_offset="4xf4",
     physical_size="2xf4",
+    physical_offset="2xf4",
     logical_size="2xf4",
 )
 

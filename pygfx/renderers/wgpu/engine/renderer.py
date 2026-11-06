@@ -696,6 +696,11 @@ class WgpuRenderer(RootEventHandler, Renderer):
                 "The viewport rect must be None or 4 elements (x, y, w, h)."
             )
 
+        # Where the viewport starts on the framebuffer, in physical pixels.
+        # This is the origin that @builtin(position) is measured from, so a
+        # shader needs it to place a fragment inside its own viewport.
+        scene_poffset = physical_viewport[0], physical_viewport[1]
+
         # Apply the camera's native size (do this before we change scene_lsize based on view_offset)
         camera.set_view_size(*scene_lsize)
 
@@ -732,7 +737,9 @@ class WgpuRenderer(RootEventHandler, Renderer):
         self._shared.pre_render_hook()
 
         # Update stdinfo uniform buffer object that we'll use during this render call
-        self._update_stdinfo_buffer(camera, scene_psize, scene_lsize, ndc_offset)
+        self._update_stdinfo_buffer(
+            camera, scene_psize, scene_poffset, scene_lsize, ndc_offset
+        )
 
         # Get renderstate object
         renderstate = get_renderstate(flat.lights, self._blender)
@@ -921,7 +928,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         return [command_encoder.finish()]
 
     def _update_stdinfo_buffer(
-        self, camera: Camera, physical_size, logical_size, ndc_offset
+        self, camera: Camera, physical_size, physical_offset, logical_size, ndc_offset
     ):
         # Update the stdinfo buffer's data
         # All matrices need to be transposed, because in WGSL they are column-major.
@@ -935,6 +942,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # stdinfo_data["ndc_to_world"].flat = la.mat_inverse(stdinfo_data["cam_transform"] @ stdinfo_data["projection_transform"])
         stdinfo_data["ndc_offset"] = ndc_offset
         stdinfo_data["physical_size"] = physical_size
+        stdinfo_data["physical_offset"] = physical_offset
         stdinfo_data["logical_size"] = logical_size
         # Upload to GPU
         self._shared.uniform_buffer.update_full()
