@@ -32,9 +32,11 @@ import pygfx
 # might also be a CORS problem. pypi now supports pyemscripten, so this could work in a few weeks once cibuildwheel updates!
 # wgpu_wheel = "https://wgpu-py--753.org.readthedocs.build/en/753/_static/wgpu-0.32.0-py3-none-any.whl" # very hacky way to serve this but it does work...
 wgpu_wheel = "wgpu-0.32.0-py3-none-any.whl"
+rendercanvas_wheel = "" # "rendercanvas-2.7.2-py3-none-any.whl" # still moved manually ...
+
 
 # the pygfx wheel will be listed after this. it might be possible to still get deps from pyproject.toml
-pygfx_deps = [wgpu_wheel, "imgui-bundle", "uharfbuzz", "hsluv", "pylinalg", "jinja2", "httpx", "trimesh", "gltflib", "imageio"]
+pygfx_deps = [rendercanvas_wheel, wgpu_wheel, "imgui-bundle", "uharfbuzz", "hsluv", "pylinalg", "jinja2", "httpx", "trimesh", "gltflib", "imageio"]
 
 root = Path(__file__).parent.parent.absolute()
 
@@ -122,7 +124,7 @@ pyodide_compute_template = """
     <p>
     {docstring}
     </p>
-    <div id="canvas" class='renderview-wrapper is-resizable has-titlebar' style="width: 80%; height: 480px;">
+    <div id="canvas" class='renderview-wrapper is-resizable has-titlebar is-closable is-minimizable' style="width: 80%; height: 480px;">
         <p id="loading"; style='width:100%; height:100%; background:#aaa; display: flex; justify-content: center; align-items: center; font-size:150%'>Loading ...</p>
     </div>
     <div id="output" style="white-space: per-line; overflow-y: auto; height:300px; background:#eee; padding:4px; margin:4px; border:1px solid #ccc;">
