@@ -3,50 +3,48 @@ The main renderer class. This class wraps a canvas or texture and it
 manages the rendering process.
 """
 
+import logging
 import os
 import time
-import logging
 from typing import Literal
 
 import numpy as np
-import wgpu
 import pylinalg as la
+import wgpu
 from rendercanvas import BaseRenderCanvas
 
-from ....objects._base import id_provider
+from ....cameras import Camera
 from ....objects import (
+    Group,
     KeyboardEvent,
-    RootEventHandler,
     PointerEvent,
+    RootEventHandler,
     WheelEvent,
     WindowEvent,
     WorldObject,
-    Group,
 )
+from ....objects._base import id_provider
 from ....objects._lights import (
+    AmbientLight,
+    DirectionalLight,
     Light,
     PointLight,
-    DirectionalLight,
     SpotLight,
-    AmbientLight,
 )
-from ....cameras import Camera
 from ....resources import Texture
 from ....resources._base import resource_update_registry
 from ....utils import Color
 from ....utils.enums import PixelFilter
-
 from ... import Renderer
 from .blender import Blender
-from .effectpasses import EffectPass, OutputPass, PPAAPass, FXAAPass, DDAAPass
+from .effectpasses import DDAAPass, EffectPass, FXAAPass, OutputPass, PPAAPass
+from .mipmapsutil import generate_texture_mipmaps
 from .pipeline import get_pipeline_container_group
-from .update import update_resource, ensure_wgpu_object
-from .shared import get_shared
 from .renderstate import get_renderstate
 from .shadowutil import render_shadow_maps
-from .mipmapsutil import generate_texture_mipmaps
+from .shared import get_shared
+from .update import ensure_wgpu_object, update_resource
 from .utils import GfxTextureView
-
 
 logger = logging.getLogger("pygfx")
 
@@ -231,6 +229,10 @@ class WgpuRenderer(RootEventHandler, Renderer):
     ppaa : str, optional
         The post-processing anti-aliasing to apply: "default", "none", "fxaa", "ddaa".
         By default it resolves to "ddaa".
+    enable_depth : bool
+        Whether a depth buffer is employed (as part of the depth-stencil buffer). Default True.
+    enable_stencil : bool
+        Whether a stencil buffer is employed (as part of the depth-stencil buffer). Default False.
     """
 
     def __init__(
@@ -245,6 +247,8 @@ class WgpuRenderer(RootEventHandler, Renderer):
         enable_events=True,
         gamma_correction=1.0,
         ppaa="default",
+        enable_depth=True,
+        enable_stencil=False,
         **kwargs,
     ):
         blend_mode = kwargs.pop("blend_mode", None)
@@ -302,7 +306,9 @@ class WgpuRenderer(RootEventHandler, Renderer):
             self._target._wgpu_usage |= wgpu.TextureUsage.RENDER_ATTACHMENT
             self._target._wgpu_usage |= wgpu.TextureUsage.TEXTURE_BINDING
 
-        self._blender = Blender()
+        self._blender = Blender(
+            enable_depth=enable_depth, enable_stencil=enable_stencil
+        )
         self._effect_passes = ()
         self.ppaa = ppaa
         self._name_of_texture_with_effects = (
@@ -601,7 +607,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
         * all: clear all render targets; a fully clean sheeth.
         * color: clear the color buffer to rgba all zeros.
-        * depth: clear the depth buffer.
+        * depth: clear the depth-stencil buffer.
         * weights: clear the render targets for weighted blending (the accum and reveal textures).
 
         """
@@ -616,7 +622,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
             if color:
                 self._blender.texture_info["color"]["clear"] = True
             if depth:
-                self._blender.texture_info["depth"]["clear"] = True
+                self._blender.texture_info["depth_stencil"]["clear"] = True
             if weights:
                 self._blender.texture_info["accum"]["clear"] = True
                 self._blender.texture_info["reveal"]["clear"] = True
@@ -841,7 +847,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
                 depth_tex = None
                 if step.USES_DEPTH:
                     depth_tex = self._blender.get_texture_view(
-                        "depth", src_usage, create_if_not_exist=False
+                        "depth_stencil", src_usage, create_if_not_exist=False
                     )
                 step.render(command_encoder, color_tex, depth_tex, dst_tex)
                 # Pingpong
@@ -905,7 +911,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
             render_pass = command_encoder.begin_render_pass(
                 color_attachments=blender.get_color_attachments(pass_type),
-                depth_stencil_attachment=blender.get_depth_attachment(),
+                depth_stencil_attachment=blender.get_depth_stencil_attachment(),
                 occlusion_query_set=None,
             )
 
@@ -923,7 +929,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # Make sure the render targets exist (even if no objects are rendered)
         if not rendered_something:
             blender.get_color_attachments("normal")
-            blender.get_depth_attachment()
+            blender.get_depth_stencil_attachment()
 
         return [command_encoder.finish()]
 
@@ -1031,27 +1037,68 @@ class WgpuRenderer(RootEventHandler, Renderer):
             copy_size=(1, 1, 1),
         )
 
-    def snapshot(self):
+    def snapshot(self, source: Literal["color", "depth", "stencil", "pick"] = "color"):
         """Create a snapshot of the currently rendered image."""
 
         # Prepare
-        texture = self._blender.get_texture(
-            self._name_of_texture_with_effects or "color"
-        )
+        if source == "color":
+            texture_name = self._name_of_texture_with_effects or "color"
+        elif source in ["depth", "stencil"]:
+            texture_name = "depth_stencil"
+        elif source == "pick":
+            texture_name = "pick"
+        else:
+            raise ValueError(
+                "Unknown snapshot source: 'source', need one of 'color', 'depth', 'stencil', 'pick'."
+            )
+
+        texture = self._blender.get_texture(texture_name)
         size = texture.size
+        aspect = "all"
         if texture.format == "rgba16float":
             bytes_per_pixel = 8
             dtype = np.float16
-        else:
+            nchannels = 4
+        elif texture.format in ("rgba8unorm-srgb", "rgba8unorm"):
             bytes_per_pixel = 4
             dtype = np.uint8
+            nchannels = 4
+        elif texture.format == "stencil8":
+            aspect = f"stencil-only"
+            bytes_per_pixel = 1
+            dtype = np.uint8
+            nchannels = 1
+        elif texture.format == "depth32float":
+            aspect = f"depth-only"
+            bytes_per_pixel = 1
+            dtype = np.float32
+            nchannels = 1
+        elif texture.format == "depth32float-stencil8":
+            if source == "depth":
+                aspect = "depth-only"
+                bytes_per_pixel = 4
+                dtype = np.float32
+                nchannels = 1
+            else:
+                aspect = "stencil-only"
+                bytes_per_pixel = 1
+                dtype = np.uint8
+                nchannels = 1
+        elif texture.format == "rgba16uint":
+            bytes_per_pixel = 8
+            dtype = np.uint16
+            nchannels = 4
+        else:
+            raise RuntimeError(f"Unexpected format for snapshot: {texture.format}")
 
         # Note, with queue.read_texture the bytes_per_row limitation does not apply.
+        # Note, read_texture may be deprecated, we should eventually move to an optional async approach.
         data = self._device.queue.read_texture(
             {
                 "texture": texture,
                 "mip_level": 0,
                 "origin": (0, 0, 0),
+                "aspect": aspect,
             },
             {
                 "offset": 0,
@@ -1061,7 +1108,10 @@ class WgpuRenderer(RootEventHandler, Renderer):
             size,
         )
 
-        return np.frombuffer(data, dtype).reshape(size[1], size[0], 4)
+        array = np.frombuffer(data, dtype).reshape(size[1], size[0], nchannels)
+        if nchannels == 1:
+            array = array.reshape(array.shape[:-1])
+        return array
 
     def request_draw(self, draw_function=None):
         """Forwards a request_draw call to the target canvas. If the renderer's

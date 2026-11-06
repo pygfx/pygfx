@@ -2,14 +2,15 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from ..utils.trackable import Trackable
-from ..utils import array_from_shadertype, ReadOnlyDict
-from ..resources import Buffer
-from ..utils.enums import AlphaMethod, AlphaMode
+import wgpu
 
+from ..resources import Buffer
+from ..utils import ReadOnlyDict, array_from_shadertype
+from ..utils.enums import AlphaMethod, AlphaMode
+from ..utils.trackable import Trackable
 
 if TYPE_CHECKING:
-    from typing import Optional, ClassVar, TypeAlias, Literal, Sequence
+    from typing import ClassVar, Literal, Optional, Sequence, TypeAlias
 
     ABCDTuple: TypeAlias = tuple[float, float, float, float]
 
@@ -162,6 +163,9 @@ class Material(Trackable):
         alpha_test: float = 0.0,
         alpha_compare: str = "<",
         render_queue: Optional[int] = None,
+        stencil_front_state: wgpu.StencilFaceState | None = None,
+        stencil_back_state: wgpu.StencilFaceState | None = None,
+        stencil_value: int = 0,
     ):
         super().__init__()
 
@@ -184,6 +188,9 @@ class Material(Trackable):
         self.alpha_test = alpha_test
         self.alpha_compare = alpha_compare
         self.render_queue = render_queue  # set last, bc it resolves from other values
+        self.stencil_front_state = stencil_front_state
+        self.stencil_back_state = stencil_back_state
+        self.stencil_value = stencil_value
 
     def _set_size_of_uniform_array(self, key: str, new_length: int) -> None:
         """Resize the given array field in the uniform struct if the
@@ -742,3 +749,46 @@ class Material(Trackable):
         if not isinstance(value, (bool, int)):
             raise TypeError("Material.pick_write must be bool.")
         self._store.pick_write = bool(value)
+
+    @property
+    def stencil_front_state(self) -> wgpu.StencilFaceState | None:
+        """Defines the stenciling behavior for front-faces."""
+        return self._store.stencil_front_state
+
+    @stencil_front_state.setter
+    def stencil_front_state(self, state: wgpu.StencilFaceState | None):
+        if state is None:
+            self._store.stencil_front_state = state
+        elif isinstance(state, wgpu.StencilFaceState):
+            self._store.stencil_front_state = state
+        else:
+            raise TypeError(
+                "Material.stencil_front_state must be a wgpu.StencilFaceState object."
+            )
+
+    @property
+    def stencil_back_state(self) -> wgpu.StencilFaceState | None:
+        """Defines the stenciling behavior for back-faces."""
+        return self._store.stencil_back_state
+
+    @stencil_back_state.setter
+    def stencil_back_state(self, state: wgpu.StencilFaceState | None):
+        if state is None:
+            self._store.stencil_back_state = state
+        elif isinstance(state, wgpu.StencilFaceState):
+            self._store.stencil_back_state = state
+        else:
+            raise TypeError(
+                "Material.stencil_back_state must be a wgpu.StencilFaceState object."
+            )
+
+    @property
+    def stencil_value(self) -> int:
+        """Defines the reference stencil value for this object. Default 0."""
+        return self._stencil_value
+
+    @stencil_value.setter
+    def stencil_value(self, value: int):
+        self._stencil_value = int(value)  # applied at each draw, so not saved on store
+
+    # NOTE: we have not implemented read_mask and write_mask yet; they are assimed 0xff for now
