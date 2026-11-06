@@ -4,10 +4,9 @@ The blender is the part of the renderer that manages output targets and alpha_co
 
 import wgpu  # only for flags/enums
 
+from ..wgsl import load_wgsl
 from .effectpasses import create_full_quad_pipeline
 from .shared import get_shared
-from ..wgsl import load_wgsl
-
 
 standard_texture_binding_layout = wgpu.TextureBindingLayout(
     sample_type="unfilterable-float",
@@ -69,8 +68,16 @@ default_targets = {
     # 32 but is cool, but we may want stencil at some point, so depth24plus_stencil8 seems like a good default.
     # The depth24plus is either depth32float or depth24unorm, depending on the backend.
     # Note that there is also depth32float-stencil8, but it needs the (webgpu) extension with the same name.
+    "depth_stencil": (
+        wgpu.TextureFormat.depth32float_stencil8,
+        usg.RENDER_ATTACHMENT | usg.COPY_SRC | usg.TEXTURE_BINDING,
+    ),
     "depth": (
         wgpu.TextureFormat.depth32float,
+        usg.RENDER_ATTACHMENT | usg.COPY_SRC | usg.TEXTURE_BINDING,
+    ),
+    "stencil": (
+        wgpu.TextureFormat.stencil8,
         usg.RENDER_ATTACHMENT | usg.COPY_SRC | usg.TEXTURE_BINDING,
     ),
     # The pick texture has 4 16bit channels. It's 8 bytes per pixel.
@@ -100,7 +107,7 @@ class Blender:
     Each renderer has one blender object.
     """
 
-    def __init__(self, *, enable_pick=True, enable_depth=True):
+    def __init__(self, *, enable_pick=True, enable_depth=True, enable_stencil=False):
         self.device = get_shared().device
 
         # We could allow custom targets, but this is not yet implemented in the methods.
@@ -129,8 +136,19 @@ class Blender:
             all_targets[name] = custom_targets[name]
         if not enable_pick:
             all_targets.pop("pick")
-        if not enable_depth:
+        if enable_depth and enable_stencil:  # keep only depth_stencil
             all_targets.pop("depth")
+            all_targets.pop("stencil")
+        elif enable_depth:
+            all_targets["depth_stencil"] = all_targets.pop("depth")
+            all_targets.pop("stencil")
+        elif enable_stencil:
+            all_targets["depth_stencil"] = all_targets.pop("stencil")
+            all_targets.pop("depth")
+        else:
+            all_targets.pop("depth")
+            all_targets.pop("stencil")
+            all_targets.pop("depth_stencil")
 
         # Convert to final dict
         for name, (format, usage) in all_targets.items():
@@ -303,32 +321,45 @@ class Blender:
 
         return target_states
 
-    def get_depth_descriptor(self, depth_test, depth_compare, depth_write):
+    def get_depth_stencil_descriptor(
+        self,
+        depth_test,
+        depth_compare,
+        depth_write,
+        stencil_front_state,
+        stencil_back_state,
+    ):
         """Get the dict depth-descriptors that pipeline.py needs to create the render pipeline.
 
         Called per object when the pipeline is created.
         """
 
-        if "depth" not in self._texture_info:
+        if "depth_stencil" not in self._texture_info:
             return None
 
-        depth_write = bool(depth_write)
-        if depth_test:
-            wgpu_depth_compare = DEPTH_MAP[depth_compare]
-        else:
-            wgpu_depth_compare = wgpu.CompareFunction.always
-
-        texinfo = self._texture_info["depth"]
+        texinfo = self._texture_info["depth_stencil"]
         texinfo["is_used"] = True
+
+        if "depth" in texinfo["format"]:
+            depth_write = bool(depth_write)
+            if depth_test:
+                wgpu_depth_compare = DEPTH_MAP[depth_compare]
+            else:
+                wgpu_depth_compare = wgpu.CompareFunction.always
+        else:
+            # The format has no depth aspect (e.g. stencil8), so the depth
+            # test/write must be disabled
+            depth_write = False
+            wgpu_depth_compare = wgpu.CompareFunction.always
 
         return wgpu.DepthStencilState(
             format=texinfo["format"],
             depth_write_enabled=depth_write,
             depth_compare=wgpu_depth_compare,
-            stencil_read_mask=0,
-            stencil_write_mask=0,
-            stencil_front={},  # use defaults
-            stencil_back={},  # use defaults
+            stencil_read_mask=0xFF,
+            stencil_write_mask=0xFF,
+            stencil_front=stencil_front_state,
+            stencil_back=stencil_back_state,
         )
 
     def get_color_attachments(self, pass_type):
@@ -396,29 +427,33 @@ class Blender:
 
         return attachments
 
-    def get_depth_attachment(self):
+    def get_depth_stencil_attachment(self):
         """Get the texture render targets for depth/stencil. These are dynamically attached right before rendering a batch of objects."""
 
-        if "depth" not in self._texture_info:
+        if "depth_stencil" not in self._texture_info:
             return None
 
-        texinfo = self._texture_info["depth"]
+        texinfo = self._texture_info["depth_stencil"]
 
         load_op = wgpu.LoadOp.load
         if texinfo["clear"]:
             texinfo["clear"] = False
             load_op = wgpu.LoadOp.clear
 
-        view = self._get_texture_view_for_rendering("depth")
+        view = self._get_texture_view_for_rendering("depth_stencil")
+        format_name = view.texture.format
 
-        # We don't use the stencil yet, but when we do, we will also have to specify
-        # "stencil_read_only", "stencil_load_op", and "stencil_store_op"
-        return wgpu.RenderPassDepthStencilAttachment(
-            view=view,
-            depth_clear_value=1.0,
-            depth_load_op=load_op,
-            depth_store_op="store",
-        )
+        attachment = wgpu.RenderPassDepthStencilAttachment(view=view)
+        if "depth" in format_name:
+            attachment.depth_clear_value = 1.0
+            attachment.depth_load_op = load_op
+            attachment.depth_store_op = "store"
+        if "stencil" in format_name:
+            attachment.stencil_clear_value = 0
+            attachment.stencil_load_op = load_op
+            attachment.stencil_store_op = "store"
+            attachment.stencil_read_only = False
+        return attachment
 
     def get_shader_kwargs(self, material_pick_write, alpha_config):
         """Get the shader templating variables for the given alpha config."""
