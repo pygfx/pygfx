@@ -131,7 +131,7 @@ class Display:
 
         """
 
-        if self.canvas and self.canvas.is_closed():
+        if self.canvas and self.canvas.get_closed():
             raise RuntimeError(
                 "Can not show a closed canvas. Did you repeatedly call `show`?"
             )
