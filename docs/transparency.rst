@@ -275,6 +275,10 @@ Objects that don't write depth are usually drawn after objects that do write dep
 In Pygfx, the default value of ``material.depth_write``
 is True when ``alpha_method in ("opaque", "stochastic")`` or when ``alpha_mode="auto"``.
 
+If ``material.color_write`` is False, the object is invisible, but it can still write
+depth, hiding the objects behind it that are drawn after it. This can be used for a depth pre-pass
+(see `transparency_depth_prepass.py <_gallery/feature_demo/transparency_depth_prepass.html>`_).
+
 
 Not supported
 -------------

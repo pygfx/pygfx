@@ -373,6 +373,7 @@ class PipelineContainer:
         if "pipeline_info" in changed:
             with tracker.track_usage("pipeline_info"):
                 self.pipeline_info = self.shader.get_pipeline_info(wobject, self.shared)
+                self.wobject_info["color_write"] = wobject.material.color_write
                 self.wobject_info["depth_test"] = wobject.material.depth_test
                 self.wobject_info["depth_compare"] = wobject.material.depth_compare
                 self.wobject_info["depth_write"] = wobject.material.depth_write
@@ -621,6 +622,7 @@ class RenderPipelineContainer(PipelineContainer):
         color_descriptors = blender.get_color_descriptors(
             self.wobject_info["pick_write"],
             self.wobject_info["alpha_config"],
+            self.wobject_info["color_write"],
         )
         depth_descriptor = blender.get_depth_descriptor(
             depth_test, depth_compare, depth_write
