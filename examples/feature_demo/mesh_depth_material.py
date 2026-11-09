@@ -24,7 +24,7 @@ class DepthShader(MeshShader):
     # Mark as render-shader (as opposed to compute-shader)
     type = "render"
 
-    def get_bindings(self, wobject, shared, scene):
+    def get_bindings(self, wobject, shared, scene, renderer):
         geometry = wobject.geometry
 
         bindings = {
