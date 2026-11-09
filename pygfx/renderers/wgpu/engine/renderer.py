@@ -228,6 +228,8 @@ class WgpuRenderer(RootEventHandler, Renderer):
     gamma_correction : float
         The gamma correction to apply in the final render stage. Typically a
         number between 0.0 and 2.0. A value of 1.0 indicates no correction.
+        Floating-point canvas targets receive linear output by default, without
+        an additional sRGB gamma correction.
     ppaa : str, optional
         The post-processing anti-aliasing to apply: "default", "none", "fxaa", "ddaa".
         By default it resolves to "ddaa".
@@ -285,12 +287,12 @@ class WgpuRenderer(RootEventHandler, Renderer):
         self._gamma_correction_srgb = 1.0
         if isinstance(target, BaseRenderCanvas):
             self._canvas_context = self._target.get_context("wgpu")
-            # Select output format. We currently don't have a way of knowing
-            # what formats are available, so if not srgb, we gamma-correct in shader.
+            # Float formats receive linear output. Normalized formats need sRGB
+            # encoding, either via the texture format or a shader fallback.
             target_format = self._canvas_context.get_preferred_format(
                 self._shared.adapter
             )
-            if not target_format.endswith("srgb"):
+            if not target_format.endswith(("srgb", "float")):
                 self._gamma_correction_srgb = 1 / 2.2  # poor man's srgb
             # Also configure the canvas
             self._canvas_context.configure(
