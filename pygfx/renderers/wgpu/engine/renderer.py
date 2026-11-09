@@ -237,9 +237,14 @@ class WgpuRenderer(RootEventHandler, Renderer):
         Whether a stencil buffer is employed (as part of the depth-stencil buffer). Default False.
     color_precision : str, optional
         Precision of the internal color and post-processing buffers: "uint8"
-        (default, 4 bytes per pixel in sRGB) or "float16" (8 bytes per pixel
-        in linear space). Float16 preserves HDR values before the final output
-        conversion. The weighted transparency buffers retain their fixed formats
+        (default, 4 bytes per pixel in sRGB), "float16" (8 bytes per pixel)
+        or "float32" (16 bytes per pixel). Floating-point buffers store linear
+        values and preserve HDR before the final output conversion.
+        Float32 requires the "float32-blendable" and "float32-filterable" device
+        features. Enable these with
+        ``pygfx.renderers.wgpu.enable_wgpu_features("float32-blendable", "float32-filterable")``
+        before creating the first renderer (float32-filterable is enabled by default).
+        The weighted transparency buffers retain their fixed formats
         (float16 accumulation and uint8 revealage). This does not change the
         canvas output format or enable floating-point canvas downloads.
     """
@@ -274,8 +279,8 @@ class WgpuRenderer(RootEventHandler, Renderer):
                 f"Render target must be a Canvas or Texture, not a {target.__class__.__name__}"
             )
         self._target = target
-        if color_precision not in ("uint8", "float16"):
-            raise ValueError("color_precision must be 'uint8' or 'float16'.")
+        if color_precision not in ("uint8", "float16", "float32"):
+            raise ValueError("color_precision must be 'uint8', 'float16' or 'float32'.")
         self._color_precision = color_precision
         self._pixel_scale = None
         self._pixel_ratio = None
@@ -337,9 +342,10 @@ class WgpuRenderer(RootEventHandler, Renderer):
         self.pixel_filter = pixel_filter
 
         # Initialize a small buffer to read pixel info into
-        # Make it 256 bytes just in case (for bytes_per_row)
+        # Reserve space for one color pixel and the 8-byte pick value.
+        self._pick_info_offset = 16 if color_precision == "float32" else 8
         self._pixel_info_buffer = self._device.create_buffer(
-            size=16,
+            size=self._pick_info_offset + 8,
             usage=wgpu.BufferUsage.COPY_DST | wgpu.BufferUsage.MAP_READ,
         )
 
@@ -1033,7 +1039,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         if color_tex:
             self._copy_pixel(encoder, color_tex, float_pos, 0)
         if pick_tex:
-            self._copy_pixel(encoder, pick_tex, float_pos, 8)
+            self._copy_pixel(encoder, pick_tex, float_pos, self._pick_info_offset)
         self._device.queue.submit([encoder.finish()])
 
         # Collect data from the buffer
@@ -1042,13 +1048,14 @@ class WgpuRenderer(RootEventHandler, Renderer):
             data = self._pixel_info_buffer.read_mapped()
         finally:
             self._pixel_info_buffer.unmap()
-        if color_tex and color_tex.format == "rgba16float":
+        if color_tex and color_tex.format in ("rgba16float", "rgba32float"):
+            dtype = np.float32 if color_tex.format == "rgba32float" else np.float16
             color = Color.from_physical(
-                *(float(x) for x in np.frombuffer(data[:8], np.float16))
+                *(float(x) for x in np.frombuffer(data, dtype, count=4))
             )
         else:
             color = Color(x / 255 for x in tuple(data[0:4].cast("B")))
-        pick_value = tuple(data[8:16].cast("Q"))[0]  # noqa: RUF015
+        pick_value = tuple(data[self._pick_info_offset :].cast("Q"))[0]  # noqa: RUF015
         wobject_id = pick_value & 1048575  # 2**20-1
         wobject = id_provider.get_object_from_id(wobject_id)
         # Note: the position in world coordinates is not included because
@@ -1091,8 +1098,8 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
         Returns an RGBA array at the internal render resolution, before the
         final output conversion. With ``color_precision="uint8"`` the array
-        contains uint8 sRGB values; with ``"float16"`` it contains float16
-        linear values, which can exceed 1.
+        contains uint8 sRGB values; with ``"float16"`` or ``"float32"`` it
+        contains linear values of the corresponding dtype, which can exceed 1.
         """
 
         # Prepare
@@ -1100,7 +1107,10 @@ class WgpuRenderer(RootEventHandler, Renderer):
             self._name_of_texture_with_effects or "color"
         )
         size = texture.size
-        if texture.format == "rgba16float":
+        if texture.format == "rgba32float":
+            bytes_per_pixel = 16
+            dtype = np.float32
+        elif texture.format == "rgba16float":
             bytes_per_pixel = 8
             dtype = np.float16
         else:
