@@ -380,6 +380,7 @@ class PipelineContainer:
                 self.wobject_info["stencil_back_state"] = (
                     wobject.material.stencil_back_state
                 )
+                self.wobject_info["stencil_masks"] = wobject.material.stencil_masks
                 # For 'blended', the details need a new pipeline, but not a new shader
                 self.wobject_info["alpha_config"] = wobject.material.alpha_config
             self._check_pipeline_info()
@@ -625,6 +626,7 @@ class RenderPipelineContainer(PipelineContainer):
         depth_write = self.wobject_info["depth_write"]
         stencil_front_state = self.wobject_info["stencil_front_state"]
         stencil_back_state = self.wobject_info["stencil_back_state"]
+        stencil_masks = self.wobject_info["stencil_masks"]
         color_descriptors = blender.get_color_descriptors(
             self.wobject_info["pick_write"],
             self.wobject_info["alpha_config"],
@@ -635,6 +637,7 @@ class RenderPipelineContainer(PipelineContainer):
             depth_write,
             stencil_front_state,
             stencil_back_state,
+            stencil_masks,
         )
         shader_module = self.wgpu_shader
 

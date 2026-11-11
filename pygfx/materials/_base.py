@@ -165,6 +165,7 @@ class Material(Trackable):
         render_queue: Optional[int] = None,
         stencil_front_state: wgpu.StencilFaceState | None = None,
         stencil_back_state: wgpu.StencilFaceState | None = None,
+        stencil_masks: tuple[int, int] = (0xFF, 0xFF),
         stencil_value: int = 0,
     ):
         super().__init__()
@@ -190,6 +191,7 @@ class Material(Trackable):
         self.render_queue = render_queue  # set last, bc it resolves from other values
         self.stencil_front_state = stencil_front_state
         self.stencil_back_state = stencil_back_state
+        self.stencil_masks = stencil_masks
         self.stencil_value = stencil_value
 
     def _set_size_of_uniform_array(self, key: str, new_length: int) -> None:
@@ -781,6 +783,15 @@ class Material(Trackable):
             raise TypeError(
                 "Material.stencil_back_state must be a wgpu.StencilFaceState object."
             )
+
+    @property
+    def stencil_masks(self) -> tuple[int, int]:
+        """The read and write bitmasks for stencil operations. Default (0xff, 0xff)."""
+        return self._store.stencil_masks
+
+    @stencil_masks.setter
+    def stencil_masks(self, read_write: tuple[int, int]):
+        self._store.stencil_masks = int(read_write[0]), int(read_write[1])
 
     @property
     def stencil_value(self) -> int:

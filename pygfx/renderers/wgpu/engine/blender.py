@@ -356,6 +356,7 @@ class Blender:
         depth_write,
         stencil_front_state,
         stencil_back_state,
+        stencil_masks,
     ):
         """Get the dict depth-descriptors that pipeline.py needs to create the render pipeline.
 
@@ -384,8 +385,8 @@ class Blender:
             format=texinfo["format"],
             depth_write_enabled=depth_write,
             depth_compare=wgpu_depth_compare,
-            stencil_read_mask=0xFF,
-            stencil_write_mask=0xFF,
+            stencil_read_mask=stencil_masks[0],
+            stencil_write_mask=stencil_masks[1],
             stencil_front=stencil_front_state,
             stencil_back=stencil_back_state,
         )
