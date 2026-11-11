@@ -18,7 +18,7 @@ the stencil buffer where it is drawn.
 """
 
 # sphinx_gallery_pygfx_docs = 'screenshot'
-# sphinx_gallery_pygfx_test = 'run'
+# sphinx_gallery_pygfx_test = 'compare'
 
 import numpy as np
 import wgpu
