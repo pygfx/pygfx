@@ -3,7 +3,7 @@ The blender is the part of the renderer that manages output targets and alpha_co
 """
 
 import wgpu  # only for flags/enums
-
+from wgpu import LoadOp
 from ..wgsl import load_wgsl
 from .effectpasses import create_full_quad_pipeline
 from .shared import get_shared
@@ -128,6 +128,20 @@ class Blender:
         # A dict with the actual textures
         self._textures = {}  # name -> Texture
 
+        # Clear values, these are the only settable ones
+        self._clear_values = {
+            "color": (0.0, 0.0, 0.0, 0.0),
+            "depth": 1.0,
+            "stencil": 0.0,
+        }
+        self._clear_flags = {
+            "color": True,
+            "depth": True,
+            "stencil": True,
+            # Entries are added in the loop below.
+            # Note that "depth_stencil" is also added, but ignores because 'dept' and 'stencil' are used instead.
+        }
+
         # -- setup targets
 
         # Collect render targets
@@ -160,8 +174,8 @@ class Blender:
                 "format": format,
                 "usage": usage,
                 "is_used": False,
-                "clear": True,
             }
+            self._clear_flags[name] = True
 
     @property
     def hash(self):
@@ -215,8 +229,22 @@ class Blender:
 
     def clear(self):
         """Clear all the buffers (on the next time they're attached)."""
-        for texstate in self._texture_info.values():
-            texstate["clear"] = True
+        for name in self._clear_flags.keys():
+            self._clear_flags[name] = True
+
+    def set_clear_value(
+        self,
+        color: tuple[float, float, float, float] | None = None,
+        depth: float | None = None,
+        stencil: int | None = None,
+    ):
+        """Set the values to clear the textures with."""
+        if color is not None:
+            self._clear_values["color"] = tuple(float(color[i]) for i in range(4))
+        if depth is not None:
+            self._clear_values["depth"] = float(depth)
+        if stencil is not None:
+            self._clear_values["stencil"] = int(stencil)
 
     def ensure_target_size(self, size):
         """Make sure that the textures are resized if necessary."""
@@ -372,7 +400,7 @@ class Blender:
         color_attachment = wgpu.RenderPassColorAttachment(
             view="color",  # type: ignore - set below
             resolve_target=None,
-            clear_value=(0, 0, 0, 0),
+            clear_value=self._clear_values["color"],
             load_op="load",  # maybe set to clear at the end of this func
             store_op="store",
         )
@@ -398,14 +426,14 @@ class Blender:
                 view="accum",  # type: ignore - set below
                 resolve_target=None,
                 clear_value=accum_clear_value,
-                load_op="load",
+                load_op=LoadOp.load,
                 store_op="store",
             )
             reveal_attachment = wgpu.RenderPassColorAttachment(
                 view="reveal",  # type: ignore - set below
                 resolve_target=None,
                 clear_value=reveal_clear_value,
-                load_op="load",
+                load_op=LoadOp.load,
                 store_op="store",
             )
             attachments = [accum_attachment, reveal_attachment]
@@ -417,12 +445,9 @@ class Blender:
         # Finalize attachments
         for attachment in attachments:
             name = attachment.view
-            texinfo = self._texture_info[name]
-
-            if texinfo["clear"]:
-                texinfo["clear"] = False
-                attachment.load_op = "clear"
-
+            if self._clear_flags[name]:
+                self._clear_flags[name] = False
+                attachment.load_op = LoadOp.clear
             attachment.view = self._get_texture_view_for_rendering(name)
 
         return attachments
@@ -433,26 +458,30 @@ class Blender:
         if "depth_stencil" not in self._texture_info:
             return None
 
-        texinfo = self._texture_info["depth_stencil"]
-
-        load_op = wgpu.LoadOp.load
-        if texinfo["clear"]:
-            texinfo["clear"] = False
-            load_op = wgpu.LoadOp.clear
-
         view = self._get_texture_view_for_rendering("depth_stencil")
         format_name = view.texture.format
 
         attachment = wgpu.RenderPassDepthStencilAttachment(view=view)
+
         if "depth" in format_name:
-            attachment.depth_clear_value = 1.0
+            load_op = LoadOp.load
+            if self._clear_flags["depth"]:
+                self._clear_flags["depth"] = False
+                load_op = LoadOp.clear
+            attachment.depth_clear_value = self._clear_values["depth"]
             attachment.depth_load_op = load_op
             attachment.depth_store_op = "store"
+
         if "stencil" in format_name:
-            attachment.stencil_clear_value = 0
+            load_op = LoadOp.load
+            if self._clear_flags["stencil"]:
+                self._clear_flags["stencil"] = False
+                load_op = LoadOp.clear
+            attachment.stencil_clear_value = self._clear_values["stencil"]
             attachment.stencil_load_op = load_op
             attachment.stencil_store_op = "store"
             attachment.stencil_read_only = False
+
         return attachment
 
     def get_shader_kwargs(self, material_pick_write, alpha_config):
@@ -647,11 +676,10 @@ class Blender:
             )
 
         # Get info on the color target texture
-        texinfo = self._texture_info["color"]
-        load_op = wgpu.LoadOp.load
-        if texinfo["clear"]:
-            texinfo["clear"] = False
-            load_op = wgpu.LoadOp.clear
+        load_op = LoadOp.load
+        if self._clear_flags["color"]:
+            self._clear_flags["color"] = False
+            load_op = LoadOp.clear
 
         # Render
         render_pass = command_encoder.begin_render_pass(

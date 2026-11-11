@@ -599,7 +599,9 @@ class WgpuRenderer(RootEventHandler, Renderer):
                 )
         self._effect_passes = effect_passes
 
-    def clear(self, *, all=False, color=False, depth=False, weights=False):
+    def clear(
+        self, *, all=False, color=False, depth=False, stencil=False, weights=False
+    ):
         """Clear one or more of the render targets.
 
         Users typically don't need to use this method. But sometimes it can be convenient to e.g.
@@ -607,7 +609,8 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
         * all: clear all render targets; a fully clean sheeth.
         * color: clear the color buffer to rgba all zeros.
-        * depth: clear the depth-stencil buffer.
+        * depth: clear the depth buffer.
+        * stencil: clear the stencil buffer.
         * weights: clear the render targets for weighted blending (the accum and reveal textures).
 
         """
@@ -620,12 +623,24 @@ class WgpuRenderer(RootEventHandler, Renderer):
             self._blender.clear()
         else:
             if color:
-                self._blender.texture_info["color"]["clear"] = True
+                self._blender._clear_flags["color"] = True
             if depth:
-                self._blender.texture_info["depth_stencil"]["clear"] = True
+                self._blender._clear_flags["depth"] = True
+            if stencil:
+                self._blender._clear_flags["stencil"] = True
             if weights:
-                self._blender.texture_info["accum"]["clear"] = True
-                self._blender.texture_info["reveal"]["clear"] = True
+                self._blender._clear_flags["accum"] = True
+                self._blender._clear_flags["reveal"] = True
+
+    def set_clear_value(
+        self,
+        *,
+        color: tuple[float, float, float, float] | None = None,
+        depth: float | None = None,
+        stencil: int | None = None,
+    ):
+        """Set the values to clear the textures with."""
+        self._blender.set_clear_value(color, depth, stencil)
 
     def render(
         self,

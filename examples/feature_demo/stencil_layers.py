@@ -29,11 +29,14 @@ import pygfx as gfx
 canvas = RenderCanvas()
 renderer = gfx.WgpuRenderer(canvas, enable_depth=False, enable_stencil=True)
 scene = gfx.Scene()
-scene.add(gfx.Background.from_color("#101014"))
 
 rng = np.random.default_rng(42)
 
 LEVEL1_POSITIONS = [(-0.4, 0.69), (0.4, 0.731), (-0.764, -0.623), (0.741, -0.654)]
+
+# The stencil buffer is cleared to the highest possible number,
+# and we write numbers corresponding to the level.
+renderer.set_clear_value(stencil=255, color=(0.0, 0.0, 0.0, 1.0))
 
 
 def add_square(size, x, y, color, level):
@@ -45,8 +48,8 @@ def add_square(size, x, y, color, level):
         depth_write=False,
     )
     # Stencil: draw only where no higher-priority level was drawn yet
-    material.stencil_value = 100 - level
-    state = wgpu.StencilFaceState(compare="greater-equal", pass_op="replace")
+    material.stencil_value = level
+    state = wgpu.StencilFaceState(compare="less-equal", pass_op="replace")
     material.stencil_front_state = state
     material.stencil_back_state = state
 
