@@ -22,7 +22,6 @@ jobs:
         python-version: 3.13
     - name: Install llvmpipe and lavapipe for offscreen canvas
       run: |
-        sudo apt-get update -y -qq
         sudo apt install -y libegl1-mesa-dev libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers
     - name: Install dev dependencies
       run: |
