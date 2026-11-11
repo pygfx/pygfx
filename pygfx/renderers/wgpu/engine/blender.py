@@ -42,6 +42,7 @@ default_targets = {
     #
     # As for storing intermediate results, using 8bit colors in linear space would
     # mean that we lose precision in regions where the human eye is sensitive.
+    # The texture format for the color and altcolor targets may be overridden in Blender's init.
     # The opt-in float16 color precision uses linear 'rgba16float' instead,
     # preserving HDR values at twice the memory cost.
     #
