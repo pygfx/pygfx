@@ -73,8 +73,8 @@ camera = gfx.OrthographicCamera(16 / 9)
 camera.show_rect(-1.4, 1.4, -1.4, 1.4)
 controller = gfx.PanZoomController(camera, register_events=renderer)
 
+canvas.request_draw(lambda: renderer.render(scene, camera))
 
 if __name__ == "__main__":
     print(__doc__)
-    canvas.request_draw(lambda: renderer.render(scene, camera))
     loop.run()
