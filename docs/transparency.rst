@@ -276,6 +276,20 @@ In Pygfx, the default value of ``material.depth_write``
 is True when ``alpha_method in ("opaque", "stochastic")`` or when ``alpha_mode="auto"``.
 
 
+Stencil buffer
+--------------
+
+The stencil buffer is similar to the depth buffer, but instead of distance it
+stores integer values (0-255). Objects can (conditionally) write a fixed value
+to it and can be hidden based on a comparison between the stencil buffer's value
+and the objects reference value.
+
+This allows for a wide range of (fancy) applications. Examples are drawing contours, clipping
+objects, handling certain layering issues, etc. In practice most users won't need the
+stencil buffer. But if you run into a problem that you think you might solve by abusing depth
+in a smart way, the stencil buffer might be just what you need ;)
+
+
 Not supported
 -------------
 

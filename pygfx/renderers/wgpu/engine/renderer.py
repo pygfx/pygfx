@@ -639,7 +639,16 @@ class WgpuRenderer(RootEventHandler, Renderer):
         depth: float | None = None,
         stencil: int | None = None,
     ):
-        """Set the values to clear the textures with."""
+        """Set the values to clear the render textures with.
+
+        These values will this be the 'initial values' when rendering.
+
+        Parameters:
+            colors (tuple of 4 floats or gfx.Color): The rgba value for the color buffer.
+            depth (float): The value for the depth buffer, between 0 and 1,
+                representing the near and far plane, respectively.
+            stencil (int): The value for the stencil buffer, between 0 and 255.
+        """
         self._blender.set_clear_value(color, depth, stencil)
 
     def render(

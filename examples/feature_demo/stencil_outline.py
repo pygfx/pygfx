@@ -10,6 +10,8 @@ A slightly larger copy of the object is then drawn with
 *not* contain the silhouette - i.e. as a rim around the object.
 
 Click an object to select it.
+
+Also see the multi_select.py example.
 """
 
 # sphinx_gallery_pygfx_docs = 'screenshot'
@@ -53,9 +55,7 @@ def make_selectable(geometry, material, position):
     outline.local.scale = (1.06, 1.06, 1.06)
     outline.visible = False
     outline.material.stencil_value = STENCIL_MARK
-    outline.material.stencil_front_state = wgpu.StencilFaceState(
-        compare="not-equal", pass_op="keep"
-    )
+    outline.material.stencil_front_state = wgpu.StencilFaceState(compare="not-equal")
     ob.add(outline)
     ob.outline = outline
     return ob

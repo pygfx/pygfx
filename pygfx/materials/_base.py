@@ -754,35 +754,33 @@ class Material(Trackable):
 
     @property
     def stencil_front_state(self) -> wgpu.StencilFaceState | None:
-        """Defines the stenciling behavior for front-faces."""
+        """Defines the stenciling behavior for front-faces, see wgpu.StencilFaceState."""
         return self._store.stencil_front_state
 
     @stencil_front_state.setter
-    def stencil_front_state(self, state: wgpu.StencilFaceState | None):
-        if state is None:
-            self._store.stencil_front_state = state
-        elif isinstance(state, wgpu.StencilFaceState):
-            self._store.stencil_front_state = state
-        else:
+    def stencil_front_state(self, state: wgpu.StencilFaceState | dict | None):
+        if isinstance(state, dict):
+            state = wgpu.StencilFaceState(**state)
+        elif not (state is None or isinstance(state, wgpu.StencilFaceState)):
             raise TypeError(
-                "Material.stencil_front_state must be a wgpu.StencilFaceState object."
+                "Material.stencil_front_state must be None, a dict, or a wgpu.StencilFaceState object."
             )
+        self._store.stencil_front_state = state
 
     @property
     def stencil_back_state(self) -> wgpu.StencilFaceState | None:
-        """Defines the stenciling behavior for back-faces."""
+        """Defines the stenciling behavior for back-faces, see wgpu.StencilFaceState."""
         return self._store.stencil_back_state
 
     @stencil_back_state.setter
-    def stencil_back_state(self, state: wgpu.StencilFaceState | None):
-        if state is None:
-            self._store.stencil_back_state = state
-        elif isinstance(state, wgpu.StencilFaceState):
-            self._store.stencil_back_state = state
-        else:
+    def stencil_back_state(self, state: wgpu.StencilFaceState | dict | None):
+        if isinstance(state, dict):
+            state = wgpu.StencilFaceState(**state)
+        elif not (state is None or isinstance(state, wgpu.StencilFaceState)):
             raise TypeError(
-                "Material.stencil_back_state must be a wgpu.StencilFaceState object."
+                "Material.stencil_back_state must be None, a dict, or a wgpu.StencilFaceState object."
             )
+        self._store.stencil_back_state = state
 
     @property
     def stencil_masks(self) -> tuple[int, int]:
@@ -802,4 +800,4 @@ class Material(Trackable):
     def stencil_value(self, value: int):
         self._stencil_value = int(value)  # applied at each draw, so not saved on store
 
-    # NOTE: we have not implemented read_mask and write_mask yet; they are assimed 0xff for now
+    # NOTE: we have not implemented read_mask and write_mask yet; they are assumed 0xff for now
