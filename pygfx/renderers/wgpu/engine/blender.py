@@ -64,10 +64,11 @@ default_targets = {
         wgpu.TextureFormat.rgba8unorm_srgb,
         usg.RENDER_ATTACHMENT | usg.COPY_SRC | usg.TEXTURE_BINDING,
     ),
-    # The depth buffer should preferably at least 24bit - we need that precision. It's 4 bytes per pixel.
-    # 32 but is cool, but we may want stencil at some point, so depth24plus_stencil8 seems like a good default.
-    # The depth24plus is either depth32float or depth24unorm, depending on the backend.
-    # Note that there is also depth32float-stencil8, but it needs the (webgpu) extension with the same name.
+    # For depth we'd prefer 32bit precision.
+    # There's also depth24plus and depth24plus_stencil8, which resolves to either depth32float or depth24unorm,
+    # depending on the backend (desktop 32float, GL-based backends like Android 24unorm).
+    # But that means code like snapshot needs to cover both cases, so for now
+    # we force 32float and required the 'depth32float-stencil8' extension.
     "depth_stencil": (
         wgpu.TextureFormat.depth32float_stencil8,
         usg.RENDER_ATTACHMENT | usg.COPY_SRC | usg.TEXTURE_BINDING,
