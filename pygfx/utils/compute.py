@@ -73,7 +73,7 @@ class ComputeShader:
     def set_resource(
         self,
         index: int,
-        resource: Union[gfx.Buffer, gfx.Texture, wgpu.GPUBuffer, wgpu.GPUTexture],
+        resource: Union[gfx.Buffer, gfx.Texture, wgpu.GPUBuffer, wgpu.GPUTexture, None],
         *,
         clear=False,
     ):
@@ -83,8 +83,9 @@ class ComputeShader:
         ----------
         index : int
             The binding index to connect this resource to. (The group is hardcoded to zero for now.)
-        resource : buffer | texture
+        resource : buffer | texture | None
             The buffer or texture to attach. Can be a wgpu or pygfx resource.
+            Use None to remove the resource from this binding index.
         clear : bool
             When set to True (only possible for a buffer), the resource is cleared to zeros
             right before running the shader.
@@ -92,17 +93,15 @@ class ComputeShader:
         # Check
         if not isinstance(index, int):
             raise TypeError(f"ComputeShader resource index must be int, not {index!r}.")
-        if not isinstance(
+        if resource is not None and not isinstance(
             resource, (gfx.Buffer, gfx.Texture, wgpu.GPUBuffer, wgpu.GPUTexture)
         ):
             raise TypeError(
-                f"ComputeShader resource value must be gfx.Buffer, gfx.Texture, wgpu.GPUBuffer, or wgpu.GPUTexture, not {resource!r}"
+                f"ComputeShader resource value must be gfx.Buffer, gfx.Texture, wgpu.GPUBuffer, wgpu.GPUTexture, or None, not {resource!r}"
             )
         clear = bool(clear)
-        if clear and not isinstance(
-            resource, (gfx.Buffer, gfx.Texture, wgpu.GPUBuffer)
-        ):
-            raise ValueError("Can only clear a buffer, not a texture.")
+        if clear and not isinstance(resource, (gfx.Buffer, wgpu.GPUBuffer)):
+            raise ValueError("Can only clear a buffer.")
 
         # Value to store
         new_value = resource, bool(clear)
