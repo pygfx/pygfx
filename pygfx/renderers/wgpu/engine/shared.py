@@ -3,15 +3,14 @@ A global object shared by all renderers.
 """
 
 import os
+
 import wgpu
 
-from ....resources import Resource, Buffer
-from ....utils.trackable import Trackable
+from ....resources import Buffer, Resource
 from ....utils import array_from_shadertype
 from ....utils.text import glyph_atlas
-
+from ....utils.trackable import Trackable
 from .utils import gpu_caches
-
 
 # Definition uniform struct with standard info related to transforms,
 # provided to each shader as uniform at slot 0.
@@ -30,13 +29,25 @@ stdinfo_uniform_type = dict(
 
 
 def _preconfigure_wgpu_device():
-    # PyGfx needs 'float32-filterable' because vanilla WGPU does not support
-    # interpolating samplers for float32 textures, which is sad for e.g. volume
-    # rendering. Technically we can check if the feature is available and fall back
-    # (in some way) when it's not available, but this easily results in complex
-    # code. I think we can probably get away with requiring only a few features that
-    # are available on the main target platforms.
-    wgpu.preconfigure_default_device("pygfx", required_features={"float32-filterable"})
+
+    wgpu.preconfigure_default_device(
+        "pygfx",
+        required_features={
+            # PyGfx needs 'float32-filterable' because vanilla WGPU does not support
+            # interpolating samplers for float32 textures, which is sad for e.g. volume
+            # rendering. Technically we can check if the feature is available and fall back
+            # (in some way) when it's not available, but this easily results in complex
+            # code. I think we can probably get away with requiring only a few features that
+            # are available on the main target platforms.
+            "float32-filterable",
+            # Similarly 'depth32float-stencil8' is required to enable stenciling with a
+            # guaranteed 32bit depth buffer. The set of devices that does not support this
+            # is more or less a subset of those that don't support 'float32-filterable'.
+            # We *could* use 'depth24plus_stencil8' (which would be 32bit on desktop) but it would
+            # make some code (snapshot) more complex (f32 vs unorm).
+            "depth32float-stencil8",
+        },
+    )
 
     if adapter_name := os.environ.get("PYGFX_WGPU_ADAPTER_NAME"):
         # Similar to https://github.com/gfx-rs/wgpu?tab=readme-ov-file#environment-variables

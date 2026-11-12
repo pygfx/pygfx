@@ -3,50 +3,48 @@ The main renderer class. This class wraps a canvas or texture and it
 manages the rendering process.
 """
 
+import logging
 import os
 import time
-import logging
 from typing import Literal
 
 import numpy as np
-import wgpu
 import pylinalg as la
+import wgpu
 from rendercanvas import BaseRenderCanvas
 
-from ....objects._base import id_provider
+from ....cameras import Camera
 from ....objects import (
+    Group,
     KeyboardEvent,
-    RootEventHandler,
     PointerEvent,
+    RootEventHandler,
     WheelEvent,
     WindowEvent,
     WorldObject,
-    Group,
 )
+from ....objects._base import id_provider
 from ....objects._lights import (
+    AmbientLight,
+    DirectionalLight,
     Light,
     PointLight,
-    DirectionalLight,
     SpotLight,
-    AmbientLight,
 )
-from ....cameras import Camera
 from ....resources import Texture
 from ....resources._base import resource_update_registry
 from ....utils import Color
 from ....utils.enums import PixelFilter
-
 from ... import Renderer
 from .blender import Blender
-from .effectpasses import EffectPass, OutputPass, PPAAPass, FXAAPass, DDAAPass
+from .effectpasses import DDAAPass, EffectPass, FXAAPass, OutputPass, PPAAPass
+from .mipmapsutil import generate_texture_mipmaps
 from .pipeline import get_pipeline_container_group
-from .update import update_resource, ensure_wgpu_object
-from .shared import get_shared
 from .renderstate import get_renderstate
 from .shadowutil import render_shadow_maps
-from .mipmapsutil import generate_texture_mipmaps
+from .shared import get_shared
+from .update import ensure_wgpu_object, update_resource
 from .utils import GfxTextureView
-
 
 logger = logging.getLogger("pygfx")
 
@@ -233,6 +231,10 @@ class WgpuRenderer(RootEventHandler, Renderer):
     ppaa : str, optional
         The post-processing anti-aliasing to apply: "default", "none", "fxaa", "ddaa".
         By default it resolves to "ddaa".
+    enable_depth : bool
+        Whether a depth buffer is employed (as part of the depth-stencil buffer). Default True.
+    enable_stencil : bool
+        Whether a stencil buffer is employed (as part of the depth-stencil buffer). Default False.
     color_precision : str, optional
         Precision of the internal color and post-processing buffers: "uint8"
         (default, 4 bytes per pixel in sRGB) or "float16" (8 bytes per pixel
@@ -254,6 +256,8 @@ class WgpuRenderer(RootEventHandler, Renderer):
         enable_events=True,
         gamma_correction=1.0,
         ppaa="default",
+        enable_depth=True,
+        enable_stencil=False,
         color_precision="uint8",
         **kwargs,
     ):
@@ -315,7 +319,11 @@ class WgpuRenderer(RootEventHandler, Renderer):
             self._target._wgpu_usage |= wgpu.TextureUsage.RENDER_ATTACHMENT
             self._target._wgpu_usage |= wgpu.TextureUsage.TEXTURE_BINDING
 
-        self._blender = Blender(color_precision=color_precision)
+        self._blender = Blender(
+            enable_depth=enable_depth,
+            enable_stencil=enable_stencil,
+            color_precision=color_precision,
+        )
         self._effect_passes = ()
         self.ppaa = ppaa
         self._name_of_texture_with_effects = (
@@ -611,7 +619,9 @@ class WgpuRenderer(RootEventHandler, Renderer):
                 )
         self._effect_passes = effect_passes
 
-    def clear(self, *, all=False, color=False, depth=False, weights=False):
+    def clear(
+        self, *, all=False, color=False, depth=False, stencil=False, weights=False
+    ):
         """Clear one or more of the render targets.
 
         Users typically don't need to use this method. But sometimes it can be convenient to e.g.
@@ -620,6 +630,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         * all: clear all render targets; a fully clean sheeth.
         * color: clear the color buffer to rgba all zeros.
         * depth: clear the depth buffer.
+        * stencil: clear the stencil buffer.
         * weights: clear the render targets for weighted blending (the accum and reveal textures).
 
         """
@@ -632,12 +643,33 @@ class WgpuRenderer(RootEventHandler, Renderer):
             self._blender.clear()
         else:
             if color:
-                self._blender.texture_info["color"]["clear"] = True
+                self._blender._clear_flags["color"] = True
             if depth:
-                self._blender.texture_info["depth"]["clear"] = True
+                self._blender._clear_flags["depth"] = True
+            if stencil:
+                self._blender._clear_flags["stencil"] = True
             if weights:
-                self._blender.texture_info["accum"]["clear"] = True
-                self._blender.texture_info["reveal"]["clear"] = True
+                self._blender._clear_flags["accum"] = True
+                self._blender._clear_flags["reveal"] = True
+
+    def set_clear_value(
+        self,
+        *,
+        color: tuple[float, float, float, float] | None = None,
+        depth: float | None = None,
+        stencil: int | None = None,
+    ):
+        """Set the values to clear the render textures with.
+
+        These values will this be the 'initial values' when rendering.
+
+        Parameters:
+            colors (tuple of 4 floats or gfx.Color): The rgba value for the color buffer.
+            depth (float): The value for the depth buffer, between 0 and 1,
+                representing the near and far plane, respectively.
+            stencil (int): The value for the stencil buffer, between 0 and 255.
+        """
+        self._blender.set_clear_value(color, depth, stencil)
 
     def render(
         self,
@@ -859,7 +891,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
                 depth_tex = None
                 if step.USES_DEPTH:
                     depth_tex = self._blender.get_texture_view(
-                        "depth", src_usage, create_if_not_exist=False
+                        "depth_stencil", src_usage, create_if_not_exist=False
                     )
                 step.render(command_encoder, color_tex, depth_tex, dst_tex)
                 # Pingpong
@@ -923,7 +955,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
             render_pass = command_encoder.begin_render_pass(
                 color_attachments=blender.get_color_attachments(pass_type),
-                depth_stencil_attachment=blender.get_depth_attachment(),
+                depth_stencil_attachment=blender.get_depth_stencil_attachment(),
                 occlusion_query_set=None,
             )
 
@@ -941,7 +973,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # Make sure the render targets exist (even if no objects are rendered)
         if not rendered_something:
             blender.get_color_attachments("normal")
-            blender.get_depth_attachment()
+            blender.get_depth_stencil_attachment()
 
         return [command_encoder.finish()]
 

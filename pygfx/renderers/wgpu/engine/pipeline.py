@@ -4,20 +4,18 @@ This object is responsible for creating the native wgpu objects and doing the
 actual dispatching / drawing.
 """
 
+import os
 import sys
+
 import wgpu
 
-import os
-
 from ....utils import logger
-from ....utils.weak import WeakAssociativeContainer
 from ....utils.trackable import PropTracker
-
+from ....utils.weak import WeakAssociativeContainer
 from ..shader.base import ShaderInterface
-from .utils import registry, GpuCache, hash_from_value
-from .shared import get_shared
 from .binding import Binding
-
+from .shared import get_shared
+from .utils import GpuCache, hash_from_value, registry
 
 PIPELINE_CONTAINER_GROUPS = WeakAssociativeContainer()
 
@@ -376,6 +374,13 @@ class PipelineContainer:
                 self.wobject_info["depth_test"] = wobject.material.depth_test
                 self.wobject_info["depth_compare"] = wobject.material.depth_compare
                 self.wobject_info["depth_write"] = wobject.material.depth_write
+                self.wobject_info["stencil_front_state"] = (
+                    wobject.material.stencil_front_state
+                )
+                self.wobject_info["stencil_back_state"] = (
+                    wobject.material.stencil_back_state
+                )
+                self.wobject_info["stencil_masks"] = wobject.material.stencil_masks
                 # For 'blended', the details need a new pipeline, but not a new shader
                 self.wobject_info["alpha_config"] = wobject.material.alpha_config
             self._check_pipeline_info()
@@ -385,6 +390,7 @@ class PipelineContainer:
         if "render_info" in changed:
             with tracker.track_usage("render_info"):
                 self.render_info = self.shader.get_render_info(wobject, self.shared)
+                self.wobject_info["stencil_value"] = wobject.material.stencil_value
             self._check_render_info()
 
     def update_wgpu_data(self, renderstate, changed):
@@ -618,12 +624,20 @@ class RenderPipelineContainer(PipelineContainer):
         depth_test = self.wobject_info["depth_test"]
         depth_compare = self.wobject_info["depth_compare"]
         depth_write = self.wobject_info["depth_write"]
+        stencil_front_state = self.wobject_info["stencil_front_state"]
+        stencil_back_state = self.wobject_info["stencil_back_state"]
+        stencil_masks = self.wobject_info["stencil_masks"]
         color_descriptors = blender.get_color_descriptors(
             self.wobject_info["pick_write"],
             self.wobject_info["alpha_config"],
         )
-        depth_descriptor = blender.get_depth_descriptor(
-            depth_test, depth_compare, depth_write
+        depth_descriptor = blender.get_depth_stencil_descriptor(
+            depth_test,
+            depth_compare,
+            depth_write,
+            stencil_front_state,
+            stencil_back_state,
+            stencil_masks,
         )
         shader_module = self.wgpu_shader
 
@@ -650,6 +664,7 @@ class RenderPipelineContainer(PipelineContainer):
 
         # Set pipeline and bindings
         render_pass.set_pipeline(pipeline)
+        render_pass.set_stencil_reference(self.wobject_info["stencil_value"])
 
         for bind_group_id, bind_group in enumerate(bind_groups):
             render_pass.set_bind_group(bind_group_id, bind_group, [], 0, 99)

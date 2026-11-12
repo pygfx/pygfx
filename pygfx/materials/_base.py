@@ -2,14 +2,15 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from ..utils.trackable import Trackable
-from ..utils import array_from_shadertype, ReadOnlyDict
-from ..resources import Buffer
-from ..utils.enums import AlphaMethod, AlphaMode
+import wgpu
 
+from ..resources import Buffer
+from ..utils import ReadOnlyDict, array_from_shadertype
+from ..utils.enums import AlphaMethod, AlphaMode
+from ..utils.trackable import Trackable
 
 if TYPE_CHECKING:
-    from typing import Optional, ClassVar, TypeAlias, Literal, Sequence
+    from typing import ClassVar, Literal, Optional, Sequence, TypeAlias
 
     ABCDTuple: TypeAlias = tuple[float, float, float, float]
 
@@ -162,6 +163,10 @@ class Material(Trackable):
         alpha_test: float = 0.0,
         alpha_compare: str = "<",
         render_queue: Optional[int] = None,
+        stencil_front_state: wgpu.StencilFaceState | None = None,
+        stencil_back_state: wgpu.StencilFaceState | None = None,
+        stencil_masks: tuple[int, int] = (0xFF, 0xFF),
+        stencil_value: int = 0,
     ):
         super().__init__()
 
@@ -184,6 +189,10 @@ class Material(Trackable):
         self.alpha_test = alpha_test
         self.alpha_compare = alpha_compare
         self.render_queue = render_queue  # set last, bc it resolves from other values
+        self.stencil_front_state = stencil_front_state
+        self.stencil_back_state = stencil_back_state
+        self.stencil_masks = stencil_masks
+        self.stencil_value = stencil_value
 
     def _set_size_of_uniform_array(self, key: str, new_length: int) -> None:
         """Resize the given array field in the uniform struct if the
@@ -742,3 +751,53 @@ class Material(Trackable):
         if not isinstance(value, (bool, int)):
             raise TypeError("Material.pick_write must be bool.")
         self._store.pick_write = bool(value)
+
+    @property
+    def stencil_front_state(self) -> wgpu.StencilFaceState | None:
+        """Defines the stenciling behavior for front-faces, see wgpu.StencilFaceState."""
+        return self._store.stencil_front_state
+
+    @stencil_front_state.setter
+    def stencil_front_state(self, state: wgpu.StencilFaceState | dict | None):
+        if isinstance(state, dict):
+            state = wgpu.StencilFaceState(**state)
+        elif not (state is None or isinstance(state, wgpu.StencilFaceState)):
+            raise TypeError(
+                "Material.stencil_front_state must be None, a dict, or a wgpu.StencilFaceState object."
+            )
+        self._store.stencil_front_state = state
+
+    @property
+    def stencil_back_state(self) -> wgpu.StencilFaceState | None:
+        """Defines the stenciling behavior for back-faces, see wgpu.StencilFaceState."""
+        return self._store.stencil_back_state
+
+    @stencil_back_state.setter
+    def stencil_back_state(self, state: wgpu.StencilFaceState | dict | None):
+        if isinstance(state, dict):
+            state = wgpu.StencilFaceState(**state)
+        elif not (state is None or isinstance(state, wgpu.StencilFaceState)):
+            raise TypeError(
+                "Material.stencil_back_state must be None, a dict, or a wgpu.StencilFaceState object."
+            )
+        self._store.stencil_back_state = state
+
+    @property
+    def stencil_masks(self) -> tuple[int, int]:
+        """The read and write bitmasks for stencil operations. Default (0xff, 0xff)."""
+        return self._store.stencil_masks
+
+    @stencil_masks.setter
+    def stencil_masks(self, read_write: tuple[int, int]):
+        self._store.stencil_masks = int(read_write[0]), int(read_write[1])
+
+    @property
+    def stencil_value(self) -> int:
+        """Defines the reference stencil value for this object. Default 0."""
+        return self._stencil_value
+
+    @stencil_value.setter
+    def stencil_value(self, value: int):
+        self._stencil_value = int(value)  # applied at each draw, so not saved on store
+
+    # NOTE: we have not implemented read_mask and write_mask yet; they are assumed 0xff for now
