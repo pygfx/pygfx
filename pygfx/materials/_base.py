@@ -126,6 +126,10 @@ class Material(Trackable):
     depth_write : bool | None
         Whether the object writes to the depth buffer. With None (default) the
         value depends on the ``alpha_config``.
+    color_write : bool
+        Whether the object writes to the color buffer. Default True.
+    pick_write : bool
+        Whether the object writes to the pick buffer (for picking). Default False.
     alpha_test : float
         The alpha test value for this material. Default 0.0, meaning no alpha
         test is performed.
@@ -158,6 +162,7 @@ class Material(Trackable):
         depth_test: bool = True,
         depth_compare: str = "<",
         depth_write: Literal[None, False, True] = None,
+        color_write: bool = True,
         pick_write: bool = False,
         alpha_test: float = 0.0,
         alpha_compare: str = "<",
@@ -180,6 +185,7 @@ class Material(Trackable):
         self.depth_test = depth_test
         self.depth_compare = depth_compare
         self.depth_write = depth_write
+        self.color_write = color_write
         self.pick_write = pick_write
         self.alpha_test = alpha_test
         self.alpha_compare = alpha_compare
@@ -731,6 +737,20 @@ class Material(Trackable):
     def _gfx_use_alpha_test(self) -> bool:
         """For internal use; if the alpha test is used, the shader must discard, which we don't want to do unless needed."""
         return self._store.use_alpha_test
+
+    @property
+    def color_write(self) -> bool:
+        """Whether this material writes to the color buffer.
+
+        If False, the object is invisible but can still write depth.
+        """
+        return self._store.color_write
+
+    @color_write.setter
+    def color_write(self, value: bool) -> None:
+        if not isinstance(value, (bool, int)):
+            raise TypeError("Material.color_write must be bool.")
+        self._store.color_write = bool(value)
 
     @property
     def pick_write(self) -> bool:
