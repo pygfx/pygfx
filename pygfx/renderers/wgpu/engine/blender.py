@@ -41,9 +41,9 @@ default_targets = {
     #
     # As for storing intermediate results, using 8bit colors in linear space would
     # mean that we lose precision in regions where the human eye is sensitive.
-    # Ideally we'd use 'rgba16float', and maybe we should, it's 2025, but let's
-    # change that in a self-contained commit, because it will affect memory usage,
-    # and needs a feature?
+    # The texture format for the color and altcolor targets may be overridden in Blender's init.
+    # The opt-in float16 color precision uses linear 'rgba16float' instead,
+    # preserving HDR values at twice the memory cost.
     #
     # Using 'rgba8unorm_srgb' means that in each post-effect step, the colors are
     # stored in srgb, and auto-conveted to linear when read/written. This seems a
@@ -53,7 +53,6 @@ default_targets = {
     # 'rgba8unorm'. Also see https://github.com/pmndrs/postprocessing
     #
     # This is 4 bytes per pixel.
-    # TODO: use half-floats
     "color": (
         wgpu.TextureFormat.rgba8unorm_srgb,
         usg.RENDER_ATTACHMENT | usg.COPY_SRC | usg.TEXTURE_BINDING,
@@ -108,7 +107,17 @@ class Blender:
     Each renderer has one blender object.
     """
 
-    def __init__(self, *, enable_pick=True, enable_depth=True, enable_stencil=False):
+    def __init__(
+        self,
+        *,
+        enable_pick=True,
+        enable_depth=True,
+        enable_stencil=False,
+        color_precision="uint8",
+    ):
+
+        if color_precision not in ("uint8", "float16"):
+            raise ValueError("color_precision must be 'uint8' or 'float16'.")
         self.device = get_shared().device
 
         # We could allow custom targets, but this is not yet implemented in the methods.
@@ -147,6 +156,12 @@ class Blender:
 
         # Collect render targets
         all_targets = default_targets.copy()
+        if color_precision == "float16":
+            for name in ("color", "altcolor"):
+                all_targets[name] = (
+                    wgpu.TextureFormat.rgba16float,
+                    all_targets[name][1],
+                )
         for name in sorted(custom_targets):
             all_targets[name] = custom_targets[name]
         if not enable_pick:

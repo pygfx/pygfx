@@ -226,6 +226,8 @@ class WgpuRenderer(RootEventHandler, Renderer):
     gamma_correction : float
         The gamma correction to apply in the final render stage. Typically a
         number between 0.0 and 2.0. A value of 1.0 indicates no correction.
+        Floating-point canvas targets receive linear output by default, without
+        an additional sRGB gamma correction.
     ppaa : str, optional
         The post-processing anti-aliasing to apply: "default", "none", "fxaa", "ddaa".
         By default it resolves to "ddaa".
@@ -233,6 +235,13 @@ class WgpuRenderer(RootEventHandler, Renderer):
         Whether a depth buffer is employed (as part of the depth-stencil buffer). Default True.
     enable_stencil : bool
         Whether a stencil buffer is employed (as part of the depth-stencil buffer). Default False.
+    color_precision : str, optional
+        Precision of the internal color and post-processing buffers: "uint8"
+        (default, 4 bytes per pixel in sRGB) or "float16" (8 bytes per pixel
+        in linear space). Float16 preserves HDR values before the final output
+        conversion. The weighted transparency buffers retain their fixed formats
+        (float16 accumulation and uint8 revealage). This does not change the
+        canvas output format or enable floating-point canvas downloads.
     """
 
     def __init__(
@@ -249,6 +258,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         ppaa="default",
         enable_depth=True,
         enable_stencil=False,
+        color_precision="uint8",
         **kwargs,
     ):
         blend_mode = kwargs.pop("blend_mode", None)
@@ -264,6 +274,9 @@ class WgpuRenderer(RootEventHandler, Renderer):
                 f"Render target must be a Canvas or Texture, not a {target.__class__.__name__}"
             )
         self._target = target
+        if color_precision not in ("uint8", "float16"):
+            raise ValueError("color_precision must be 'uint8' or 'float16'.")
+        self._color_precision = color_precision
         self._pixel_scale = None
         self._pixel_ratio = None
         if pixel_ratio is not None:
@@ -289,12 +302,12 @@ class WgpuRenderer(RootEventHandler, Renderer):
         self._gamma_correction_srgb = 1.0
         if isinstance(target, BaseRenderCanvas):
             self._canvas_context = self._target.get_context("wgpu")
-            # Select output format. We currently don't have a way of knowing
-            # what formats are available, so if not srgb, we gamma-correct in shader.
+            # Float formats receive linear output. Normalized formats need sRGB
+            # encoding, either via the texture format or a shader fallback.
             target_format = self._canvas_context.get_preferred_format(
                 self._shared.adapter
             )
-            if not target_format.endswith("srgb"):
+            if not target_format.endswith(("srgb", "float")):
                 self._gamma_correction_srgb = 1 / 2.2  # poor man's srgb
             # Also configure the canvas
             self._canvas_context.configure(
@@ -307,7 +320,9 @@ class WgpuRenderer(RootEventHandler, Renderer):
             self._target._wgpu_usage |= wgpu.TextureUsage.TEXTURE_BINDING
 
         self._blender = Blender(
-            enable_depth=enable_depth, enable_stencil=enable_stencil
+            enable_depth=enable_depth,
+            enable_stencil=enable_stencil,
+            color_precision=color_precision,
         )
         self._effect_passes = ()
         self.ppaa = ppaa
@@ -345,6 +360,11 @@ class WgpuRenderer(RootEventHandler, Renderer):
     def target(self):
         """The render target. Can be a canvas, texture or texture view."""
         return self._target
+
+    @property
+    def color_precision(self):
+        """The precision of the internal color buffers, set at initialization."""
+        return self._color_precision
 
     @property
     def pixel_scale(self) -> float:
@@ -1022,7 +1042,12 @@ class WgpuRenderer(RootEventHandler, Renderer):
             data = self._pixel_info_buffer.read_mapped()
         finally:
             self._pixel_info_buffer.unmap()
-        color = Color(x / 255 for x in tuple(data[0:4].cast("B")))
+        if color_tex and color_tex.format == "rgba16float":
+            color = Color.from_physical(
+                *(float(x) for x in np.frombuffer(data[:8], np.float16))
+            )
+        else:
+            color = Color(x / 255 for x in tuple(data[0:4].cast("B")))
         pick_value = tuple(data[8:16].cast("Q"))[0]  # noqa: RUF015
         wobject_id = pick_value & 1048575  # 2**20-1
         wobject = id_provider.get_object_from_id(wobject_id)
@@ -1062,7 +1087,13 @@ class WgpuRenderer(RootEventHandler, Renderer):
         )
 
     def snapshot(self):
-        """Create a snapshot of the currently rendered image."""
+        """Create a snapshot of the currently rendered image.
+
+        Returns an RGBA array at the internal render resolution, before the
+        final output conversion. With ``color_precision="uint8"`` the array
+        contains uint8 sRGB values; with ``"float16"`` it contains float16
+        linear values, which can exceed 1.
+        """
 
         # Prepare
         texture = self._blender.get_texture(
