@@ -39,6 +39,9 @@ def test_color_precision_targets():
         if name in ("color", "altcolor"):
             assert info["format"] == "rgba8unorm-srgb"
             assert floating.texture_info[name]["format"] == "rgba16float"
+        elif name == "reveal":
+            assert info["format"] == "r8unorm"
+            assert floating.texture_info[name]["format"] == "r16float"
         else:
             assert floating.texture_info[name] == info
 
@@ -137,8 +140,7 @@ def test_color_precision_shared_scene(alpha_mode, floating_precision="float16"):
         for renderer in renderers:
             renderer.render(scene, camera)
         floating = renderers[1].snapshot()[8, 8]
-        # Both blending paths store premultiplied color. Revealage is uint8,
-        # so weighted blending introduces a small additional rounding error.
+        # Both blending paths store premultiplied color.
         np.testing.assert_allclose(floating, (2.0, 0.25, 0.125, 0.5), atol=0.01)
 
 
@@ -176,12 +178,58 @@ from pygfx.renderers.wgpu.engine.blender import Blender
 floating = Blender(color_precision='float32')
 assert floating.texture_info['color']['format'] == 'rgba32float'
 assert floating.texture_info['altcolor']['format'] == 'rgba32float'
+assert floating.texture_info['accum']['format'] == 'rgba32float'
+assert floating.texture_info['reveal']['format'] == 'r32float'
 assert floating.hash != Blender().hash
 test_color_precision_render('float32', {ppaa!r})
 for alpha_mode in ('blend', 'weighted_blend'):
     test_color_precision_shared_scene(alpha_mode, floating_precision='float32')
+from tests.renderers.test_renderer_color_precision import _check_weighted_precision
+_check_weighted_precision('float32')
 """
     result = subprocess.run(
         [sys.executable, "-c", code], capture_output=True, text=True, timeout=60
     )
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+def _check_weighted_precision(precision):
+    renderer = gfx.WgpuRenderer(
+        gfx.Texture(dim=2, size=(8, 8, 1), format="rgba16float"),
+        color_precision=precision,
+        pixel_scale=1,
+        ppaa="none",
+    )
+    camera = gfx.OrthographicCamera(2, 2)
+    geometry = gfx.plane_geometry(4, 4)
+    for layers, alpha, red in ((64, 0.001, 1.0), (1, 0.999, 70000.0)):
+        if precision == "float16" and red > 65504:
+            continue
+        material = gfx.MeshBasicMaterial(
+            color=gfx.Color.from_physical(red, 1, 1, alpha),
+            alpha_config={"method": "weighted", "weight": "1.0"},
+            depth_test=False,
+            depth_write=False,
+        )
+        scene = gfx.Scene().add(*(gfx.Mesh(geometry, material) for _ in range(layers)))
+        # Rendering twice verifies accumulation/revealage are cleared per frame.
+        for _ in range(2):
+            renderer.render(scene, camera)
+            image = renderer.snapshot()
+            expected_alpha = 1 - (1 - alpha) ** layers
+            expected = (
+                red * expected_alpha,
+                expected_alpha,
+                expected_alpha,
+                expected_alpha,
+            )
+            np.testing.assert_allclose(
+                image[4, 4],
+                expected,
+                atol=0.001 if precision == "float16" else 0.000002,
+                rtol=0.000002,
+            )
+
+
+def test_weighted_float16_precision():
+    _check_weighted_precision("float16")

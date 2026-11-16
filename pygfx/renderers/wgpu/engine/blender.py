@@ -175,6 +175,14 @@ class Blender:
                     color_format,
                     all_targets[name][1],
                 )
+            # Weighted blending must preserve the selected precision too.
+            # Revealage multiplies (1 - alpha), so R8 can lose faint layers.
+            reveal_format = {
+                "float16": wgpu.TextureFormat.r16float,
+                "float32": wgpu.TextureFormat.r32float,
+            }[color_precision]
+            all_targets["accum"] = (color_format, all_targets["accum"][1])
+            all_targets["reveal"] = (reveal_format, all_targets["reveal"][1])
         for name in sorted(custom_targets):
             all_targets[name] = custom_targets[name]
         if not enable_pick:

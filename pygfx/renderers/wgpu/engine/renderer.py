@@ -244,9 +244,11 @@ class WgpuRenderer(RootEventHandler, Renderer):
         features. Enable these with
         ``pygfx.renderers.wgpu.enable_wgpu_features("float32-blendable", "float32-filterable")``
         before creating the first renderer (float32-filterable is enabled by default).
-        The weighted transparency buffers retain their fixed formats
-        (float16 accumulation and uint8 revealage). This does not change the
-        canvas output format or enable floating-point canvas downloads.
+        Weighted transparency uses float16 accumulation and uint8 revealage
+        for "uint8", float16 for both buffers with "float16", and float32 for
+        both with "float32" (9, 10 and 20 bytes per pixel respectively).
+        This does not change the canvas output format or enable floating-point
+        canvas downloads.
     """
 
     def __init__(
