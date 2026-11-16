@@ -202,7 +202,13 @@ def _check_weighted_precision(precision):
     )
     camera = gfx.OrthographicCamera(2, 2)
     geometry = gfx.plane_geometry(4, 4)
-    for layers, alpha, red in ((64, 0.001, 1.0), (1, 0.999, 70000.0)):
+    # Use binary-exact opacity for half-float blending. Implementations can
+    # round blend factors to the attachment precision; 0.001 and its complement
+    # amplify those differences over many layers. Eight faint layers still
+    # detect R8 revealage (which rounds each contribution away), without
+    # expecting float32 accuracy from 64 half-float blends.
+    faint_layers = (8, 1 / 1024, 1.0) if precision == "float16" else (64, 0.001, 1.0)
+    for layers, alpha, red in (faint_layers, (1, 0.999, 70000.0)):
         if precision == "float16" and red > 65504:
             continue
         material = gfx.MeshBasicMaterial(
