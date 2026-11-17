@@ -1117,7 +1117,11 @@ class WgpuRenderer(RootEventHandler, Renderer):
         texture = self._blender.get_texture(texture_name)
         size = texture.size
         aspect = "all"
-        if texture.format == "rgba32float":
+        if texture.format in ("rgba8unorm-srgb", "rgba8unorm"):
+            bytes_per_pixel = 4
+            dtype = np.uint8
+            nchannels = 4
+        elif texture.format == "rgba32float":
             bytes_per_pixel = 16
             dtype = np.float32
             nchannels = 4
@@ -1125,9 +1129,9 @@ class WgpuRenderer(RootEventHandler, Renderer):
             bytes_per_pixel = 8
             dtype = np.float16
             nchannels = 4
-        elif texture.format in ("rgba8unorm-srgb", "rgba8unorm"):
-            bytes_per_pixel = 4
-            dtype = np.uint8
+        elif texture.format == "rgba16uint":
+            bytes_per_pixel = 8
+            dtype = np.uint16
             nchannels = 4
         elif texture.format == "stencil8":
             aspect = "stencil-only"
@@ -1150,10 +1154,6 @@ class WgpuRenderer(RootEventHandler, Renderer):
                 bytes_per_pixel = 1
                 dtype = np.uint8
                 nchannels = 1
-        elif texture.format == "rgba16uint":
-            bytes_per_pixel = 8
-            dtype = np.uint16
-            nchannels = 4
         else:
             raise RuntimeError(f"Unexpected format for snapshot: {texture.format}")
 
