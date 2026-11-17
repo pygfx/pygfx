@@ -17,5 +17,5 @@ def load_wgsl(shader_name, package_name="pygfx.renderers.wgpu.wgsl"):
         ref = importlib.resources.files(package_name) / shader_name
         context = importlib.resources.as_file(ref)
     with context as path:
-        with open(path, "rb") as f:
-            return f.read().decode().replace("\r\n", "\n").replace("\r", "\n")
+        with open(path, "r", encoding="utf-8") as f:
+            return f.read()
