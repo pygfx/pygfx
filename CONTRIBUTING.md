@@ -129,3 +129,12 @@ We distinguish four kinds of attributes:
 * Private attributes: prefixed with "_" as usual.
 * Attributes used by other parts of Pygfx but not intended for the user: prefixed with "_gfx_".
 * Attributes to store WgpuRenderer-specific data on a WorldObject or Material (the objects themselves are unaware): prefixed with "_wgpu_".
+
+
+## Releasing
+
+* Use `alver bump vx.y.z` to bump the version number and draft an entry in the `CHANGELOG.md`.
+* Edit the changelog (explicitly list API changes).
+* Contribute the changes via a PR.
+* If the branch name of that PR is "release", GH actions will tag and publish to GH and Pypi.
+  Otherwise, manually invoke the `release.yml` workflow, or push the appropriate tag to trigger the release.
