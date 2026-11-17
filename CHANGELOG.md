@@ -13,6 +13,47 @@ Possible sections in each release:
 * Security: in case of vulnerabilities.
 
 
+## [0.18.0](https://github.com/pygfx/pygfx/releases/tag/0.18.0) - 17-11-2026
+
+### Fixed
+
+* Fix dashed line loops by @hmaarrfk in https://github.com/pygfx/pygfx/pull/1315
+* Give bake functions the viewport size, not the canvas size by @hmaarrfk in https://github.com/pygfx/pygfx/pull/1324
+* Make the generated WGSL comply with the spec by @hmaarrfk in https://github.com/pygfx/pygfx/pull/1329
+* Improve compatibility with Safari and Pyodide by @hmaarrfk in https://github.com/pygfx/pygfx/pull/1330
+* Fix use of deprecated method canvas.is_closed -> get_closed by @almarklein in https://github.com/pygfx/pygfx/pull/1334
+* Keep an OrbitController with a target looking at it by @alteralto in https://github.com/pygfx/pygfx/pull/1332
+* Keep floating-point canvas output linear by @alken1t15 in https://github.com/pygfx/pygfx/pull/1340
+
+
+### Added
+
+* Allow pointer-zoom on x and y axis by @FlynnOConnell in https://github.com/pygfx/pygfx/pull/1328
+* Add physical_offset to stdinfo_data accessible in shader by @hmaarrfk in https://github.com/pygfx/pygfx/pull/1325
+* Add weak event handlers and clear_event_handlers to EventTarget by @hmaarrfk in https://github.com/pygfx/pygfx/pull/1302
+* Allow None in ComputeShader.set_resource to unbind by @claydugo in https://github.com/pygfx/pygfx/pull/1341
+* Add opt-in float16 precision for internal color buffers by @alken1t15 in https://github.com/pygfx/pygfx/pull/1338
+* Add opt-in float32 color buffers and readback by @alken1t15 in https://github.com/pygfx/pygfx/pull/1339
+* Match weighted transparency buffers to color precision by @alken1t15 in https://github.com/pygfx/pygfx/pull/1344
+* Add support for using the stencil buffer by @almarklein in https://github.com/pygfx/pygfx/pull/1333
+
+### Other
+
+* Fix three CI failures caused by dependency drift by @hmaarrfk in https://github.com/pygfx/pygfx/pull/1316
+* Bump minimum Python to 3.11 by @hmaarrfk in https://github.com/pygfx/pygfx/pull/1319
+* Bump screenshot tolerance to 3 by @hmaarrfk in https://github.com/pygfx/pygfx/pull/1321
+* New screenshots by @almarklein in https://github.com/pygfx/pygfx/pull/1335
+* Use re-usable flow for releasing by @almarklein in https://github.com/pygfx/pygfx/pull/1345
+
+
+### New Contributors
+* @FlynnOConnell made their first contribution in https://github.com/pygfx/pygfx/pull/1328
+* @alteralto made their first contribution in https://github.com/pygfx/pygfx/pull/1332
+* @alken1t15 made their first contribution in https://github.com/pygfx/pygfx/pull/1340
+
+**Full Changelog**: https://github.com/pygfx/pygfx/compare/v0.17.0...0.18.0
+
+
 ## [v0.17.0](https://github.com/pygfx/pygfx/releases/tag/v0.17.0) - 19-07-2026
 
 ### What's Changed
@@ -124,7 +165,6 @@ This is not a reflection of `main` at the time of release, but basically `v0.15.
 * Add six-legged asterisk marker by @almarklein in https://github.com/pygfx/pygfx/pull/1219
 * account for transform of instanced objects for calculating bbox by @kushalkolar in https://github.com/pygfx/pygfx/pull/1220
 * use `pylinalg>=0.6.8,<7.0` by @kushalkolar in https://github.com/pygfx/pygfx/pull/1225
-
 
 **Full Changelog**: https://github.com/pygfx/pygfx/compare/v0.14.0...v0.15.0
 
@@ -280,7 +320,6 @@ Renderer:
 * Ray tracing example by @panxinmiao in https://github.com/pygfx/pygfx/pull/1068
 * Support texture transform by @panxinmiao in https://github.com/pygfx/pygfx/pull/999
 
-
 **Full Changelog**: https://github.com/pygfx/pygfx/compare/v0.11.0...v0.12.0
 
 
@@ -349,7 +388,6 @@ Renderer:
 * Make the Store track hashable objects by value by @almarklein in https://github.com/pygfx/pygfx/pull/1066
 * Properly implement `register_wgsl_loader` by @almarklein in https://github.com/pygfx/pygfx/pull/1083
 * Increase upper bound to wgpu version by @almarklein in https://github.com/pygfx/pygfx/pull/1074
-
 
 ### New Contributors
 * @limdaepl made their first contribution in https://github.com/pygfx/pygfx/pull/1057
@@ -552,7 +590,6 @@ It's been a while, so quite a lot of changes! The gltf support has been improved
 * Provide tools to debug SDFs by @hmaarrfk in https://github.com/pygfx/pygfx/pull/823
 * Improve Skeleton's transform performance by @panxinmiao in https://github.com/pygfx/pygfx/pull/746
 
-
 **Full Changelog**: https://github.com/pygfx/pygfx/compare/v0.4.1...v0.5.0
 
 
@@ -563,7 +600,6 @@ It's been a while, so quite a lot of changes! The gltf support has been improved
 * Enhance and fix materials by @panxinmiao in https://github.com/pygfx/pygfx/pull/850
 * Fix binding layout by @panxinmiao in https://github.com/pygfx/pygfx/pull/852
 * Use new repo of gltf assets by @almarklein in https://github.com/pygfx/pygfx/pull/854
-
 
 **Full Changelog**: https://github.com/pygfx/pygfx/compare/v0.4.0...v0.4.1
 
@@ -596,13 +632,10 @@ It's been a while, so quite a lot of changes! The gltf support has been improved
 * Update to latest and upcoming wgpu-py by @almarklein in https://github.com/pygfx/pygfx/pull/848
 * Add MeshToonMaterial by @panxinmiao in https://github.com/pygfx/pygfx/pull/803
 
-
 **Full Changelog**: https://github.com/pygfx/pygfx/compare/v0.3.0...v0.4.0
 
 
 ## [v0.3.0](https://github.com/pygfx/pygfx/releases/tag/v0.3.0) - 20-06-2024
-
-
 
 ### Changes
 * Change event time_stamp unit to seconds by @panxinmiao in https://github.com/pygfx/pygfx/pull/742
@@ -709,7 +742,6 @@ It's been a while, so quite a lot of changes! The gltf support has been improved
 * Set the children property of the `WorldObject` class to be read-only. by @panxinmiao in https://github.com/pygfx/pygfx/pull/728
 * Align and fix rendermask usage by @almarklein in https://github.com/pygfx/pygfx/pull/730
 
-
 ### New Contributors
 * @cansik made their first contribution in https://github.com/pygfx/pygfx/pull/697
 * @schlegelp made their first contribution in https://github.com/pygfx/pygfx/pull/707
@@ -741,8 +773,6 @@ It's been a while, so quite a lot of changes! The gltf support has been improved
 * Fix that shader is not recompiled when number of clip planes changes by @almarklein in https://github.com/pygfx/pygfx/pull/670
 * Buffer and Texture test for c_contiguous by @almarklein in https://github.com/pygfx/pygfx/pull/672
 
-
-
 **Full Changelog**: https://github.com/pygfx/pygfx/compare/v0.1.17...v0.1.18
 
 
@@ -751,7 +781,6 @@ It's been a while, so quite a lot of changes! The gltf support has been improved
 ### What's Changed
 * Adjust for change in wgpu (wgpu.base rename) by @almarklein in https://github.com/pygfx/pygfx/pull/613
 * Adjust to new wgpu-py by @almarklein in https://github.com/pygfx/pygfx/pull/617
-
 
 **Full Changelog**: https://github.com/pygfx/pygfx/compare/v0.1.16...v0.1.17
 
