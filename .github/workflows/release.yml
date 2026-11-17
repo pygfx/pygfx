@@ -1,0 +1,85 @@
+name: Release
+
+on:
+  # Manual trigger from the Actions tab.
+  workflow_dispatch:
+  # A tag that looks like vx.y.z is pushed.
+  push:
+    tags:
+      - "v[0-9]*.[0-9]*.[0-9]*"
+  # A PR is merged into main (the release-shared.yml checks the name of the branch).
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+jobs:
+
+  build:
+    name: Build release artifacts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.14
+      - name: Install dev dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -U flit build twine
+      - name: Create source distribution
+        run: |
+          python -m build -n -s
+      - name: Build wheel
+        run: |
+          python -m build -n -w
+      - name: Test sdist
+        shell: bash
+        run: |
+          rm -rf ./pygfx
+          pushd $HOME
+          pip install $GITHUB_WORKSPACE/dist/*.tar.gz
+          python -c "import pygfx; print(pygfx.__version__)"
+          popd
+          # don't run tests, we just want to know if the sdist can be installed
+          pip uninstall -y pygfx
+          git reset --hard HEAD
+      - name: Twine check
+        run: |
+          twine check dist/*
+      - name: Upload distributions
+        uses: actions/upload-artifact@v4
+        with:
+          path: dist
+          name: dist
+
+  release:
+    name: Release
+    needs: build
+    uses: almarklein/alver/.github/workflows/release-shared.yml@main  # <-- in other repos
+    permissions:
+      contents: write  # to push the tag and create the gh release
+    with:
+      python-version: "3.14"  # Python version to set up
+      dist-artifact: "dist"  # Name of the build artifact to download before publishing (uploaded by the caller's own build job)
+      release-branch: "release"  # Branch name whose merged PRs into main trigger a release
+
+  # PyPI trusted publishing (OIDC) must be declared in *this* workflow file
+  publish-pypi:
+    name: Publish Pypi
+    needs: release
+    runs-on: ubuntu-latest
+    environment: pypi  # must match the environment of the PyPI trusted publisher
+    permissions:
+      id-token: write  # for PyPI trusted publishing (OIDC)
+      contents: read
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist  # must match the artifact name of the 'build' job
+          path: dist
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          print-hash: true
