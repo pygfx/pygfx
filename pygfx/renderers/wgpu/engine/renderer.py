@@ -1140,7 +1140,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
             nchannels = 1
         elif texture.format == "depth32float":
             aspect = "depth-only"
-            bytes_per_pixel = 1
+            bytes_per_pixel = 4
             dtype = np.float32
             nchannels = 1
         elif texture.format == "depth32float-stencil8":
