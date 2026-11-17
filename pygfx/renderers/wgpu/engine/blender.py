@@ -42,8 +42,8 @@ default_targets = {
     # As for storing intermediate results, using 8bit colors in linear space would
     # mean that we lose precision in regions where the human eye is sensitive.
     # The texture format for the color and altcolor targets may be overridden in Blender's init.
-    # The opt-in float16 color precision uses linear 'rgba16float' instead,
-    # preserving HDR values at twice the memory cost.
+    # The opt-in float16/float32 color precisions use linear float textures
+    # instead, preserving HDR values at twice/four times the memory cost.
     #
     # Using 'rgba8unorm_srgb' means that in each post-effect step, the colors are
     # stored in srgb, and auto-conveted to linear when read/written. This seems a
@@ -116,9 +116,18 @@ class Blender:
         color_precision="uint8",
     ):
 
-        if color_precision not in ("uint8", "float16"):
-            raise ValueError("color_precision must be 'uint8' or 'float16'.")
+        if color_precision not in ("uint8", "float16", "float32"):
+            raise ValueError("color_precision must be 'uint8', 'float16' or 'float32'.")
         self.device = get_shared().device
+        if color_precision == "float32":
+            required_features = {"float32-blendable", "float32-filterable"}
+            if not required_features.issubset(self.device.features):
+                raise RuntimeError(
+                    "Float32 color precision requires float32-blendable and "
+                    "float32-filterable device features. Call "
+                    "pygfx.renderers.wgpu.enable_wgpu_features('float32-blendable', "
+                    "'float32-filterable') before creating the first renderer."
+                )
 
         # We could allow custom targets, but this is not yet implemented in the methods.
         # The code in this init shows the first steps of what that could look like.
@@ -156,10 +165,14 @@ class Blender:
 
         # Collect render targets
         all_targets = default_targets.copy()
-        if color_precision == "float16":
+        if color_precision != "uint8":
+            color_format = {
+                "float16": wgpu.TextureFormat.rgba16float,
+                "float32": wgpu.TextureFormat.rgba32float,
+            }[color_precision]
             for name in ("color", "altcolor"):
                 all_targets[name] = (
-                    wgpu.TextureFormat.rgba16float,
+                    color_format,
                     all_targets[name][1],
                 )
         for name in sorted(custom_targets):
