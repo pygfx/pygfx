@@ -56,7 +56,7 @@ jobs:
   release:
     name: Release
     needs: build
-    uses: almarklein/alver/.github/workflows/release-shared.yml@main  # <-- in other repos
+    uses: almarklein/alver/.github/workflows/release-shared.yml@v1.4.0
     permissions:
       contents: write  # to push the tag and create the gh release
     with:

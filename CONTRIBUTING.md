@@ -137,4 +137,4 @@ We distinguish four kinds of attributes:
 * Edit the changelog (explicitly list API changes).
 * Contribute the changes via a PR.
 * If the branch name of that PR is "release", GH actions will tag and publish to GH and Pypi.
-  Otherwise, invoke the `release.yml` workflow, or push the appropriate tag to trigger the release.
+  Otherwise, manually invoke the `release.yml` workflow, or push the appropriate tag to trigger the release.
