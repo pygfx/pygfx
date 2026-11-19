@@ -1095,36 +1095,78 @@ class WgpuRenderer(RootEventHandler, Renderer):
             copy_size=(1, 1, 1),
         )
 
-    def snapshot(self):
+    def snapshot(self, source: Literal["color", "depth", "stencil", "pick"] = "color"):
         """Create a snapshot of the currently rendered image.
 
-        Returns an RGBA array at the internal render resolution, before the
+        For the color texture, returns an RGBA array at the internal render resolution, before the
         final output conversion. With ``color_precision="uint8"`` the array
         contains uint8 sRGB values; with ``"float16"`` or ``"float32"`` it
         contains linear values of the corresponding dtype, which can exceed 1.
         """
 
         # Prepare
-        texture = self._blender.get_texture(
-            self._name_of_texture_with_effects or "color"
-        )
+        if source == "color":
+            texture_name = self._name_of_texture_with_effects or "color"
+        elif source in ["depth", "stencil"]:
+            texture_name = "depth_stencil"
+        elif source == "pick":
+            texture_name = "pick"
+        else:
+            raise ValueError(
+                "Unknown snapshot source: 'source', need one of 'color', 'depth', 'stencil', 'pick'."
+            )
+
+        texture = self._blender.get_texture(texture_name)
         size = texture.size
-        if texture.format == "rgba32float":
+        aspect = "all"
+        if texture.format in ("rgba8unorm-srgb", "rgba8unorm"):
+            bytes_per_pixel = 4
+            dtype = np.uint8
+            nchannels = 4
+        elif texture.format == "rgba32float":
             bytes_per_pixel = 16
             dtype = np.float32
+            nchannels = 4
         elif texture.format == "rgba16float":
             bytes_per_pixel = 8
             dtype = np.float16
-        else:
-            bytes_per_pixel = 4
+            nchannels = 4
+        elif texture.format == "rgba16uint":
+            bytes_per_pixel = 8
+            dtype = np.uint16
+            nchannels = 4
+        elif texture.format == "stencil8":
+            aspect = "stencil-only"
+            bytes_per_pixel = 1
             dtype = np.uint8
+            nchannels = 1
+        elif texture.format == "depth32float":
+            aspect = "depth-only"
+            bytes_per_pixel = 4
+            dtype = np.float32
+            nchannels = 1
+        elif texture.format == "depth32float-stencil8":
+            if source == "depth":
+                aspect = "depth-only"
+                bytes_per_pixel = 4
+                dtype = np.float32
+                nchannels = 1
+            else:
+                aspect = "stencil-only"
+                bytes_per_pixel = 1
+                dtype = np.uint8
+                nchannels = 1
+        else:
+            raise RuntimeError(f"Unexpected format for snapshot: {texture.format}")
 
         # Note, with queue.read_texture the bytes_per_row limitation does not apply.
+        # Note, read_texture may be deprecated, we should eventually move to an optional async approach.
         data = self._device.queue.read_texture(
             {
                 "texture": texture,
                 "mip_level": 0,
                 "origin": (0, 0, 0),
+                "aspect": aspect,
             },
             {
                 "offset": 0,
@@ -1134,7 +1176,10 @@ class WgpuRenderer(RootEventHandler, Renderer):
             size,
         )
 
-        return np.frombuffer(data, dtype).reshape(size[1], size[0], 4)
+        array = np.frombuffer(data, dtype).reshape(size[1], size[0], nchannels)
+        if nchannels == 1:
+            array = array.reshape(array.shape[:-1])
+        return array
 
     def request_draw(self, draw_function=None):
         """Forwards a request_draw call to the target canvas. If the renderer's
