@@ -127,6 +127,11 @@ class Material(Trackable):
     depth_write : bool | None
         Whether the object writes to the depth buffer. With None (default) the
         value depends on the ``alpha_config``.
+    depth_bias : int
+        A constant depth offset, in depth buffer steps. Positive is away from the
+        camera. Default 0.
+    depth_bias_slope_scale : float
+        A depth offset that scales with the fragment's depth slope. Default 0.0.
     alpha_test : float
         The alpha test value for this material. Default 0.0, meaning no alpha
         test is performed.
@@ -159,6 +164,8 @@ class Material(Trackable):
         depth_test: bool = True,
         depth_compare: str = "<",
         depth_write: Literal[None, False, True] = None,
+        depth_bias: int = 0,
+        depth_bias_slope_scale: float = 0.0,
         pick_write: bool = False,
         alpha_test: float = 0.0,
         alpha_compare: str = "<",
@@ -185,6 +192,8 @@ class Material(Trackable):
         self.depth_test = depth_test
         self.depth_compare = depth_compare
         self.depth_write = depth_write
+        self.depth_bias = depth_bias
+        self.depth_bias_slope_scale = depth_bias_slope_scale
         self.pick_write = pick_write
         self.alpha_test = alpha_test
         self.alpha_compare = alpha_compare
@@ -697,6 +706,27 @@ class Material(Trackable):
     def depth_write_is_set(self):
         """Whether the ``depth_write`` property is set. Otherwise it's auto-determined."""
         return self._store.depth_write is not None
+
+    @property
+    def depth_bias(self) -> int:
+        """A constant depth offset, in depth buffer steps. Positive is away from the camera. Default 0.
+
+        Has no effect for line and point topologies (e.g. ``LineThinMaterial``).
+        """
+        return self._store.depth_bias
+
+    @depth_bias.setter
+    def depth_bias(self, value: int):
+        self._store.depth_bias = int(value)
+
+    @property
+    def depth_bias_slope_scale(self) -> float:
+        """A depth offset that scales with the fragment's depth slope. Default 0.0."""
+        return self._store.depth_bias_slope_scale
+
+    @depth_bias_slope_scale.setter
+    def depth_bias_slope_scale(self, value: float):
+        self._store.depth_bias_slope_scale = float(value)
 
     @property
     def alpha_test(self) -> float:

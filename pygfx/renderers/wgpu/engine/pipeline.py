@@ -381,6 +381,10 @@ class PipelineContainer:
                     wobject.material.stencil_back_state
                 )
                 self.wobject_info["stencil_masks"] = wobject.material.stencil_masks
+                self.wobject_info["depth_bias"] = wobject.material.depth_bias
+                self.wobject_info["depth_bias_slope_scale"] = (
+                    wobject.material.depth_bias_slope_scale
+                )
                 # For 'blended', the details need a new pipeline, but not a new shader
                 self.wobject_info["alpha_config"] = wobject.material.alpha_config
             self._check_pipeline_info()
@@ -627,6 +631,12 @@ class RenderPipelineContainer(PipelineContainer):
         stencil_front_state = self.wobject_info["stencil_front_state"]
         stencil_back_state = self.wobject_info["stencil_back_state"]
         stencil_masks = self.wobject_info["stencil_masks"]
+        depth_bias = self.wobject_info["depth_bias"]
+        depth_bias_slope_scale = self.wobject_info["depth_bias_slope_scale"]
+        if primitive_topology in ("point-list", "line-list", "line-strip"):
+            # Depth bias has no effect on these topologies and WebGPU validation
+            # requires it to be zero, so drop it instead of failing.
+            depth_bias = depth_bias_slope_scale = 0
         color_descriptors = blender.get_color_descriptors(
             self.wobject_info["pick_write"],
             self.wobject_info["alpha_config"],
@@ -638,6 +648,8 @@ class RenderPipelineContainer(PipelineContainer):
             stencil_front_state,
             stencil_back_state,
             stencil_masks,
+            depth_bias,
+            depth_bias_slope_scale,
         )
         shader_module = self.wgpu_shader
 
