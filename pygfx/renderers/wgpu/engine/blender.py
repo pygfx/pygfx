@@ -342,8 +342,7 @@ class Blender:
         else:
             raise RuntimeError(f"Unexpected alpha_method {alpha_method!r}")
 
-        # Build target state dicts. With color_write off, the draw only affects
-        # the other render targets (e.g. depth, and pick if enabled).
+        # Build target state dicts
         color_write_mask = wgpu.ColorWrite.ALL if material_color_write else 0
         color_target_state = {
             "name": "color",
