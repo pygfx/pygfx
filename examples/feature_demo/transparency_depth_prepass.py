@@ -35,11 +35,10 @@ def transparent_material(**kwargs):
 knot1 = gfx.Mesh(geometry, transparent_material())
 knot1.local.x = -2.2
 
-# Right: a depth-only pre-pass, then the transparent pass on top of it
-knot2 = gfx.Mesh(geometry, transparent_material(depth_compare="<="))
-prepass = gfx.Mesh(geometry, transparent_material(color_write=False, depth_write=True))
-prepass.render_order = -1  # render before the transparent pass
-knot2.add(prepass)
+# Right: a depth-only pre-pass, and the transparent pass as its child, so that
+# it is rendered right after the pre-pass
+knot2 = gfx.Mesh(geometry, transparent_material(color_write=False, depth_write=True))
+knot2.add(gfx.Mesh(geometry, transparent_material(depth_compare="<=")))
 knot2.local.x = 2.2
 
 scene.add(knot1, knot2)
