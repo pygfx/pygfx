@@ -275,6 +275,9 @@ Objects that don't write depth are usually drawn after objects that do write dep
 In Pygfx, the default value of ``material.depth_write``
 is True when ``alpha_method in ("opaque", "stochastic")`` or when ``alpha_mode="auto"``.
 
+To resolve z-fighting of geometry that lies exactly on another surface,
+push the surface back with ``material.depth_bias`` and/or ``material.depth_bias_slope_scale``.
+
 
 Stencil buffer
 --------------
