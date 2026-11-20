@@ -749,10 +749,7 @@ class Material(Trackable):
 
     @property
     def color_write(self) -> bool:
-        """Whether this material writes to the color buffer.
-
-        If False, the object is invisible but can still write depth and stencil.
-        """
+        """Whether this material writes to the color buffer."""
         return self._store.color_write
 
     @color_write.setter
