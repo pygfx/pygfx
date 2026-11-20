@@ -400,6 +400,8 @@ class Blender:
         stencil_front_state,
         stencil_back_state,
         stencil_masks,
+        depth_bias,
+        depth_bias_slope_scale,
     ):
         """Get the dict depth-descriptors that pipeline.py needs to create the render pipeline.
 
@@ -432,6 +434,8 @@ class Blender:
             stencil_write_mask=stencil_masks[1],
             stencil_front=stencil_front_state,
             stencil_back=stencil_back_state,
+            depth_bias=depth_bias,
+            depth_bias_slope_scale=depth_bias_slope_scale,
         )
 
     def get_color_attachments(self, pass_type):
