@@ -5,7 +5,6 @@ import weakref
 import threading
 from typing import Any, Callable, ClassVar, Iterator, List, Tuple
 import pylinalg as la
-from time import perf_counter_ns
 
 import numpy as np
 
@@ -17,6 +16,7 @@ from ._events import EventTarget
 from ..utils.transform import (
     AffineTransform,
     RecursiveTransform,
+    modification_stamp,
 )
 from ..geometries import Geometry
 from ..materials import Material
@@ -163,7 +163,7 @@ class WorldObject(EventTarget, Trackable):
         buffer.data["world_transform"] = np.eye(4)
         buffer.data["world_transform_inv"] = np.eye(4)
 
-        self._world_last_modified = perf_counter_ns()
+        self._world_last_modified = modification_stamp()
 
         #: The object's transform expressed in parent space.
         self.local = AffineTransform(is_camera_space=self._FORWARD_IS_MINUS_Z)
