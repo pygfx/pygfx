@@ -811,10 +811,12 @@ class Material(Trackable):
     @property
     def stencil_value(self) -> int:
         """Defines the reference stencil value for this object. Default 0."""
-        return self._stencil_value
+        return self._store.stencil_value
 
     @stencil_value.setter
     def stencil_value(self, value: int):
-        self._stencil_value = int(value)  # applied at each draw, so not saved on store
+        # Kept on the store so a change is tracked: the renderer reads it into
+        # the render info, which is then refreshed (no pipeline rebuild needed).
+        self._store.stencil_value = int(value)
 
     # NOTE: we have not implemented read_mask and write_mask yet; they are assumed 0xff for now
