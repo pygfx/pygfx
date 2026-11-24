@@ -1,13 +1,20 @@
 from __future__ import annotations
 
+import itertools
+
 import numpy as np
 import pylinalg as la
-from time import perf_counter_ns
 
 from typing import Any, Tuple, Union
 
 
 PRECISION_EPSILON = 1e-7
+
+# Returns a new value for ``last_modified`` on every call: 1, 2, 3, ...
+# A counter, not a clock: perf_counter_ns() does not have a high resolution on
+# every platform (browsers, where Pyodide runs, limit timers to 0.1 to 1 ms on
+# purpose), and two changes that get the same time lose the second one.
+modification_stamp = itertools.count(1).__next__
 
 
 class cached:  # noqa: N801
@@ -507,7 +514,7 @@ class AffineTransform(AffineBase):
     ) -> None:
         super().__init__(reference_up=reference_up, is_camera_space=is_camera_space)
         self._state_basis = state_basis
-        self.last_modified = perf_counter_ns()
+        self.last_modified = modification_stamp()
 
         self._position = np.asarray(position, dtype=float)
         self._rotation = np.asarray(rotation, dtype=float)
@@ -535,7 +542,7 @@ class AffineTransform(AffineBase):
         """Signal that this transform has updated."""
         # note: this function has been heavily micro-optimized
         # please don't modify it carelessly
-        last_modified = perf_counter_ns()
+        last_modified = modification_stamp()
         self.last_modified = last_modified
         if wrapper := self._wrapper:
             wrapper.flag_update(last_modified)
@@ -822,7 +829,7 @@ class RecursiveTransform(AffineBase):
         is_camera_space=False,
     ) -> None:
         super().__init__(reference_up=reference_up, is_camera_space=is_camera_space)
-        self.last_modified = perf_counter_ns()
+        self.last_modified = modification_stamp()
         self._parent = parent
         self.children = []
         self.own = base
@@ -833,7 +840,7 @@ class RecursiveTransform(AffineBase):
         # note: this function has been heavily micro-optimized
         # please don't modify it carelessly
         if last_modified is None:
-            last_modified = perf_counter_ns()
+            last_modified = modification_stamp()
         self.last_modified = last_modified
         if children := self.children:
             for child in children:

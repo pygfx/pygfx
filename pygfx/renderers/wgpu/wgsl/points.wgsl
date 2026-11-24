@@ -321,10 +321,11 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     // For sprites, multiply face_color with sprite color
     $$ if is_sprite == 2
         let sprite_coord = (pointcoord_p + half_size_p) / (2.0 * half_size_p);
+        // Sampled before the branch: WGSL only allows textureSample in uniform control flow.
+        let sprite_value = textureSample(t_sprite, s_sprite, sprite_coord);
         if (min(sprite_coord.x, sprite_coord.y) < 0.0 || max(sprite_coord.x, sprite_coord.y) > 1.0) {
             face_color = vec4<f32>(face_color.rgb, 0.0);  // out of sprite range
         } else {
-            let sprite_value = textureSample(t_sprite, s_sprite, sprite_coord);
             $$ if sprite_nchannels == 1
                 face_color = vec4<f32>(face_color.rgb * sprite_value.r, face_color.a);
             $$ elif sprite_nchannels == 2
