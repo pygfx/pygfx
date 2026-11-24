@@ -9,7 +9,9 @@ fn getGradientIrradiance( normal: vec3<f32>, light_dir: vec3<f32> ) -> vec3<f32>
     let coord = vec2f(dot_nl *0.5 + 0.5, 0.0);
 
     $$ if use_gradient_map is defined
-        return vec3f(textureSample(t_gradient_map, s_gradient_map, coord).r);
+        // Not textureSample, which WGSL only allows in uniform control flow: this is called
+        // in the loop over the lights, which can skip a light depending on the fragment.
+        return vec3f(textureSampleLevel(t_gradient_map, s_gradient_map, coord, 0.0).r);
     $$ else
         let fw = fwidth(coord) * 0.5;
         return mix( vec3f(0.7), vec3f(1.0), smoothstep(0.7-fw.x, 0.7+fw.x, coord.x) );
