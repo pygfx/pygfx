@@ -424,6 +424,12 @@ class Blender:
             depth_write = False
             wgpu_depth_compare = wgpu.CompareFunction.always
 
+        if "stencil" not in texinfo["format"]:
+            # The format has no stencil aspect (e.g. depth32float), so the
+            # stencil test/write must be disabled
+            stencil_masks = 0, 0
+            stencil_front_state = stencil_back_state = None
+
         return wgpu.DepthStencilState(
             format=texinfo["format"],
             depth_write_enabled=depth_write,
