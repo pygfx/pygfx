@@ -49,6 +49,12 @@ class OrbitController(PanZoomController):
     _default_controls = {
         "mouse1": ("rotate", "drag", (0.005, 0.005)),
         "mouse2": ("pan", "drag", (1, 1)),
+        # On macOS with trackpad, just 'mouse2' doesn't work
+        # so also register 'control' + click
+        # With glfw it is what you expect:
+        "control+mouse1": ("pan", "drag", (1, 1)),
+        # For Pyside it is something else:
+        "meta+mouse2": ("pan", "drag", (1, 1)),
         "mouse4": ("quickzoom", "peek", 2),
         "wheel": ("zoom", "push", -0.001),
         "alt+wheel": ("fov", "push", -0.01),
