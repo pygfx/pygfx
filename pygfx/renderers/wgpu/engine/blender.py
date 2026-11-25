@@ -303,7 +303,9 @@ class Blender:
         # All textures are invalidated too
         self._textures = {}
 
-    def get_color_descriptors(self, material_pick_write, alpha_config):
+    def get_color_descriptors(
+        self, material_pick_write, alpha_config, material_color_write
+    ):
         """Get the dict color-descriptors that pipeline.py needs to create the render pipeline.
 
         Called per object when the pipeline is created.
@@ -341,10 +343,11 @@ class Blender:
             raise RuntimeError(f"Unexpected alpha_method {alpha_method!r}")
 
         # Build target state dicts
+        color_write_mask = wgpu.ColorWrite.ALL if material_color_write else 0
         color_target_state = {
             "name": "color",
             "blend": color_blend,
-            "write_mask": wgpu.ColorWrite.ALL,
+            "write_mask": color_write_mask,
         }
         target_states = [color_target_state]
 
@@ -356,7 +359,7 @@ class Blender:
                     alpha=blend_component(bf.one, bf.one, bo.add),
                     color=blend_component(bf.one, bf.one, bo.add),
                 ),
-                "write_mask": wgpu.ColorWrite.ALL,
+                "write_mask": color_write_mask,
             }
             reveal_target_state = {
                 "name": "reveal",
@@ -364,7 +367,7 @@ class Blender:
                     alpha=blend_component(bf.zero, bf.one_minus_src_alpha, bo.add),
                     color=blend_component(bf.zero, bf.one_minus_src, bo.add),
                 ),
-                "write_mask": wgpu.ColorWrite.ALL,
+                "write_mask": color_write_mask,
             }
             target_states = [accum_target_state, reveal_target_state]
 
