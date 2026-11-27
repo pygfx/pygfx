@@ -356,16 +356,17 @@ $$ elif mode == 'iso'
         //   skip along the ray much faster. By taking smaller steps where needed,
         //   it will be both faster and more accurate.
 
-        let nstepsf = f32(nsteps);
+        let actual_step_size = max(u_material.step_size, 1e-4);
+        let nstepsf = f32(nsteps) / actual_step_size;
 
         // Primary loop. The purpose is to find the approximate location where
         // the surface is.
         let iso_threshold = u_material.threshold;
-        let actual_step_coord = u_material.step_size * step_coord;
+        let actual_step_coord = actual_step_size * step_coord;
         var surface_found = false;
         var the_coord = start_coord;
         var the_value : vec4<f32>;
-        for (var iter=0.0; iter<nstepsf; iter=iter+1) {
+        for (var iter=0.0; iter<nstepsf; iter=iter+1.0) {
             let coord = start_coord + iter * actual_step_coord;
             let value = sample_vol(coord, sizef);
             let reff = value.r;
