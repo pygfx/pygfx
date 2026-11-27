@@ -279,6 +279,9 @@ If ``material.color_write`` is False, the object is invisible, but it can still 
 depth, hiding the objects behind it that are drawn after it. This can be used for a depth pre-pass
 (see `transparency_depth_prepass.py <_gallery/feature_demo/transparency_depth_prepass.html>`_).
 
+To resolve z-fighting of geometry that lies exactly on another surface,
+push the surface back with ``material.depth_bias`` and/or ``material.depth_bias_slope_scale``.
+
 
 Stencil buffer
 --------------
